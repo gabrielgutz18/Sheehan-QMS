@@ -23,3 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 .claude
+# Environment files (keep the example)
+.env
+.env.*
+!.env.example

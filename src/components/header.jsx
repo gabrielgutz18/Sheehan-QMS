@@ -4,6 +4,9 @@ import '../style/header.css';
 //assets
 import logo from '../assets/SheehanLogo.png';
 
+//components
+import Clock from './clock.jsx';
+
 export default function Header() {
     return (
         <header className="header">
@@ -13,7 +16,10 @@ export default function Header() {
                     <img className="logo" src={logo} alt="Sheehan Inc. logo" />
                     <h2 className="compname">Sheehan Inc.</h2>
                 </div>
-                <p className="customer-note">Customer</p>
+                <div className="nav-right">
+                    <Clock />
+                    <p className="customer-note">Customer</p>
+                </div>
             </nav>
         </header>
     );

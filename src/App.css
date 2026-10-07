@@ -1,1 +1,8 @@
 /* app-level styles — page styles live in src/style/ */
+
+.not-found-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
