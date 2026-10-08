@@ -1,13 +1,18 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import '../style/customerOrder.css';
 
 import Header from '../components/header.jsx';
 import Receipt from '../components/receipt.jsx';
+import Countdown from '../components/countdown.jsx';
 import { NameField, PurposeDropdown, OrderField } from '../components/fields.jsx';
 import formatQueueNum from '../data/queueNum.js';
 import { createOrder, updateOrder } from '../api/orderController.js';
 
 const newOrder = () => ({ id: crypto.randomUUID(), item: "", qty: 0 });
+
+// after an order, the receipt stays up this long, then a thank-you shows before the form clears
+const RECEIPT_SECONDS = 30;
+const THANK_YOU_MS = 5000;
 
 export default function CustomerOrder() {
     const [name, setName] = useState("");
@@ -18,6 +23,7 @@ export default function CustomerOrder() {
     const [editing, setEditing] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState("");
+    const [thanking, setThanking] = useState(false);
 
     // fields show before the first submit and while editing; the receipt shows otherwise
     const showForm = !submitted || editing;
@@ -69,7 +75,7 @@ export default function CustomerOrder() {
         if (errors[key]) setErrors((prev) => ({ ...prev, [key]: undefined }));
     };
 
-    const resetForm = () => {
+    const resetForm = useCallback(() => {
         setName("");
         setPurpose("");
         setOrders([newOrder()]);
@@ -77,14 +83,29 @@ export default function CustomerOrder() {
         setSubmitError("");
         setSubmitted(null);
         setEditing(false);
-    };
+        setThanking(false);
+    }, []);
+
+    const showThankYou = useCallback(() => setThanking(true), []);
+
+    // hold the thank-you on screen, then hand the kiosk to the next customer
+    useEffect(() => {
+        if (!thanking) return;
+        const id = setTimeout(resetForm, THANK_YOU_MS);
+        return () => clearTimeout(id);
+    }, [thanking, resetForm]);
 
     return (
         <>
             <Header />
 
             <main className="order-page">
-                {showForm ? (
+                {thanking ? (
+                    <section className="thank-you" role="status">
+                        <h1 className="thank-you-title">Thank you!</h1>
+                        <p className="thank-you-text">Please wait for your number to be called.</p>
+                    </section>
+                ) : showForm ? (
                     <form className="order-card" onSubmit={handleSubmit} noValidate>
                         <NameField value={name} onChange={withClear(setName, "name")} error={errors.name} />
                         <PurposeDropdown value={purpose} onChange={withClear(setPurpose, "purpose")} error={errors.purpose} />
@@ -115,6 +136,8 @@ export default function CustomerOrder() {
                         <button type="button" className="submit-btn" onClick={resetForm}>
                             New order
                         </button>
+                        {/* restarts from the top whenever the receipt is shown again, e.g. after an edit */}
+                        <Countdown seconds={RECEIPT_SECONDS} onDone={showThankYou} />
                     </section>
                 )}
             </main>

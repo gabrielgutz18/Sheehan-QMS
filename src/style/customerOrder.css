@@ -104,3 +104,81 @@
   align-items: center;
   gap: 16px;
 }
+
+/* ---------- auto reset ---------- */
+.countdown {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: #666;
+}
+
+.countdown strong {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dark);
+}
+
+.countdown-skip {
+  margin-left: 10px;
+  color: var(--text-dark);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.countdown-skip:hover {
+  color: var(--brand-red);
+}
+
+.countdown-skip:focus-visible {
+  outline: none;
+  border-radius: 2px;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.thank-you {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+  animation: thank-you-in 1.6s ease-out both;
+}
+
+.thank-you-title {
+  margin: 0;
+  font-size: clamp(40px, 8vw, 72px);
+  font-weight: 700;
+  color: var(--brand-red);
+}
+
+.thank-you-text {
+  margin: 0;
+  font-size: 18px;
+  color: #444;
+}
+
+@keyframes thank-you-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* keep the fade but drop the movement for people who ask for less motion */
+@media (prefers-reduced-motion: reduce) {
+  .thank-you {
+    animation-name: thank-you-fade;
+  }
+
+  @keyframes thank-you-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+}

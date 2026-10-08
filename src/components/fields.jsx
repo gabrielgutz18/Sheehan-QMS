@@ -125,7 +125,8 @@ export function OrderField({ orders, onChange, error }) {
                                 inputMode="numeric"
                                 aria-label={`Quantity for order ${index + 1}`}
                                 placeholder="0"
-                                //removed value={order.qty} to allow user to type in the input field without it being overridden by the state
+                                // controlled so the +/- buttons show up here; 0 renders as empty so typing doesn't leave a leading "0"
+                                value={order.qty === 0 ? "" : order.qty}
                                 onChange={(e) => {
                                     const qty = parseInt(e.target.value, 10);
                                     updateOrder(order.id, { qty: Number.isNaN(qty) ? 0 : Math.max(0, qty) });
