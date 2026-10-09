@@ -4,6 +4,7 @@ import './App.css'
 
 import CustomerOrder from './pages/customerOrder.jsx'
 import NotFound from './pages/notFound.jsx'
+import QueueNum from './pages/QueueNum.jsx'
 
 // admin code is split into its own bundle, so the customer page never downloads it
 const AdminApp = lazy(() => import('./admin/adminApp.jsx'))
@@ -14,6 +15,7 @@ function App() {
     <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Routes>
         <Route path="/" element={<CustomerOrder />} />
+        <Route path="/queue" element={<QueueNum />} />
         <Route
           path="/admin/*"
           element={

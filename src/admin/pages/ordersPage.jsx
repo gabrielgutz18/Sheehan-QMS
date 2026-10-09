@@ -32,8 +32,8 @@ export default function OrdersPage() {
             setOrders((prev) => prev.map((o) => (o.queueNum === queueNum ? { ...o, ...saved, status } : o)));
         });
 
-    const remove = (queueNum) => {
-        if (!window.confirm(`Delete order ${formatQueueNum(queueNum)}? This can't be undone.`)) return;
+    const remove = (queueNum, purpose) => {
+        if (!window.confirm(`Delete order ${formatQueueNum(queueNum, purpose)}? This can't be undone.`)) return;
         runAction(queueNum, async () => {
             await deleteOrder(queueNum);
             setOrders((prev) => prev.filter((o) => o.queueNum !== queueNum));
@@ -77,7 +77,7 @@ export default function OrdersPage() {
                         ) : (
                             visible.map((o) => (
                                 <tr key={o.queueNum}>
-                                    <td><strong>{formatQueueNum(o.queueNum)}</strong></td>
+                                    <td><strong>{formatQueueNum(o.queueNum, o.purpose)}</strong></td>
                                     <td>{o.name}</td>
                                     <td>{o.purpose}</td>
                                     <td>
@@ -90,7 +90,7 @@ export default function OrdersPage() {
                                     <td>
                                         <select
                                             className={`status-select status-${o.status}`}
-                                            aria-label={`Status for ${formatQueueNum(o.queueNum)}`}
+                                            aria-label={`Status for ${formatQueueNum(o.queueNum, o.purpose)}`}
                                             value={o.status}
                                             disabled={busy === o.queueNum}
                                             onChange={(e) => changeStatus(o.queueNum, e.target.value)}
@@ -105,7 +105,7 @@ export default function OrdersPage() {
                                             type="button"
                                             className="admin-btn admin-btn-danger"
                                             disabled={busy === o.queueNum}
-                                            onClick={() => remove(o.queueNum)}
+                                            onClick={() => remove(o.queueNum, o.purpose)}
                                         >
                                             Delete
                                         </button>

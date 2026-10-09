@@ -39,7 +39,7 @@ export default function DashboardPage() {
                         <ul className="queue-list">
                             {serving.map((o) => (
                                 <li key={o.queueNum}>
-                                    <strong>{formatQueueNum(o.queueNum)}</strong> {o.name}
+                                    <strong>{formatQueueNum(o.queueNum, o.purpose)}</strong> {o.name}
                                 </li>
                             ))}
                         </ul>
@@ -54,7 +54,7 @@ export default function DashboardPage() {
                         <ul className="queue-list">
                             {nextUp.map((o) => (
                                 <li key={o.queueNum}>
-                                    <strong>{formatQueueNum(o.queueNum)}</strong> {o.name} · {o.purpose}
+                                    <strong>{formatQueueNum(o.queueNum, o.purpose)}</strong> {o.name} · {o.purpose}
                                 </li>
                             ))}
                         </ul>

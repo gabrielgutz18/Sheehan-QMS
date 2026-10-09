@@ -1,0 +1,259 @@
+/* every size on this screen is a multiple of --px, which grows with the screen height:
+   ~1px on a 1080p monitor or TV, ~2px on a 4K TV, never below 0.7px on small laptops */
+.queue-screen {
+  --px: clamp(0.7px, 0.1vmin, 3px);
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
+}
+
+/* scale the shared header with the rest of the screen */
+.queue-screen .navbar {
+  max-width: none;
+  padding: calc(var(--px) * 10) calc(var(--px) * 32);
+}
+
+.queue-screen .logo {
+  width: calc(var(--px) * 56);
+  height: calc(var(--px) * 56);
+}
+
+.queue-screen .compname {
+  font-size: calc(var(--px) * 26);
+}
+
+.queue-screen .clock-time {
+  font-size: calc(var(--px) * 22);
+}
+
+.queue-screen .clock-date {
+  font-size: calc(var(--px) * 15);
+}
+
+.queue-screen .customer-note {
+  padding: calc(var(--px) * 6) calc(var(--px) * 16);
+  font-size: calc(var(--px) * 15);
+}
+
+.queue-page {
+  flex: 1;
+  width: 100%;
+  margin: 0 auto;
+  padding: calc(var(--px) * 24) calc(var(--px) * 32) calc(var(--px) * 28);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--px) * 20);
+}
+
+.queue-error {
+  margin: 0;
+  padding: calc(var(--px) * 10) calc(var(--px) * 16);
+  font-size: calc(var(--px) * 16);
+  font-weight: 600;
+  color: var(--brand-red);
+  background: #fdecec;
+  border: 1px solid #f3c2c4;
+  border-radius: calc(var(--px) * 10);
+}
+
+.queue-board {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: calc(var(--px) * 24);
+}
+
+.queue-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: calc(var(--px) * 24);
+  border-radius: calc(var(--px) * 20);
+}
+
+.panel-title {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--px) * 10);
+  font-size: calc(var(--px) * 26);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* now serving */
+.serving-panel {
+  color: #ffffff;
+  background: linear-gradient(160deg, var(--brand-red), #9e1820);
+  box-shadow: 0 calc(var(--px) * 12) calc(var(--px) * 32) rgba(200, 32, 42, 0.25);
+}
+
+.live-dot {
+  width: calc(var(--px) * 14);
+  height: calc(var(--px) * 14);
+  border-radius: 50%;
+  background: #ffffff;
+  animation: live-pulse 1.6s ease-in-out infinite;
+}
+
+.serving-list {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--px) * 20);
+  padding: calc(var(--px) * 20) 0;
+}
+
+.serving-empty {
+  margin: 0;
+  font-size: calc(var(--px) * 26);
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.serving-note {
+  margin: 0;
+  font-size: calc(var(--px) * 22);
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+/* upcoming */
+.upcoming-panel {
+  background: #ffffff;
+  border: 1px solid var(--field-border);
+  box-shadow: 0 calc(var(--px) * 4) calc(var(--px) * 16) rgba(0, 0, 0, 0.05);
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--px) * 12);
+  margin-bottom: calc(var(--px) * 24);
+}
+
+.waiting-count {
+  padding: calc(var(--px) * 4) calc(var(--px) * 14);
+  font-size: calc(var(--px) * 17);
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--field-bg);
+  border-radius: 999px;
+}
+
+/* as many columns as fit, so wide screens use fewer rows */
+.upcoming-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--px) * 170), 1fr));
+  gap: calc(var(--px) * 18) calc(var(--px) * 12);
+}
+
+.upcoming-empty {
+  flex: 1;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(var(--px) * 20);
+  color: var(--text-muted);
+}
+
+.upcoming-more {
+  margin: calc(var(--px) * 16) 0 0;
+  font-size: calc(var(--px) * 18);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* video */
+.queue-video {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  min-height: 0;
+  padding: calc(var(--px) * 16);
+  background: #ffffff;
+  border: 1px solid var(--field-border);
+  border-radius: calc(var(--px) * 20);
+  box-shadow: 0 calc(var(--px) * 4) calc(var(--px) * 16) rgba(0, 0, 0, 0.05);
+}
+
+.video-up {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: calc(var(--px) * 12);
+  background: #000000;
+}
+
+.video-up--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(var(--px) * 20);
+  color: var(--text-muted);
+  background: var(--field-bg);
+}
+
+@keyframes live-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-dot {
+    animation: none;
+  }
+}
+
+/* display mode — monitors and TVs: lock to exactly one screen, no scrolling.
+   the number cards keep their natural height and the video takes whatever is left,
+   sized by height so it stays 16:9 on any screen shape (16:9 TV, 21:9 ultrawide) */
+@media (min-width: 1024px) and (orientation: landscape) {
+  .queue-screen {
+    height: 100svh;
+    overflow: hidden;
+  }
+  .queue-page {
+    min-height: 0;
+  }
+  .queue-video {
+    flex: 1;
+  }
+  .video-up {
+    width: auto;
+    height: 100%;
+    max-width: 100%;
+  }
+}
+
+/* phones and portrait screens: stack everything and scroll */
+@media (max-width: 1023px), (orientation: portrait) {
+  .queue-screen {
+    --px: 1px;
+  }
+  .queue-page {
+    padding: 20px 16px 32px;
+  }
+  .queue-board {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .queue-panel {
+    padding: 20px;
+  }
+  .queue-screen .navbar {
+    padding: 8px 16px;
+  }
+}

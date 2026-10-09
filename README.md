@@ -17,7 +17,7 @@ cp .env.example .env.local   # optional — defaults to /api
 npm run dev                  # http://localhost:5173
 ```
 
-In development, Vite forwards `/api/*` to the backend at `http://localhost:3000` (see `vite.config.js`).
+In development, `npm run dev` also serves an in-memory test API at `/api` (`server/api.js`), with the admin login taken from `ADMIN_USERNAME` / `ADMIN_PASSWORD` in `.env`. Orders reset when the dev server restarts. Once a real backend exists, set `DEV_API=off` in `.env` and Vite forwards `/api/*` to `http://localhost:3000` instead (see `vite.config.js`).
 
 ## Project structure
 

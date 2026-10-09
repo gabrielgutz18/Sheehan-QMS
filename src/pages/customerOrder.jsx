@@ -121,7 +121,7 @@ export default function CustomerOrder() {
                 ) : (
                     <section className="receipt-section">
                         <Receipt
-                            queueNumber={formatQueueNum(submitted.queueNum)}
+                            queueNumber={formatQueueNum(submitted.queueNum, submitted.purpose)}
                             name={submitted.name}
                             purpose={submitted.purpose}
                             orders={submitted.orders}
