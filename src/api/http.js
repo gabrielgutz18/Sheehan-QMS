@@ -1,6 +1,9 @@
 // base URL for the backend; override with VITE_API_URL in a .env.local file
 const BASE_URL = import.meta.env.VITE_API_URL ?? "/api";
 
+// full URL for things the browser loads directly, like <video src>
+export const apiUrl = (path) => `${BASE_URL}${path}`;
+
 // give up on a request that hangs instead of leaving the UI spinning
 const TIMEOUT_MS = 15000;
 
@@ -21,9 +24,11 @@ export function onUnauthorized(listener) {
     return () => unauthorizedListeners.delete(listener);
 }
 
-async function request(method, path, body, { signal } = {}) {
+// a File/Blob body is sent as-is (uploads); anything else goes as JSON
+async function request(method, path, body, { signal, timeout = TIMEOUT_MS, headers } = {}) {
+    const isFile = body instanceof Blob;
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    const timer = setTimeout(() => controller.abort(), timeout);
     const abortFromCaller = () => controller.abort();
     signal?.addEventListener("abort", abortFromCaller);
 
@@ -35,9 +40,10 @@ async function request(method, path, body, { signal } = {}) {
                 Accept: "application/json",
                 // a custom header forces a CORS preflight, so other sites can't forge requests
                 "X-Requested-With": "XMLHttpRequest",
-                ...(body !== undefined && { "Content-Type": "application/json" }),
+                ...(body !== undefined && { "Content-Type": isFile ? body.type || "application/octet-stream" : "application/json" }),
+                ...headers,
             },
-            body: body !== undefined ? JSON.stringify(body) : undefined,
+            body: body === undefined || isFile ? body : JSON.stringify(body),
             // the session lives in an httpOnly cookie set by the backend, never in JS
             credentials: "include",
             signal: controller.signal,

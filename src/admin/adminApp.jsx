@@ -7,6 +7,7 @@ import AdminLayout from './components/adminLayout.jsx';
 import LoginPage from './pages/loginPage.jsx';
 import DashboardPage from './pages/dashboardPage.jsx';
 import OrdersPage from './pages/ordersPage.jsx';
+import VideoPage from './pages/videoPage.jsx';
 
 // mounted at /admin/* — paths below are relative to it
 export default function AdminApp() {
@@ -23,6 +24,7 @@ export default function AdminApp() {
                     <Route element={<AdminLayout />}>
                         <Route index element={<DashboardPage />} />
                         <Route path="orders" element={<OrdersPage />} />
+                        <Route path="video" element={<VideoPage />} />
                     </Route>
                 </Route>
 

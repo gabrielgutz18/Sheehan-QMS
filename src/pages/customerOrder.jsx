@@ -96,7 +96,7 @@ export default function CustomerOrder() {
     }, [thanking, resetForm]);
 
     return (
-        <>
+        <div className="order-screen">
             <Header />
 
             <main className="order-page">
@@ -117,8 +117,12 @@ export default function CustomerOrder() {
                         <button type="submit" className="submit-btn" disabled={submitting}>
                             {submitting ? "Sending..." : editing ? "Update" : "Submit"}
                         </button>
+                        <p className="submit-hint">
+                            Please make sure to print your ticket after submitting your request. Thank you!
+                        </p>
                     </form>
                 ) : (
+                    // ticket on the left, actions beside it, so the whole thing fits one screen
                     <section className="receipt-section">
                         <Receipt
                             queueNumber={formatQueueNum(submitted.queueNum, submitted.purpose)}
@@ -126,21 +130,23 @@ export default function CustomerOrder() {
                             purpose={submitted.purpose}
                             orders={submitted.orders}
                         />
-                        <button type="button" className="submit-btn" onClick={() => setEditing(true)}>
-                            Edit
-                        </button>
-                        {/* TODO: print the receipt */}
-                        <button type="button" className="submit-btn">
-                            Print
-                        </button>
-                        <button type="button" className="submit-btn" onClick={resetForm}>
-                            New order
-                        </button>
-                        {/* restarts from the top whenever the receipt is shown again, e.g. after an edit */}
-                        <Countdown seconds={RECEIPT_SECONDS} onDone={showThankYou} />
+                        <div className="receipt-actions">
+                            <button type="button" className="submit-btn" onClick={() => setEditing(true)}>
+                                Edit
+                            </button>
+                            {/* TODO: print the receipt */}
+                            <button type="button" className="submit-btn">
+                                Print
+                            </button>
+                            <button type="button" className="submit-btn" onClick={resetForm}>
+                                New order
+                            </button>
+                            {/* restarts from the top whenever the receipt is shown again, e.g. after an edit */}
+                            <Countdown seconds={RECEIPT_SECONDS} onDone={showThankYou} />
+                        </div>
                     </section>
                 )}
             </main>
-        </>
+        </div>
     );
 }

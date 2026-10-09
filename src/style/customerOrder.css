@@ -1,27 +1,84 @@
-.order-page {
-  flex: 1;
+/* kiosk sizes are multiples of --u, which grows with the screen: 1px on phones and small
+   laptops, ~1.5px on a 1080p screen, up to calc(var(--u, 1px) * 2.4) on big touch displays */
+/* locked to one screen like a kiosk: the header stays put and the page never scrolls as a whole */
+.order-screen {
+  --u: clamp(1px, 0.14vmin, 2.4px);
+  height: 100svh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 56px;
-  padding: 40px 16px 64px;
 }
 
-.order-card {
-  width: 100%;
-  max-width: 700px;
+/* scale the shared header with the rest of the screen */
+.order-screen .navbar {
+  max-width: calc(var(--u) * 1100);
+  padding: calc(var(--u) * 10) calc(var(--u) * 24);
+}
+
+.order-screen .logo {
+  width: calc(var(--u) * 48);
+  height: calc(var(--u) * 48);
+}
+
+.order-screen .compname {
+  font-size: calc(var(--u) * 22);
+}
+
+.order-screen .clock-time {
+  font-size: calc(var(--u) * 18);
+}
+
+.order-screen .clock-date {
+  font-size: calc(var(--u) * 13);
+}
+
+.order-screen .customer-note {
+  padding: calc(var(--u) * 6) calc(var(--u) * 16);
+  font-size: calc(var(--u) * 14);
+}
+
+.order-page {
+  flex: 1;
+  min-height: 0;
+  /* safety net for tiny screens only; on the kiosk the form always fits */
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 44px;
+  /* sit the form in the middle of the screen, not pinned under the header */
+  justify-content: safe center;
+  gap: calc(var(--u, 1px) * 56);
+  padding: calc(var(--u, 1px) * 24) calc(var(--u, 1px) * 16);
+}
+
+/* never taller than the screen: everything keeps its size except the order list,
+   which shrinks and scrolls on its own, so Submit is always visible without scrolling */
+.order-card {
+  flex: 0 1 auto;
+  min-height: 0;
+  width: 100%;
+  max-width: calc(var(--u, 1px) * 700);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--u, 1px) * 24);
+}
+
+.order-card > * {
+  flex-shrink: 0;
+}
+
+.order-card > .order-field {
+  flex-shrink: 1;
+  min-height: 0;
 }
 
 .submit-btn {
-  width: 200px;
-  height: 44px;
-  margin-top: 4px;
+  width: calc(var(--u, 1px) * 220);
+  height: calc(var(--u, 1px) * 52);
+  margin-top: calc(var(--u, 1px) * 4);
   font: inherit;
-  font-size: 17px;
+  font-size: calc(var(--u, 1px) * 18);
   font-weight: 700;
   color: var(--text-dark);
   background: var(--cream);
@@ -31,9 +88,16 @@
   transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
 }
 
+/* sits right under Submit; the form's large gap is pulled in so it reads as part of the button */
+.submit-hint {
+  margin: calc(var(--u, 1px) * -12) 0 0;
+  font-size: calc(var(--u, 1px) * 16);
+  color: var(--text-muted);
+}
+
 .submit-btn:hover {
   background: var(--cream-hover);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 calc(var(--u, 1px) * 4) calc(var(--u, 1px) * 12) rgba(0, 0, 0, 0.08);
 }
 
 .submit-btn:active {
@@ -42,31 +106,31 @@
 
 .submit-btn:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 calc(var(--u, 1px) * 3) var(--focus-ring);
 }
 
 /* ---------- success state ---------- */
 .order-card.success {
-  gap: 20px;
-  max-width: 460px;
-  padding: 32px 24px;
+  gap: calc(var(--u, 1px) * 20);
+  max-width: calc(var(--u, 1px) * 460);
+  padding: calc(var(--u, 1px) * 32) calc(var(--u, 1px) * 24);
   background: #ffffff;
   border: 1px solid var(--field-border);
-  border-top: 4px solid var(--brand-red);
-  border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  border-top: calc(var(--u, 1px) * 4) solid var(--brand-red);
+  border-radius: calc(var(--u, 1px) * 6);
+  box-shadow: 0 calc(var(--u, 1px) * 8) calc(var(--u, 1px) * 24) rgba(0, 0, 0, 0.06);
 }
 
 .success-title {
   margin: 0;
-  font-size: 24px;
+  font-size: calc(var(--u, 1px) * 24);
   font-weight: 700;
   color: var(--text-dark);
 }
 
 .success-text {
   margin: 0;
-  font-size: 15px;
+  font-size: calc(var(--u, 1px) * 15);
   color: #444;
 }
 
@@ -75,15 +139,15 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  font-size: 14px;
+  font-size: calc(var(--u, 1px) * 14);
   text-align: left;
 }
 
 .summary-list li {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-  padding: 8px 12px;
+  gap: calc(var(--u, 1px) * 12);
+  padding: calc(var(--u, 1px) * 8) calc(var(--u, 1px) * 12);
   background: var(--field-bg);
 }
 
@@ -98,17 +162,41 @@
 /* ---------- receipt section ---------- */
 .receipt-section {
   width: 100%;
-  max-width: 700px;
+  max-width: calc(var(--u, 1px) * 900);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--u, 1px) * 56);
+}
+
+.receipt-section .receipt {
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.receipt-actions {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: calc(var(--u, 1px) * 20);
+}
+
+.receipt-actions .submit-btn {
+  margin: 0;
+}
+
+/* phones: stack the ticket over the buttons and let the area scroll */
+@media (max-width: 700px) {
+  .receipt-section {
+    flex-direction: column;
+    gap: calc(var(--u, 1px) * 24);
+  }
 }
 
 /* ---------- auto reset ---------- */
 .countdown {
-  margin: 4px 0 0;
-  font-size: 14px;
+  margin: calc(var(--u, 1px) * 4) 0 0;
+  font-size: calc(var(--u, 1px) * 14);
   color: #666;
 }
 
@@ -118,11 +206,11 @@
 }
 
 .countdown-skip {
-  margin-left: 10px;
+  margin-left: calc(var(--u, 1px) * 10);
   color: var(--text-dark);
   font-weight: 600;
   text-decoration: underline;
-  text-underline-offset: 3px;
+  text-underline-offset: calc(var(--u, 1px) * 3);
   cursor: pointer;
 }
 
@@ -133,7 +221,7 @@
 .countdown-skip:focus-visible {
   outline: none;
   border-radius: 2px;
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 calc(var(--u, 1px) * 3) var(--focus-ring);
 }
 
 .thank-you {
@@ -142,7 +230,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: calc(var(--u, 1px) * 12);
   text-align: center;
   animation: thank-you-in 1.6s ease-out both;
 }
@@ -156,14 +244,14 @@
 
 .thank-you-text {
   margin: 0;
-  font-size: 18px;
+  font-size: calc(var(--u, 1px) * 18);
   color: #444;
 }
 
 @keyframes thank-you-in {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(calc(var(--u, 1px) * 12));
   }
   to {
     opacity: 1;

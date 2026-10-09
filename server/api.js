@@ -1,10 +1,12 @@
 // in-memory stand-in for the real backend, shared by the Vite dev server and server/devServer.js
-// data resets whenever the process restarts
+// data (orders, the display video and any uploaded file) resets whenever the process restarts
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 
 const SESSION_COOKIE = "sid";
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 const ORDER_STATUSES = ["pending", "serving", "done"];
+const VIDEO_TYPES = ["video/mp4", "video/webm", "video/ogg", "video/quicktime", "video/x-m4v"];
+const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 
 // compare digests so the check takes the same time whatever the input
 const sameSecret = (a, b) => {
@@ -26,6 +28,52 @@ const readBody = async (req) => {
     return raw ? JSON.parse(raw) : {};
 };
 
+// uploaded videos come in as the raw request body, not JSON
+const readFile = async (req, limit) => {
+    const chunks = [];
+    let size = 0;
+    for await (const chunk of req) {
+        size += chunk.length;
+        if (size > limit) throw new Error("Body too large");
+        chunks.push(chunk);
+    }
+    return Buffer.concat(chunks);
+};
+
+const validVideoUrl = (url) => {
+    if (typeof url !== "string" || url.length > 2000) return false;
+    try {
+        return ["http:", "https:"].includes(new URL(url).protocol);
+    } catch {
+        return false;
+    }
+};
+
+// streams the stored file, honouring Range so the player can seek and Safari will play it
+const sendVideoFile = (req, res, { data, type }) => {
+    const total = data.length;
+    const range = req.headers.range?.match(/^bytes=(\d*)-(\d*)$/);
+    if (!range || (!range[1] && !range[2])) {
+        res.writeHead(200, { "Content-Type": type, "Content-Length": total, "Accept-Ranges": "bytes" });
+        return res.end(data);
+    }
+
+    // "bytes=-500" means the last 500 bytes
+    const start = range[1] ? Number(range[1]) : Math.max(0, total - Number(range[2]));
+    const end = range[1] && range[2] ? Math.min(Number(range[2]), total - 1) : total - 1;
+    if (start > end || start >= total) {
+        res.writeHead(416, { "Content-Range": `bytes */${total}` });
+        return res.end();
+    }
+    res.writeHead(206, {
+        "Content-Type": type,
+        "Content-Length": end - start + 1,
+        "Content-Range": `bytes ${start}-${end}/${total}`,
+        "Accept-Ranges": "bytes",
+    });
+    return res.end(data.subarray(start, end + 1));
+};
+
 const validOrder = (body) =>
     typeof body.name === "string" && body.name.trim() && body.name.length <= 100 &&
     typeof body.purpose === "string" && body.purpose.length <= 100 &&
@@ -44,6 +92,14 @@ export function createApi({ adminUsername, adminPassword }) {
     const sessions = new Map(); // sid -> { user, expires }
     const orders = new Map(); // queueNum (number) -> order
     let nextQueue = 1;
+    // display-screen video: { kind: "url", url } or { kind: "file", name, type, data, version }
+    let video = null;
+    let videoVersion = 0;
+
+    // what the display gets: the link, or a version stamp that busts the cache after a new upload
+    const publicVideo = () => !video ? null
+        : video.kind === "url" ? { kind: "url", url: video.url }
+        : { kind: "file", name: video.name, version: video.version };
 
     const getSession = (req) => {
         const sid = req.headers.cookie?.match(/(?:^|;\s*)sid=([^;]+)/)?.[1];
@@ -88,13 +144,22 @@ export function createApi({ adminUsername, adminPassword }) {
             return send(res, 201, order);
         }
 
-        // public display board: number and purpose only, never names or order details
+        // public display board: number, name and purpose only, never order details
         if (method === "GET" && path === "/queue") {
-            const byStatus = (status) => [...orders.values()]
-                .filter((o) => o.status === status)
-                .map(({ queueNum, purpose }) => ({ queueNum, purpose }))
-                .sort((a, b) => a.queueNum - b.queueNum);
-            return send(res, 200, { serving: byStatus("serving"), upcoming: byStatus("pending") });
+            const byStatus = (status) => [...orders.values()].filter((o) => o.status === status);
+            const board = ({ queueNum, name, purpose }) => ({ queueNum, name, purpose });
+            return send(res, 200, {
+                // most recently called first, so the display headlines the newest call
+                serving: byStatus("serving").sort((a, b) => b.calledAt - a.calledAt).map(board),
+                upcoming: byStatus("pending").sort((a, b) => a.queueNum - b.queueNum).map(board),
+            });
+        }
+
+        if (method === "GET" && path === "/video") return send(res, 200, publicVideo());
+
+        if (method === "GET" && path === "/video/file") {
+            if (video?.kind !== "file") return send(res, 404, { message: "No uploaded video." });
+            return sendVideoFile(req, res, video);
         }
 
         const orderMatch = path.match(/^\/orders\/([^/]+)$/);
@@ -120,6 +185,31 @@ export function createApi({ adminUsername, adminPassword }) {
             return send(res, 204, undefined, { "Set-Cookie": `${SESSION_COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0` });
         }
 
+        if (method === "PUT" && path === "/admin/video") {
+            const { url: videoUrl } = await readBody(req);
+            if (!validVideoUrl(videoUrl)) return send(res, 400, { message: "Enter a valid http(s) video link." });
+            video = { kind: "url", url: videoUrl.trim() };
+            return send(res, 200, publicVideo());
+        }
+
+        if (method === "POST" && path === "/admin/video/file") {
+            const type = req.headers["content-type"];
+            if (!VIDEO_TYPES.includes(type)) return send(res, 415, { message: "Upload an MP4, WebM, OGG or MOV video." });
+            if (Number(req.headers["content-length"]) > MAX_VIDEO_BYTES) {
+                return send(res, 413, { message: "Video is larger than 200 MB." });
+            }
+            const data = await readFile(req, MAX_VIDEO_BYTES);
+            if (!data.length) return send(res, 400, { message: "The file is empty." });
+            const name = decodeURIComponent(req.headers["x-file-name"] ?? "video").slice(0, 200);
+            video = { kind: "file", name, type, data, version: ++videoVersion };
+            return send(res, 201, publicVideo());
+        }
+
+        if (method === "DELETE" && path === "/admin/video") {
+            video = null;
+            return send(res, 204);
+        }
+
         if (method === "GET" && path === "/admin/orders") return send(res, 200, [...orders.values()]);
 
         const adminMatch = path.match(/^\/admin\/orders\/([^/]+)$/);
@@ -132,6 +222,7 @@ export function createApi({ adminUsername, adminPassword }) {
             if (method === "PATCH") {
                 const { status } = await readBody(req);
                 if (!ORDER_STATUSES.includes(status)) return send(res, 400, { message: "Invalid status." });
+                if (status === "serving" && order.status !== "serving") order.calledAt = Date.now();
                 order.status = status;
                 return send(res, 200, order);
             }

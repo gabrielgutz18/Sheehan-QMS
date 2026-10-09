@@ -92,11 +92,22 @@ export function OrderField({ orders, onChange, error }) {
 
     const removeOrder = (id) => onChange(orders.filter((o) => o.id !== id));
 
+    // the list scrolls inside a fixed area, so bring a newly added row into view and focus it
+    const listRef = useRef(null);
+    const prevCount = useRef(orders.length);
+    useEffect(() => {
+        if (orders.length > prevCount.current) {
+            const inputs = listRef.current?.querySelectorAll(".order-input");
+            inputs?.[inputs.length - 1]?.focus();
+        }
+        prevCount.current = orders.length;
+    }, [orders.length]);
+
     return (
-        <div className="field">
+        <div className="field order-field">
             <span className="field-label">Order</span>
 
-            <ul className="order-list">
+            <ul className="order-list" ref={listRef}>
                 {orders.map((order, index) => (
                     <li key={order.id} className="order-row">
                         <input
