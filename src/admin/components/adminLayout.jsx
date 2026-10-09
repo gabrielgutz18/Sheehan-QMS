@@ -15,6 +15,7 @@ const navItems = [
     { to: "/admin", label: "Dashboard", end: true, icon: icon("M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z") },
     { to: "/admin/orders", label: "Orders", icon: icon("M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01") },
     { to: "/admin/video", label: "Display video", icon: icon("M3 6h13v12H3zM16 10l5-3v10l-5-3") },
+    { to: "/admin/printer", label: "Printer", icon: icon("M7 9V3h10v6M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M7 14h10v7H7z") },
 ];
 
 export default function AdminLayout() {

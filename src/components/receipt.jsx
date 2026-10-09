@@ -2,6 +2,7 @@ import '../style/receipt.css';
 
 //assets
 import logo from '../assets/SheehanLogo.png';
+import { colorLabel } from '../data/roofingColors.js';
 
 export default function Receipt({ queueNumber, name, purpose, orders = [] }) {
     return (
@@ -35,7 +36,7 @@ export default function Receipt({ queueNumber, name, purpose, orders = [] }) {
                 <p className="receipt-label">Order</p>
                 <ul className="receipt-orders">
                     {orders.map((o, i) => (
-                        <li key={i}>{o.qty}x {o.item}</li>
+                        <li key={i}>{o.qty}x {o.item}{o.color && ` (${colorLabel(o.color)})`}</li>
                     ))}
                 </ul>
             </div>

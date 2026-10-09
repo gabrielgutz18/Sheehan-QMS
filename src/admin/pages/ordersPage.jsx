@@ -2,14 +2,38 @@ import { useState } from 'react';
 
 import useOrders from '../hooks/useOrders.js';
 import orderStatus from '../data/orderStatus.js';
-import { deleteOrder, updateOrderStatus } from '../api/adminOrderController.js';
+import { callOrder, deleteOrder, updateOrderStatus } from '../api/adminOrderController.js';
+import CallDialog from '../components/callDialog.jsx';
 import formatQueueNum from '../../data/queueNum.js';
+import { colorLabel } from '../../data/roofingColors.js';
+
+// the dialog starts with the last remarks used, since staff usually call to the same window
+const LAST_REMARKS_KEY = "admin.lastRemarks";
+
+const readLastRemarks = () => {
+    try {
+        return localStorage.getItem(LAST_REMARKS_KEY) ?? "";
+    } catch {
+        return "";
+    }
+};
+
+const saveLastRemarks = (remarks) => {
+    try {
+        localStorage.setItem(LAST_REMARKS_KEY, remarks);
+    } catch {
+        // storage blocked; the dialog just starts empty next time
+    }
+};
 
 export default function OrdersPage() {
     const { orders, setOrders, loading, error } = useOrders();
     const [filter, setFilter] = useState("all");
     const [busy, setBusy] = useState(null);
     const [actionError, setActionError] = useState("");
+    const [calling, setCalling] = useState(null);
+    const [callError, setCallError] = useState("");
+    const [lastRemarks, setLastRemarks] = useState(readLastRemarks);
 
     const visible = filter === "all" ? orders : orders.filter((o) => o.status === filter);
 
@@ -31,6 +55,29 @@ export default function OrdersPage() {
             const saved = await updateOrderStatus(queueNum, status);
             setOrders((prev) => prev.map((o) => (o.queueNum === queueNum ? { ...o, ...saved, status } : o)));
         });
+
+    const openCall = (order) => {
+        setCallError("");
+        setCalling(order);
+    };
+
+    // errors stay inside the dialog so the admin can fix the remarks and retry
+    const call = async (remarks) => {
+        const { queueNum } = calling;
+        setBusy(queueNum);
+        setCallError("");
+        try {
+            const saved = await callOrder(queueNum, remarks);
+            setOrders((prev) => prev.map((o) => (o.queueNum === queueNum ? { ...o, ...saved } : o)));
+            saveLastRemarks(remarks);
+            setLastRemarks(remarks);
+            setCalling(null);
+        } catch (err) {
+            setCallError(err.message);
+        } finally {
+            setBusy(null);
+        }
+    };
 
     const remove = (queueNum, purpose) => {
         if (!window.confirm(`Delete order ${formatQueueNum(queueNum, purpose)}? This can't be undone.`)) return;
@@ -83,7 +130,7 @@ export default function OrdersPage() {
                                     <td>
                                         <ul className="item-list">
                                             {o.orders?.map((item, i) => (
-                                                <li key={i}>{item.qty} × {item.item}</li>
+                                                <li key={i}>{item.qty} × {item.item}{item.color && ` (${colorLabel(item.color)})`}</li>
                                             ))}
                                         </ul>
                                     </td>
@@ -99,16 +146,31 @@ export default function OrdersPage() {
                                                 <option key={value} value={value}>{label}</option>
                                             ))}
                                         </select>
+                                        {o.status === "serving" && o.remarks && (
+                                            <p className="order-remarks">“{o.remarks}”</p>
+                                        )}
                                     </td>
                                     <td>
-                                        <button
-                                            type="button"
-                                            className="admin-btn admin-btn-danger"
-                                            disabled={busy === o.queueNum}
-                                            onClick={() => remove(o.queueNum, o.purpose)}
-                                        >
-                                            Delete
-                                        </button>
+                                        <div className="row-actions">
+                                            {o.status !== "done" && (
+                                                <button
+                                                    type="button"
+                                                    className="admin-btn admin-btn-call"
+                                                    disabled={busy === o.queueNum}
+                                                    onClick={() => openCall(o)}
+                                                >
+                                                    {o.status === "serving" ? "Call again" : "Call"}
+                                                </button>
+                                            )}
+                                            <button
+                                                type="button"
+                                                className="admin-btn admin-btn-danger"
+                                                disabled={busy === o.queueNum}
+                                                onClick={() => remove(o.queueNum, o.purpose)}
+                                            >
+                                                Delete
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))
@@ -116,6 +178,17 @@ export default function OrdersPage() {
                     </tbody>
                 </table>
             </div>
+
+            {calling && (
+                <CallDialog
+                    order={calling}
+                    defaultRemarks={lastRemarks}
+                    busy={busy === calling.queueNum}
+                    error={callError}
+                    onCall={call}
+                    onClose={() => setCalling(null)}
+                />
+            )}
         </section>
     );
 }

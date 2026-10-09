@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import '../style/fields.css';
 import purpose from '../data/purpose.js';
+import { ROOFING_PURPOSE } from '../data/roofingColors.js';
+import RoofingColorSelector from './roofingColorSelector.jsx';
 
 export function NameField({ value, onChange, error }) {
     return (
@@ -83,12 +85,14 @@ export function PurposeDropdown({ value, onChange, error }) {
         </div>
     );
 }
-export function OrderField({ orders, onChange, error }) {
+export function OrderField({ orders, purpose, onChange, error }) {
+    const pickColor = purpose === ROOFING_PURPOSE;
+
     const updateOrder = (id, changes) =>
         onChange(orders.map((o) => (o.id === id ? { ...o, ...changes } : o)));
 
     const addOrder = () =>
-        onChange([...orders, { id: crypto.randomUUID(), item: "", qty: 0 }]);
+        onChange([...orders, { id: crypto.randomUUID(), item: "", qty: 0, color: "" }]);
 
     const removeOrder = (id) => onChange(orders.filter((o) => o.id !== id));
 
@@ -106,6 +110,7 @@ export function OrderField({ orders, onChange, error }) {
     return (
         <div className="field order-field">
             <span className="field-label">Order</span>
+            {pickColor && <p className="field-hint">Pick a roof color for each item, or leave it blank.</p>}
 
             <ul className="order-list" ref={listRef}>
                 {orders.map((order, index) => (
@@ -152,6 +157,14 @@ export function OrderField({ orders, onChange, error }) {
                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14" /></svg>
                             </button>
                         </div>
+
+                        {pickColor && (
+                            <RoofingColorSelector
+                                value={order.color}
+                                onChange={(color) => updateOrder(order.id, { color })}
+                                label={`Roof color for order ${index + 1}`}
+                            />
+                        )}
 
                         {orders.length > 1 && (
                             <button

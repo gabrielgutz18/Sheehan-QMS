@@ -6,9 +6,11 @@ import Receipt from '../components/receipt.jsx';
 import Countdown from '../components/countdown.jsx';
 import { NameField, PurposeDropdown, OrderField } from '../components/fields.jsx';
 import formatQueueNum from '../data/queueNum.js';
+import { ROOFING_PURPOSE } from '../data/roofingColors.js';
 import { createOrder, updateOrder } from '../api/orderController.js';
+import { printReceipt } from '../printing/printReceipt.js';
 
-const newOrder = () => ({ id: crypto.randomUUID(), item: "", qty: 0 });
+const newOrder = () => ({ id: crypto.randomUUID(), item: "", qty: 0, color: "" });
 
 // after an order, the receipt stays up this long, then a thank-you shows before the form clears
 const RECEIPT_SECONDS = 30;
@@ -24,6 +26,8 @@ export default function CustomerOrder() {
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState("");
     const [thanking, setThanking] = useState(false);
+    // "" | "printing" | "done"
+    const [printStatus, setPrintStatus] = useState("");
 
     // fields show before the first submit and while editing; the receipt shows otherwise
     const showForm = !submitted || editing;
@@ -50,7 +54,12 @@ export default function CustomerOrder() {
             purpose,
             orders: orders
                 .filter((o) => o.item.trim())
-                .map(({ item, qty }) => ({ item: item.trim(), qty })),
+                // colors only apply to roofing; any picked before switching purpose are dropped
+                .map(({ item, qty, color }) => ({
+                    item: item.trim(),
+                    qty,
+                    ...(purpose === ROOFING_PURPOSE && color && { color }),
+                })),
         };
 
         setSubmitting(true);
@@ -62,6 +71,7 @@ export default function CustomerOrder() {
                 : await createOrder(payload);
             setSubmitted(saved);
             setEditing(false);
+            setPrintStatus("");
         } catch (err) {
             setSubmitError(err.message);
         } finally {
@@ -84,7 +94,21 @@ export default function CustomerOrder() {
         setSubmitted(null);
         setEditing(false);
         setThanking(false);
+        setPrintStatus("");
     }, []);
+
+    // straight to the USB receipt printer when one is set up in admin, otherwise the print dialog
+    const handlePrint = async () => {
+        setPrintStatus("printing");
+        await printReceipt({
+            queueNumber: formatQueueNum(submitted.queueNum, submitted.purpose),
+            name: submitted.name,
+            purpose: submitted.purpose,
+            orders: submitted.orders,
+            issuedAt: submitted.createdAt,
+        });
+        setPrintStatus("done");
+    };
 
     const showThankYou = useCallback(() => setThanking(true), []);
 
@@ -109,7 +133,7 @@ export default function CustomerOrder() {
                     <form className="order-card" onSubmit={handleSubmit} noValidate>
                         <NameField value={name} onChange={withClear(setName, "name")} error={errors.name} />
                         <PurposeDropdown value={purpose} onChange={withClear(setPurpose, "purpose")} error={errors.purpose} />
-                        <OrderField orders={orders} onChange={withClear(setOrders, "orders")} error={errors.orders} />
+                        <OrderField orders={orders} purpose={purpose} onChange={withClear(setOrders, "orders")} error={errors.orders} />
 
                         {submitError && <p className="field-error" role="alert">{submitError}</p>}
 
@@ -134,15 +158,24 @@ export default function CustomerOrder() {
                             <button type="button" className="submit-btn" onClick={() => setEditing(true)}>
                                 Edit
                             </button>
-                            {/* TODO: print the receipt */}
-                            <button type="button" className="submit-btn">
-                                Print
+                            <button
+                                type="button"
+                                className="submit-btn"
+                                onClick={handlePrint}
+                                disabled={printStatus === "printing"}
+                            >
+                                {printStatus === "printing" ? "Printing..." : printStatus === "done" ? "Print again" : "Print"}
                             </button>
                             <button type="button" className="submit-btn" onClick={resetForm}>
                                 New order
                             </button>
                             {/* restarts from the top whenever the receipt is shown again, e.g. after an edit */}
                             <Countdown seconds={RECEIPT_SECONDS} onDone={showThankYou} />
+                            {printStatus === "done" && (
+                                <p className="print-status" role="status">
+                                    Please take your ticket and hand it to the sales counter.
+                                </p>
+                            )}
                         </div>
                     </section>
                 )}

@@ -40,6 +40,7 @@ export default function DashboardPage() {
                             {serving.map((o) => (
                                 <li key={o.queueNum}>
                                     <strong>{formatQueueNum(o.queueNum, o.purpose)}</strong> {o.name}
+                                    {o.remarks && <span className="order-remarks">“{o.remarks}”</span>}
                                 </li>
                             ))}
                         </ul>

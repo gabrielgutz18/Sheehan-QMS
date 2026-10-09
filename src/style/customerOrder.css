@@ -193,6 +193,44 @@
   }
 }
 
+.print-status {
+  max-width: calc(var(--u, 1px) * 260);
+  margin: 0;
+  font-size: calc(var(--u, 1px) * 16);
+  font-weight: 600;
+  text-align: center;
+  color: var(--brand-red);
+}
+
+/* browser print fallback: only the ticket goes on paper, sized for a receipt roll */
+@media print {
+  @page {
+    margin: 4mm;
+  }
+  .order-screen {
+    --u: 1px;
+    height: auto;
+    overflow: visible;
+  }
+  .order-screen .header,
+  .receipt-actions {
+    display: none !important;
+  }
+  .order-page,
+  .receipt-section {
+    display: block;
+    padding: 0;
+    overflow: visible;
+  }
+  .receipt-section .receipt {
+    width: 100%;
+    max-width: none;
+    min-height: 0;
+    padding: 0;
+    box-shadow: none;
+  }
+}
+
 /* ---------- auto reset ---------- */
 .countdown {
   margin: calc(var(--u, 1px) * 4) 0 0;

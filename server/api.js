@@ -5,6 +5,9 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 const SESSION_COOKIE = "sid";
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 const ORDER_STATUSES = ["pending", "serving", "done"];
+const MAX_REMARKS = 120;
+// optional per-item color for roofing orders; must match src/data/roofingColors.js
+const ROOFING_COLORS = ["red", "blue", "green"];
 const VIDEO_TYPES = ["video/mp4", "video/webm", "video/ogg", "video/quicktime", "video/x-m4v"];
 const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 
@@ -78,12 +81,13 @@ const validOrder = (body) =>
     typeof body.name === "string" && body.name.trim() && body.name.length <= 100 &&
     typeof body.purpose === "string" && body.purpose.length <= 100 &&
     Array.isArray(body.orders) && body.orders.length > 0 && body.orders.length <= 50 &&
-    body.orders.every((o) => typeof o.item === "string" && o.item.length <= 100 && Number.isInteger(o.qty) && o.qty > 0);
+    body.orders.every((o) => typeof o.item === "string" && o.item.length <= 100 && Number.isInteger(o.qty) && o.qty > 0 &&
+        (o.color === undefined || ROOFING_COLORS.includes(o.color)));
 
 const pickOrder = ({ name, purpose, orders: items }) => ({
     name: name.trim(),
     purpose,
-    orders: items.map(({ item, qty }) => ({ item, qty })),
+    orders: items.map(({ item, qty, color }) => ({ item, qty, ...(color && { color }) })),
 });
 
 // returns a (req, res) handler for every /api route
@@ -148,9 +152,11 @@ export function createApi({ adminUsername, adminPassword }) {
         if (method === "GET" && path === "/queue") {
             const byStatus = (status) => [...orders.values()].filter((o) => o.status === status);
             const board = ({ queueNum, name, purpose }) => ({ queueNum, name, purpose });
+            // calledAt lets the display replay its animation when the same number is called again
+            const called = (o) => ({ ...board(o), remarks: o.remarks ?? "", calledAt: o.calledAt });
             return send(res, 200, {
                 // most recently called first, so the display headlines the newest call
-                serving: byStatus("serving").sort((a, b) => b.calledAt - a.calledAt).map(board),
+                serving: byStatus("serving").sort((a, b) => b.calledAt - a.calledAt).map(called),
                 upcoming: byStatus("pending").sort((a, b) => a.queueNum - b.queueNum).map(board),
             });
         }
@@ -211,6 +217,19 @@ export function createApi({ adminUsername, adminPassword }) {
         }
 
         if (method === "GET" && path === "/admin/orders") return send(res, 200, [...orders.values()]);
+
+        // call (or call again) a ticket: it becomes the headline on the display with the admin's remarks
+        const callMatch = path.match(/^\/admin\/orders\/([^/]+)\/call$/);
+        if (method === "POST" && callMatch) {
+            const order = orders.get(Number(decodeURIComponent(callMatch[1])));
+            if (!order) return send(res, 404, { message: "Order not found." });
+            const { remarks = "" } = await readBody(req);
+            if (typeof remarks !== "string" || remarks.trim().length > MAX_REMARKS) {
+                return send(res, 400, { message: `Remarks must be ${MAX_REMARKS} characters or fewer.` });
+            }
+            Object.assign(order, { status: "serving", calledAt: Date.now(), remarks: remarks.trim() });
+            return send(res, 200, order);
+        }
 
         const adminMatch = path.match(/^\/admin\/orders\/([^/]+)$/);
         if (adminMatch) {

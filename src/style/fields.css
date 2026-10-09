@@ -13,6 +13,12 @@
   color: var(--text-dark);
 }
 
+.field-hint {
+  margin: 0;
+  font-size: calc(var(--u, 1px) * 15);
+  color: var(--text-muted);
+}
+
 .field-error {
   margin: 0;
   font-size: calc(var(--u, 1px) * 15);
@@ -294,6 +300,55 @@
   color: var(--brand-red);
 }
 
+/* ---------- roofing color ---------- */
+.color-picker {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u, 1px) * 8);
+}
+
+.color-swatch {
+  width: calc(var(--u, 1px) * 40);
+  height: calc(var(--u, 1px) * 40);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: var(--swatch);
+  border: calc(var(--u, 1px) * 3) solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--field-border);
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.color-swatch svg {
+  width: calc(var(--u, 1px) * 20);
+  height: calc(var(--u, 1px) * 20);
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0;
+}
+
+.color-swatch:hover {
+  transform: scale(1.08);
+}
+
+.color-swatch.is-selected {
+  box-shadow: 0 0 0 calc(var(--u, 1px) * 3) var(--text-dark);
+}
+
+.color-swatch.is-selected svg {
+  opacity: 1;
+}
+
+.color-swatch:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+
 @media (max-width: 480px) {
   .order-row {
     gap: calc(var(--u, 1px) * 10);
@@ -304,5 +359,13 @@
   .order-list {
     margin: 0;
     padding: 4px 0;
+  }
+  /* no room beside the stepper on a phone, so the colors get their own line */
+  .order-row:has(.color-picker) {
+    flex-wrap: wrap;
+  }
+  .color-picker {
+    flex-basis: 100%;
+    justify-content: center;
   }
 }

@@ -102,12 +102,12 @@ export default function QueueNum() {
 
                         <div className="serving-list" aria-live="polite">
                             {current ? (
-                                // key on the number so a newly called number remounts and replays its animation
-                                <div key={current.queueNum} className="serving-call">
+                                // key on the call so a new number, or the same one called again, replays its animation
+                                <div key={`${current.queueNum}-${current.calledAt}`} className="serving-call">
                                     <NumberCard number={current.queueNum} purpose={current.purpose} variant="serving" />
                                     <p className="serving-name">{current.name}</p>
                                     <hr className="serving-rule" />
-                                    <p className="serving-note">Please proceed to {current.purpose}</p>
+                                    <p className="serving-note">{current.remarks || `Please proceed to ${current.purpose}`}</p>
                                     {alsoServing.length > 0 && (
                                         <p className="serving-also">
                                             Also serving: {alsoServing.map((o) => formatQueueNum(o.queueNum, o.purpose)).join(", ")}
