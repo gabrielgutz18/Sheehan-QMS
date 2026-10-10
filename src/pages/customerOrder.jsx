@@ -8,7 +8,7 @@ import { NameField, PurposeDropdown, OrderField } from '../components/fields.jsx
 import formatQueueNum from '../data/queueNum.js';
 import { ROOFING_PURPOSE } from '../data/roofingColors.js';
 import { createOrder, updateOrder } from '../api/orderController.js';
-import { printReceipt } from '../printing/printReceipt.js';
+import PrintFunc from '../printing/printFunc.jsx';
 
 const newOrder = () => ({ id: crypto.randomUUID(), item: "", qty: 0, color: "" });
 
@@ -26,8 +26,6 @@ export default function CustomerOrder() {
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState("");
     const [thanking, setThanking] = useState(false);
-    // "" | "printing" | "done"
-    const [printStatus, setPrintStatus] = useState("");
 
     // fields show before the first submit and while editing; the receipt shows otherwise
     const showForm = !submitted || editing;
@@ -71,7 +69,6 @@ export default function CustomerOrder() {
                 : await createOrder(payload);
             setSubmitted(saved);
             setEditing(false);
-            setPrintStatus("");
         } catch (err) {
             setSubmitError(err.message);
         } finally {
@@ -94,21 +91,7 @@ export default function CustomerOrder() {
         setSubmitted(null);
         setEditing(false);
         setThanking(false);
-        setPrintStatus("");
     }, []);
-
-    // straight to the USB receipt printer when one is set up in admin, otherwise the print dialog
-    const handlePrint = async () => {
-        setPrintStatus("printing");
-        await printReceipt({
-            queueNumber: formatQueueNum(submitted.queueNum, submitted.purpose),
-            name: submitted.name,
-            purpose: submitted.purpose,
-            orders: submitted.orders,
-            issuedAt: submitted.createdAt,
-        });
-        setPrintStatus("done");
-    };
 
     const showThankYou = useCallback(() => setThanking(true), []);
 
@@ -158,24 +141,12 @@ export default function CustomerOrder() {
                             <button type="button" className="submit-btn" onClick={() => setEditing(true)}>
                                 Edit
                             </button>
-                            <button
-                                type="button"
-                                className="submit-btn"
-                                onClick={handlePrint}
-                                disabled={printStatus === "printing"}
-                            >
-                                {printStatus === "printing" ? "Printing..." : printStatus === "done" ? "Print again" : "Print"}
-                            </button>
+                            <PrintFunc ticket={submitted} />
                             <button type="button" className="submit-btn" onClick={resetForm}>
                                 New order
                             </button>
                             {/* restarts from the top whenever the receipt is shown again, e.g. after an edit */}
                             <Countdown seconds={RECEIPT_SECONDS} onDone={showThankYou} />
-                            {printStatus === "done" && (
-                                <p className="print-status" role="status">
-                                    Please take your ticket and hand it to the sales counter.
-                                </p>
-                            )}
                         </div>
                     </section>
                 )}
