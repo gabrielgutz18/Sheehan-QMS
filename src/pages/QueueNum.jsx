@@ -11,6 +11,10 @@ import formatQueueNum from '../data/queueNum.js';
 
 const POLL_MS = 5000;
 const UPCOMING_LIMIT = 8;
+// one per counter; more than this and the video gets squeezed
+const ALSO_SERVING_LIMIT = 3;
+
+const callNote = (o) => o.remarks || `Please proceed to ${o.purpose}`;
 
 export default function QueueNum() {
     const [queue, setQueue] = useState({ serving: [], upcoming: [] });
@@ -42,8 +46,11 @@ export default function QueueNum() {
     }, []);
 
     const { serving, upcoming } = queue;
-    // the newest call is the headline; anyone else still at a counter is listed under it
+    // several numbers can be served at once, one per counter: the newest call is the headline,
+    // and everyone else still at a counter is listed under it, newest first
     const [current, ...alsoServing] = serving;
+    const othersShown = alsoServing.slice(0, ALSO_SERVING_LIMIT);
+    const othersHidden = alsoServing.length - othersShown.length;
     const shown = upcoming.slice(0, UPCOMING_LIMIT);
     const hidden = upcoming.length - shown.length;
 
@@ -102,18 +109,28 @@ export default function QueueNum() {
 
                         <div className="serving-list" aria-live="polite">
                             {current ? (
-                                // key on the call so a new number, or the same one called again, replays its animation
-                                <div key={`${current.queueNum}-${current.calledAt}`} className="serving-call">
-                                    <NumberCard number={current.queueNum} purpose={current.purpose} variant="serving" />
-                                    <p className="serving-name">{current.name}</p>
-                                    <hr className="serving-rule" />
-                                    <p className="serving-note">{current.remarks || `Please proceed to ${current.purpose}`}</p>
-                                    {alsoServing.length > 0 && (
-                                        <p className="serving-also">
-                                            Also serving: {alsoServing.map((o) => formatQueueNum(o.queueNum, o.purpose)).join(", ")}
-                                        </p>
+                                <>
+                                    {/* key on the call so a new number, or the same one called again, replays its animation */}
+                                    <div key={`${current.queueNum}-${current.calledAt}`} className="serving-call">
+                                        <NumberCard number={current.queueNum} purpose={current.purpose} variant="serving" />
+                                        <p className="serving-name">{current.name}</p>
+                                        <hr className="serving-rule" />
+                                        <p className="serving-note">{callNote(current)}</p>
+                                    </div>
+
+                                    {othersShown.length > 0 && (
+                                        <ul className="serving-others" aria-label="Also being served">
+                                            {othersShown.map((o) => (
+                                                <li key={o.queueNum} className="serving-other">
+                                                    <span className="serving-other-num">{formatQueueNum(o.queueNum, o.purpose)}</span>
+                                                    <span className="serving-other-name">{o.name}</span>
+                                                    <span className="serving-other-note">{callNote(o)}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
                                     )}
-                                </div>
+                                    {othersHidden > 0 && <p className="serving-more">+{othersHidden} more being served</p>}
+                                </>
                             ) : (
                                 <p className="serving-empty">{loaded ? "Waiting for the next customer" : "Loading..."}</p>
                             )}
