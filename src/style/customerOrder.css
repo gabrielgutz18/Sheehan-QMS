@@ -202,9 +202,59 @@
   color: var(--brand-red);
 }
 
-/* browser print fallback: only the ticket goes on paper, sized for a receipt roll */
+/* shown when the ticket can't be printed */
+.print-error {
+  width: min(calc(var(--u, 1px) * 420), calc(100vw - 32px));
+  padding: calc(var(--u, 1px) * 32) calc(var(--u, 1px) * 24) calc(var(--u, 1px) * 24);
+  text-align: center;
+  border: none;
+  border-top: calc(var(--u, 1px) * 4) solid var(--brand-red);
+  border-radius: calc(var(--u, 1px) * 6);
+  box-shadow: 0 calc(var(--u, 1px) * 16) calc(var(--u, 1px) * 48) rgba(0, 0, 0, 0.2);
+}
+
+.print-error[open] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--u, 1px) * 12);
+}
+
+.print-error::backdrop {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.print-error p,
+.print-error h2 {
+  margin: 0;
+}
+
+.print-error-title {
+  font-size: calc(var(--u, 1px) * 26);
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.print-error-code {
+  font-size: calc(var(--u, 1px) * 20);
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--brand-red);
+}
+
+.print-error-text {
+  font-size: calc(var(--u, 1px) * 18);
+  color: var(--text-muted);
+}
+
+.print-error .submit-btn {
+  margin-top: calc(var(--u, 1px) * 8);
+}
+
+/* browser print: only the ticket goes on paper, filling a 90 x 148 mm page */
 @media print {
   @page {
+    size: 90mm 148mm;
     margin: 4mm;
   }
   .order-screen {
@@ -225,7 +275,8 @@
   .receipt-section .receipt {
     width: 100%;
     max-width: none;
-    min-height: 0;
+    /* the page less its margins, a hair short so rounding never spills onto a blank second page */
+    min-height: 139mm;
     padding: 0;
     box-shadow: none;
   }

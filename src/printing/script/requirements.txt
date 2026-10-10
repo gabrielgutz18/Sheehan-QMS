@@ -1,0 +1,4 @@
+pyusb
+python-escpos
+libusb-package
+pywin32; sys_platform == "win32"
