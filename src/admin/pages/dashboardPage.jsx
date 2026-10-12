@@ -2,6 +2,7 @@ import useOrders from '../hooks/useOrders.js';
 import TotalViewer from '../components/totalViewer.jsx';
 import ServingCompo from '../components/servingCompo.jsx';
 import NextNumComp from '../components/nextNumComp.jsx';
+import Statistics from '../components/statistics.jsx';
 
 export default function DashboardPage() {
     const { orders, loading, error } = useOrders();
@@ -18,6 +19,8 @@ export default function DashboardPage() {
                 <ServingCompo orders={orders} />
                 <NextNumComp orders={orders} />
             </div>
+
+            <Statistics />
         </section>
     );
 }

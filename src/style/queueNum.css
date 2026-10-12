@@ -357,6 +357,29 @@
   background: var(--field-bg);
 }
 
+/* shown until someone taps the display, since browsers keep sound off until then */
+.sound-unlock {
+  position: fixed;
+  right: calc(var(--px) * 24);
+  bottom: calc(var(--px) * 24);
+  z-index: 10;
+  padding: calc(var(--px) * 12) calc(var(--px) * 22);
+  font: inherit;
+  font-size: calc(var(--px) * 18);
+  font-weight: 700;
+  color: #ffffff;
+  background: var(--text-dark);
+  border: none;
+  border-radius: 999px;
+  box-shadow: 0 calc(var(--px) * 6) calc(var(--px) * 20) rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+
+.sound-unlock:focus-visible {
+  outline: calc(var(--px) * 3) solid var(--focus-ring);
+  outline-offset: calc(var(--px) * 3);
+}
+
 @keyframes live-pulse {
   0%, 100% {
     opacity: 1;

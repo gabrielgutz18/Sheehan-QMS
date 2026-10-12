@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Route, Routes } from 'react-router';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import './App.css'
 
 import CustomerOrder from './pages/customerOrder.jsx'
@@ -16,6 +16,8 @@ function App() {
       <Routes>
         <Route path="/" element={<CustomerOrder />} />
         <Route path="/queue" element={<QueueNum />} />
+        {/* short address for sales staff: their counter, by way of the sign-in page if needed */}
+        <Route path="/sales" element={<Navigate to="/admin/counter" replace />} />
         <Route
           path="/admin/*"
           element={
