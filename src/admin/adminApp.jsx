@@ -13,6 +13,7 @@ import AnnouncerPage from './pages/announcerPage.jsx';
 import HistoryPage from './pages/historyPage.jsx';
 import SalesPage from './pages/salesPage.jsx';
 import AccCreation from './pages/accCreation.jsx';
+import AccountPage from './pages/accountPage.jsx';
 
 // mounted at /admin/* — paths below are relative to it
 export default function AdminApp() {
@@ -30,6 +31,7 @@ export default function AdminApp() {
                     <Route element={<AdminLayout />}>
                         <Route path="counter" element={<SalesPage />} />
                         <Route path="history" element={<HistoryPage />} />
+                        <Route path="account" element={<AccountPage />} />
 
                         <Route element={<ProtectedRoute roles={["admin"]} />}>
                             <Route index element={<DashboardPage />} />

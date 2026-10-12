@@ -9,6 +9,7 @@ import AnnouncerVolume from '../components/announcerVolume.jsx';
 import { readLastRemarks, saveLastRemarks } from '../data/lastRemarks.js';
 import formatQueueNum from '../../data/queueNum.js';
 import { colorLabel } from '../../data/roofingColors.js';
+import Greetings from '../components/greetings.jsx';
 
 // a sales staff member's counter: serve the next customer, recall them, mark them done (one point each)
 // or send them back to waiting, plus their own served totals and the announcer volume
@@ -81,7 +82,7 @@ export default function SalesPage() {
         <section className="admin-page">
             <div className="admin-page-head">
                 <h1 className="admin-title">My counter</h1>
-                <span className="counter-who">Signed in as <strong>{user.name}</strong></span>
+                <Greetings name={user.firstName || user.name} role={user.role} />
             </div>
 
             {(error || actionError) && <p className="field-error" role="alert">{actionError || error}</p>}

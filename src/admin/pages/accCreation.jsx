@@ -3,12 +3,16 @@ import { useEffect, useRef, useState } from 'react';
 import { createUser, listUsers, updateUser } from '../api/adminUserController.js';
 import { useAuth } from '../auth/authContext.js';
 import { ROLE_LABELS } from '../auth/roles.js';
+import Avatar from '../components/avatar.jsx';
+import EmployeeGrid from '../components/employeeGrid.jsx';
 
 // staff accounts, admins only: create accounts (usually sales staff), reset passwords, switch accounts off,
 // and see how many customers each person has served
 // an account is switched off rather than deleted, so the customers it served stay on record
 
 const MIN_PASSWORD = 8;
+// who's signed in and serving keeps changing, so the list refreshes while the page is open
+const REFRESH_MS = 30000;
 const whole = new Intl.NumberFormat();
 const EMPTY_FORM = { name: "", username: "", password: "", role: "sales" };
 
@@ -70,13 +74,27 @@ export default function AccCreation() {
     const [resetError, setResetError] = useState("");
     const [error, setError] = useState("");
     const [notice, setNotice] = useState("");
+    // bumped on every save, so a refresh that started before it doesn't put the old details back
+    const edits = useRef(0);
 
     useEffect(() => {
         const controller = new AbortController();
-        listUsers({ signal: controller.signal })
-            .then(setAccounts)
-            .catch((err) => !controller.signal.aborted && setError(err.message));
-        return () => controller.abort();
+        const { signal } = controller;
+
+        // only the first load reports errors; a failed refresh keeps the list it has
+        const load = (quiet) => {
+            const seen = edits.current;
+            return listUsers({ signal })
+                .then((list) => edits.current === seen && setAccounts(list))
+                .catch((err) => !quiet && !signal.aborted && setError(err.message));
+        };
+
+        load(false);
+        const id = setInterval(() => load(true), REFRESH_MS);
+        return () => {
+            clearInterval(id);
+            controller.abort();
+        };
     }, []);
 
     const field = (key) => ({
@@ -84,7 +102,10 @@ export default function AccCreation() {
         onChange: (e) => setForm((prev) => ({ ...prev, [key]: e.target.value })),
     });
 
-    const replace = (saved) => setAccounts((prev) => prev.map((a) => (a.id === saved.id ? saved : a)));
+    const replace = (saved) => {
+        edits.current += 1;
+        setAccounts((prev) => prev.map((a) => (a.id === saved.id ? saved : a)));
+    };
 
     const create = async (e) => {
         e.preventDefault();
@@ -93,6 +114,7 @@ export default function AccCreation() {
         setNotice("");
         try {
             const created = await createUser({ ...form, username: form.username.trim(), name: form.name.trim() });
+            edits.current += 1;
             setAccounts((prev) => [...prev, created]);
             setNotice(`Account created. ${created.name} can sign in with the username “${created.username}”.`);
             setForm(EMPTY_FORM);
@@ -150,6 +172,8 @@ export default function AccCreation() {
 
             {error && <p className="field-error" role="alert">{error}</p>}
             {notice && <p className="admin-notice" role="status">{notice}</p>}
+
+            <EmployeeGrid accounts={accounts} meId={me.id} />
 
             <div className="admin-panel">
                 <h2>Create an account</h2>
@@ -224,7 +248,15 @@ export default function AccCreation() {
                             accounts.map((a) => (
                                 <tr key={a.id} className={a.disabled ? "is-disabled" : undefined}>
                                     <td>
-                                        <strong>{a.name}</strong>
+                                        <span className="account-person">
+                                            <Avatar account={a} size={32} />
+                                            <strong>{a.name}</strong>
+                                        </span>
+                                        {(a.employeeId || a.department) && (
+                                            <span className="history-note">
+                                                {[a.employeeId, a.department].filter(Boolean).join(" · ")}
+                                            </span>
+                                        )}
                                         {a.id === me.id && <span className="history-note">You</span>}
                                         {a.builtIn && <span className="history-note">Built-in admin (password set in .env)</span>}
                                     </td>

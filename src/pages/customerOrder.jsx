@@ -6,11 +6,12 @@ import Receipt from '../components/receipt.jsx';
 import Countdown from '../components/countdown.jsx';
 import { NameField, PurposeDropdown, OrderField } from '../components/fields.jsx';
 import formatQueueNum from '../data/queueNum.js';
+import newId from '../data/newId.js';
 import { ROOFING_PURPOSE } from '../data/roofingColors.js';
 import { createOrder, updateOrder } from '../api/orderController.js';
 import PrintFunc from '../printing/printFunc.jsx';
 
-const newOrder = () => ({ id: crypto.randomUUID(), item: "", qty: 0, color: "" });
+const newOrder = () => ({ id: newId(), item: "", qty: 0, color: "" });
 
 // after an order, the receipt stays up this long, then a thank-you shows before the form clears
 const RECEIPT_SECONDS = 30;

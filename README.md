@@ -43,12 +43,24 @@ server/
   migrations/              numbered .sql files that create and change the tables
   server.js                production server: the built site + the API (npm start)
   backup.js                copies the database and video (npm run backup)
+tests/
+  feature/                 API tests, e.g. ticketLifecycle.test.js (npm test)
+  support/testApp.js       starts the API on a fresh, throwaway database for each test
 data/                      created on first start, not in git: queue.db, videos/, backups/
 ```
 
+## Tests
+
+```bash
+npm test                                          # every test
+npm test -- --test-name-pattern="restoring"       # only tests whose name matches
+```
+
+Like `php artisan test` in Laravel: each test starts the real API with its own empty database in a temp folder (the way `RefreshDatabase` works), sends requests the way the kiosk, display and counters do, and checks the responses and the tables (`assertStatus`, `assertDatabaseHas`, `assertDatabaseMissing`, `assertDatabaseCount`). Nothing touches `data/` or `.env`. It uses Node's built-in test runner, so there's nothing to install.
+
 ## Database
 
-The app keeps its data in one SQLite file, `queue.db`, in the data folder (`data/` in the project, or `DATA_DIR` in `.env`). It's created on first start.
+The app keeps its data in one SQLite file, `queue.db`, in the data folder (`data/` in the project, or `DATA_DIR` in `.env`). It's created on first start. **Full walkthrough with the code behind every table and relationship: [DATABASE.md](DATABASE.md).**
 
 | Table            | Holds                                                                |
 | ---------------- | -------------------------------------------------------------------- |
@@ -87,6 +99,7 @@ The front end can hide screens, but **only the backend can protect data**. Anyon
 What the front end already does:
 
 - Never stores tokens in JavaScript. The session is an **httpOnly cookie** set by the backend, so injected scripts can't steal it.
+- **One sign-in per browser tab:** each tab sends its own id (`X-Tab-Id`) and the backend names that tab's session cookie after it, so a new tab or window starts signed out instead of borrowing someone else's sign-in. The cookie also ends when the browser closes.
 - Sends `X-Requested-With: XMLHttpRequest` on every request. The backend should reject `/admin` and `/auth` requests without it, which blocks cross-site form forgery.
 - Sends the user back to the login page on any `401`, and signs out after **15 minutes idle** (for shared counter PCs).
 - Shows a generic "Incorrect username or password" message, so attackers can't tell which usernames exist.
@@ -123,6 +136,10 @@ All paths are relative to `VITE_API_URL` (default `/api`).
 | GET    | `/admin/users`           | admin | → staff accounts with customers served                    |
 | POST   | `/admin/users`           | admin | `{ username, name, password, role }` → new account        |
 | PATCH  | `/admin/users/:id`       | admin | any of `{ name, role, password, disabled }` → account     |
+| PATCH  | `/admin/me`              | staff | `{ firstName, middleName, surname, employeeId, department }` → your account (My account) |
+| PUT    | `/admin/me/photo`        | staff | the image itself (JPEG, PNG or WebP, up to 2 MB) → your account |
+| DELETE | `/admin/me/photo`        | staff | removes your photo → your account                         |
+| GET    | `/photos/:id`            | staff | an account's profile photo                                |
 
 "staff" means any signed-in account (admin or sales); "admin" routes answer `403` to sales accounts.
 

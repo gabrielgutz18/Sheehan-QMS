@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { getVideo, videoFileUrl } from "../api/videoController.js";
 import { resolveVideo } from "../data/videoSource.js";
+import newId from "../data/newId.js";
 
 // the admin sets the video (link or upload) under Admin → Display video; re-check for changes this often
 const REFRESH_MS = 30000;
@@ -28,7 +29,7 @@ function FacebookVideo({ url }) {
         // built outside react because the SDK replaces the element's contents
         const el = document.createElement("div");
         el.className = "fb-video";
-        el.id = `fb-video-${crypto.randomUUID()}`;
+        el.id = `fb-video-${newId()}`;
         el.dataset.href = url;
         el.dataset.showText = "false";
         box.appendChild(el);

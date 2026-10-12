@@ -3,14 +3,23 @@
 // (see server/db.js), and an uploaded display video next to it in videos/, so nothing is lost on restart
 // two roles: admins can do everything; sales staff only what SALES_ROUTES lists
 import { createHash, randomBytes, scrypt, scryptSync, timingSafeEqual } from 'node:crypto';
-import { createReadStream, createWriteStream, mkdirSync, renameSync, rmSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { createReadStream, createWriteStream, mkdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { extname, join } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { promisify } from 'node:util';
 
 import { openDatabase, resolveDataDir, transaction } from './db.js';
 
 const SESSION_COOKIE = "sid";
+// each browser tab signs in on its own: the page sends its tab's id (X-Tab-Id) and the session cookie is named
+// after it, so a second tab or window of the same browser isn't already signed in as someone else
+const TAB_ID = /^[a-f0-9]{32}$/;
+const sessionCookieName = (req) => {
+    const tab = req.headers["x-tab-id"];
+    return typeof tab === "string" && TAB_ID.test(tab) ? `${SESSION_COOKIE}_${tab}` : SESSION_COOKIE;
+};
+const readCookies = (req) => Object.fromEntries(
+    (req.headers.cookie ?? "").split(/;\s*/).filter((c) => c.includes("=")).map((c) => [c.slice(0, c.indexOf("=")), c.slice(c.indexOf("=") + 1)]));
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 const ORDER_STATUSES = ["pending", "serving", "done"];
 const MAX_REMARKS = 120;
@@ -39,6 +48,9 @@ const SALES_ROUTES = [
     ["POST", /^\/admin\/history\/\d+\/restore$/],
     ["GET", /^\/admin\/me\/stats$/],
     ["PUT", /^\/admin\/announcer\/volume$/],
+    ["PATCH", /^\/admin\/me$/],
+    ["PUT", /^\/admin\/me\/photo$/],
+    ["DELETE", /^\/admin\/me\/photo$/],
 ];
 const salesMay = (method, path) => SALES_ROUTES.some(([m, route]) => m === method && route.test(path));
 
@@ -139,6 +151,18 @@ const readBody = async (req) => {
 
 // streams an upload straight to disk instead of holding it in memory; returns its size
 // a partly written file is removed if the upload is too big or breaks off
+// a small upload (a profile photo) read into memory; rejects past the limit
+const readBytes = async (req, limit) => {
+    const chunks = [];
+    let size = 0;
+    for await (const chunk of req) {
+        size += chunk.length;
+        if (size > limit) throw new Error("Body too large");
+        chunks.push(chunk);
+    }
+    return Buffer.concat(chunks);
+};
+
 const saveUpload = async (req, path, limit) => {
     const partial = `${path}.part`;
     let size = 0;
@@ -225,6 +249,45 @@ function validVolume(volume) {
 const validName = (name) => typeof name === "string" && name.trim().length >= 1 && name.trim().length <= 60;
 const validPassword = (password) => typeof password === "string" && password.length >= MIN_PASSWORD && password.length <= 128;
 
+// My account: the name in parts, plus employee ID and department
+const NAME_PART_MAX = 40;
+const EMPLOYEE_ID = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,29}$/;
+const DEPARTMENT_MAX = 60;
+
+// "Maria" + "Santos" → "Maria Santos", the name shown around the app (users.name)
+const displayName = (first, surname) => [first, surname].filter(Boolean).join(" ");
+
+// a one-line name split at the first space, as admins type it on Accounts: "Maria Dela Cruz" → ["Maria", "Dela Cruz"]
+const splitName = (name) => {
+    const trimmed = name.trim();
+    const space = trimmed.indexOf(" ");
+    return space === -1 ? [trimmed, ""] : [trimmed.slice(0, space), trimmed.slice(space + 1).trim()];
+};
+
+// profile photos: the accepted types, and how each file must start, so only real pictures are kept
+const PHOTO_TYPES = {
+    "image/jpeg": { ext: ".jpg", isIt: (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
+    "image/png": { ext: ".png", isIt: (b) => b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) },
+    "image/webp": { ext: ".webp", isIt: (b) => b.toString("ascii", 0, 4) === "RIFF" && b.toString("ascii", 8, 12) === "WEBP" },
+};
+const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
+const photoType = (file) => Object.keys(PHOTO_TYPES).find((type) => PHOTO_TYPES[type].ext === extname(file));
+
+// the signed-in account as the app sees it; never the password hash
+const toMe = (row) => ({
+    id: row.id,
+    username: row.username,
+    name: row.name,
+    role: row.role,
+    firstName: row.first_name,
+    middleName: row.middle_name,
+    surname: row.surname,
+    employeeId: row.employee_id,
+    department: row.department,
+    // the photo's file name doubles as a version for its URL, or null
+    photo: row.photo,
+});
+
 const pickOrder = ({ name, purpose, orders: items }) => ({
     name: name.trim(),
     purpose,
@@ -267,7 +330,9 @@ const likePattern = (text) => `%${text.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 export function createApi({ adminUsername, adminPassword, dataDir }) {
     const dir = resolveDataDir(dataDir);
     const videosDir = join(dir, "videos");
+    const photosDir = join(dir, "photos");
     mkdirSync(videosDir, { recursive: true });
+    mkdirSync(photosDir, { recursive: true });
     const db = openDatabase(dir);
 
     const sql = {
@@ -347,7 +412,9 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         insertSession: db.prepare("INSERT INTO sessions (sid_hash, user_id, expires) VALUES (?, ?, ?)"),
         // a disabled account's sign-ins stop working at once
         findSession: db.prepare(`
-            SELECT s.expires, u.id, u.username, u.name, u.role FROM sessions s JOIN users u ON u.id = s.user_id
+            SELECT s.expires, u.id, u.username, u.name, u.role, u.first_name, u.middle_name, u.surname,
+                u.employee_id, u.department, u.photo
+            FROM sessions s JOIN users u ON u.id = s.user_id
             WHERE s.sid_hash = ? AND u.disabled_at IS NULL`),
         deleteSession: db.prepare("DELETE FROM sessions WHERE sid_hash = ?"),
         deleteExpiredSessions: db.prepare("DELETE FROM sessions WHERE expires < ?"),
@@ -356,15 +423,29 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
 
         findUser: db.prepare("SELECT * FROM users WHERE username = ?"),
         findUserById: db.prepare("SELECT * FROM users WHERE id = ?"),
-        insertUser: db.prepare("INSERT INTO users (username, name, role, password_hash, created_at) VALUES (?, ?, ?, ?, ?)"),
+        insertUser: db.prepare(`
+            INSERT INTO users (username, name, first_name, surname, role, password_hash, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)`),
         resetBuiltInAdmin: db.prepare("UPDATE users SET role = 'admin', disabled_at = NULL, password_hash = ? WHERE id = ?"),
         updateUser: db.prepare(`
-            UPDATE users SET name = :name, role = :role, disabled_at = :disabledAt, password_hash = :passwordHash
+            UPDATE users SET name = :name, first_name = :firstName, surname = :surname, role = :role,
+                disabled_at = :disabledAt, password_hash = :passwordHash
             WHERE id = :id`),
+        // My account
+        updateProfile: db.prepare(`
+            UPDATE users SET name = :name, first_name = :firstName, middle_name = :middleName, surname = :surname,
+                employee_id = :employeeId, department = :department
+            WHERE id = :id`),
+        employeeIdTaken: db.prepare("SELECT id FROM users WHERE employee_id = ? COLLATE NOCASE AND id != ?"),
+        setPhoto: db.prepare("UPDATE users SET photo = ? WHERE id = ?"),
+        // signed_in: a sign-in that hasn't expired or been signed out (closing the browser doesn't end it, the TTL does)
         listUsers: db.prepare(`
             SELECT u.*,
                 (SELECT COUNT(*) FROM serves s WHERE s.user_id = u.id) AS served_total,
-                (SELECT COUNT(*) FROM serves s WHERE s.user_id = u.id AND date(s.served_at, 'localtime') = ?) AS served_today
+                (SELECT COUNT(*) FROM serves s WHERE s.user_id = u.id AND date(s.served_at, 'localtime') = :today) AS served_today,
+                (SELECT COUNT(*) FROM orders o
+                    WHERE o.served_by = u.id AND o.status = 'serving' AND o.deleted_at IS NULL AND o.queue_date = :today) AS serving_now,
+                EXISTS (SELECT 1 FROM sessions s WHERE s.user_id = u.id AND s.expires > :now) AS signed_in
             FROM users u
             ORDER BY u.disabled_at IS NOT NULL, u.role, u.name COLLATE NOCASE`),
 
@@ -392,19 +473,18 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
     // the admin from .env always exists, as an enabled admin with the .env password, so nobody is locked out
     const builtIn = sql.findUser.get(adminUsername);
     if (builtIn) sql.resetBuiltInAdmin.run(hashPasswordSync(adminPassword), builtIn.id);
-    else sql.insertUser.run(adminUsername, adminUsername, "admin", hashPasswordSync(adminPassword), new Date().toISOString());
+    else sql.insertUser.run(adminUsername, adminUsername, adminUsername, "", "admin", hashPasswordSync(adminPassword), new Date().toISOString());
 
     const toUser = (row) => ({
-        id: row.id,
-        username: row.username,
-        name: row.name,
-        role: row.role,
+        ...toMe(row),
         createdAt: row.created_at,
         disabled: row.disabled_at !== null,
         // its password and role come from .env
         builtIn: isBuiltIn(row),
         servedToday: row.served_today,
         servedTotal: row.served_total,
+        servingNow: row.serving_now,
+        signedIn: Boolean(row.signed_in),
     });
 
     // moves a ticket to a new status and keeps "who is serving it" and the points in step:
@@ -454,8 +534,15 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         : video.kind === "url" ? { kind: "url", url: video.url }
         : { kind: "file", name: video.name, version: video.version };
 
-    const getSession = (req) => {
-        const sid = req.headers.cookie?.match(/(?:^|;\s*)sid=([^;]+)/)?.[1];
+    // replaces an account's profile photo (or removes it with null), deleting the old file
+    const setPhoto = (userId, file) => {
+        const previous = sql.findUserById.get(userId).photo;
+        sql.setPhoto.run(file, userId);
+        if (previous && previous !== file) rmSync(join(photosDir, previous), { force: true });
+    };
+
+    // the session behind one cookie value, or null
+    const sessionFor = (sid) => {
         if (!sid) return null;
         const sidHash = sha256(sid);
         const row = sql.findSession.get(sidHash);
@@ -464,8 +551,18 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             sql.deleteSession.run(sidHash);
             return null;
         }
-        return { sidHash, user: { id: row.id, username: row.username, name: row.name, role: row.role } };
+        return { sidHash, user: toMe(row) };
     };
+
+    // this tab's sign-in
+    const getSession = (req) => sessionFor(readCookies(req)[sessionCookieName(req)]);
+
+    // any tab's sign-in in this browser: for <img> requests (profile photos), which can't send X-Tab-Id
+    const anySession = (req) =>
+        Object.entries(readCookies(req))
+            .filter(([name]) => name === SESSION_COOKIE || name.startsWith(`${SESSION_COOKIE}_`))
+            .map(([, sid]) => sessionFor(sid))
+            .find(Boolean) ?? null;
 
     async function handle(req, res) {
         const url = new URL(req.url, "http://localhost");
@@ -484,12 +581,14 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             if (!account || !passwordOk || account.disabled_at !== null) {
                 return send(res, 401, { message: "Incorrect username or password." });
             }
-            const user = { id: account.id, username: account.username, name: account.name, role: account.role };
+            const user = toMe(account);
             const sid = randomBytes(32).toString("hex");
             sql.deleteExpiredSessions.run(Date.now());
             sql.insertSession.run(sha256(sid), account.id, Date.now() + SESSION_TTL_MS);
             return send(res, 200, user, {
-                "Set-Cookie": `${SESSION_COOKIE}=${sid}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${SESSION_TTL_MS / 1000}`,
+                // no Max-Age: the browser forgets it when it closes, so the next person on a shared PC signs in
+                // themselves; the server still ends it after SESSION_TTL_MS
+                "Set-Cookie": `${sessionCookieName(req)}=${sid}; HttpOnly; SameSite=Strict; Path=/`,
             });
         }
 
@@ -556,11 +655,32 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         }
         const me = session?.user;
 
+        // a staff member's profile photo, for any signed-in account; a plain GET from an <img>, so it lives
+        // outside /admin, where every request must carry the X-Requested-With header
+        const photoMatch = path.match(/^\/photos\/(\d+)$/);
+        if (method === "GET" && photoMatch) {
+            if (!anySession(req)) return send(res, 401, { message: "Please sign in." });
+            const account = sql.findUserById.get(Number(photoMatch[1]));
+            const file = account?.photo ? join(photosDir, account.photo) : null;
+            const stats = file ? statSync(file, { throwIfNoEntry: false }) : undefined;
+            if (!stats) return send(res, 404, { message: "No photo." });
+            res.writeHead(200, {
+                "Content-Type": photoType(file),
+                "Content-Length": stats.size,
+                // the URL changes with every new photo, so the browser can keep this one
+                "Cache-Control": "private, max-age=31536000, immutable",
+                "X-Content-Type-Options": "nosniff",
+            });
+            return pipeline(createReadStream(file), res).catch(() => {
+                // the page went away part-way; nothing to do
+            });
+        }
+
         if (method === "GET" && path === "/auth/me") return send(res, 200, session.user);
 
         if (method === "POST" && path === "/auth/logout") {
             sql.deleteSession.run(session.sidHash);
-            return send(res, 204, undefined, { "Set-Cookie": `${SESSION_COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0` });
+            return send(res, 204, undefined, { "Set-Cookie": `${sessionCookieName(req)}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0` });
         }
 
         if (method === "PUT" && path === "/admin/video") {
@@ -612,7 +732,7 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             return send(res, 200, readSetting("announcer"));
         }
 
-        if (method === "GET" && path === "/admin/users") return send(res, 200, sql.listUsers.all(today()).map(toUser));
+        if (method === "GET" && path === "/admin/users") return send(res, 200, sql.listUsers.all({ today: today(), now: Date.now() }).map(toUser));
 
         // only admins get here (see SALES_ROUTES); new accounts are usually sales staff
         if (method === "POST" && path === "/admin/users") {
@@ -624,8 +744,11 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             if (!validPassword(password)) return send(res, 400, { message: `Passwords need at least ${MIN_PASSWORD} characters.` });
             if (!ROLES.includes(role)) return send(res, 400, { message: "Pick sales or admin." });
             if (sql.findUser.get(username.trim())) return send(res, 409, { message: "That username is taken." });
-            const { lastInsertRowid } = sql.insertUser.run(username.trim(), name.trim(), role, await hashPassword(password), new Date().toISOString());
-            return send(res, 201, toUser({ ...sql.findUserById.get(lastInsertRowid), served_total: 0, served_today: 0 }));
+            // they can add a middle name, employee ID and department themselves on My account
+            const [firstName, surname] = splitName(name);
+            const { lastInsertRowid } = sql.insertUser.run(
+                username.trim(), name.trim(), firstName, surname, role, await hashPassword(password), new Date().toISOString());
+            return send(res, 201, toUser({ ...sql.findUserById.get(lastInsertRowid), served_total: 0, served_today: 0, serving_now: 0, signed_in: 0 }));
         }
 
         // { name?, role?, password?, disabled? }
@@ -636,6 +759,8 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             const body = await readBody(req);
             const changes = {
                 name: account.name,
+                firstName: account.first_name,
+                surname: account.surname,
                 role: account.role,
                 disabledAt: account.disabled_at,
                 passwordHash: account.password_hash,
@@ -643,6 +768,7 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             if (body.name !== undefined) {
                 if (!validName(body.name)) return send(res, 400, { message: "Enter the staff member's name." });
                 changes.name = body.name.trim();
+                [changes.firstName, changes.surname] = splitName(body.name);
             }
             const lockedOut = isBuiltIn(account) || account.id === me.id;
             if (body.role !== undefined && body.role !== account.role) {
@@ -664,7 +790,60 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             if (changes.passwordHash !== account.password_hash || changes.role !== account.role || changes.disabledAt) {
                 sql.deleteUserSessions.run(account.id, session.sidHash);
             }
-            return send(res, 200, sql.listUsers.all(today()).map(toUser).find((u) => u.id === account.id));
+            return send(res, 200, sql.listUsers.all({ today: today(), now: Date.now() }).map(toUser).find((u) => u.id === account.id));
+        }
+
+        // My account: { firstName, middleName, surname, employeeId, department } → your account
+        if (method === "PATCH" && path === "/admin/me") {
+            const body = await readBody(req);
+            const text = (value) => (typeof value === "string" ? value.trim() : "");
+            const profile = {
+                firstName: text(body.firstName),
+                middleName: text(body.middleName),
+                surname: text(body.surname),
+                employeeId: text(body.employeeId) || null,
+                department: text(body.department),
+            };
+            if (!profile.firstName || profile.firstName.length > NAME_PART_MAX) {
+                return send(res, 400, { message: `Enter your first name (up to ${NAME_PART_MAX} characters).` });
+            }
+            if (!profile.surname || profile.surname.length > NAME_PART_MAX) {
+                return send(res, 400, { message: `Enter your surname (up to ${NAME_PART_MAX} characters).` });
+            }
+            if (profile.middleName.length > NAME_PART_MAX) {
+                return send(res, 400, { message: `Middle names can be up to ${NAME_PART_MAX} characters.` });
+            }
+            if (profile.employeeId && !EMPLOYEE_ID.test(profile.employeeId)) {
+                return send(res, 400, { message: "Employee IDs are up to 30 letters, numbers, dots, dashes or slashes." });
+            }
+            if (profile.employeeId && sql.employeeIdTaken.get(profile.employeeId, me.id)) {
+                return send(res, 409, { message: "That employee ID belongs to another account." });
+            }
+            if (profile.department.length > DEPARTMENT_MAX) {
+                return send(res, 400, { message: `Departments can be up to ${DEPARTMENT_MAX} characters.` });
+            }
+            sql.updateProfile.run({ ...profile, name: displayName(profile.firstName, profile.surname), id: me.id });
+            return send(res, 200, toMe(sql.findUserById.get(me.id)));
+        }
+
+        // your profile photo, sent as the image itself (My account shrinks it to a small square first)
+        if (method === "PUT" && path === "/admin/me/photo") {
+            const type = PHOTO_TYPES[req.headers["content-type"]];
+            if (!type) return send(res, 415, { message: "Upload a JPEG, PNG or WebP picture." });
+            if (Number(req.headers["content-length"]) > MAX_PHOTO_BYTES) {
+                return send(res, 413, { message: "Photos can be up to 2 MB." });
+            }
+            const bytes = await readBytes(req, MAX_PHOTO_BYTES);
+            if (!type.isIt(bytes)) return send(res, 400, { message: "That file isn't a picture." });
+            const file = `user-${me.id}-${Date.now()}${type.ext}`;
+            writeFileSync(join(photosDir, file), bytes);
+            setPhoto(me.id, file);
+            return send(res, 200, toMe(sql.findUserById.get(me.id)));
+        }
+
+        if (method === "DELETE" && path === "/admin/me/photo") {
+            setPhoto(me.id, null);
+            return send(res, 200, toMe(sql.findUserById.get(me.id)));
         }
 
         // ?period=day|week|month|year → { period, from, to, totals: { total, today, week, month, year },

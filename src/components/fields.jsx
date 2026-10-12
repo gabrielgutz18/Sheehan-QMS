@@ -3,6 +3,7 @@ import '../style/fields.css';
 import purpose from '../data/purpose.js';
 import { ROOFING_PURPOSE } from '../data/roofingColors.js';
 import RoofingColorSelector from './roofingColorSelector.jsx';
+import newId from '../data/newId.js';
 
 export function NameField({ value, onChange, error }) {
     return (
@@ -92,7 +93,7 @@ export function OrderField({ orders, purpose, onChange, error }) {
         onChange(orders.map((o) => (o.id === id ? { ...o, ...changes } : o)));
 
     const addOrder = () =>
-        onChange([...orders, { id: crypto.randomUUID(), item: "", qty: 0, color: "" }]);
+        onChange([...orders, { id: newId(), item: "", qty: 0, color: "" }]);
 
     const removeOrder = (id) => onChange(orders.filter((o) => o.id !== id));
 

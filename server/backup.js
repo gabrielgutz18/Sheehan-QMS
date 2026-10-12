@@ -1,4 +1,4 @@
-// copies the database and the uploaded display video into <BACKUP_DIR>/<date_time>/ (default:
+// copies the database, the uploaded display video and staff photos into <BACKUP_DIR>/<date_time>/ (default:
 // backups/ in the data folder), keeping the newest KEEP backups; safe to run while the app is running
 // run: npm run backup   (on the server, schedule it daily with Windows Task Scheduler and set
 // BACKUP_DIR to another drive, so a failed disk doesn't take the backups with it)
@@ -29,8 +29,11 @@ const db = new DatabaseSync(source);
 db.exec(`VACUUM INTO '${join(target, DB_FILE).replaceAll("'", "''")}'`);
 db.close();
 
-const videos = join(dataDir, "videos");
-if (existsSync(videos)) cpSync(videos, join(target, "videos"), { recursive: true });
+// uploaded files: the display video and staff profile photos
+for (const folder of ["videos", "photos"]) {
+    const from = join(dataDir, folder);
+    if (existsSync(from)) cpSync(from, join(target, folder), { recursive: true });
+}
 
 const old = readdirSync(backupsDir).sort().slice(0, -KEEP);
 for (const name of old) rmSync(join(backupsDir, name), { recursive: true, force: true });

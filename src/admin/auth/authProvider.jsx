@@ -66,7 +66,8 @@ export default function AuthProvider({ children }) {
         };
     }, [status, logout]);
 
-    const value = useMemo(() => ({ status, user, login, logout }), [status, user, login, logout]);
+    // setUser: My account hands back the updated account, so the name and photo change everywhere at once
+    const value = useMemo(() => ({ status, user, login, logout, setUser }), [status, user, login, logout]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

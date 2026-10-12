@@ -1,3 +1,5 @@
+import newId from '../data/newId.js';
+
 // base URL for the backend; override with VITE_API_URL in a .env.local file
 const BASE_URL = import.meta.env.VITE_API_URL ?? "/api";
 
@@ -6,6 +8,23 @@ export const apiUrl = (path) => `${BASE_URL}${path}`;
 
 // give up on a request that hangs instead of leaving the UI spinning
 const TIMEOUT_MS = 15000;
+
+// this browser tab's id, kept for as long as the tab is open (it survives reloads); the backend names this tab's
+// session cookie after it, so every tab or window signs in on its own
+const TAB_KEY = "tabId";
+const tabId = (() => {
+    try {
+        let id = sessionStorage.getItem(TAB_KEY);
+        if (!id) {
+            id = newId();
+            sessionStorage.setItem(TAB_KEY, id);
+        }
+        return id;
+    } catch {
+        // storage blocked: this page load signs in on its own
+        return newId();
+    }
+})();
 
 export class HttpError extends Error {
     constructor(status, message, data) {
@@ -40,6 +59,7 @@ async function request(method, path, body, { signal, timeout = TIMEOUT_MS, heade
                 Accept: "application/json",
                 // a custom header forces a CORS preflight, so other sites can't forge requests
                 "X-Requested-With": "XMLHttpRequest",
+                "X-Tab-Id": tabId,
                 ...(body !== undefined && { "Content-Type": isFile ? body.type || "application/octet-stream" : "application/json" }),
                 ...headers,
             },

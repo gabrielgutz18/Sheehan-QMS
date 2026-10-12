@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
+    "test": "node --test",
     "preview": "vite preview",
     "start": "node --env-file-if-exists=.env server/server.js",
     "backup": "node --env-file-if-exists=.env server/backup.js"
