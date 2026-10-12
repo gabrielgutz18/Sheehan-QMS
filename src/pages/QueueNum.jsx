@@ -5,6 +5,7 @@ import '../style/queueNum.css';
 
 //components
 import Header from '../components/header.jsx';
+import Call from '../components/call.jsx';
 import NumberCard from '../components/numberCard.jsx';
 import VideoUp from '../components/videoup.jsx';
 import formatQueueNum from '../data/queueNum.js';
@@ -143,6 +144,9 @@ export default function QueueNum() {
                     </section>
                 </div>
             </main>
+
+            {/* chime + voice for each new call */}
+            <Call serving={serving} loaded={loaded} />
         </div>
     );
 }

@@ -14,4 +14,14 @@ export const updateOrderStatus = (queueNum, status) =>
 export const callOrder = (queueNum, remarks) =>
     http.post(`/admin/orders/${encodeURIComponent(queueNum)}/call`, { remarks });
 
+// takes the ticket out of the queue and moves it to History, where it can be restored
 export const deleteOrder = (queueNum) => http.delete(`/admin/orders/${encodeURIComponent(queueNum)}`);
+
+// tickets from any day, newest first (up to 200)
+// filters: { search: name or ticket number, day: "YYYY-MM-DD", deleted: true for deleted ones only }
+// → [{ id, date, isToday, queueNum, name, purpose, orders, status, deletedAt, restoredAt, originalDate?, originalNum? }]
+export const listHistory = ({ search = "", day = "", deleted = false } = {}, options) =>
+    http.get(`/admin/history?${new URLSearchParams({ search, day, deleted: deleted ? "1" : "0" })}`, options);
+
+// puts a ticket back in today's queue as waiting; one from an earlier day gets today's next number
+export const restoreOrder = (id) => http.post(`/admin/history/${encodeURIComponent(id)}/restore`);

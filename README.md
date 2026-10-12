@@ -5,19 +5,22 @@ React + Vite front end with two areas:
 | Path       | Who        | What                                             |
 | ---------- | ---------- | ------------------------------------------------ |
 | `/`        | Customers  | Fill in an order and get a queue number (SHN 01) |
-| `/admin/*` | Staff only | Sign in, see the queue, update or delete orders  |
+| `/admin/*` | Staff only | Sign in: admins run everything, sales staff serve customers from My counter |
+| `/sales`   | Sales staff | Short address for My counter (`/admin/counter`); asks them to sign in first if needed |
 
 The admin code is lazy-loaded into its own bundle, so the customer page never downloads it.
 
 ## Getting started
 
+Needs Node.js 22.13 or newer (24 LTS recommended); the database is built into Node, so there's nothing else to install.
+
 ```bash
 npm install
-cp .env.example .env.local   # optional — defaults to /api
+cp .env.example .env         # then set ADMIN_USERNAME / ADMIN_PASSWORD
 npm run dev                  # http://localhost:5173
 ```
 
-In development, `npm run dev` also serves an in-memory test API at `/api` (`server/api.js`), with the admin login taken from `ADMIN_USERNAME` / `ADMIN_PASSWORD` in `.env`. Orders reset when the dev server restarts. Once a real backend exists, set `DEV_API=off` in `.env` and Vite forwards `/api/*` to `http://localhost:3000` instead (see `vite.config.js`).
+`npm run dev` also serves the API at `/api` (`server/api.js`). Orders, the display video and staff sign-ins are saved in a SQLite database in `data/` (see [Database](#database)), so they're still there after a restart. To run the API on its own instead, set `DEV_API=off` in `.env`, run `npm start` in a second terminal, and Vite forwards `/api/*` to it on port 3000.
 
 ## Project structure
 
@@ -34,7 +37,60 @@ src/
     hooks/                 useOrders.js (auto-refreshes every 10s)
     pages/                 loginPage, dashboardPage, ordersPage
     data/  style/
+server/
+  api.js                   every /api route
+  db.js                    opens the database and runs migrations
+  migrations/              numbered .sql files that create and change the tables
+  server.js                production server: the built site + the API (npm start)
+  backup.js                copies the database and video (npm run backup)
+tests/
+  feature/                 API tests, e.g. ticketLifecycle.test.js (npm test)
+  support/testApp.js       starts the API on a fresh, throwaway database for each test
+data/                      created on first start, not in git: queue.db, videos/, backups/
 ```
+
+## Tests
+
+```bash
+npm test                                          # every test
+npm test -- --test-name-pattern="restoring"       # only tests whose name matches
+```
+
+Like `php artisan test` in Laravel: each test starts the real API with its own empty database in a temp folder (the way `RefreshDatabase` works), sends requests the way the kiosk, display and counters do, and checks the responses and the tables (`assertStatus`, `assertDatabaseHas`, `assertDatabaseMissing`, `assertDatabaseCount`). Nothing touches `data/` or `.env`. It uses Node's built-in test runner, so there's nothing to install.
+
+## Database
+
+The app keeps its data in one SQLite file, `queue.db`, in the data folder (`data/` in the project, or `DATA_DIR` in `.env`). It's created on first start. **Full walkthrough with the code behind every table and relationship: [DATABASE.md](DATABASE.md).**
+
+| Table            | Holds                                                                |
+| ---------------- | -------------------------------------------------------------------- |
+| `orders`         | one row per ticket: day, number, name, purpose, status, remarks      |
+| `order_items`    | the lines of each order (item, qty, roofing color)                   |
+| `queue_counters` | last number given out each day, so a deleted ticket's number isn't reused |
+| `settings`       | the display video                                                    |
+| `sessions`       | staff sign-ins (hashed), so a restart doesn't sign everyone out      |
+
+Queue numbers start again at 1 every day (by the server's clock). The queue, the display and the admin show today's tickets; earlier days stay in the database as history.
+
+**Deleting and restoring:** Delete in Admin → Orders doesn't erase a ticket; it moves it to Admin → History. Restore there puts it back in today's queue as waiting: a ticket from today keeps its number, one from an earlier day gets today's next number (History still shows the number it had first).
+
+**Changing the tables:** add the next numbered file to `server/migrations/`, e.g. `002_add_counter_column.sql`. On the next start, the server runs every file it hasn't run yet, in order, and records it in `schema_migrations`. Existing data is kept. Never edit a migration that has already run; add a new one instead.
+
+**Backups:** `npm run backup` writes a dated copy of the database and the uploaded video to `backups/` in the data folder (or `BACKUP_DIR`), keeping the last 14. It's safe while the app is running. To restore, stop the app, copy a backup's `queue.db` and `videos/` into the data folder, and start it again.
+
+**Moving to another computer:** stop the app and copy the whole data folder across.
+
+## Staff accounts and roles
+
+| Role  | Can |
+| ----- | --- |
+| Admin | Everything: dashboard and sales graph, Orders (including delete), History, display video, announcer voice and volume, printer, Accounts |
+| Sales | My counter: serve the next customer, recall, mark done, send back to waiting; see their own customers served (today / week / month / year / all time); History and restore; announcer volume |
+
+- **Accounts:** admins create them in Admin → Accounts. Passwords are stored hashed (scrypt). An account is switched off instead of deleted, so the customers it served stay on record. Switching an account off, or changing its password or role, signs it out everywhere.
+- **The built-in admin:** the account in `.env` (`ADMIN_USERNAME` / `ADMIN_PASSWORD`) is created at the first start and always keeps the `.env` password and the admin role, so you can't lock yourself out.
+- **Points:** whoever calls a customer is serving them. When the ticket is marked Done, that person gets one point. Reopening the ticket the same visit takes the point back; a restored ticket keeps the points from its earlier visit.
+- **Enforced by the backend:** sales accounts get only the routes listed in `SALES_ROUTES` (`server/api.js`); every other `/admin` route answers `403`.
 
 ## Security model
 
@@ -43,6 +99,7 @@ The front end can hide screens, but **only the backend can protect data**. Anyon
 What the front end already does:
 
 - Never stores tokens in JavaScript. The session is an **httpOnly cookie** set by the backend, so injected scripts can't steal it.
+- **One sign-in per browser tab:** each tab sends its own id (`X-Tab-Id`) and the backend names that tab's session cookie after it, so a new tab or window starts signed out instead of borrowing someone else's sign-in. The cookie also ends when the browser closes.
 - Sends `X-Requested-With: XMLHttpRequest` on every request. The backend should reject `/admin` and `/auth` requests without it, which blocks cross-site form forgery.
 - Sends the user back to the login page on any `401`, and signs out after **15 minutes idle** (for shared counter PCs).
 - Shows a generic "Incorrect username or password" message, so attackers can't tell which usernames exist.
@@ -65,25 +122,46 @@ All paths are relative to `VITE_API_URL` (default `/api`).
 | ------ | ------------------------ | ----- | --------------------------------------------------------- |
 | POST   | `/orders`                | —     | `{ name, purpose, orders: [{ item, qty }] }` → saved order |
 | PUT    | `/orders/:queueNum`      | —     | same body → saved order                                   |
-| POST   | `/auth/login`            | —     | `{ username, password }` → `{ id, name, role }` + cookie  |
-| GET    | `/auth/me`               | admin | → `{ id, name, role }`, or `401`                          |
-| POST   | `/auth/logout`           | admin | clears the cookie                                         |
-| GET    | `/admin/orders`          | admin | → `[{ queueNum, name, purpose, orders, status }]`         |
-| PATCH  | `/admin/orders/:queueNum`| admin | `{ status: "pending" \| "serving" \| "done" }` → order    |
-| DELETE | `/admin/orders/:queueNum`| admin | → `204`                                                   |
+| POST   | `/auth/login`            | —     | `{ username, password }` → `{ id, username, name, role }` + cookie |
+| GET    | `/auth/me`               | staff | → `{ id, username, name, role }`, or `401`                |
+| POST   | `/auth/logout`           | staff | clears the cookie                                         |
+| GET    | `/admin/orders`          | staff | → today's `[{ queueNum, name, purpose, orders, status, servedBy? }]` |
+| POST   | `/admin/orders/:queueNum/call` | staff | `{ remarks }` → order, served by the caller         |
+| PATCH  | `/admin/orders/:queueNum`| staff | `{ status: "pending" \| "serving" \| "done" }` → order    |
+| DELETE | `/admin/orders/:queueNum`| admin | moves the ticket to History → `204`                       |
+| GET    | `/admin/history`         | staff | `?search=&day=YYYY-MM-DD&deleted=1` → tickets from any day, with `id` |
+| POST   | `/admin/history/:id/restore` | staff | → the ticket, back in today's queue as waiting        |
+| GET    | `/admin/me/stats`        | staff | `?period=day\|week\|month\|year` → your customers served  |
+| PUT    | `/admin/announcer/volume`| staff | `{ volume: 0–1 }` → announcer settings                    |
+| GET    | `/admin/users`           | admin | → staff accounts with customers served                    |
+| POST   | `/admin/users`           | admin | `{ username, name, password, role }` → new account        |
+| PATCH  | `/admin/users/:id`       | admin | any of `{ name, role, password, disabled }` → account     |
+| PATCH  | `/admin/me`              | staff | `{ firstName, middleName, surname, employeeId, department }` → your account (My account) |
+| PUT    | `/admin/me/photo`        | staff | the image itself (JPEG, PNG or WebP, up to 2 MB) → your account |
+| DELETE | `/admin/me/photo`        | staff | removes your photo → your account                         |
+| GET    | `/photos/:id`            | staff | an account's profile photo                                |
+
+"staff" means any signed-in account (admin or sales); "admin" routes answer `403` to sales accounts.
+
+`:queueNum` always means today's ticket with that number.
 
 ## Deployment
 
-```bash
-npm run build      # outputs dist/
-```
+### Windows server (recommended)
 
-**Local company server (recommended):** serve `dist/` and the API from the same machine, so cookies and `/api` work with no CORS setup. The web server must send unknown paths to `index.html` so links like `/admin/orders` load. For example, with nginx:
+`npm start` serves the built site and the API from one port, so cookies and `/api` work with no extra setup.
 
-```nginx
-location /api/ { proxy_pass http://127.0.0.1:3000; }
-location /     { try_files $uri /index.html; }
-```
+1. Install [Node.js 24 LTS](https://nodejs.org) on the server.
+2. Copy the project to the server (e.g. `C:\SheehanQueue\app`) and run `npm ci` there.
+3. Create `.env` from `.env.example`: set the admin login, `DATA_DIR=C:\SheehanQueue\data` (outside the app folder, so updates never touch it) and `BACKUP_DIR` on another drive.
+4. `npm run build`, then `npm start`. The first start creates the database. Open `http://<server-ip>:3000` from a kiosk to check.
+5. Make it start with Windows: install it as a service with [WinSW](https://github.com/winsw/winsw) or [NSSM](https://nssm.cc), running `node --env-file=C:\SheehanQueue\app\.env C:\SheehanQueue\app\server\server.js`, set to restart on failure.
+6. Allow the port through Windows Defender Firewall for the local network, and give the server a fixed IP so kiosks and displays can find it.
+7. Back up daily: a Task Scheduler job that runs `npm run backup` in the app folder.
+
+On each kiosk with a printer, start the print service with `--origin http://<server-ip>:3000` so the page is allowed to print (see `src/printing/script/printService.py`).
+
+**Updating:** stop the service, replace the app files (not the data folder), `npm ci`, `npm run build`, start the service. New migrations run by themselves.
 
 **Public / online:** same setup behind HTTPS. If the API lives on another domain, set `VITE_API_URL=https://api.example.com/api` before building.
 

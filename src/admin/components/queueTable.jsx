@@ -5,25 +5,7 @@ import { callOrder, deleteOrder, updateOrderStatus } from '../api/adminOrderCont
 import CallDialog from './callDialog.jsx';
 import formatQueueNum from '../../data/queueNum.js';
 import { colorLabel } from '../../data/roofingColors.js';
-
-// the dialog starts with the last remarks used, since staff usually call to the same window
-const LAST_REMARKS_KEY = "admin.lastRemarks";
-
-const readLastRemarks = () => {
-    try {
-        return localStorage.getItem(LAST_REMARKS_KEY) ?? "";
-    } catch {
-        return "";
-    }
-};
-
-const saveLastRemarks = (remarks) => {
-    try {
-        localStorage.setItem(LAST_REMARKS_KEY, remarks);
-    } catch {
-        // storage blocked; the dialog just starts empty next time
-    }
-};
+import { readLastRemarks, saveLastRemarks } from '../data/lastRemarks.js';
 
 // orders table with the row actions (status, call, delete) and the call dialog
 export default function QueueTable({ orders, setOrders, loading, error }) {
@@ -76,7 +58,8 @@ export default function QueueTable({ orders, setOrders, loading, error }) {
     };
 
     const remove = (queueNum, purpose) => {
-        if (!window.confirm(`Delete order ${formatQueueNum(queueNum, purpose)}? This can't be undone.`)) return;
+        const ticket = formatQueueNum(queueNum, purpose);
+        if (!window.confirm(`Delete ticket ${ticket}? It leaves the queue and the display, and can be restored from History.`)) return;
         runAction(queueNum, async () => {
             await deleteOrder(queueNum);
             setOrders((prev) => prev.filter((o) => o.queueNum !== queueNum));
@@ -131,6 +114,11 @@ export default function QueueTable({ orders, setOrders, loading, error }) {
                                         </select>
                                         {o.status === "serving" && o.remarks && (
                                             <p className="order-remarks">“{o.remarks}”</p>
+                                        )}
+                                        {o.servedBy && (
+                                            <p className="order-served-by">
+                                                {o.status === "done" ? "Served by" : "Serving:"} {o.servedBy.name}
+                                            </p>
                                         )}
                                     </td>
                                     <td>

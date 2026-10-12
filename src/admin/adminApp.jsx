@@ -9,6 +9,11 @@ import DashboardPage from './pages/dashboardPage.jsx';
 import OrdersPage from './pages/ordersPage.jsx';
 import VideoPage from './pages/videoPage.jsx';
 import PrinterPage from './pages/printerPage.jsx';
+import AnnouncerPage from './pages/announcerPage.jsx';
+import HistoryPage from './pages/historyPage.jsx';
+import SalesPage from './pages/salesPage.jsx';
+import AccCreation from './pages/accCreation.jsx';
+import AccountPage from './pages/accountPage.jsx';
 
 // mounted at /admin/* — paths below are relative to it
 export default function AdminApp() {
@@ -21,12 +26,21 @@ export default function AdminApp() {
             <Routes>
                 <Route path="login" element={<LoginPage />} />
 
-                <Route element={<ProtectedRoute role="admin" />}>
+                {/* admins and sales staff share the layout; the pages inside are split by role */}
+                <Route element={<ProtectedRoute roles={["admin", "sales"]} />}>
                     <Route element={<AdminLayout />}>
-                        <Route index element={<DashboardPage />} />
-                        <Route path="orders" element={<OrdersPage />} />
-                        <Route path="video" element={<VideoPage />} />
-                        <Route path="printer" element={<PrinterPage />} />
+                        <Route path="counter" element={<SalesPage />} />
+                        <Route path="history" element={<HistoryPage />} />
+                        <Route path="account" element={<AccountPage />} />
+
+                        <Route element={<ProtectedRoute roles={["admin"]} />}>
+                            <Route index element={<DashboardPage />} />
+                            <Route path="orders" element={<OrdersPage />} />
+                            <Route path="video" element={<VideoPage />} />
+                            <Route path="printer" element={<PrinterPage />} />
+                            <Route path="announcer" element={<AnnouncerPage />} />
+                            <Route path="accounts" element={<AccCreation />} />
+                        </Route>
                     </Route>
                 </Route>
 

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router';
 
 import { useAuth } from '../auth/authContext.js';
+import { homeFor } from '../auth/roles.js';
 import logo from '../../assets/SheehanLogo.png';
 
 // never echo back which part was wrong, so usernames can't be guessed
@@ -12,7 +13,7 @@ const loginErrorMessage = (err) => {
 };
 
 export default function LoginPage() {
-    const { status, login } = useAuth();
+    const { status, user, login } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
     const [username, setUsername] = useState("");
@@ -20,11 +21,11 @@ export default function LoginPage() {
     const [error, setError] = useState("");
     const [submitting, setSubmitting] = useState(false);
 
-    // only follow redirects back into the admin area
+    // only follow redirects back into the admin area; otherwise each role goes to its own home page
     const from = location.state?.from?.pathname;
-    const redirectTo = from?.startsWith("/admin") ? from : "/admin";
+    const redirectFor = (account) => (from?.startsWith("/admin") ? from : homeFor(account));
 
-    if (status === "authed") return <Navigate to={redirectTo} replace />;
+    if (status === "authed") return <Navigate to={redirectFor(user)} replace />;
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -37,8 +38,8 @@ export default function LoginPage() {
         setSubmitting(true);
         setError("");
         try {
-            await login({ username: username.trim(), password });
-            navigate(redirectTo, { replace: true });
+            const account = await login({ username: username.trim(), password });
+            navigate(redirectFor(account), { replace: true });
         } catch (err) {
             setError(loginErrorMessage(err));
             setPassword("");
@@ -52,7 +53,7 @@ export default function LoginPage() {
             <form className="login-card" onSubmit={handleSubmit} noValidate>
                 <div className="login-brand">
                     <img className="logo" src={logo} alt="" />
-                    <h1>Admin sign in</h1>
+                    <h1>Staff sign in</h1>
                 </div>
 
                 <label className="admin-field">
