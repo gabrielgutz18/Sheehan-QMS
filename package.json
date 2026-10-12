@@ -11,7 +11,9 @@
     "preview": "vite preview",
     "start": "node --env-file-if-exists=.env server/server.js",
     "backup": "node --env-file-if-exists=.env server/backup.js",
-    "seed": "node --env-file-if-exists=.env server/seed.js"
+    "seed": "node --env-file-if-exists=.env server/seed.js",
+    "snapshot": "node --env-file-if-exists=.env server/snapshot.js save",
+    "seed:snapshot": "node --env-file-if-exists=.env server/snapshot.js load"
   },
   "engines": {
     "node": ">=22.13"

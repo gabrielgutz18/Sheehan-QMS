@@ -25,6 +25,8 @@ dist-ssr
 .claude
 # local database, uploaded videos and backups (see server/db.js)
 /data
+# snapshots of the real data from npm run snapshot (staff password hashes, customers' names): never commit
+/seeders
 
 # Environment files (keep the example)
 .env

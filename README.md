@@ -44,6 +44,7 @@ server/
   server.js                production server: the built site + the API (npm start)
   backup.js                copies the database and video (npm run backup)
   seed.js                  adds sample customers to today's queue (npm run seed)
+  snapshot.js              saves / loads a snapshot of the real data (npm run snapshot, seed:snapshot)
 tests/
   feature/                 API tests, e.g. ticketLifecycle.test.js (npm test)
   support/testApp.js       starts the API on a fresh, throwaway database for each test
@@ -67,6 +68,19 @@ npm run seed -- 12           # 12 customers (up to 50)
 ```
 
 Like `php artisan db:seed`: adds made-up customers (names, purposes, items, roofing colors, and concerns for Customer Reports) through the same `POST /orders` the kiosk uses, so they get real queue numbers and show on the display and every counter. It writes to the data folder in `.env`, so don't run it on the live server.
+
+## Taking the current data to another computer
+
+```bash
+npm run snapshot                          # on this computer: saves seeders/snapshot.json
+npm run seed:snapshot                     # on the other one, after copying seeders/ over
+npm run seed:snapshot -- --replace        # if that computer already has tickets or accounts (backed up first)
+npm run seed:snapshot -- --keep-dates     # keep the real dates (the tickets land in History)
+```
+
+A seeder made from the real database: staff accounts (same passwords), profiles and photos, every ticket with its order or concern, who served it, points, and settings. Loading it moves the dates so the snapshot's day is today, so its queue shows as today's queue. Sign-ins aren't carried, and the built-in admin uses the other computer's `.env`.
+
+`seeders/` is in `.gitignore` because it holds staff password hashes and customers' names: copy it yourself (USB stick or your own drive), not through git or chat, and delete it when you're done.
 
 ## Database
 
