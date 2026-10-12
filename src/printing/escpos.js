@@ -37,9 +37,10 @@ const formatIssued = (issuedAt) => {
     return Number.isNaN(date.getTime()) ? "" : date.toLocaleString();
 };
 
-// ticket: { queueNumber, name, purpose, orders: [{ qty, item, color? }], issuedAt }
+// ticket: { queueNumber, name, purpose, orders: [{ qty, item, color? }], concern?, issuedAt }
+// concern: a Customer Report's concern, printed in place of the order
 // columns: characters per line, 32 for 58mm paper and 48 for 80mm
-export function buildReceipt({ queueNumber, name, purpose, orders = [], issuedAt }, { columns = 48 } = {}) {
+export function buildReceipt({ queueNumber, name, purpose, orders = [], concern, issuedAt }, { columns = 48 } = {}) {
     const bytes = [];
     const raw = (...b) => bytes.push(...b);
     const line = (text = "") => {
@@ -87,8 +88,9 @@ export function buildReceipt({ queueNumber, name, purpose, orders = [], issuedAt
 
     align("left");
     bold(true);
-    line("ORDER");
+    line(concern ? "CONCERN" : "ORDER");
     bold(false);
+    if (concern) wrap(concern, columns).forEach(line);
     for (const o of orders) {
         const color = o.color ? ` (${colorLabel(o.color)})` : "";
         wrap(`${o.qty}x ${o.item}${color}`, columns).forEach(line);

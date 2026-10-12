@@ -94,6 +94,14 @@
   color: var(--text-dark);
 }
 
+/* a Customer Report's concern: the customer's own words, smaller than the name above it */
+.receipt-concern {
+  font-size: calc(var(--u, 1px) * 15);
+  font-weight: 600;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
 /* pushed to the bottom of the ticket */
 .receipt .receipt-footer {
   margin-top: auto;

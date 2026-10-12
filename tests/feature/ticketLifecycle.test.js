@@ -77,7 +77,8 @@ describe("serving a ticket", () => {
         const called = (await maria.post("/admin/orders/1/call", { remarks: "Counter 2" })).assertStatus(200).body;
 
         assert.equal(called.status, "serving");
-        assert.deepEqual(called.servedBy, { id: maria.account.id, name: "Maria Santos" });
+        assert.deepEqual(called.servedBy, { id: maria.account.id, name: "Maria Santos", photo: null });
+        assert.equal(called.servedAt, undefined);
         assert.equal(called.remarks, "Counter 2");
         assert.equal(typeof called.calledAt, "number");
 
@@ -132,7 +133,7 @@ describe("serving a ticket", () => {
 });
 
 describe("finishing a ticket", () => {
-    test("marking it done gives the person serving it one point", async () => {
+    test("marking it done marks it served by that person, with the time, and gives them one point", async () => {
         await takeTicket();
         const maria = await app.actingAsSales();
         await maria.post("/admin/orders/1/call");
@@ -140,7 +141,10 @@ describe("finishing a ticket", () => {
         const done = (await maria.patch("/admin/orders/1", { status: "done" })).assertStatus(200).body;
 
         assert.equal(done.status, "done");
-        assert.equal(done.servedBy.id, maria.account.id);
+        assert.deepEqual(done.servedBy, { id: maria.account.id, name: "Maria Santos", photo: null });
+        assert.ok(Date.now() - Date.parse(done.servedAt) < 60_000, `servedAt ${done.servedAt} should be just now`);
+        const [listed] = (await maria.get("/admin/orders")).assertStatus(200).body;
+        assert.equal(listed.servedAt, done.servedAt);
         app.assertDatabaseHas("serves", { user_id: maria.account.id, queue_date: localDay() });
         assert.deepEqual((await app.client().get("/queue")).body, { serving: [], upcoming: [] });
 
@@ -174,6 +178,7 @@ describe("finishing a ticket", () => {
 
         assert.equal(reopened.status, "pending");
         assert.equal(reopened.servedBy, undefined);
+        assert.equal(reopened.servedAt, undefined);
         app.assertDatabaseCount("serves", 0);
         assert.equal((await maria.get("/admin/me/stats?period=day")).body.totals.today, 0);
     });
@@ -222,6 +227,7 @@ describe("deleting and restoring", () => {
         assert.equal(restored.queueNum, 1);
         assert.equal(restored.status, "pending");
         assert.equal(restored.servedBy, undefined);
+        assert.equal(restored.servedAt, undefined);
         assert.deepEqual((await app.client().get("/queue")).body.upcoming.map((u) => u.queueNum), [1]);
         (await maria.post(`/admin/history/${id}/restore`)).assertStatus(409);
     });

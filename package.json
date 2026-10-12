@@ -10,7 +10,8 @@
     "test": "node --test",
     "preview": "vite preview",
     "start": "node --env-file-if-exists=.env server/server.js",
-    "backup": "node --env-file-if-exists=.env server/backup.js"
+    "backup": "node --env-file-if-exists=.env server/backup.js",
+    "seed": "node --env-file-if-exists=.env server/seed.js"
   },
   "engines": {
     "node": ">=22.13"

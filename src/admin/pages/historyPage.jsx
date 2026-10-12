@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import { listHistory, restoreOrder } from '../api/adminOrderController.js';
 import orderStatus from '../data/orderStatus.js';
 import formatQueueNum from '../../data/queueNum.js';
-import { colorLabel } from '../../data/roofingColors.js';
+import ServedBy from '../components/servedBy.jsx';
+import OrderDetails from '../components/orderDetails.jsx';
 
 const VIEWS = [
     { value: "deleted", label: "Deleted" },
@@ -123,7 +124,7 @@ export default function HistoryPage() {
                             <th scope="col">Ticket</th>
                             <th scope="col">Name</th>
                             <th scope="col">Purpose</th>
-                            <th scope="col">Items</th>
+                            <th scope="col">Order</th>
                             <th scope="col">Status</th>
                             <th scope="col"><span className="visually-hidden">Actions</span></th>
                         </tr>
@@ -151,13 +152,7 @@ export default function HistoryPage() {
                                     </td>
                                     <td>{row.name}</td>
                                     <td>{row.purpose}</td>
-                                    <td>
-                                        <ul className="item-list">
-                                            {row.orders.map((item, i) => (
-                                                <li key={i}>{item.qty} × {item.item}{item.color && ` (${colorLabel(item.color)})`}</li>
-                                            ))}
-                                        </ul>
-                                    </td>
+                                    <td><OrderDetails order={row} /></td>
                                     <td>
                                         {row.deletedAt ? (
                                             <>
@@ -167,7 +162,7 @@ export default function HistoryPage() {
                                         ) : (
                                             <span className={`history-badge status-${row.status}`}>{statusLabel(row.status)}</span>
                                         )}
-                                        {row.servedBy && <span className="history-note">Served by {row.servedBy.name}</span>}
+                                        <ServedBy order={row} />
                                         {row.restoredAt && <span className="history-note">Restored {formatTime(row.restoredAt)}</span>}
                                     </td>
                                     <td>

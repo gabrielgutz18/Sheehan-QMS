@@ -24,7 +24,7 @@ dist-ssr
 *.sw?
 .claude
 # local database, uploaded videos and backups (see server/db.js)
-data
+/data
 
 # Environment files (keep the example)
 .env

@@ -8,22 +8,18 @@ import MyStats from '../components/myStats.jsx';
 import AnnouncerVolume from '../components/announcerVolume.jsx';
 import { readLastRemarks, saveLastRemarks } from '../data/lastRemarks.js';
 import formatQueueNum from '../../data/queueNum.js';
-import { colorLabel } from '../../data/roofingColors.js';
 import Greetings from '../components/greetings.jsx';
+import ServedBy from '../components/servedBy.jsx';
+import OrderDetails from '../components/orderDetails.jsx';
+import TicketDialog from '../components/ticketDialog.jsx';
 
 // a sales staff member's counter: serve the next customer, recall them, mark them done (one point each)
 // or send them back to waiting, plus their own served totals and the announcer volume
 // (sales can't change the voice or the display video; the backend enforces that too)
 
 const ticketOf = (o) => formatQueueNum(o.queueNum, o.purpose);
-
-const Items = ({ order }) => (
-    <ul className="item-list">
-        {order.orders.map((item, i) => (
-            <li key={i}>{item.qty} × {item.item}{item.color && ` (${colorLabel(item.color)})`}</li>
-        ))}
-    </ul>
-);
+// Served today lists this many of the latest; the rest are counted under it
+const SERVED_SHOWN = 5;
 
 export default function SalesPage() {
     const { user } = useAuth();
@@ -32,6 +28,8 @@ export default function SalesPage() {
     const [actionError, setActionError] = useState("");
     const [calling, setCalling] = useState(null);
     const [callError, setCallError] = useState("");
+    // the waiting ticket opened with View: { queueNum, openedAt }
+    const [viewing, setViewing] = useState(null);
     const [lastRemarks, setLastRemarks] = useState(readLastRemarks);
     // bumped after Done so the served totals update straight away
     const [statsVersion, setStatsVersion] = useState(0);
@@ -40,6 +38,13 @@ export default function SalesPage() {
     const mine = serving.filter((o) => o.servedBy?.id === user.id);
     const others = serving.filter((o) => o.servedBy?.id !== user.id);
     const waiting = orders.filter((o) => o.status === "pending");
+    // customers this person marked Done today, latest first
+    const servedToday = orders
+        .filter((o) => o.status === "done" && o.servedBy?.id === user.id)
+        .sort((a, b) => (b.servedAt ?? "").localeCompare(a.servedAt ?? ""));
+
+    // looked up in the live queue, so the dialog follows the ticket; it closes if the ticket is deleted
+    const viewed = viewing && orders.find((o) => o.queueNum === viewing.queueNum);
 
     const replace = (saved) => setOrders((prev) => prev.map((o) => (o.queueNum === saved.queueNum ? saved : o)));
 
@@ -113,7 +118,8 @@ export default function SalesPage() {
                                         <strong className="counter-number">{ticketOf(o)}</strong>
                                         <span className="counter-name">{o.name}</span>
                                         <span className="counter-meta">{o.purpose}{o.remarks && ` · “${o.remarks}”`}</span>
-                                        <Items order={o} />
+                                        <OrderDetails order={o} />
+                                        <ServedBy order={o} />
                                     </div>
                                     <div className="row-actions">
                                         <button
@@ -142,9 +148,17 @@ export default function SalesPage() {
                     )}
 
                     {others.length > 0 && (
-                        <p className="counter-others">
-                            Also serving: {others.map((o) => `${ticketOf(o)} (${o.servedBy?.name ?? "—"})`).join(", ")}
-                        </p>
+                        <div className="counter-others">
+                            <h3>At other counters</h3>
+                            <ul>
+                                {others.map((o) => (
+                                    <li key={o.queueNum}>
+                                        <span><strong>{ticketOf(o)}</strong> {o.name}</span>
+                                        <ServedBy order={o} />
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
                     )}
                 </div>
 
@@ -166,6 +180,15 @@ export default function SalesPage() {
                                     <div className="row-actions">
                                         <button
                                             type="button"
+                                            className="link-btn"
+                                            aria-haspopup="dialog"
+                                            aria-label={`View ${ticketOf(o)}`}
+                                            onClick={() => setViewing({ queueNum: o.queueNum, openedAt: Date.now() })}
+                                        >
+                                            View
+                                        </button>
+                                        <button
+                                            type="button"
                                             className="admin-btn admin-btn-call"
                                             disabled={busy === o.queueNum}
                                             onClick={() => openCall(o)}
@@ -180,9 +203,46 @@ export default function SalesPage() {
                 </div>
             </div>
 
+            <div className="admin-panel">
+                <h2>Served today</h2>
+                {loading ? (
+                    <p className="admin-empty">Loading...</p>
+                ) : servedToday.length === 0 ? (
+                    <p className="admin-empty">No one yet. Customers you mark Done are listed here, served by you.</p>
+                ) : (
+                    <ul className="counter-list">
+                        {servedToday.slice(0, SERVED_SHOWN).map((o) => (
+                            <li key={o.queueNum} className="counter-ticket">
+                                <div className="counter-ticket-main">
+                                    <strong className="counter-number">{ticketOf(o)}</strong>
+                                    <span className="counter-name">{o.name}</span>
+                                    <span className="counter-meta">{o.purpose}</span>
+                                    <ServedBy order={o} />
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+                {servedToday.length > SERVED_SHOWN && (
+                    <p className="video-hint">…and {servedToday.length - SERVED_SHOWN} earlier today.</p>
+                )}
+            </div>
+
             <MyStats version={statsVersion} />
 
             <AnnouncerVolume />
+
+            {viewed && (
+                <TicketDialog
+                    order={viewed}
+                    openedAt={viewing.openedAt}
+                    onServe={(o) => {
+                        setViewing(null);
+                        openCall(o);
+                    }}
+                    onClose={() => setViewing(null)}
+                />
+            )}
 
             {calling && (
                 <CallDialog

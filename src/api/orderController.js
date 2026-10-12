@@ -1,6 +1,7 @@
 import http from './http.js';
 
 // order shape: { name, purpose, orders: [{ item, qty }] }
+// a Customer Report (src/data/customerReport.js) sends { name, purpose, orders: [], concern } instead
 // the backend assigns queueNum and returns the saved order including it
 // listing and deleting orders is staff-only — see src/admin/api/adminOrderController.js
 

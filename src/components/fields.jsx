@@ -62,7 +62,8 @@ export function PurposeDropdown({ value, onChange, error }) {
                     </svg>
                 </button>
 
-                <ul className="dropdown-menu" role="listbox" aria-label="Purpose">
+                {/* --options sizes the open menu to fit every purpose (see fields.css) */}
+                <ul className="dropdown-menu" role="listbox" aria-label="Purpose" style={{ "--options": purpose.length }}>
                     {purpose.map((item) => (
                         <li key={item.name} className="dropdown-item">
                             <button

@@ -6,7 +6,9 @@ const purpose =[
     {name: "Steel"},
     {name: "Hardwares"},
     {name: "Chassis"},
-    {name: "Roofings Accessories"}
+    {name: "Roofings Accessories"},
+    // a concern instead of an order: the kiosk asks for the concern in place of items (see customerReport.js)
+    {name: "Customer Report"}
 ]
 
 export default purpose;

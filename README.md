@@ -43,6 +43,7 @@ server/
   migrations/              numbered .sql files that create and change the tables
   server.js                production server: the built site + the API (npm start)
   backup.js                copies the database and video (npm run backup)
+  seed.js                  adds sample customers to today's queue (npm run seed)
 tests/
   feature/                 API tests, e.g. ticketLifecycle.test.js (npm test)
   support/testApp.js       starts the API on a fresh, throwaway database for each test
@@ -57,6 +58,15 @@ npm test -- --test-name-pattern="restoring"       # only tests whose name matche
 ```
 
 Like `php artisan test` in Laravel: each test starts the real API with its own empty database in a temp folder (the way `RefreshDatabase` works), sends requests the way the kiosk, display and counters do, and checks the responses and the tables (`assertStatus`, `assertDatabaseHas`, `assertDatabaseMissing`, `assertDatabaseCount`). Nothing touches `data/` or `.env`. It uses Node's built-in test runner, so there's nothing to install.
+
+## Sample customers
+
+```bash
+npm run seed                 # 5 customers in today's queue
+npm run seed -- 12           # 12 customers (up to 50)
+```
+
+Like `php artisan db:seed`: adds made-up customers (names, purposes, items, roofing colors, and concerns for Customer Reports) through the same `POST /orders` the kiosk uses, so they get real queue numbers and show on the display and every counter. It writes to the data folder in `.env`, so don't run it on the live server.
 
 ## Database
 
@@ -120,12 +130,12 @@ All paths are relative to `VITE_API_URL` (default `/api`).
 
 | Method | Path                     | Auth  | Body / returns                                            |
 | ------ | ------------------------ | ----- | --------------------------------------------------------- |
-| POST   | `/orders`                | —     | `{ name, purpose, orders: [{ item, qty }] }` → saved order |
+| POST   | `/orders`                | —     | `{ name, purpose, orders: [{ item, qty }] }` → saved order; a `Customer Report` sends `{ name, purpose, orders: [], concern }` (up to 300 characters) instead |
 | PUT    | `/orders/:queueNum`      | —     | same body → saved order                                   |
 | POST   | `/auth/login`            | —     | `{ username, password }` → `{ id, username, name, role }` + cookie |
 | GET    | `/auth/me`               | staff | → `{ id, username, name, role }`, or `401`                |
 | POST   | `/auth/logout`           | staff | clears the cookie                                         |
-| GET    | `/admin/orders`          | staff | → today's `[{ queueNum, name, purpose, orders, status, servedBy? }]` |
+| GET    | `/admin/orders`          | staff | → today's `[{ queueNum, name, purpose, orders, status, servedBy?: { id, name, photo }, servedAt? }]` (`servedAt`: when it was marked Done) |
 | POST   | `/admin/orders/:queueNum/call` | staff | `{ remarks }` → order, served by the caller         |
 | PATCH  | `/admin/orders/:queueNum`| staff | `{ status: "pending" \| "serving" \| "done" }` → order    |
 | DELETE | `/admin/orders/:queueNum`| admin | moves the ticket to History → `204`                       |

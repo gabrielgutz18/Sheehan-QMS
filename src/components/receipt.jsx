@@ -4,7 +4,8 @@ import '../style/receipt.css';
 import logo from '../assets/SheehanLogo.png';
 import { colorLabel } from '../data/roofingColors.js';
 
-export default function Receipt({ queueNumber, name, purpose, orders = [] }) {
+// concern: a Customer Report's concern, shown in place of the order
+export default function Receipt({ queueNumber, name, purpose, orders = [], concern }) {
     return (
         <section className="receipt">
             <hr className="receipt-tear" />
@@ -32,14 +33,21 @@ export default function Receipt({ queueNumber, name, purpose, orders = [] }) {
                 <p className="receipt-value">{purpose}</p>
             </div>
 
-            <div className="receipt-row">
-                <p className="receipt-label">Order</p>
-                <ul className="receipt-orders">
-                    {orders.map((o, i) => (
-                        <li key={i}>{o.qty}x {o.item}{o.color && ` (${colorLabel(o.color)})`}</li>
-                    ))}
-                </ul>
-            </div>
+            {concern ? (
+                <div className="receipt-row">
+                    <p className="receipt-label">Concern</p>
+                    <p className="receipt-value receipt-concern">{concern}</p>
+                </div>
+            ) : (
+                <div className="receipt-row">
+                    <p className="receipt-label">Order</p>
+                    <ul className="receipt-orders">
+                        {orders.map((o, i) => (
+                            <li key={i}>{o.qty}x {o.item}{o.color && ` (${colorLabel(o.color)})`}</li>
+                        ))}
+                    </ul>
+                </div>
+            )}
 
             <p className="receipt-footer">Please retain this ticket until called</p>
         </section>
