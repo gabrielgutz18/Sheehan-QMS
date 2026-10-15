@@ -3,12 +3,14 @@ import { useEffect, useState } from 'react';
 import { getQueue } from '../api/queueController.js';
 import '../style/queueNum.css';
 
+//assets
+import logo from '../assets/SheehanLogo.png';
+
 //components
-import Header from '../components/header.jsx';
 import Call from '../components/call.jsx';
+import Clock from '../components/clock.jsx';
 import NumberCard from '../components/numberCard.jsx';
 import VideoUp from '../components/videoup.jsx';
-import formatQueueNum from '../data/queueNum.js';
 
 const POLL_MS = 5000;
 const UPCOMING_LIMIT = 8;
@@ -57,20 +59,23 @@ export default function QueueNum() {
 
     return (
         <div className="queue-screen">
-            <Header />
-
-            <main className="queue-page">
-                {error && <p className="queue-error" role="alert">{error}</p>}
-
-                {/* left: the line as a table; right: now serving above the video */}
-                <div className="queue-board">
-                    {/* upcoming */}
-                    <section className="queue-panel upcoming-panel" aria-labelledby="upcoming-title">
-                        <div className="panel-head">
-                            <h2 id="upcoming-title" className="panel-title">Up Next</h2>
-                            <span className="waiting-count">{upcoming.length} waiting</span>
+            {/* two columns that meet at a divider; every block butts up against the next, closed off by a line */}
+            <main className="queue-board">
+                {/* left: who we are, then the line */}
+                <div className="queue-side">
+                    <header className="queue-brand">
+                        <img className="queue-logo" src={logo} alt="Sheehan Inc. logo" />
+                        <div className="queue-brand-text">
+                            <h1 className="queue-company">Sheehan, Inc.</h1>
+                            <p className="queue-subtitle">Queue Information Display</p>
                         </div>
+                        <span className="waiting-count">{upcoming.length} in line</span>
+                    </header>
 
+                    {error && <p className="queue-error" role="alert">{error}</p>}
+
+                    {/* upcoming */}
+                    <section className="upcoming-panel" aria-label="Up next">
                         <table className="upcoming-table">
                             <thead>
                                 <tr>
@@ -81,10 +86,10 @@ export default function QueueNum() {
                             </thead>
                             <tbody>
                                 {shown.length > 0 ? (
-                                    shown.map((o, i) => (
+                                    shown.map((o) => (
                                         <tr key={o.queueNum}>
                                             <td>
-                                                <NumberCard number={o.queueNum} purpose={o.purpose} variant={i === 0 ? "next" : "upcoming"} />
+                                                <NumberCard number={o.queueNum} purpose={o.purpose} />
                                             </td>
                                             <td className="upcoming-name">{o.name}</td>
                                             <td><span className="upcoming-station">{o.purpose}</span></td>
@@ -100,13 +105,25 @@ export default function QueueNum() {
 
                         {hidden > 0 && <p className="upcoming-more">+{hidden} more in line</p>}
                     </section>
+                </div>
 
-                    {/* now serving */}
-                    <section className="queue-panel serving-panel" aria-labelledby="serving-title">
-                        <h2 id="serving-title" className="panel-title">
-                            <span className="live-dot" aria-hidden="true" />
-                            Now Serving
-                        </h2>
+                {/* right: now serving above the video, the clock along the bottom */}
+                <div className="queue-main">
+                    <section className="serving-panel" aria-labelledby="serving-title">
+                        <div className="serving-bar">
+                            <h2 id="serving-title" className="serving-title">
+                                <svg className="serving-icon" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M9.94 15.5a2 2 0 0 0-1.44-1.44l-6.13-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.13a.5.5 0 0 1 .96 0l1.58 6.13a2 2 0 0 0 1.44 1.44l6.13 1.58a.5.5 0 0 1 0 .96l-6.13 1.58a2 2 0 0 0-1.44 1.44l-1.58 6.13a.5.5 0 0 1-.96 0z" />
+                                    <path d="M20 3v4M22 5h-4M4 17v2M5 18H3" />
+                                </svg>
+                                Now Serving
+                            </h2>
+                            {/* goes to Offline while the board can't reach the server, so a stale screen doesn't claim to be live */}
+                            <span className={`live-badge${error ? " live-badge--off" : ""}`}>
+                                <span className="live-dot" aria-hidden="true" />
+                                {error ? "Offline" : "Live"}
+                            </span>
+                        </div>
 
                         <div className="serving-list" aria-live="polite">
                             {current ? (
@@ -123,14 +140,14 @@ export default function QueueNum() {
                                         <ul className="serving-others" aria-label="Also being served">
                                             {othersShown.map((o) => (
                                                 <li key={o.queueNum} className="serving-other">
-                                                    <span className="serving-other-num">{formatQueueNum(o.queueNum, o.purpose)}</span>
+                                                    <NumberCard number={o.queueNum} purpose={o.purpose} />
                                                     <span className="serving-other-name">{o.name}</span>
                                                     <span className="serving-other-note">{callNote(o)}</span>
                                                 </li>
                                             ))}
+                                            {othersHidden > 0 && <li className="serving-more">+{othersHidden} more being served</li>}
                                         </ul>
                                     )}
-                                    {othersHidden > 0 && <p className="serving-more">+{othersHidden} more being served</p>}
                                 </>
                             ) : (
                                 <p className="serving-empty">{loaded ? "Waiting for the next customer" : "Loading..."}</p>
@@ -142,6 +159,10 @@ export default function QueueNum() {
                     <section className="queue-video">
                         <VideoUp />
                     </section>
+
+                    <footer className="queue-footer">
+                        <Clock />
+                    </footer>
                 </div>
             </main>
 
