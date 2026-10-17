@@ -192,5 +192,3 @@ On each kiosk with a printer, start the print service with `--origin http://<ser
 Step by step in **[DEPLOY-UBUNTU.md](DEPLOY-UBUNTU.md)**: the code is a `git clone` of this repo in `/opt/sheehan-queue`, the data lives in `/var/lib/sheehan-queue`, a systemd service ([`deploy/sheehan-queue.service`](deploy/sheehan-queue.service)) keeps it running, and `bash deploy/update.sh` pulls `master` from GitHub, rebuilds and restarts. Optionally, a self-hosted GitHub Actions runner on the server runs it on every merge to `master` (the *Deploy to the Ubuntu server* job in the CI workflow).
 
 **Public / online:** same setup behind HTTPS. If the API lives on another domain, set `VITE_API_URL=https://api.example.com/api` before building.
-
-**GitHub Pages:** the CI workflow builds with the repo sub-path and copies `index.html` to `404.html` so deep links work. Pages only hosts static files, so the admin still needs a backend reachable from the browser.

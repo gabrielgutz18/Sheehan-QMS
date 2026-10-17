@@ -349,5 +349,3 @@ Or use the snapshot seeder (`npm run snapshot` on the PC, copy `seeders/` into `
 | `git pull` asks for a password or is denied | Deploy key (step 4); `ssh -T git@github.com` to test |
 | Deploy job: `sudo: a terminal is required to read the password` | The sudoers rule isn't installed or doesn't match (step 12) |
 | Deploy job stays *Queued* | Runner offline: `sudo ./svc.sh status` in `~/actions-runner`, or a missing `sheehan-server` label |
-
-**GitHub Pages:** the CI workflow also publishes `master` to GitHub Pages. That copy is only static files with no API, so kiosks and staff must use the server's address.
