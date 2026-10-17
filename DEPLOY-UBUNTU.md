@@ -89,7 +89,7 @@ node -v
 
 ## 4. Let the server read the repo from GitHub
 
-**Public repo:** skip to step 5 and clone with `https://github.com/gabrielgutz18/my-app.git`.
+**Public repo:** skip to step 5 and clone with `https://github.com/gabrielgutz18/Sheehan-QMS.git`.
 
 **Private repo:** give the server its own read-only **deploy key**:
 
@@ -122,7 +122,7 @@ sudo mkdir -p /opt/sheehan-queue /var/lib/sheehan-queue/data /var/backups/sheeha
 sudo chown "$USER":"$USER" /opt/sheehan-queue
 sudo chown -R sheehan:sheehan /var/lib/sheehan-queue /var/backups/sheehan-queue
 
-git clone git@github.com:gabrielgutz18/my-app.git /opt/sheehan-queue
+git clone git@github.com:gabrielgutz18/Sheehan-QMS.git /opt/sheehan-queue
 cd /opt/sheehan-queue
 ```
 
@@ -273,7 +273,7 @@ GitHub can't reach a VM inside your office network, so the VM collects the work 
 On the VM, as your own login user (the one that owns `/opt/sheehan-queue`, not root). On GitHub: the repo → **Settings** → **Actions** → **Runners** → **New self-hosted runner** → Linux, x64. Run the commands it shows; on the `./config.sh` line, add `--labels sheehan-server` at the end:
 
 ```bash
-./config.sh --url https://github.com/gabrielgutz18/my-app --token <token from that page> --labels sheehan-server
+./config.sh --url https://github.com/gabrielgutz18/Sheehan-QMS --token <token from that page> --labels sheehan-server
 ```
 
 Press Enter for the other questions. Then make it a service, so it starts at boot:
