@@ -321,6 +321,68 @@
   color: var(--brand-red);
 }
 
+/* looks like a link, works as a button: View opens a dialog instead of going to another page */
+.link-btn {
+  flex: none;
+  padding: 8px 4px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--brand-red);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.link-btn:hover {
+  text-decoration-thickness: 2px;
+}
+
+.link-btn:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Next up on the dashboard: the ticket on the left, View on the right */
+.queue-list li.next-up-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+/* the ticket dialog: purpose and time, then the order or concern */
+.ticket-facts {
+  display: grid;
+  gap: 8px;
+  margin: -4px 0 0;
+  padding: 12px 0;
+  border-block: 1px solid var(--field-border);
+}
+
+.ticket-facts div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ticket-facts dt {
+  color: var(--text-muted);
+}
+
+.ticket-facts dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+}
+
+.ticket-details .order-concern {
+  max-width: none;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -500,6 +562,23 @@
   list-style: none;
 }
 
+/* a Customer Report's concern, where an order's items would be */
+.order-concern {
+  max-width: 36ch;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* "Concern" over a report's text, and "Order" over the items in the ticket dialog */
+.order-details-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--brand-red);
+}
+
 .status-select {
   font-weight: 600;
 }
@@ -606,15 +685,57 @@
   color: var(--text-muted);
 }
 
+/* tickets other staff have at their counters, under You're serving */
 .counter-others {
-  margin: 12px 0 0;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--field-border);
+}
+
+.counter-others h3 {
+  margin: 0 0 8px;
   font-size: 13px;
+  font-weight: 700;
   color: var(--text-muted);
 }
 
-.order-served-by {
-  margin: 6px 0 0;
+.counter-others ul {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* "Being served by Maria Santos" / "Served by Maria Santos · 10:42 AM", attached to a ticket */
+.served-by {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 6px;
+  padding: 2px 10px 2px 2px;
   font-size: 13px;
+  color: #1d5f9e;
+  background: #e7f3ff;
+  border: 1px solid #9cc7f0;
+  border-radius: 999px;
+}
+
+.served-by.is-done {
+  color: #1f7a3a;
+  background: #e8f6ec;
+  border-color: #9fd3ae;
+}
+
+.served-by-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.served-by-time {
   color: var(--text-muted);
 }
 

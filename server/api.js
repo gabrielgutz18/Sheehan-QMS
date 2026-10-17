@@ -25,6 +25,9 @@ const ORDER_STATUSES = ["pending", "serving", "done"];
 const MAX_REMARKS = 120;
 // optional per-item color for roofing orders; must match src/data/roofingColors.js
 const ROOFING_COLORS = ["red", "blue", "green"];
+// the purpose for a concern instead of an order: no items, just the concern; must match src/data/customerReport.js
+const REPORT_PURPOSE = "Customer Report";
+const MAX_CONCERN = 300;
 const VIDEO_EXTENSIONS = {
     "video/mp4": ".mp4",
     "video/webm": ".webm",
@@ -225,12 +228,20 @@ const sendVideoFile = (req, res, path, type) => {
     return stream({ start, end });
 };
 
+// an order lists 1-50 items; a customer report (REPORT_PURPOSE) has no items, only the concern
 const validOrder = (body) =>
     typeof body.name === "string" && body.name.trim() && body.name.length <= 100 &&
     typeof body.purpose === "string" && body.purpose.length <= 100 &&
-    Array.isArray(body.orders) && body.orders.length > 0 && body.orders.length <= 50 &&
-    body.orders.every((o) => typeof o.item === "string" && o.item.length <= 100 && Number.isInteger(o.qty) && o.qty > 0 &&
+    (body.purpose === REPORT_PURPOSE ? validReport(body) : validItems(body.orders));
+
+const validItems = (items) =>
+    Array.isArray(items) && items.length > 0 && items.length <= 50 &&
+    items.every((o) => typeof o.item === "string" && o.item.length <= 100 && Number.isInteger(o.qty) && o.qty > 0 &&
         (o.color === undefined || ROOFING_COLORS.includes(o.color)));
+
+const validReport = ({ concern, orders }) =>
+    typeof concern === "string" && concern.trim() !== "" && concern.trim().length <= MAX_CONCERN &&
+    (orders === undefined || (Array.isArray(orders) && orders.length === 0));
 
 // call announcements on the display; the front end fills in defaults (src/sound/sound.js)
 const validAnnouncer = (s) =>
@@ -288,11 +299,16 @@ const toMe = (row) => ({
     photo: row.photo,
 });
 
-const pickOrder = ({ name, purpose, orders: items }) => ({
-    name: name.trim(),
-    purpose,
-    orders: items.map(({ item, qty, color }) => ({ item, qty, ...(color && { color }) })),
-});
+// a report keeps only its concern and an order only its items, so switching purpose on Edit drops the other
+const pickOrder = ({ name, purpose, orders: items, concern }) => {
+    const isReport = purpose === REPORT_PURPOSE;
+    return {
+        name: name.trim(),
+        purpose,
+        orders: isReport ? [] : items.map(({ item, qty, color }) => ({ item, qty, ...(color && { color }) })),
+        concern: isReport ? concern.trim() : "",
+    };
+};
 
 // a stored order in the shape the front end expects
 const toOrder = (row, items) => ({
@@ -303,8 +319,12 @@ const toOrder = (row, items) => ({
     status: row.status,
     createdAt: row.created_at,
     ...(row.called_at !== null && { calledAt: row.called_at, remarks: row.remarks }),
-    // the staff member serving it, or who served it
-    ...(row.served_by !== null && { servedBy: { id: row.served_by, name: row.served_by_name } }),
+    // a customer report's concern, in place of items
+    ...(row.concern && { concern: row.concern }),
+    // the staff member serving it, or who served it; photo is for their avatar (see photoUrl in the front end)
+    ...(row.served_by !== null && { servedBy: { id: row.served_by, name: row.served_by_name, photo: row.served_by_photo } }),
+    // when they marked it Done (ISO 8601)
+    ...(row.status === "done" && row.served_at && { servedAt: row.served_at }),
 });
 
 // a ticket from any day for the History page; id picks it out, since numbers repeat every day
@@ -318,8 +338,12 @@ const toHistory = (row, items, todayDate) => ({
     ...(row.original_date !== null && { originalDate: row.original_date, originalNum: row.original_num }),
 });
 
-// order rows with the name of the staff member serving them (o. prefixes keep "name" unambiguous)
-const ORDER_ROW = "o.*, u.name AS served_by_name FROM orders o LEFT JOIN users u ON u.id = o.served_by";
+// order rows with the staff member serving them (o. prefixes keep "name" unambiguous) and, once it's done, when
+// they marked it Done: this visit's point, if the point is theirs (at most one per order and day)
+const ORDER_ROW = `o.*, u.name AS served_by_name, u.photo AS served_by_photo, s.served_at
+    FROM orders o
+    LEFT JOIN users u ON u.id = o.served_by
+    LEFT JOIN serves s ON s.order_id = o.id AND s.queue_date = o.queue_date AND s.user_id = o.served_by`;
 
 // "%" and "_" mean "anything" in LIKE, so a search for them is escaped
 const likePattern = (text) => `%${text.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
@@ -340,8 +364,9 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             INSERT INTO queue_counters (queue_date, last_num) VALUES (?, 1)
             ON CONFLICT (queue_date) DO UPDATE SET last_num = last_num + 1
             RETURNING last_num`),
-        insertOrder: db.prepare("INSERT INTO orders (queue_date, queue_num, name, purpose, created_at) VALUES (?, ?, ?, ?, ?)"),
-        updateOrder: db.prepare("UPDATE orders SET name = ?, purpose = ? WHERE id = ?"),
+        insertOrder: db.prepare(
+            "INSERT INTO orders (queue_date, queue_num, name, purpose, concern, created_at) VALUES (?, ?, ?, ?, ?, ?)"),
+        updateOrder: db.prepare("UPDATE orders SET name = ?, purpose = ?, concern = ? WHERE id = ?"),
         setStatus: db.prepare(`
             UPDATE orders SET status = :status, called_at = :calledAt, remarks = :remarks, served_by = :servedBy
             WHERE id = :id`),
@@ -595,12 +620,12 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         if (method === "POST" && path === "/orders") {
             const body = await readBody(req);
             if (!validOrder(body)) return send(res, 400, { message: "Invalid order." });
-            const { name, purpose, orders: items } = pickOrder(body);
+            const { name, purpose, orders: items, concern } = pickOrder(body);
             const order = transaction(db, () => {
                 const date = today();
                 // a plain number; the front end formats it as "SHN 01"
                 const { last_num: queueNum } = sql.nextQueueNum.get(date);
-                const { lastInsertRowid } = sql.insertOrder.run(date, queueNum, name, purpose, new Date().toISOString());
+                const { lastInsertRowid } = sql.insertOrder.run(date, queueNum, name, purpose, concern, new Date().toISOString());
                 saveItems(lastInsertRowid, items);
                 return loadOrder(sql.findOrder.get(date, queueNum));
             });
@@ -637,9 +662,9 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             if (!existing) return send(res, 404, { message: "Order not found." });
             const body = await readBody(req);
             if (!validOrder(body)) return send(res, 400, { message: "Invalid order." });
-            const { name, purpose, orders: items } = pickOrder(body);
+            const { name, purpose, orders: items, concern } = pickOrder(body);
             transaction(db, () => {
-                sql.updateOrder.run(name, purpose, existing.id);
+                sql.updateOrder.run(name, purpose, concern, existing.id);
                 saveItems(existing.id, items);
             });
             return send(res, 200, loadOrder(findToday(existing.queue_num)));

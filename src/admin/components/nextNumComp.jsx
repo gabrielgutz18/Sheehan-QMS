@@ -1,10 +1,15 @@
+import { useState } from 'react';
 import { Link } from 'react-router';
 
 import formatQueueNum from '../../data/queueNum.js';
+import TicketDialog from './ticketDialog.jsx';
 
-// the next few pending tickets, in queue order
+// the next few pending tickets, in queue order, each with View for its order or concern
 export default function NextNumComp({ orders, limit = 5 }) {
     const nextUp = orders.filter((o) => o.status === "pending").slice(0, limit);
+    // the ticket opened with View: { queueNum, openedAt }, looked up in the live queue so it stays current
+    const [viewing, setViewing] = useState(null);
+    const viewed = viewing && orders.find((o) => o.queueNum === viewing.queueNum);
 
     return (
         <div className="admin-panel">
@@ -14,13 +19,26 @@ export default function NextNumComp({ orders, limit = 5 }) {
             ) : (
                 <ul className="queue-list">
                     {nextUp.map((o) => (
-                        <li key={o.queueNum}>
-                            <strong>{formatQueueNum(o.queueNum, o.purpose)}</strong> {o.name} · {o.purpose}
+                        <li key={o.queueNum} className="next-up-row">
+                            <span>
+                                <strong>{formatQueueNum(o.queueNum, o.purpose)}</strong> {o.name} · {o.purpose}
+                            </span>
+                            <button
+                                type="button"
+                                className="link-btn"
+                                aria-haspopup="dialog"
+                                aria-label={`View ${formatQueueNum(o.queueNum, o.purpose)}`}
+                                onClick={() => setViewing({ queueNum: o.queueNum, openedAt: Date.now() })}
+                            >
+                                View
+                            </button>
                         </li>
                     ))}
                 </ul>
             )}
             <Link to="/admin/orders" className="admin-link">Manage orders →</Link>
+
+            {viewed && <TicketDialog order={viewed} openedAt={viewing.openedAt} onClose={() => setViewing(null)} />}
         </div>
     );
 }

@@ -55,6 +55,25 @@
   border-color: var(--brand-red);
 }
 
+/* ---------- customer report ---------- */
+/* the concern box, in place of the order list; the same look as the name field, a few lines tall */
+.concern-input {
+  height: auto;
+  padding: calc(var(--u, 1px) * 12) calc(var(--u, 1px) * 16);
+  line-height: 1.4;
+  resize: none;
+}
+
+.concern-count {
+  align-self: flex-end;
+  margin-top: calc(var(--u, 1px) * -4);
+  font-size: calc(var(--u, 1px) * 13);
+}
+
+.concern-count.is-near {
+  color: var(--brand-red);
+}
+
 /* ---------- purpose dropdown ---------- */
 /* the menu floats over the form instead of pushing it down, so opening it never makes the page scroll */
 .dropdown-container {
@@ -117,8 +136,12 @@
   transition: max-height 0.3s ease;
 }
 
+/* tall enough for every purpose in purpose.js (each row is 44u plus its 1px divider), but never more than
+   about half the screen; past that the menu scrolls inside itself instead of cutting the last ones off */
 .dropdown-container.open .dropdown-menu {
-  max-height: calc(var(--u, 1px) * 320);
+  max-height: min(calc(var(--options, 6) * (var(--u, 1px) * 44 + 1px)), 50svh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   box-shadow: 0 calc(var(--u, 1px) * 8) calc(var(--u, 1px) * 24) rgba(0, 0, 0, 0.15);
 }
 
@@ -126,11 +149,15 @@
   border-top: 1px solid var(--field-border);
 }
 
+/* block with a fixed line height keeps every row exactly 44u tall (an inline button would add
+   space under itself), which the open menu's height counts on */
 .dropdown-item button {
+  display: block;
   width: 100%;
   padding: calc(var(--u, 1px) * 12) calc(var(--u, 1px) * 16);
   font: inherit;
   font-size: calc(var(--u, 1px) * 16);
+  line-height: calc(var(--u, 1px) * 20);
   color: var(--text-dark);
   text-align: center;
   background: none;

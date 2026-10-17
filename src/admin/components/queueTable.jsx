@@ -3,8 +3,9 @@ import { useState } from 'react';
 import orderStatus from '../data/orderStatus.js';
 import { callOrder, deleteOrder, updateOrderStatus } from '../api/adminOrderController.js';
 import CallDialog from './callDialog.jsx';
+import ServedBy from './servedBy.jsx';
+import OrderDetails from './orderDetails.jsx';
 import formatQueueNum from '../../data/queueNum.js';
-import { colorLabel } from '../../data/roofingColors.js';
 import { readLastRemarks, saveLastRemarks } from '../data/lastRemarks.js';
 
 // orders table with the row actions (status, call, delete) and the call dialog
@@ -77,7 +78,7 @@ export default function QueueTable({ orders, setOrders, loading, error }) {
                             <th scope="col">Queue #</th>
                             <th scope="col">Name</th>
                             <th scope="col">Purpose</th>
-                            <th scope="col">Items</th>
+                            <th scope="col">Order</th>
                             <th scope="col">Status</th>
                             <th scope="col"><span className="visually-hidden">Actions</span></th>
                         </tr>
@@ -93,13 +94,7 @@ export default function QueueTable({ orders, setOrders, loading, error }) {
                                     <td><strong>{formatQueueNum(o.queueNum, o.purpose)}</strong></td>
                                     <td>{o.name}</td>
                                     <td>{o.purpose}</td>
-                                    <td>
-                                        <ul className="item-list">
-                                            {o.orders?.map((item, i) => (
-                                                <li key={i}>{item.qty} × {item.item}{item.color && ` (${colorLabel(item.color)})`}</li>
-                                            ))}
-                                        </ul>
-                                    </td>
+                                    <td><OrderDetails order={o} /></td>
                                     <td>
                                         <select
                                             className={`status-select status-${o.status}`}
@@ -115,11 +110,7 @@ export default function QueueTable({ orders, setOrders, loading, error }) {
                                         {o.status === "serving" && o.remarks && (
                                             <p className="order-remarks">“{o.remarks}”</p>
                                         )}
-                                        {o.servedBy && (
-                                            <p className="order-served-by">
-                                                {o.status === "done" ? "Served by" : "Serving:"} {o.servedBy.name}
-                                            </p>
-                                        )}
+                                        <ServedBy order={o} />
                                     </td>
                                     <td>
                                         <div className="row-actions">

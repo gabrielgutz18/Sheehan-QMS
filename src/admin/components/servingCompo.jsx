@@ -1,4 +1,5 @@
 import formatQueueNum from '../../data/queueNum.js';
+import ServedBy from './servedBy.jsx';
 
 export default function ServingCompo({ orders }) {
     // newest call first, the same order as the queue display
@@ -15,6 +16,7 @@ export default function ServingCompo({ orders }) {
                         <li key={o.queueNum}>
                             <strong>{formatQueueNum(o.queueNum, o.purpose)}</strong> {o.name}
                             {o.remarks && <span className="order-remarks">“{o.remarks}”</span>}
+                            <ServedBy order={o} />
                         </li>
                     ))}
                 </ul>

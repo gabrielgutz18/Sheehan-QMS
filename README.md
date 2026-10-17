@@ -43,6 +43,8 @@ server/
   migrations/              numbered .sql files that create and change the tables
   server.js                production server: the built site + the API (npm start)
   backup.js                copies the database and video (npm run backup)
+  seed.js                  adds sample customers to today's queue (npm run seed)
+  snapshot.js              saves / loads a snapshot of the real data (npm run snapshot, seed:snapshot)
 tests/
   feature/                 API tests, e.g. ticketLifecycle.test.js (npm test)
   support/testApp.js       starts the API on a fresh, throwaway database for each test
@@ -57,6 +59,28 @@ npm test -- --test-name-pattern="restoring"       # only tests whose name matche
 ```
 
 Like `php artisan test` in Laravel: each test starts the real API with its own empty database in a temp folder (the way `RefreshDatabase` works), sends requests the way the kiosk, display and counters do, and checks the responses and the tables (`assertStatus`, `assertDatabaseHas`, `assertDatabaseMissing`, `assertDatabaseCount`). Nothing touches `data/` or `.env`. It uses Node's built-in test runner, so there's nothing to install.
+
+## Sample customers
+
+```bash
+npm run seed                 # 5 customers in today's queue
+npm run seed -- 12           # 12 customers (up to 50)
+```
+
+Like `php artisan db:seed`: adds made-up customers (names, purposes, items, roofing colors, and concerns for Customer Reports) through the same `POST /orders` the kiosk uses, so they get real queue numbers and show on the display and every counter. It writes to the data folder in `.env`, so don't run it on the live server.
+
+## Taking the current data to another computer
+
+```bash
+npm run snapshot                          # on this computer: saves seeders/snapshot.json
+npm run seed:snapshot                     # on the other one, after copying seeders/ over
+npm run seed:snapshot -- --replace        # if that computer already has tickets or accounts (backed up first)
+npm run seed:snapshot -- --keep-dates     # keep the real dates (the tickets land in History)
+```
+
+A seeder made from the real database: staff accounts (same passwords), profiles and photos, every ticket with its order or concern, who served it, points, and settings. Loading it moves the dates so the snapshot's day is today, so its queue shows as today's queue. Sign-ins aren't carried, and the built-in admin uses the other computer's `.env`.
+
+`seeders/` is in `.gitignore` because it holds staff password hashes and customers' names: copy it yourself (USB stick or your own drive), not through git or chat, and delete it when you're done.
 
 ## Database
 
@@ -120,12 +144,12 @@ All paths are relative to `VITE_API_URL` (default `/api`).
 
 | Method | Path                     | Auth  | Body / returns                                            |
 | ------ | ------------------------ | ----- | --------------------------------------------------------- |
-| POST   | `/orders`                | —     | `{ name, purpose, orders: [{ item, qty }] }` → saved order |
+| POST   | `/orders`                | —     | `{ name, purpose, orders: [{ item, qty }] }` → saved order; a `Customer Report` sends `{ name, purpose, orders: [], concern }` (up to 300 characters) instead |
 | PUT    | `/orders/:queueNum`      | —     | same body → saved order                                   |
 | POST   | `/auth/login`            | —     | `{ username, password }` → `{ id, username, name, role }` + cookie |
 | GET    | `/auth/me`               | staff | → `{ id, username, name, role }`, or `401`                |
 | POST   | `/auth/logout`           | staff | clears the cookie                                         |
-| GET    | `/admin/orders`          | staff | → today's `[{ queueNum, name, purpose, orders, status, servedBy? }]` |
+| GET    | `/admin/orders`          | staff | → today's `[{ queueNum, name, purpose, orders, status, servedBy?: { id, name, photo }, servedAt? }]` (`servedAt`: when it was marked Done) |
 | POST   | `/admin/orders/:queueNum/call` | staff | `{ remarks }` → order, served by the caller         |
 | PATCH  | `/admin/orders/:queueNum`| staff | `{ status: "pending" \| "serving" \| "done" }` → order    |
 | DELETE | `/admin/orders/:queueNum`| admin | moves the ticket to History → `204`                       |
@@ -162,6 +186,10 @@ All paths are relative to `VITE_API_URL` (default `/api`).
 On each kiosk with a printer, start the print service with `--origin http://<server-ip>:3000` so the page is allowed to print (see `src/printing/script/printService.py`).
 
 **Updating:** stop the service, replace the app files (not the data folder), `npm ci`, `npm run build`, start the service. New migrations run by themselves.
+
+### Ubuntu server (e.g. a Hyper-V VM)
+
+Step by step in **[DEPLOY-UBUNTU.md](DEPLOY-UBUNTU.md)**: the code is a `git clone` of this repo in `/opt/sheehan-queue`, the data lives in `/var/lib/sheehan-queue`, a systemd service ([`deploy/sheehan-queue.service`](deploy/sheehan-queue.service)) keeps it running, and `bash deploy/update.sh` pulls `master` from GitHub, rebuilds and restarts. Optionally, a self-hosted GitHub Actions runner on the server runs it on every merge to `master` (the *Deploy to the Ubuntu server* job in the CI workflow).
 
 **Public / online:** same setup behind HTTPS. If the API lives on another domain, set `VITE_API_URL=https://api.example.com/api` before building.
 

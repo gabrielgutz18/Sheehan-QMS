@@ -187,15 +187,16 @@ On every start, any `.sql` file not yet listed in `schema_migrations` runs, in n
 | [`002_ticket_history.sql`](server/migrations/002_ticket_history.sql) | adds `deleted_at`, `restored_at`, `original_date`, `original_num` to `orders` (Delete → History → Restore) |
 | [`003_staff_accounts.sql`](server/migrations/003_staff_accounts.sql) | `users`, `serves` (points), `orders.served_by`; rebuilds `sessions` to point at `users` |
 | [`004_staff_profiles.sql`](server/migrations/004_staff_profiles.sql) | adds `first_name`, `middle_name`, `surname`, `employee_id`, `department`, `photo` to `users` (My account), filling first name and surname from existing names |
+| [`005_customer_reports.sql`](server/migrations/005_customer_reports.sql) | adds `concern` to `orders`: a Customer Report's concern, in place of `order_items` (`''` on every order) |
 
-**Changing the tables later:** never edit a file that has already run anywhere. Add the next number instead, for example `server/migrations/005_add_counter_number.sql`:
+**Changing the tables later:** never edit a file that has already run anywhere. Add the next number instead, for example `server/migrations/006_add_counter_number.sql`:
 
 ```sql
 -- which window/counter served the ticket
 ALTER TABLE orders ADD COLUMN counter TEXT;
 ```
 
-Restart the app, and you'll see `Database: applied migration 005_add_counter_number.sql` in the terminal.
+Restart the app, and you'll see `Database: applied migration 006_add_counter_number.sql` in the terminal.
 
 ## 4. Tables and relationships
 
@@ -214,6 +215,7 @@ erDiagram
         INTEGER queue_num "unique per day"
         TEXT name
         TEXT purpose
+        TEXT concern "Customer Report only, else ''"
         TEXT status "pending | serving | done"
         TEXT remarks
         TEXT created_at
@@ -437,20 +439,24 @@ addPoint: db.prepare(`
 removePoint: db.prepare("DELETE FROM serves WHERE order_id = ? AND queue_date = ?"),
 ```
 
-### 5.4 Showing who served a ticket → `orders` joined to `users`
+### 5.4 Showing who served a ticket → `orders` joined to `users` and `serves`
 
-Every order query uses one shared `FROM` clause that joins the staff name. [`server/api.js:321-322`](server/api.js#L321-L322)
+Every order query uses one shared `FROM` clause that joins the staff member's name and photo, and the time they marked it Done (this visit's point in `serves`, when the point is theirs; `UNIQUE (order_id, queue_date)` keeps it to one row per order). [`server/api.js:323-328`](server/api.js#L323-L328)
 
 ```js
-// order rows with the name of the staff member serving them (o. prefixes keep "name" unambiguous)
-const ORDER_ROW = "o.*, u.name AS served_by_name FROM orders o LEFT JOIN users u ON u.id = o.served_by";
+const ORDER_ROW = `o.*, u.name AS served_by_name, u.photo AS served_by_photo, s.served_at
+    FROM orders o
+    LEFT JOIN users u ON u.id = o.served_by
+    LEFT JOIN serves s ON s.order_id = o.id AND s.queue_date = o.queue_date AND s.user_id = o.served_by`;
 ```
 
-…and the row becomes `servedBy: { id, name }` for the pages. [`server/api.js:306-307`](server/api.js#L306-L307)
+…and the row becomes `servedBy: { id, name, photo }`, plus `servedAt` once it's Done, for the pages. [`server/api.js:306-309`](server/api.js#L306-L309) The `ServedBy` tag ([`src/admin/components/servedBy.jsx`](src/admin/components/servedBy.jsx)) shows it as "Served by Maria Santos · 10:42 AM" in Orders, History, the Dashboard and My counter.
 
 ```js
-// the staff member serving it, or who served it
-...(row.served_by !== null && { servedBy: { id: row.served_by, name: row.served_by_name } }),
+// the staff member serving it, or who served it; photo is for their avatar (see photoUrl in the front end)
+...(row.served_by !== null && { servedBy: { id: row.served_by, name: row.served_by_name, photo: row.served_by_photo } }),
+// when they marked it Done (ISO 8601)
+...(row.status === "done" && row.served_at && { servedAt: row.served_at }),
 ```
 
 ### 5.5 Delete and Restore → `orders.deleted_at`, `restored_at`, `original_*`

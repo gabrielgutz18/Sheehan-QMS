@@ -5,9 +5,11 @@ import Header from '../components/header.jsx';
 import Receipt from '../components/receipt.jsx';
 import Countdown from '../components/countdown.jsx';
 import { NameField, PurposeDropdown, OrderField } from '../components/fields.jsx';
+import CustomerReport from '../components/customerReport.jsx';
 import formatQueueNum from '../data/queueNum.js';
 import newId from '../data/newId.js';
 import { ROOFING_PURPOSE } from '../data/roofingColors.js';
+import { MAX_CONCERN, REPORT_PURPOSE } from '../data/customerReport.js';
 import { createOrder, updateOrder } from '../api/orderController.js';
 import PrintFunc from '../printing/printFunc.jsx';
 
@@ -21,6 +23,8 @@ export default function CustomerOrder() {
     const [name, setName] = useState("");
     const [purpose, setPurpose] = useState("");
     const [orders, setOrders] = useState([newOrder()]);
+    // a Customer Report asks for a concern instead of items; both are kept while the customer switches purpose
+    const [concern, setConcern] = useState("");
     const [errors, setErrors] = useState({});
     const [submitted, setSubmitted] = useState(null);
     const [editing, setEditing] = useState(false);
@@ -30,11 +34,17 @@ export default function CustomerOrder() {
 
     // fields show before the first submit and while editing; the receipt shows otherwise
     const showForm = !submitted || editing;
+    const isReport = purpose === REPORT_PURPOSE;
 
     const validate = () => {
         const next = {};
         if (!name.trim()) next.name = "Please enter your name.";
         if (!purpose) next.purpose = "Please choose a purpose.";
+        if (isReport) {
+            if (!concern.trim()) next.concern = "Please tell us your concern.";
+            else if (concern.trim().length > MAX_CONCERN) next.concern = `Please keep it under ${MAX_CONCERN} characters.`;
+            return next;
+        }
         const filled = orders.filter((o) => o.item.trim());
         if (filled.length === 0) next.orders = "Please add at least one order.";
         else if (filled.some((o) => o.qty < 1)) next.orders = "Each order needs a quantity of at least 1.";
@@ -48,18 +58,20 @@ export default function CustomerOrder() {
         setErrors(next);
         if (Object.keys(next).length > 0) return;
 
-        const payload = {
-            name: name.trim(),
-            purpose,
-            orders: orders
-                .filter((o) => o.item.trim())
-                // colors only apply to roofing; any picked before switching purpose are dropped
-                .map(({ item, qty, color }) => ({
-                    item: item.trim(),
-                    qty,
-                    ...(purpose === ROOFING_PURPOSE && color && { color }),
-                })),
-        };
+        const payload = isReport
+            ? { name: name.trim(), purpose, orders: [], concern: concern.trim() }
+            : {
+                name: name.trim(),
+                purpose,
+                orders: orders
+                    .filter((o) => o.item.trim())
+                    // colors only apply to roofing; any picked before switching purpose are dropped
+                    .map(({ item, qty, color }) => ({
+                        item: item.trim(),
+                        qty,
+                        ...(purpose === ROOFING_PURPOSE && color && { color }),
+                    })),
+            };
 
         setSubmitting(true);
         setSubmitError("");
@@ -87,6 +99,7 @@ export default function CustomerOrder() {
         setName("");
         setPurpose("");
         setOrders([newOrder()]);
+        setConcern("");
         setErrors({});
         setSubmitError("");
         setSubmitted(null);
@@ -117,7 +130,11 @@ export default function CustomerOrder() {
                     <form className="order-card" onSubmit={handleSubmit} noValidate>
                         <NameField value={name} onChange={withClear(setName, "name")} error={errors.name} />
                         <PurposeDropdown value={purpose} onChange={withClear(setPurpose, "purpose")} error={errors.purpose} />
-                        <OrderField orders={orders} purpose={purpose} onChange={withClear(setOrders, "orders")} error={errors.orders} />
+                        {isReport ? (
+                            <CustomerReport value={concern} onChange={withClear(setConcern, "concern")} error={errors.concern} />
+                        ) : (
+                            <OrderField orders={orders} purpose={purpose} onChange={withClear(setOrders, "orders")} error={errors.orders} />
+                        )}
 
                         {submitError && <p className="field-error" role="alert">{submitError}</p>}
 
@@ -137,6 +154,7 @@ export default function CustomerOrder() {
                             name={submitted.name}
                             purpose={submitted.purpose}
                             orders={submitted.orders}
+                            concern={submitted.concern}
                         />
                         <div className="receipt-actions">
                             <button type="button" className="submit-btn" onClick={() => setEditing(true)}>

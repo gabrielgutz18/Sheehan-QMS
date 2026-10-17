@@ -1,0 +1,27 @@
+# systemd service for the Ubuntu server: runs the built site + API (server/server.js) on PORT from .env
+# install: sudo cp deploy/sheehan-queue.service /etc/systemd/system/ && sudo systemctl daemon-reload
+#          sudo systemctl enable --now sheehan-queue
+# logs:    journalctl -u sheehan-queue -f
+[Unit]
+Description=Sheehan queue (site + API)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sheehan
+Group=sheehan
+WorkingDirectory=/opt/sheehan-queue
+ExecStart=/usr/bin/node --env-file=/opt/sheehan-queue/.env server/server.js
+Restart=on-failure
+RestartSec=5
+
+# the app can read its code but write only to the data and backup folders
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/sheehan-queue /var/backups/sheehan-queue
+
+[Install]
+WantedBy=multi-user.target

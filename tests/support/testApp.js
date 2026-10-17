@@ -109,6 +109,8 @@ export async function bootApp() {
 
     return {
         db,
+        // the temp folder holding this test's queue.db, photos/ and videos/
+        dataDir,
         // the full address of an API path, for requests that must skip the client's headers
         url: (path) => `${base}/api${path}`,
         client,
