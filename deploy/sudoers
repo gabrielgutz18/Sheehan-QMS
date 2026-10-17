@@ -1,0 +1,9 @@
+# lets the GitHub Actions runner (running as YOUR_USER) run deploy/update.sh without a password:
+# the backup as the app's user, and restarting the app. Nothing else.
+# the commands must match update.sh word for word ('=' is escaped here because sudoers needs it)
+# install (checks the file before it's used, so a mistake can't break sudo):
+#   sed "s/YOUR_USER/$USER/" /opt/sheehan-queue/deploy/sudoers > /tmp/sheehan-deploy
+#   sudo visudo -cf /tmp/sheehan-deploy && sudo install -m 440 -o root -g root /tmp/sheehan-deploy /etc/sudoers.d/sheehan-deploy
+#   rm /tmp/sheehan-deploy
+YOUR_USER ALL=(sheehan) NOPASSWD: /usr/bin/node --env-file\=/opt/sheehan-queue/.env /opt/sheehan-queue/server/backup.js
+YOUR_USER ALL=(root) NOPASSWD: /usr/bin/systemctl restart sheehan-queue

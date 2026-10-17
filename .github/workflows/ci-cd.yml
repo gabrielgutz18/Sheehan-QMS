@@ -7,10 +7,11 @@ on:
     branches: [master]
   workflow_dispatch:
 
-# Cancel in-progress runs for the same branch/PR when a new commit is pushed
+# A new commit cancels a pull request's older run; master runs wait their turn instead,
+# so a deploy to the server is never cut off halfway through a build
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -64,3 +65,16 @@ jobs:
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
+
+  deploy-server:
+    name: Deploy to the Ubuntu server
+    needs: ci
+    # master only, never pull requests: this job runs on the office server itself (a self-hosted runner,
+    # see DEPLOY-UBUNTU.md); skipped until the DEPLOY_SERVER repository variable is set to true
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && vars.DEPLOY_SERVER == 'true'
+    runs-on: [self-hosted, linux, sheehan-server]
+    timeout-minutes: 15
+    steps:
+      - name: Back up, pull, build and restart
+        # the server's own clone, the one the sheehan-queue service runs; it pulls master itself
+        run: bash /opt/sheehan-queue/deploy/update.sh master
