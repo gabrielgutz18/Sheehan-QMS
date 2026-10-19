@@ -1,8 +1,8 @@
 @echo off
 rem opens the ordering page (where customers pick a purpose and get a queue number) full screen in its own
 rem Microsoft Edge window (Chrome when Edge isn't installed), for the kiosk PCs customers order at:
-rem   - kiosk mode: no address bar or tabs, and F11 doesn't leave full screen, so customers stay on the
-rem     ordering page; Alt+F4 closes it
+rem   - an app window with no address bar or tabs; F11 leaves full screen, so it can be minimized or moved,
+rem     and Alt+F4 closes it
 rem   - pinch zoom and swipe-to-go-back are off, so a touch screen can't zoom the page or leave it
 rem   - it has its own profile (%LOCALAPPDATA%\SheehanKiosk-Edge), so these settings apply even while the
 rem     browser is already open for other things
@@ -31,7 +31,6 @@ if not defined BROWSER (
     exit /b 1
 )
 
-rem --edge-kiosk-type is Edge's own; Chrome ignores it
 start "" "%BROWSER%" --user-data-dir="%PROFILE%" --no-first-run --no-default-browser-check ^
     --disable-pinch --overscroll-history-navigation=0 ^
-    --kiosk "%SERVER%/" --edge-kiosk-type=fullscreen
+    --start-fullscreen --app="%SERVER%/"
