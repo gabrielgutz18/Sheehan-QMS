@@ -201,9 +201,9 @@ export default function AnnouncerPage() {
                             an internet connection.
                         </li>
                         <li>
-                            Browsers keep sound off until someone taps the page, so tap the display once after it opens.
-                            To skip that on an unattended screen, start its browser with{" "}
-                            <code>--autoplay-policy=no-user-gesture-required</code>.
+                            Open the display screen with <code>deploy\display-chrome.cmd</code> from the app's files: it
+                            starts Chrome with sound allowed. In an ordinary browser tab, sound stays off after every
+                            start or reload until someone clicks the display page once.
                         </li>
                     </ul>
                 </div>

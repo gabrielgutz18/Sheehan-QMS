@@ -237,6 +237,9 @@ scp -r <user>@<server-ip>:/var/backups/sheehan-queue ./sheehan-backups
 | Kiosk (customers) | `http://<server-ip>:3000/` |
 | Admin | `http://<server-ip>:3000/admin` |
 | Sales counter | `http://<server-ip>:3000/sales` |
+| Display screen | `http://<server-ip>:3000/queue`, opened with `deploy\display-chrome.cmd` (below) |
+
+On the Windows PC that drives the display screen, copy [`deploy/display-chrome.cmd`](deploy/display-chrome.cmd) from this repo, set `SERVER` at the top to the server's address (with nginx, `http://<server-ip>`), and double-click it. It opens the display full screen in its own Chrome window that's allowed to play sound, so calls are read out without anyone clicking the page. Put a shortcut to it in `shell:startup` to open the display when Windows starts. Opened any other way, the browser keeps the display silent after every start or reload until someone clicks on the page.
 
 On each kiosk with a receipt printer, start the print service with the server's address, so the page is allowed to print:
 
@@ -346,6 +349,7 @@ Or use the snapshot seeder (`npm run snapshot` on the PC, copy `seeders/` into `
 | Queue numbers reset at the wrong hour | Timezone (step 2) |
 | `The site isn't built yet` | `npm run build`, then restart the service |
 | Video upload fails with `413` behind nginx | Use `deploy/nginx.conf` (it sets `client_max_body_size 200m`) |
+| Display shows the calls but makes no sound | Open it with `deploy\display-chrome.cmd` (step 10). In an ordinary browser tab, click the display page once after every start or reload |
 | `git pull` asks for a password or is denied | Deploy key (step 4); `ssh -T git@github.com` to test |
 | Deploy job: `sudo: a terminal is required to read the password` | The sudoers rule isn't installed or doesn't match (step 12) |
 | Deploy job stays *Queued* | Runner offline: `sudo ./svc.sh status` in `~/actions-runner`, or a missing `sheehan-server` label |

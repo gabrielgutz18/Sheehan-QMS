@@ -44,7 +44,9 @@ export default function Call({ serving, loaded }) {
         for (const o of fresh) announce(callAnnouncement(o), settings);
     }, [serving, loaded, settings]);
 
-    // any tap or key press on the display turns sound on, not just the button
+    // browsers keep sound off until someone clicks or presses a key on the page, so any tap or key press on the display
+    // turns it on; nothing on screen asks for it, so a display nobody touches is opened with deploy/display-chrome.cmd,
+    // which starts the browser with sound allowed
     useEffect(() => {
         if (!locked) return;
         const unlock = () => {
@@ -59,11 +61,5 @@ export default function Call({ serving, loaded }) {
         };
     }, [locked]);
 
-    if (!settings.enabled || !locked) return null;
-
-    return (
-        <button type="button" className="sound-unlock">
-            Tap to turn on call announcements
-        </button>
-    );
+    return null;
 }
