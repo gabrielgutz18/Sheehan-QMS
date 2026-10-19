@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { getAnnouncer } from '../../api/announcerController.js';
 import { saveAnnouncer } from '../api/adminAnnouncerController.js';
-import { announce, callAnnouncement, findVoice, getVoices } from '../../sound/sound.js';
+import { announce, callAnnouncement, findVoice, watchVoices } from '../../sound/sound.js';
 
 const SAMPLE_CALL = { queueNum: 1, purpose: "Roofing Accessories", name: "Juan Dela Cruz", remarks: "Please proceed to Window 1" };
 
@@ -40,8 +40,11 @@ export default function AnnouncerPage() {
         getAnnouncer({ signal: controller.signal })
             .then(setSettings)
             .catch((err) => !controller.signal.aborted && setError(err.message));
-        getVoices().then(setVoices);
-        return () => controller.abort();
+        const stopWatchingVoices = watchVoices(setVoices);
+        return () => {
+            controller.abort();
+            stopWatchingVoices();
+        };
     }, []);
 
     const grouped = useMemo(() => groupVoices(voices ?? []), [voices]);
@@ -73,6 +76,8 @@ export default function AnnouncerPage() {
 
     // the voice the display would fall back to when this computer doesn't have the saved one
     const missingVoice = settings?.voice && voices && !voices.some((v) => v.name === settings.voice);
+    // Microsoft's natural voices (Ava, Jenny, Rosa, ...) are only in Edge, which the display screen opens in
+    const noNaturalVoices = voices?.length > 0 && !voices.some((v) => v.name.includes("(Natural)"));
 
     return (
         <section className="admin-page">
@@ -122,6 +127,12 @@ export default function AnnouncerPage() {
                             {missingVoice && (
                                 <p className="video-hint">
                                     This computer doesn't have that voice, so it would use {findVoice(voices, settings)?.name ?? "the default"}.
+                                </p>
+                            )}
+                            {noNaturalVoices && (
+                                <p className="video-hint">
+                                    This browser doesn't have Microsoft's natural voices, such as Ava, Jenny or Rosa. Open
+                                    this page in Microsoft Edge to pick one; the display screen opens in Edge too.
                                 </p>
                             )}
 

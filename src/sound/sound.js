@@ -71,6 +71,24 @@ export function getVoices() {
     });
 }
 
+// calls back with this browser's voices, then again each time it adds more: Edge lists its online voices first and
+// this computer's own a moment later; returns a function that stops listening
+export function watchVoices(callback) {
+    if (!hasSpeech()) {
+        callback([]);
+        return () => {};
+    }
+    const synth = window.speechSynthesis;
+    let watching = true;
+    const update = () => watching && callback(synth.getVoices());
+    synth.addEventListener("voiceschanged", update);
+    getVoices().then(update);
+    return () => {
+        watching = false;
+        synth.removeEventListener("voiceschanged", update);
+    };
+}
+
 // the chosen voice by name; if this computer doesn't have it, one in the same language;
 // then one in the browser's language; then the default
 export function findVoice(voices, { voice, lang } = {}) {
