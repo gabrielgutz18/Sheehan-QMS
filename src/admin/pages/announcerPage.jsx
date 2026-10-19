@@ -197,12 +197,13 @@ export default function AnnouncerPage() {
                             computer itself; elsewhere the display uses a voice in the same language.
                         </li>
                         <li>
-                            Microsoft Edge has the most natural voices, including Filipino. Voices marked “online” need
-                            an internet connection.
+                            Microsoft Edge has the most natural voices, such as Ava, Emma or Jenny, Rosa for Philippine
+                            English, and Filipino. Pick them with this page open in Edge. Voices marked “online” need an
+                            internet connection.
                         </li>
                         <li>
-                            Open the display screen with <code>deploy\display-chrome.cmd</code> from the app's files: it
-                            starts Chrome with sound allowed. In an ordinary browser tab, sound stays off after every
+                            Open the display screen with <code>deploy\display-screen.cmd</code> from the app's files: it
+                            starts Edge with sound allowed. In an ordinary browser tab, sound stays off after every
                             start or reload until someone clicks the display page once.
                         </li>
                     </ul>

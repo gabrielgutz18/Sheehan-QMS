@@ -45,7 +45,7 @@ export default function Call({ serving, loaded }) {
     }, [serving, loaded, settings]);
 
     // browsers keep sound off until someone clicks or presses a key on the page, so any tap or key press on the display
-    // turns it on; nothing on screen asks for it, so a display nobody touches is opened with deploy/display-chrome.cmd,
+    // turns it on; nothing on screen asks for it, so a display nobody touches is opened with deploy/display-screen.cmd,
     // which starts the browser with sound allowed
     useEffect(() => {
         if (!locked) return;

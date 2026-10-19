@@ -185,7 +185,7 @@ All paths are relative to `VITE_API_URL` (default `/api`).
 
 On each kiosk with a printer, start the print service with `--origin http://<server-ip>:3000` so the page is allowed to print (see `src/printing/script/printService.py`).
 
-On the display PC, open the display with [`deploy/display-chrome.cmd`](deploy/display-chrome.cmd) (set `SERVER` at the top to the server's address). It starts Chrome with sound allowed, so calls are read out without anyone clicking the page first; in an ordinary tab the browser keeps the display silent after every start or reload until someone clicks it.
+On the display PC, open the display with [`deploy/display-screen.cmd`](deploy/display-screen.cmd) (set `SERVER` at the top to the server's address). It starts Microsoft Edge (for its natural voices; Chrome if Edge isn't installed) with sound allowed, so calls are read out without anyone clicking the page first; in an ordinary tab the browser keeps the display silent after every start or reload until someone clicks it.
 
 **Updating:** stop the service, replace the app files (not the data folder), `npm ci`, `npm run build`, start the service. New migrations run by themselves.
 
