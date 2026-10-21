@@ -21,7 +21,8 @@ const sessionCookieName = (req) => {
 const readCookies = (req) => Object.fromEntries(
     (req.headers.cookie ?? "").split(/;\s*/).filter((c) => c.includes("=")).map((c) => [c.slice(0, c.indexOf("=")), c.slice(c.indexOf("=") + 1)]));
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
-const ORDER_STATUSES = ["pending", "serving", "done"];
+// returning: back in line after being served; like pending, it waits for a counter to call it
+const ORDER_STATUSES = ["pending", "serving", "returning", "done"];
 const MAX_REMARKS = 120;
 // optional per-item color for roofing orders; must match src/data/roofingColors.js
 const ROOFING_COLORS = ["red", "blue", "green"];
@@ -383,9 +384,10 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         serving: db.prepare(`
             SELECT queue_num, name, purpose, remarks, called_at FROM orders
             WHERE queue_date = ? AND status = 'serving' AND deleted_at IS NULL ORDER BY called_at DESC`),
+        // the line: waiting and returning customers, in number order
         upcoming: db.prepare(`
-            SELECT queue_num, name, purpose FROM orders
-            WHERE queue_date = ? AND status = 'pending' AND deleted_at IS NULL ORDER BY queue_num`),
+            SELECT queue_num, name, purpose, status FROM orders
+            WHERE queue_date = ? AND status IN ('pending', 'returning') AND deleted_at IS NULL ORDER BY queue_num`),
         // quantity ordered and tickets per time slot and purpose, deleted tickets left out
         statsByHour: db.prepare(`
             SELECT strftime('%H', o.created_at, 'localtime') AS bucket, o.purpose, SUM(i.qty) AS qty, COUNT(DISTINCT o.id) AS tickets
@@ -513,12 +515,12 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
     });
 
     // moves a ticket to a new status and keeps "who is serving it" and the points in step:
-    // serving → the person who called it; waiting → nobody; done → a point for whoever served it
+    // serving → the person who called it; waiting or returning → nobody; done → a point for whoever served it
     // (or whoever marked it done, if nobody called it); leaving done takes that visit's point back
     const changeStatus = (order, status, user, { calledAt = order.called_at, remarks = order.remarks, servedBy } = {}) =>
         transaction(db, () => {
             const server = servedBy !== undefined ? servedBy
-                : status === "pending" ? null
+                : status === "pending" || status === "returning" ? null
                 : status === "serving" ? (order.status === "serving" ? order.served_by : user.id)
                 : order.served_by ?? user.id;
             sql.setStatus.run({ status, calledAt, remarks, servedBy: server, id: order.id });
@@ -641,7 +643,9 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
                 serving: sql.serving.all(date).map((o) => ({
                     queueNum: o.queue_num, name: o.name, purpose: o.purpose, remarks: o.remarks, calledAt: o.called_at,
                 })),
-                upcoming: sql.upcoming.all(date).map((o) => ({ queueNum: o.queue_num, name: o.name, purpose: o.purpose })),
+                upcoming: sql.upcoming.all(date).map((o) => ({
+                    queueNum: o.queue_num, name: o.name, purpose: o.purpose, ...(o.status === "returning" && { returning: true }),
+                })),
             });
         }
 

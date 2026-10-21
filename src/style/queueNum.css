@@ -197,6 +197,21 @@
   overflow-wrap: break-word;
 }
 
+/* beside the name of a customer who is back in line after being served */
+.upcoming-returning {
+  display: inline-block;
+  margin-left: calc(var(--px) * 10);
+  padding: calc(var(--px) * 3) calc(var(--px) * 8);
+  font-size: calc(var(--px) * 13);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #4b2a9e;
+  background: #f3ecfd;
+  border: 1px solid #c4aef0;
+  border-radius: calc(var(--px) * 6);
+  vertical-align: middle;
+}
+
 .upcoming-table .upcoming-empty {
   padding: calc(var(--px) * 48) calc(var(--px) * 32);
   font-size: calc(var(--px) * 20);

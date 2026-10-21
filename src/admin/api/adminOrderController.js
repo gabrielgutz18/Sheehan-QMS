@@ -10,7 +10,7 @@ export const getOrder = (queueNum, options) => http.get(`/admin/orders/${encodeU
 export const updateOrderStatus = (queueNum, status) =>
     http.patch(`/admin/orders/${encodeURIComponent(queueNum)}`, { status });
 
-// puts the ticket on the display as now serving; remarks replace the default "Please proceed to ..." line
+// puts the ticket on the display as now serving; remarks replace the default "Please wait" line
 export const callOrder = (queueNum, remarks) =>
     http.post(`/admin/orders/${encodeURIComponent(queueNum)}/call`, { remarks });
 

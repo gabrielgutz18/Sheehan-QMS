@@ -194,6 +194,45 @@ describe("finishing a ticket", () => {
     });
 });
 
+describe("a returning customer", () => {
+    test("a served customer who comes back is in line again, tagged on the display, with nobody serving them", async () => {
+        await takeTicket();
+        await takeTicket({ name: "Ana Reyes" });
+        const maria = await app.actingAsSales();
+        await maria.post("/admin/orders/1/call");
+        await maria.patch("/admin/orders/1", { status: "done" });
+
+        const returning = (await maria.patch("/admin/orders/1", { status: "returning" })).assertStatus(200).body;
+
+        assert.equal(returning.status, "returning");
+        assert.equal(returning.servedBy, undefined);
+        app.assertDatabaseHas("orders", { queue_num: 1, status: "returning", served_by: null });
+        const { serving, upcoming } = (await app.client().get("/queue")).body;
+        assert.deepEqual(serving, []);
+        assert.deepEqual(upcoming, [
+            { queueNum: 1, name: "Juan Dela Cruz", purpose: "Roofings", returning: true },
+            { queueNum: 2, name: "Ana Reyes", purpose: "Roofings" },
+        ]);
+    });
+
+    test("their visit still earns one point, for whoever finishes it", async () => {
+        await takeTicket();
+        const maria = await app.actingAsSales();
+        const admin = await app.actingAsAdmin();
+        await maria.post("/admin/orders/1/call");
+        await maria.patch("/admin/orders/1", { status: "done" });
+
+        await maria.patch("/admin/orders/1", { status: "returning" });
+        app.assertDatabaseCount("serves", 0);
+
+        const called = (await admin.post("/admin/orders/1/call")).assertStatus(200).body;
+        assert.equal(called.status, "serving");
+        await admin.patch("/admin/orders/1", { status: "done" });
+        app.assertDatabaseCount("serves", 1);
+        app.assertDatabaseHas("serves", { user_id: admin.account.id });
+    });
+});
+
 describe("deleting and restoring", () => {
     test("a deleted ticket leaves the queue and the display but stays in History", async () => {
         await takeTicket();

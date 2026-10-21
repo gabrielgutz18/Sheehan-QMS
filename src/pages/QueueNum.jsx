@@ -1,6 +1,7 @@
 //func
 import { useEffect, useState } from 'react';
 import { getQueue } from '../api/queueController.js';
+import { DEFAULT_CALL_NOTE } from '../data/callNote.js';
 import '../style/queueNum.css';
 
 //assets
@@ -17,7 +18,7 @@ const UPCOMING_LIMIT = 8;
 // one per counter; more than this and the video gets squeezed
 const ALSO_SERVING_LIMIT = 3;
 
-const callNote = (o) => o.remarks || `Please proceed to ${o.purpose}`;
+const callNote = (o) => o.remarks || DEFAULT_CALL_NOTE;
 
 export default function QueueNum() {
     const [queue, setQueue] = useState({ serving: [], upcoming: [] });
@@ -91,7 +92,10 @@ export default function QueueNum() {
                                             <td>
                                                 <NumberCard number={o.queueNum} purpose={o.purpose} />
                                             </td>
-                                            <td className="upcoming-name">{o.name}</td>
+                                            <td className="upcoming-name">
+                                                {o.name}
+                                                {o.returning && <span className="upcoming-returning">Returning</span>}
+                                            </td>
                                             <td><span className="upcoming-station">{o.purpose}</span></td>
                                         </tr>
                                     ))

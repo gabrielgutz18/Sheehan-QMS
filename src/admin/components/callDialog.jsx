@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import formatQueueNum from '../../data/queueNum.js';
+import { DEFAULT_CALL_NOTE } from '../../data/callNote.js';
 
 const MAX_REMARKS = 120;
 
@@ -52,7 +53,7 @@ export default function CallDialog({ order, defaultRemarks = "", busy, error, on
                         ref={inputRef}
                         type="text"
                         maxLength={MAX_REMARKS}
-                        placeholder={`Please proceed to ${order.purpose}`}
+                        placeholder={DEFAULT_CALL_NOTE}
                         value={remarks}
                         onChange={(e) => setRemarks(e.target.value)}
                     />
@@ -76,7 +77,7 @@ export default function CallDialog({ order, defaultRemarks = "", busy, error, on
 
                 <p className="admin-dialog-hint">
                     Shown under the number on the display. Leave blank to show
-                    “Please proceed to {order.purpose}”.
+                    “{DEFAULT_CALL_NOTE}”.
                 </p>
 
                 {error && <p className="field-error" role="alert">{error}</p>}
