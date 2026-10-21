@@ -13,8 +13,8 @@ rem usage: display-screen.cmd [server address]   e.g. display-screen.cmd http://
 
 setlocal
 
-rem the queue server, as kiosks and counters open it; change it here if the server's address changes
-set "SERVER=http://172.17.87.62:3000"
+rem the queue server, as the display and counters open it; change it here if the server's address changes
+set "SERVER=http://192.168.1.208:3000"
 if not "%~1"=="" set "SERVER=%~1"
 
 set "BROWSER="
@@ -34,4 +34,4 @@ if not defined BROWSER (
 start "" "%BROWSER%" --user-data-dir="%PROFILE%" --no-first-run --no-default-browser-check ^
     --autoplay-policy=no-user-gesture-required ^
     --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-renderer-backgrounding ^
-    --start-fullscreen --app="%SERVER%/queue"
+    --start-fullscreen --app="%SERVER%/"

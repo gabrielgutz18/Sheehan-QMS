@@ -305,7 +305,7 @@ Each walkthrough starts at the page, goes through the API call, and ends at the 
 
 ### 5.1 A customer submits an order → `queue_counters`, `orders`, `order_items`
 
-The kiosk page sends the order. [`src/pages/customerOrder.jsx:69-70`](src/pages/customerOrder.jsx#L69-L70)
+Staff send the order from Admin → Customer order. [`src/admin/pages/customerOrderPage.jsx:76-77`](src/admin/pages/customerOrderPage.jsx#L76-L77)
 
 ```js
                 ? await updateOrder(submitted.queueNum, payload)

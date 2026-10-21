@@ -1,36 +1,31 @@
-import { useCallback, useEffect, useState } from 'react';
-import '../style/customerOrder.css';
+import { useState } from 'react';
+import '../../style/customerOrder.css';
 
-import Header from '../components/header.jsx';
-import Receipt from '../components/receipt.jsx';
-import Countdown from '../components/countdown.jsx';
-import { NameField, PurposeDropdown, OrderField } from '../components/fields.jsx';
-import CustomerReport from '../components/customerReport.jsx';
-import formatQueueNum from '../data/queueNum.js';
-import newId from '../data/newId.js';
-import { ROOFING_PURPOSE } from '../data/roofingColors.js';
-import { MAX_CONCERN, REPORT_PURPOSE } from '../data/customerReport.js';
-import { createOrder, updateOrder } from '../api/orderController.js';
-import PrintFunc from '../printing/printFunc.jsx';
+import Receipt from '../../components/receipt.jsx';
+import { NameField, PurposeDropdown, OrderField } from '../../components/fields.jsx';
+import CustomerReport from '../../components/customerReport.jsx';
+import formatQueueNum from '../../data/queueNum.js';
+import newId from '../../data/newId.js';
+import { ROOFING_PURPOSE } from '../../data/roofingColors.js';
+import { MAX_CONCERN, REPORT_PURPOSE } from '../../data/customerReport.js';
+import { createOrder, updateOrder } from '../../api/orderController.js';
+import PrintFunc from '../../printing/printFunc.jsx';
 
 const newOrder = () => ({ id: newId(), item: "", qty: 0, color: "" });
 
-// after an order, the receipt stays up this long, then a thank-you shows before the form clears
-const RECEIPT_SECONDS = 30;
-const THANK_YOU_MS = 5000;
-
-export default function CustomerOrder() {
+// staff (admin or sales) take a customer's name, purpose and items, or a concern for a Customer Report;
+// the backend gives the ticket its queue number and it prints straight away, the same as the old kiosk
+export default function CustomerOrderPage() {
     const [name, setName] = useState("");
     const [purpose, setPurpose] = useState("");
     const [orders, setOrders] = useState([newOrder()]);
-    // a Customer Report asks for a concern instead of items; both are kept while the customer switches purpose
+    // a Customer Report asks for a concern instead of items; both are kept while the purpose is switched
     const [concern, setConcern] = useState("");
     const [errors, setErrors] = useState({});
     const [submitted, setSubmitted] = useState(null);
     const [editing, setEditing] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState("");
-    const [thanking, setThanking] = useState(false);
 
     // fields show before the first submit and while editing; the receipt shows otherwise
     const showForm = !submitted || editing;
@@ -38,10 +33,10 @@ export default function CustomerOrder() {
 
     const validate = () => {
         const next = {};
-        if (!name.trim()) next.name = "Please enter your name.";
+        if (!name.trim()) next.name = "Please enter the customer's name.";
         if (!purpose) next.purpose = "Please choose a purpose.";
         if (isReport) {
-            if (!concern.trim()) next.concern = "Please tell us your concern.";
+            if (!concern.trim()) next.concern = "Please enter the customer's concern.";
             else if (concern.trim().length > MAX_CONCERN) next.concern = `Please keep it under ${MAX_CONCERN} characters.`;
             return next;
         }
@@ -95,7 +90,7 @@ export default function CustomerOrder() {
         if (errors[key]) setErrors((prev) => ({ ...prev, [key]: undefined }));
     };
 
-    const resetForm = useCallback(() => {
+    const resetForm = () => {
         setName("");
         setPurpose("");
         setOrders([newOrder()]);
@@ -104,29 +99,16 @@ export default function CustomerOrder() {
         setSubmitError("");
         setSubmitted(null);
         setEditing(false);
-        setThanking(false);
-    }, []);
-
-    const showThankYou = useCallback(() => setThanking(true), []);
-
-    // hold the thank-you on screen, then hand the kiosk to the next customer
-    useEffect(() => {
-        if (!thanking) return;
-        const id = setTimeout(resetForm, THANK_YOU_MS);
-        return () => clearTimeout(id);
-    }, [thanking, resetForm]);
+    };
 
     return (
-        <div className="order-screen">
-            <Header />
+        <section className="admin-page">
+            <div className="admin-page-head">
+                <h1 className="admin-title">Customer order</h1>
+            </div>
 
-            <main className="order-page">
-                {thanking ? (
-                    <section className="thank-you" role="status">
-                        <h1 className="thank-you-title">Thank you!</h1>
-                        <p className="thank-you-text">Please wait for your number to be called.</p>
-                    </section>
-                ) : showForm ? (
+            <div className="admin-panel order-panel">
+                {showForm ? (
                     <form className="order-card" onSubmit={handleSubmit} noValidate>
                         <NameField value={name} onChange={withClear(setName, "name")} error={errors.name} />
                         <PurposeDropdown value={purpose} onChange={withClear(setPurpose, "purpose")} error={errors.purpose} />
@@ -142,12 +124,10 @@ export default function CustomerOrder() {
                         <button type="submit" className="submit-btn" disabled={submitting}>
                             {submitting ? "Sending..." : editing ? "Update" : "Submit"}
                         </button>
-                        <p className="submit-hint">
-                            Please make sure to print your ticket after submitting your request. Thank you!
-                        </p>
+                        <p className="submit-hint">The ticket prints as soon as it's submitted.</p>
                     </form>
                 ) : (
-                    // ticket on the left, actions beside it, so the whole thing fits one screen
+                    // ticket on the left, actions beside it
                     <section className="receipt-section">
                         <Receipt
                             queueNumber={formatQueueNum(submitted.queueNum, submitted.purpose)}
@@ -164,12 +144,10 @@ export default function CustomerOrder() {
                             <button type="button" className="submit-btn" onClick={resetForm}>
                                 New order
                             </button>
-                            {/* restarts from the top whenever the receipt is shown again, e.g. after an edit */}
-                            <Countdown seconds={RECEIPT_SECONDS} onDone={showThankYou} />
                         </div>
                     </section>
                 )}
-            </main>
-        </div>
+            </div>
+        </section>
     );
 }

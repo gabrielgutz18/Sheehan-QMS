@@ -24,7 +24,7 @@ export default function PrintFunc({ ticket }) {
             });
             setPrintStatus("done");
         } catch (err) {
-            // the customer only sees the popup; the real reason is for service support
+            // the popup only says it couldn't print; the real reason is for service support
             console.error("Ticket couldn't be printed", err);
             setPrintStatus("failed");
             if (!dialogRef.current.open) dialogRef.current.showModal();
@@ -55,7 +55,7 @@ export default function PrintFunc({ ticket }) {
             </button>
             {printStatus === "done" && (
                 <p className="print-status" role="status">
-                    Please take your ticket and hand it to the sales counter.
+                    Ticket printed. Hand it to the customer.
                 </p>
             )}
 

@@ -234,16 +234,14 @@ scp -r <user>@<server-ip>:/var/backups/sheehan-queue ./sheehan-backups
 
 | Screen | Open |
 |---|---|
-| Kiosk (customers) | `http://<server-ip>:3000/`, opened with `deploy\ordering-screen.cmd` (below) |
+| Display screen | `http://<server-ip>:3000/`, opened with `deploy\display-screen.cmd` (below) |
 | Admin | `http://<server-ip>:3000/admin` |
+| Customer order (admin and sales) | `http://<server-ip>:3000/admin/customer-order` |
 | Sales counter | `http://<server-ip>:3000/sales` |
-| Display screen | `http://<server-ip>:3000/queue`, opened with `deploy\display-screen.cmd` (below) |
 
 On the Windows PC that drives the display screen, copy [`deploy/display-screen.cmd`](deploy/display-screen.cmd) from this repo, set `SERVER` at the top to the server's address (with nginx, `http://<server-ip>`), and double-click it. It opens the display full screen in its own Microsoft Edge window (Chrome if Edge isn't installed) that's allowed to play sound, so calls are read out without anyone clicking the page. Edge has Microsoft's natural voices (Ava, Emma, Jenny, Rosa for Philippine English, ...): pick one under Admin → Call announcements with the admin page open in Edge, so it's a voice the display has too. Put a shortcut to it in `shell:startup` to open the display when Windows starts. Opened any other way, the browser keeps the display silent after every start or reload until someone clicks on the page.
 
-On each kiosk, copy [`deploy/ordering-screen.cmd`](deploy/ordering-screen.cmd) from this repo, set `SERVER` at the top to the server's address (with nginx, `http://<server-ip>`), and double-click it. It opens the ordering page full screen in its own Microsoft Edge window (Chrome if Edge isn't installed), with no address bar, and with pinch zoom and swipe-back off so a touch screen can't zoom or leave the page. F11 leaves full screen, so the window can be minimized; Alt+F4 closes it. Put a shortcut to it in `shell:startup` to open the ordering page when Windows starts.
-
-On each kiosk with a receipt printer, start the print service with the server's address, so the page is allowed to print:
+Orders are taken by staff in Admin → Customer order; there is no customer kiosk. On each staff PC with a receipt printer, start the print service with the server's address, so the page is allowed to print:
 
 ```bash
 python src/printing/script/printService.py --origin http://<server-ip>:3000

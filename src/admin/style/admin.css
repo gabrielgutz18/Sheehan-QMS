@@ -598,6 +598,17 @@
   border-color: #9fd3ae;
 }
 
+/* ---------- customer order ---------- */
+
+/* the order form and ticket (src/style/customerOrder.css), centered in the panel; the wide side padding
+   leaves room for the × that sits just outside each order row */
+.order-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 48px;
+}
+
 /* ---------- my counter (sales) ---------- */
 
 /* "Hello, Maria!" on the right of the page title (My counter and Dashboard) */

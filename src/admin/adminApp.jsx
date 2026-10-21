@@ -12,6 +12,7 @@ import PrinterPage from './pages/printerPage.jsx';
 import AnnouncerPage from './pages/announcerPage.jsx';
 import HistoryPage from './pages/historyPage.jsx';
 import SalesPage from './pages/salesPage.jsx';
+import CustomerOrderPage from './pages/customerOrderPage.jsx';
 import AccCreation from './pages/accCreation.jsx';
 import AccountPage from './pages/accountPage.jsx';
 
@@ -29,6 +30,7 @@ export default function AdminApp() {
                 {/* admins and sales staff share the layout; the pages inside are split by role */}
                 <Route element={<ProtectedRoute roles={["admin", "sales"]} />}>
                     <Route element={<AdminLayout />}>
+                        <Route path="customer-order" element={<CustomerOrderPage />} />
                         <Route path="counter" element={<SalesPage />} />
                         <Route path="history" element={<HistoryPage />} />
                         <Route path="account" element={<AccountPage />} />

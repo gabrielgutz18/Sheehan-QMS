@@ -4,11 +4,11 @@ React + Vite front end with two areas:
 
 | Path       | Who        | What                                             |
 | ---------- | ---------- | ------------------------------------------------ |
-| `/`        | Customers  | Fill in an order and get a queue number (SHN 01) |
-| `/admin/*` | Staff only | Sign in: admins run everything, sales staff serve customers from My counter |
+| `/`        | Display screen | The queue board: who's being served and who's next (`/queue` still opens it) |
+| `/admin/*` | Staff only | Sign in: admins run everything; sales staff take orders in Customer order and serve customers from My counter |
 | `/sales`   | Sales staff | Short address for My counter (`/admin/counter`); asks them to sign in first if needed |
 
-The admin code is lazy-loaded into its own bundle, so the customer page never downloads it.
+The admin code is lazy-loaded into its own bundle, so the display screen never downloads it.
 
 ## Getting started
 
@@ -108,8 +108,8 @@ Queue numbers start again at 1 every day (by the server's clock). The queue, the
 
 | Role  | Can |
 | ----- | --- |
-| Admin | Everything: dashboard and sales graph, Orders (including delete), History, display video, announcer voice and volume, printer, Accounts |
-| Sales | My counter: serve the next customer, recall, mark done, send back to waiting; see their own customers served (today / week / month / year / all time); History and restore; announcer volume |
+| Admin | Everything: dashboard and sales graph, Customer order, Orders (including delete), History, display video, announcer voice and volume, printer, Accounts |
+| Sales | Customer order: take a customer's name, purpose and items (or concern) and print their ticket with its queue number (SHN 01); My counter: serve the next customer, recall, mark done, send back to waiting; see their own customers served (today / week / month / year / all time); History and restore; announcer volume |
 
 - **Accounts:** admins create them in Admin → Accounts. Passwords are stored hashed (scrypt). An account is switched off instead of deleted, so the customers it served stay on record. Switching an account off, or changing its password or role, signs it out everywhere.
 - **The built-in admin:** the account in `.env` (`ADMIN_USERNAME` / `ADMIN_PASSWORD`) is created at the first start and always keeps the `.env` password and the admin role, so you can't lock yourself out.
@@ -178,14 +178,12 @@ All paths are relative to `VITE_API_URL` (default `/api`).
 1. Install [Node.js 24 LTS](https://nodejs.org) on the server.
 2. Copy the project to the server (e.g. `C:\SheehanQueue\app`) and run `npm ci` there.
 3. Create `.env` from `.env.example`: set the admin login, `DATA_DIR=C:\SheehanQueue\data` (outside the app folder, so updates never touch it) and `BACKUP_DIR` on another drive.
-4. `npm run build`, then `npm start`. The first start creates the database. Open `http://<server-ip>:3000` from a kiosk to check.
+4. `npm run build`, then `npm start`. The first start creates the database. Open `http://<server-ip>:3000` from another PC to check.
 5. Make it start with Windows: install it as a service with [WinSW](https://github.com/winsw/winsw) or [NSSM](https://nssm.cc), running `node --env-file=C:\SheehanQueue\app\.env C:\SheehanQueue\app\server\server.js`, set to restart on failure.
 6. Allow the port through Windows Defender Firewall for the local network, and give the server a fixed IP so kiosks and displays can find it.
 7. Back up daily: a Task Scheduler job that runs `npm run backup` in the app folder.
 
-On each kiosk with a printer, start the print service with `--origin http://<server-ip>:3000` so the page is allowed to print (see `src/printing/script/printService.py`).
-
-On each kiosk, open the ordering page with [`deploy/ordering-screen.cmd`](deploy/ordering-screen.cmd) (set `SERVER` at the top to the server's address). It starts Microsoft Edge (Chrome if Edge isn't installed) full screen in its own window with no address bar, and with pinch zoom and swipe-back off so a touch screen can't zoom or leave the page. F11 leaves full screen.
+Orders are taken by staff in Admin → Customer order; there is no customer kiosk. On each staff PC with a receipt printer, start the print service with `--origin http://<server-ip>:3000` so the page is allowed to print (see `src/printing/script/printService.py`).
 
 On the display PC, open the display with [`deploy/display-screen.cmd`](deploy/display-screen.cmd) (set `SERVER` at the top to the server's address). It starts Microsoft Edge (for its natural voices; Chrome if Edge isn't installed) with sound allowed, so calls are read out without anyone clicking the page first; in an ordinary tab the browser keeps the display silent after every start or reload until someone clicks it.
 
