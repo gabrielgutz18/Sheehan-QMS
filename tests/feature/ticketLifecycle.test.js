@@ -335,6 +335,35 @@ describe("who can do what", () => {
         (await maria.get("/admin/orders")).assertStatus(200);
     });
 
+    test("loading staff sign in and keep their own account, with no admin or sales rights", async () => {
+        await takeTicket();
+        const pedro = await app.actingAsLoading();
+
+        assert.equal((await pedro.get("/auth/me")).assertStatus(200).body.role, "loading");
+        (await pedro.patch("/admin/me", { firstName: "Pedro", surname: "Garcia", department: "Steel" })).assertStatus(200);
+
+        (await pedro.get("/admin/orders")).assertStatus(403);
+        (await pedro.post("/admin/orders/1/call")).assertStatus(403);
+        (await pedro.patch("/admin/orders/1", { status: "done" })).assertStatus(403);
+        (await pedro.get("/admin/history")).assertStatus(403);
+        (await pedro.get("/admin/me/stats")).assertStatus(403);
+        (await pedro.put("/admin/announcer/volume", { volume: 0 })).assertStatus(403);
+        (await pedro.get("/admin/users")).assertStatus(403);
+        app.assertDatabaseHas("orders", { queue_num: 1, status: "pending", served_by: null });
+    });
+
+    test("an admin can make an account loading staff, but not some other role", async () => {
+        const maria = await app.actingAsSales();
+        const admin = await app.actingAsAdmin();
+
+        const moved = (await admin.patch(`/admin/users/${maria.account.id}`, { role: "loading" })).assertStatus(200).body;
+
+        assert.equal(moved.role, "loading");
+        (await admin.patch(`/admin/users/${maria.account.id}`, { role: "driver" })).assertStatus(400);
+        (await admin.post("/admin/users", { username: "ana", name: "Ana Reyes", password: "password1", role: "driver" }))
+            .assertStatus(400);
+    });
+
     test("a switched-off account is signed out and can't serve", async () => {
         await takeTicket();
         const maria = await app.actingAsSales();

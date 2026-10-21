@@ -1,7 +1,7 @@
 // the backend API, shared by the Vite dev server (npm run dev) and server/server.js (npm start)
 // orders, settings, staff accounts and sign-ins are saved in a SQLite database in the data folder
 // (see server/db.js), and an uploaded display video next to it in videos/, so nothing is lost on restart
-// two roles: admins can do everything; sales staff only what SALES_ROUTES lists
+// three roles: admins can do everything; sales and loading staff only what ROLE_ROUTES lists for them
 import { createHash, randomBytes, scrypt, scryptSync, timingSafeEqual } from 'node:crypto';
 import { createReadStream, createWriteStream, mkdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { extname, join } from 'node:path';
@@ -39,24 +39,33 @@ const VIDEO_EXTENSIONS = {
 const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 const HISTORY_LIMIT = 200;
 const ANNOUNCER_REPEATS = [1, 2];
-const ROLES = ["admin", "sales"];
+// loading: the roofing and steel loading crews
+const ROLES = ["admin", "sales", "loading"];
 const USERNAME = /^[a-z0-9._-]{3,32}$/i;
 const MIN_PASSWORD = 8;
 
-// what sales staff may do; every other /admin route is for admins only, so a new route is safe by default
-const SALES_ROUTES = [
-    ["GET", /^\/admin\/orders$/],
-    ["POST", /^\/admin\/orders\/[^/]+\/call$/],
-    ["PATCH", /^\/admin\/orders\/[^/]+$/],
-    ["GET", /^\/admin\/history$/],
-    ["POST", /^\/admin\/history\/\d+\/restore$/],
-    ["GET", /^\/admin\/me\/stats$/],
-    ["PUT", /^\/admin\/announcer\/volume$/],
+// My account: every staff member keeps their own name, details and photo
+const ACCOUNT_ROUTES = [
     ["PATCH", /^\/admin\/me$/],
     ["PUT", /^\/admin\/me\/photo$/],
     ["DELETE", /^\/admin\/me\/photo$/],
 ];
-const salesMay = (method, path) => SALES_ROUTES.some(([m, route]) => m === method && route.test(path));
+// what each role other than admin may do; every other /admin route is for admins only, so a new route is safe by default
+const ROLE_ROUTES = {
+    sales: [
+        ["GET", /^\/admin\/orders$/],
+        ["POST", /^\/admin\/orders\/[^/]+\/call$/],
+        ["PATCH", /^\/admin\/orders\/[^/]+$/],
+        ["GET", /^\/admin\/history$/],
+        ["POST", /^\/admin\/history\/\d+\/restore$/],
+        ["GET", /^\/admin\/me\/stats$/],
+        ["PUT", /^\/admin\/announcer\/volume$/],
+        ...ACCOUNT_ROUTES,
+    ],
+    // their own page has nothing on it yet, so for now just My account
+    loading: ACCOUNT_ROUTES,
+};
+const roleMay = (role, method, path) => (ROLE_ROUTES[role] ?? []).some(([m, route]) => m === method && route.test(path));
 
 // passwords are stored as scrypt$<salt>$<hash>, with a new random salt for each
 const scryptAsync = promisify(scrypt);
@@ -674,11 +683,11 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             return send(res, 200, loadOrder(findToday(existing.queue_num)));
         }
 
-        // everything below needs a signed-in account; sales staff only get the routes in SALES_ROUTES
+        // everything below needs a signed-in account; sales and loading staff only get their routes in ROLE_ROUTES
         const session = getSession(req);
         if (path.startsWith("/auth/") || path.startsWith("/admin/")) {
             if (!session) return send(res, 401, { message: "Please sign in." });
-            if (path.startsWith("/admin/") && session.user.role !== "admin" && !salesMay(method, path)) {
+            if (path.startsWith("/admin/") && session.user.role !== "admin" && !roleMay(session.user.role, method, path)) {
                 return send(res, 403, { message: "Only an admin can do that." });
             }
         }
@@ -763,7 +772,7 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
 
         if (method === "GET" && path === "/admin/users") return send(res, 200, sql.listUsers.all({ today: today(), now: Date.now() }).map(toUser));
 
-        // only admins get here (see SALES_ROUTES); new accounts are usually sales staff
+        // only admins get here (see ROLE_ROUTES); new accounts are usually sales staff
         if (method === "POST" && path === "/admin/users") {
             const { username, name, password, role = "sales" } = await readBody(req);
             if (typeof username !== "string" || !USERNAME.test(username.trim())) {
@@ -771,7 +780,7 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             }
             if (!validName(name)) return send(res, 400, { message: "Enter the staff member's name." });
             if (!validPassword(password)) return send(res, 400, { message: `Passwords need at least ${MIN_PASSWORD} characters.` });
-            if (!ROLES.includes(role)) return send(res, 400, { message: "Pick sales or admin." });
+            if (!ROLES.includes(role)) return send(res, 400, { message: "Pick admin, sales or loading." });
             if (sql.findUser.get(username.trim())) return send(res, 409, { message: "That username is taken." });
             // they can add a middle name, employee ID and department themselves on My account
             const [firstName, surname] = splitName(name);
@@ -801,7 +810,7 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             }
             const lockedOut = isBuiltIn(account) || account.id === me.id;
             if (body.role !== undefined && body.role !== account.role) {
-                if (!ROLES.includes(body.role)) return send(res, 400, { message: "Pick sales or admin." });
+                if (!ROLES.includes(body.role)) return send(res, 400, { message: "Pick admin, sales or loading." });
                 if (lockedOut) return send(res, 400, { message: "You can't change the role of this account." });
                 changes.role = body.role;
             }

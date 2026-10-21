@@ -12,6 +12,7 @@
     "start": "node --env-file-if-exists=.env server/server.js",
     "backup": "node --env-file-if-exists=.env server/backup.js",
     "seed": "node --env-file-if-exists=.env server/seed.js",
+    "seed:loading": "node --env-file-if-exists=.env server/seedLoading.js",
     "snapshot": "node --env-file-if-exists=.env server/snapshot.js save",
     "seed:snapshot": "node --env-file-if-exists=.env server/snapshot.js load"
   },

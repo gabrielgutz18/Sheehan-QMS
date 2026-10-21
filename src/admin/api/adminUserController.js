@@ -1,7 +1,7 @@
 import http from '../../api/http.js';
 
 // staff accounts, admins only
-// account: { id, username, name, role: "admin" | "sales", createdAt, disabled, builtIn, servedToday, servedTotal,
+// account: { id, username, name, role: "admin" | "sales" | "loading", createdAt, disabled, builtIn, servedToday, servedTotal,
 //            servingNow, signedIn } plus the profile fields from accountController.js
 // builtIn is the admin from the server's .env file: its password and role can't be changed here
 // servingNow is how many of today's tickets they're serving; signedIn is whether a sign-in of theirs is still open

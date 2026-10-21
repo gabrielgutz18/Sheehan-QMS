@@ -19,11 +19,12 @@ const navItems = [
     { to: "/admin/customer-order", label: "Customer order", roles: ["admin", "sales"], icon: icon("M9 3h6v3H9zM9 4.5H5V21h14V4.5h-4M12 10v7M8.5 13.5h7") },
     { to: "/admin/counter", label: "My counter", roles: ["admin", "sales"], icon: icon("M3 10h18M5 10v10h14V10M8 10V6a4 4 0 0 1 8 0v4") },
     { to: "/admin/orders", label: "Orders", roles: ["admin", "sales"], icon: icon("M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01") },
+    { to: "/admin/loading", label: "Loading", roles: ["admin", "loading"], icon: icon("M3 6h11v10H3zM14 10h4l3 3v3h-7M5 18a2 2 0 1 0 4 0 2 2 0 1 0-4 0M15 18a2 2 0 1 0 4 0 2 2 0 1 0-4 0") },
     { to: "/admin/history", label: "History", roles: ["admin", "sales"], icon: icon("M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2") },
     { to: "/admin/video", label: "Display video", roles: ["admin"], icon: icon("M3 6h13v12H3zM16 10l5-3v10l-5-3") },
     { to: "/admin/announcer", label: "Announcer", roles: ["admin"], icon: icon("M4 9v6h4l5 4V5L8 9zM16 9a3 3 0 0 1 0 6M18.5 6.5a7 7 0 0 1 0 11") },
     { to: "/admin/printer", label: "Printer", roles: ["admin"], icon: icon("M7 9V3h10v6M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M7 14h10v7H7z") },
-    { to: "/admin/account", label: "My account", roles: ["admin", "sales"], icon: icon("M20 21v-1a6 6 0 0 0-6-6h-4a6 6 0 0 0-6 6v1M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8") },
+    { to: "/admin/account", label: "My account", roles: ["admin", "sales", "loading"], icon: icon("M20 21v-1a6 6 0 0 0-6-6h-4a6 6 0 0 0-6 6v1M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8") },
     { to: "/admin/accounts", label: "Accounts", roles: ["admin"], icon: icon("M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M9 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6M19 8v6M22 11h-6") },
 ];
 

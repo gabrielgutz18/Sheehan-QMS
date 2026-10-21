@@ -242,7 +242,7 @@ erDiagram
         INTEGER id PK
         TEXT username "unique, any case"
         TEXT name
-        TEXT role "admin | sales"
+        TEXT role "admin | sales | loading"
         TEXT password_hash "scrypt"
         TEXT created_at
         TEXT disabled_at
@@ -538,11 +538,11 @@ findSession: db.prepare(`
 The account's `role` then decides what it may do. [`server/api.js:642-649`](server/api.js#L642-L649), with the sales list at [`server/api.js:33-43`](server/api.js#L33-L43)
 
 ```js
-// everything below needs a signed-in account; sales staff only get the routes in SALES_ROUTES
+// everything below needs a signed-in account; sales and loading staff only get their routes in ROLE_ROUTES
 const session = getSession(req);
 if (path.startsWith("/auth/") || path.startsWith("/admin/")) {
     if (!session) return send(res, 401, { message: "Please sign in." });
-    if (path.startsWith("/admin/") && session.user.role !== "admin" && !salesMay(method, path)) {
+    if (path.startsWith("/admin/") && session.user.role !== "admin" && !roleMay(session.user.role, method, path)) {
         return send(res, 403, { message: "Only an admin can do that." });
     }
 }

@@ -44,6 +44,7 @@ server/
   server.js                production server: the built site + the API (npm start)
   backup.js                copies the database and video (npm run backup)
   seed.js                  adds sample customers to today's queue (npm run seed)
+  seedLoading.js           adds a Loading staff account (npm run seed:loading)
   snapshot.js              saves / loads a snapshot of the real data (npm run snapshot, seed:snapshot)
 tests/
   feature/                 API tests, e.g. ticketLifecycle.test.js (npm test)
@@ -68,6 +69,15 @@ npm run seed -- 12           # 12 customers (up to 50)
 ```
 
 Like `php artisan db:seed`: adds made-up customers (names, purposes, items, roofing colors, and concerns for Customer Reports) through the same `POST /orders` the kiosk uses, so they get real queue numbers and show on the display and every counter. It writes to the data folder in `.env`, so don't run it on the live server.
+
+## A Loading staff account
+
+```bash
+npm run seed:loading                          # username loading, password loading123
+npm run seed:loading -- pedro steel-crew-1    # your own username and password
+```
+
+Adds an account with the Loading role (the roofing and steel loading crews) through the same `POST /admin/users` an admin uses on Accounts. It signs in to the Loading page and My account only; every admin and sales page and route is refused. Running it again leaves an existing account alone. Don't use the default password on the live server.
 
 ## Taking the current data to another computer
 
@@ -110,11 +120,12 @@ Queue numbers start again at 1 every day (by the server's clock). The queue, the
 | ----- | --- |
 | Admin | Everything: dashboard and sales graph, Customer order, Orders (including delete), History, display video, announcer voice and volume, printer, Accounts |
 | Sales | Customer order: take a customer's name, purpose and items (or concern) and print their ticket with its queue number (SHN 01); My counter: serve the next customer, recall, mark done, send back to waiting, put a served customer who comes back in line as returning; Orders: set any ticket's status (waiting, now serving, done, returning customer) and call it, but not delete; see their own customers served (today / week / month / year / all time); History and restore; announcer volume |
+| Loading | The roofing and steel loading crews: sign in to the admin area for their own Loading page (blank for now) and My account; no admin or sales rights |
 
 - **Accounts:** admins create them in Admin → Accounts. Passwords are stored hashed (scrypt). An account is switched off instead of deleted, so the customers it served stay on record. Switching an account off, or changing its password or role, signs it out everywhere.
 - **The built-in admin:** the account in `.env` (`ADMIN_USERNAME` / `ADMIN_PASSWORD`) is created at the first start and always keeps the `.env` password and the admin role, so you can't lock yourself out.
 - **Points:** whoever calls a customer is serving them. When the ticket is marked Done, that person gets one point. Reopening the ticket the same visit takes the point back; a restored ticket keeps the points from its earlier visit.
-- **Enforced by the backend:** sales accounts get only the routes listed in `SALES_ROUTES` (`server/api.js`); every other `/admin` route answers `403`.
+- **Enforced by the backend:** sales and loading accounts get only the routes listed for their role in `ROLE_ROUTES` (`server/api.js`); every other `/admin` route answers `403`.
 
 ## Security model
 

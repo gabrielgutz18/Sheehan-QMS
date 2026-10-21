@@ -216,6 +216,7 @@ export default function AccCreation() {
                         Role
                         <select {...field("role")}>
                             <option value="sales">Sales: serves customers from My counter</option>
+                            <option value="loading">Loading: roofing and steel loading, their own page only</option>
                             <option value="admin">Admin: everything, including accounts</option>
                         </select>
                     </label>
@@ -273,6 +274,7 @@ export default function AccCreation() {
                                                 onChange={(e) => change(a, { role: e.target.value }, `${a.name} is now ${ROLE_LABELS[e.target.value]}.`)}
                                             >
                                                 <option value="sales">Sales</option>
+                                                <option value="loading">Loading</option>
                                                 <option value="admin">Admin</option>
                                             </select>
                                         )}
