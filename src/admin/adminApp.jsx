@@ -32,12 +32,13 @@ export default function AdminApp() {
                     <Route element={<AdminLayout />}>
                         <Route path="customer-order" element={<CustomerOrderPage />} />
                         <Route path="counter" element={<SalesPage />} />
+                        {/* sales can set any status here too; Delete stays admin-only */}
+                        <Route path="orders" element={<OrdersPage />} />
                         <Route path="history" element={<HistoryPage />} />
                         <Route path="account" element={<AccountPage />} />
 
                         <Route element={<ProtectedRoute roles={["admin"]} />}>
                             <Route index element={<DashboardPage />} />
-                            <Route path="orders" element={<OrdersPage />} />
                             <Route path="video" element={<VideoPage />} />
                             <Route path="printer" element={<PrinterPage />} />
                             <Route path="announcer" element={<AnnouncerPage />} />

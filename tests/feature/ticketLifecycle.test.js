@@ -324,6 +324,17 @@ describe("who can do what", () => {
         (await maria.post("/admin/orders/1/call")).assertStatus(200);
     });
 
+    test("sales staff can set any status, not just admins", async () => {
+        await takeTicket();
+        const maria = await app.actingAsSales();
+
+        for (const status of ["serving", "done", "returning", "pending"]) {
+            const saved = (await maria.patch("/admin/orders/1", { status })).assertStatus(200).body;
+            assert.equal(saved.status, status);
+        }
+        (await maria.get("/admin/orders")).assertStatus(200);
+    });
+
     test("a switched-off account is signed out and can't serve", async () => {
         await takeTicket();
         const maria = await app.actingAsSales();
