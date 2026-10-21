@@ -1,46 +1,8 @@
-/* kiosk sizes are multiples of --u, which grows with the screen: 1px on phones and small
-   laptops, ~1.5px on a 1080p screen, up to calc(var(--u, 1px) * 2.4) on big touch displays */
-/* locked to one screen like a kiosk: the header stays put and the page never scrolls as a whole */
-.order-screen {
-  --u: clamp(1px, 0.14vmin, 2.4px);
-  height: 100svh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-/* scale the shared header with the rest of the screen */
-.order-screen .navbar {
-  max-width: calc(var(--u) * 1100);
-  padding: calc(var(--u) * 10) calc(var(--u) * 24);
-}
-
-.order-screen .logo {
-  width: calc(var(--u) * 48);
-  height: calc(var(--u) * 48);
-}
-
-.order-screen .compname {
-  font-size: calc(var(--u) * 22);
-}
-
-.order-screen .clock-time {
-  font-size: calc(var(--u) * 18);
-}
-
-.order-screen .clock-date {
-  font-size: calc(var(--u) * 13);
-}
-
-.order-screen .customer-note {
-  padding: calc(var(--u) * 6) calc(var(--u) * 16);
-  font-size: calc(var(--u) * 14);
-}
+/* sizes are multiples of --u, which falls back to 1px; a page can set it to scale everything up */
 
 .order-page {
   flex: 1;
   min-height: 0;
-  /* safety net for tiny screens only; on the kiosk the form always fits */
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -51,8 +13,8 @@
   padding: calc(var(--u, 1px) * 24) calc(var(--u, 1px) * 16);
 }
 
-/* never taller than the screen: everything keeps its size except the order list,
-   which shrinks and scrolls on its own, so Submit is always visible without scrolling */
+/* in a box shorter than the form, everything keeps its size except the order list,
+   which shrinks and scrolls on its own, so Submit stays visible */
 .order-card {
   flex: 0 1 auto;
   min-height: 0;
@@ -62,6 +24,8 @@
   flex-direction: column;
   align-items: center;
   gap: calc(var(--u, 1px) * 24);
+  /* hints and errors stay centered when they wrap, in the left-aligned admin too */
+  text-align: center;
 }
 
 .order-card > * {
@@ -166,7 +130,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: calc(var(--u, 1px) * 56);
+  flex-wrap: wrap;
+  gap: calc(var(--u, 1px) * 24) calc(var(--u, 1px) * 56);
 }
 
 .receipt-section .receipt {
@@ -183,14 +148,6 @@
 
 .receipt-actions .submit-btn {
   margin: 0;
-}
-
-/* phones: stack the ticket over the buttons and let the area scroll */
-@media (max-width: 700px) {
-  .receipt-section {
-    flex-direction: column;
-    gap: calc(var(--u, 1px) * 24);
-  }
 }
 
 .print-status {
@@ -251,26 +208,30 @@
   margin-top: calc(var(--u, 1px) * 8);
 }
 
-/* browser print: only the ticket goes on paper, filling a 90 x 148 mm page */
+/* browser print (Ctrl+P): only the ticket goes on paper, filling a 90 x 148 mm page;
+   the admin layout around it is dropped only while a ticket is showing, so other admin pages print as usual */
 @media print {
   @page {
     size: 90mm 148mm;
     margin: 4mm;
   }
-  .order-screen {
-    --u: 1px;
-    height: auto;
-    overflow: visible;
+  .admin-shell:has(.receipt-section) {
+    display: block;
+    min-height: 0;
+    background: none;
   }
-  .order-screen .header,
+  .admin-shell:has(.receipt-section) :is(.admin-sidebar, .admin-scrim, .admin-topbar, .admin-page-head),
   .receipt-actions {
     display: none !important;
   }
-  .order-page,
+  .admin-shell:has(.receipt-section) :is(.admin-body, .admin-main, .admin-page, .admin-panel),
   .receipt-section {
     display: block;
+    max-width: none;
+    margin: 0;
     padding: 0;
-    overflow: visible;
+    border: none;
+    background: none;
   }
   .receipt-section .receipt {
     width: 100%;
@@ -279,83 +240,5 @@
     min-height: 139mm;
     padding: 0;
     box-shadow: none;
-  }
-}
-
-/* ---------- auto reset ---------- */
-.countdown {
-  margin: calc(var(--u, 1px) * 4) 0 0;
-  font-size: calc(var(--u, 1px) * 14);
-  color: #666;
-}
-
-.countdown strong {
-  font-variant-numeric: tabular-nums;
-  color: var(--text-dark);
-}
-
-.countdown-skip {
-  margin-left: calc(var(--u, 1px) * 10);
-  color: var(--text-dark);
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: calc(var(--u, 1px) * 3);
-  cursor: pointer;
-}
-
-.countdown-skip:hover {
-  color: var(--brand-red);
-}
-
-.countdown-skip:focus-visible {
-  outline: none;
-  border-radius: 2px;
-  box-shadow: 0 0 0 calc(var(--u, 1px) * 3) var(--focus-ring);
-}
-
-.thank-you {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: calc(var(--u, 1px) * 12);
-  text-align: center;
-  animation: thank-you-in 1.6s ease-out both;
-}
-
-.thank-you-title {
-  margin: 0;
-  font-size: clamp(40px, 8vw, 72px);
-  font-weight: 700;
-  color: var(--brand-red);
-}
-
-.thank-you-text {
-  margin: 0;
-  font-size: calc(var(--u, 1px) * 18);
-  color: #444;
-}
-
-@keyframes thank-you-in {
-  from {
-    opacity: 0;
-    transform: translateY(calc(var(--u, 1px) * 12));
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-/* keep the fade but drop the movement for people who ask for less motion */
-@media (prefers-reduced-motion: reduce) {
-  .thank-you {
-    animation-name: thank-you-fade;
-  }
-
-  @keyframes thank-you-fade {
-    from { opacity: 0; }
-    to { opacity: 1; }
   }
 }

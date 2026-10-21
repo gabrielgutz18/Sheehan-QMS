@@ -2,11 +2,10 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import './App.css'
 
-import CustomerOrder from './pages/customerOrder.jsx'
 import NotFound from './pages/notFound.jsx'
 import QueueNum from './pages/QueueNum.jsx'
 
-// admin code is split into its own bundle, so the customer page never downloads it
+// admin code is split into its own bundle, so the display screen never downloads it
 const AdminApp = lazy(() => import('./admin/adminApp.jsx'))
 
 function App() {
@@ -14,8 +13,10 @@ function App() {
     // BASE_URL follows Vite's --base, so routes work at / or under a sub-path
     <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Routes>
-        <Route path="/" element={<CustomerOrder />} />
-        <Route path="/queue" element={<QueueNum />} />
+        {/* the queue display; orders are taken by staff under Customer order in admin, not at a kiosk */}
+        <Route path="/" element={<QueueNum />} />
+        {/* the display's old address, so screens opened with it still work */}
+        <Route path="/queue" element={<Navigate to="/" replace />} />
         {/* short address for sales staff: their counter, by way of the sign-in page if needed */}
         <Route path="/sales" element={<Navigate to="/admin/counter" replace />} />
         <Route

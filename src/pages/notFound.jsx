@@ -9,7 +9,7 @@ export default function NotFound() {
             <Header />
             <main className="order-page">
                 <h1>Page not found</h1>
-                <Link to="/" className="submit-btn not-found-link">Back to ordering</Link>
+                <Link to="/" className="submit-btn not-found-link">Back to the queue</Link>
             </main>
         </>
     );

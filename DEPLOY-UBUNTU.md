@@ -234,11 +234,14 @@ scp -r <user>@<server-ip>:/var/backups/sheehan-queue ./sheehan-backups
 
 | Screen | Open |
 |---|---|
-| Kiosk (customers) | `http://<server-ip>:3000/` |
+| Display screen | `http://<server-ip>:3000/`, opened with `deploy\display-screen.cmd` (below) |
 | Admin | `http://<server-ip>:3000/admin` |
+| Customer order (admin and sales) | `http://<server-ip>:3000/admin/customer-order` |
 | Sales counter | `http://<server-ip>:3000/sales` |
 
-On each kiosk with a receipt printer, start the print service with the server's address, so the page is allowed to print:
+On the Windows PC that drives the display screen, copy [`deploy/display-screen.cmd`](deploy/display-screen.cmd) from this repo, set `SERVER` at the top to the server's address (with nginx, `http://<server-ip>`), and double-click it. It opens the display full screen in its own Microsoft Edge window (Chrome if Edge isn't installed) that's allowed to play sound, so calls are read out without anyone clicking the page. Edge has Microsoft's natural voices (Ava, Emma, Jenny, Rosa for Philippine English, ...): pick one under Admin → Call announcements with the admin page open in Edge, so it's a voice the display has too. Put a shortcut to it in `shell:startup` to open the display when Windows starts. Opened any other way, the browser keeps the display silent after every start or reload until someone clicks on the page.
+
+Orders are taken by staff in Admin → Customer order; there is no customer kiosk. On each staff PC with a receipt printer, start the print service with the server's address, so the page is allowed to print:
 
 ```bash
 python src/printing/script/printService.py --origin http://<server-ip>:3000
@@ -346,6 +349,7 @@ Or use the snapshot seeder (`npm run snapshot` on the PC, copy `seeders/` into `
 | Queue numbers reset at the wrong hour | Timezone (step 2) |
 | `The site isn't built yet` | `npm run build`, then restart the service |
 | Video upload fails with `413` behind nginx | Use `deploy/nginx.conf` (it sets `client_max_body_size 200m`) |
+| Display shows the calls but makes no sound | Open it with `deploy\display-screen.cmd` (step 10). In an ordinary browser tab, click the display page once after every start or reload |
 | `git pull` asks for a password or is denied | Deploy key (step 4); `ssh -T git@github.com` to test |
 | Deploy job: `sudo: a terminal is required to read the password` | The sudoers rule isn't installed or doesn't match (step 12) |
 | Deploy job stays *Queued* | Runner offline: `sudo ./svc.sh status` in `~/actions-runner`, or a missing `sheehan-server` label |

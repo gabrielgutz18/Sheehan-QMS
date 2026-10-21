@@ -13,8 +13,8 @@ export function NameField({ value, onChange, error }) {
                 id="customer-name"
                 className={`text-input ${error ? "has-error" : ""}`}
                 type="text"
-                placeholder="Your name"
-                autoComplete="name"
+                placeholder="Customer's name"
+                autoComplete="off"
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
             />
