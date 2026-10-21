@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import orderStatus from '../data/orderStatus.js';
+import { useAuth } from '../auth/authContext.js';
 import { callOrder, deleteOrder, updateOrderStatus } from '../api/adminOrderController.js';
 import CallDialog from './callDialog.jsx';
 import ServedBy from './servedBy.jsx';
@@ -9,7 +10,10 @@ import formatQueueNum from '../../data/queueNum.js';
 import { readLastRemarks, saveLastRemarks } from '../data/lastRemarks.js';
 
 // orders table with the row actions (status, call, delete) and the call dialog
+// admins and sales staff can both set the status and call; only admins can delete (the backend checks too)
 export default function QueueTable({ orders, setOrders, loading, error }) {
+    const { user } = useAuth();
+    const canDelete = user?.role === "admin";
     const [busy, setBusy] = useState(null);
     const [actionError, setActionError] = useState("");
     const [calling, setCalling] = useState(null);
@@ -124,14 +128,16 @@ export default function QueueTable({ orders, setOrders, loading, error }) {
                                                     {o.status === "serving" ? "Call again" : "Call"}
                                                 </button>
                                             )}
-                                            <button
-                                                type="button"
-                                                className="admin-btn admin-btn-danger"
-                                                disabled={busy === o.queueNum}
-                                                onClick={() => remove(o.queueNum, o.purpose)}
-                                            >
-                                                Delete
-                                            </button>
+                                            {canDelete && (
+                                                <button
+                                                    type="button"
+                                                    className="admin-btn admin-btn-danger"
+                                                    disabled={busy === o.queueNum}
+                                                    onClick={() => remove(o.queueNum, o.purpose)}
+                                                >
+                                                    Delete
+                                                </button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>

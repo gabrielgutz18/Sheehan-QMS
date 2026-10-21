@@ -18,7 +18,7 @@ const navItems = [
     { to: "/admin", label: "Dashboard", end: true, roles: ["admin"], icon: icon("M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z") },
     { to: "/admin/customer-order", label: "Customer order", roles: ["admin", "sales"], icon: icon("M9 3h6v3H9zM9 4.5H5V21h14V4.5h-4M12 10v7M8.5 13.5h7") },
     { to: "/admin/counter", label: "My counter", roles: ["admin", "sales"], icon: icon("M3 10h18M5 10v10h14V10M8 10V6a4 4 0 0 1 8 0v4") },
-    { to: "/admin/orders", label: "Orders", roles: ["admin"], icon: icon("M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01") },
+    { to: "/admin/orders", label: "Orders", roles: ["admin", "sales"], icon: icon("M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01") },
     { to: "/admin/history", label: "History", roles: ["admin", "sales"], icon: icon("M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2") },
     { to: "/admin/video", label: "Display video", roles: ["admin"], icon: icon("M3 6h13v12H3zM16 10l5-3v10l-5-3") },
     { to: "/admin/announcer", label: "Announcer", roles: ["admin"], icon: icon("M4 9v6h4l5 4V5L8 9zM16 9a3 3 0 0 1 0 6M18.5 6.5a7 7 0 0 1 0 11") },
