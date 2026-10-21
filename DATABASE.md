@@ -216,7 +216,7 @@ erDiagram
         TEXT name
         TEXT purpose
         TEXT concern "Customer Report only, else ''"
-        TEXT status "pending | serving | done"
+        TEXT status "pending | serving | returning | done"
         TEXT remarks
         TEXT created_at
         INTEGER called_at "ms since 1970"
@@ -370,8 +370,8 @@ serving: db.prepare(`
     SELECT queue_num, name, purpose, remarks, called_at FROM orders
     WHERE queue_date = ? AND status = 'serving' AND deleted_at IS NULL ORDER BY called_at DESC`),
 upcoming: db.prepare(`
-    SELECT queue_num, name, purpose FROM orders
-    WHERE queue_date = ? AND status = 'pending' AND deleted_at IS NULL ORDER BY queue_num`),
+    SELECT queue_num, name, purpose, status FROM orders
+    WHERE queue_date = ? AND status IN ('pending', 'returning') AND deleted_at IS NULL ORDER BY queue_num`),
 ```
 
 ### 5.3 Staff serve a customer → `orders.served_by` and `serves` (points)
@@ -394,7 +394,7 @@ replace(await updateOrderStatus(order.queueNum, status));
 export const updateOrderStatus = (queueNum, status) =>
     http.patch(`/admin/orders/${encodeURIComponent(queueNum)}`, { status });
 
-// puts the ticket on the display as now serving; remarks replace the default "Please proceed to ..." line
+// puts the ticket on the display as now serving; remarks replace the default "Please wait" line
 export const callOrder = (queueNum, remarks) =>
     http.post(`/admin/orders/${encodeURIComponent(queueNum)}/call`, { remarks });
 ```

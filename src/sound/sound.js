@@ -1,4 +1,5 @@
 import formatQueueNum from '../data/queueNum.js';
+import { DEFAULT_CALL_NOTE } from '../data/callNote.js';
 
 // call announcements for the queue display: a two-note chime, then the call read out loud with the
 // browser's text-to-speech. Which voices exist depends on the computer and browser; Microsoft Edge
@@ -132,7 +133,7 @@ export function spokenTicket(queueNum, purpose) {
 
 // what the display says for a call, e.g. "Now serving R A, 1. Juan Dela Cruz. Please proceed to Window 1."
 export function callAnnouncement({ queueNum, purpose, name, remarks }) {
-    const note = (remarks || `Please proceed to ${purpose}`).replace(/[.!\s]+$/, "");
+    const note = (remarks || DEFAULT_CALL_NOTE).replace(/[.!\s]+$/, "");
     return `Now serving ${spokenTicket(queueNum, purpose)}. ${name}. ${note}.`;
 }
 

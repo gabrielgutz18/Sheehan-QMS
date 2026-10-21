@@ -7,6 +7,7 @@ import CallDialog from '../components/callDialog.jsx';
 import MyStats from '../components/myStats.jsx';
 import AnnouncerVolume from '../components/announcerVolume.jsx';
 import { readLastRemarks, saveLastRemarks } from '../data/lastRemarks.js';
+import { inLine } from '../data/orderStatus.js';
 import formatQueueNum from '../../data/queueNum.js';
 import Greetings from '../components/greetings.jsx';
 import ServedBy from '../components/servedBy.jsx';
@@ -14,7 +15,8 @@ import OrderDetails from '../components/orderDetails.jsx';
 import TicketDialog from '../components/ticketDialog.jsx';
 
 // a sales staff member's counter: serve the next customer, recall them, mark them done (one point each)
-// or send them back to waiting, plus their own served totals and the announcer volume
+// or send them back to waiting, put a served customer who comes back in line as returning,
+// plus their own served totals and the announcer volume
 // (sales can't change the voice or the display video; the backend enforces that too)
 
 const ticketOf = (o) => formatQueueNum(o.queueNum, o.purpose);
@@ -37,7 +39,8 @@ export default function SalesPage() {
     const serving = orders.filter((o) => o.status === "serving");
     const mine = serving.filter((o) => o.servedBy?.id === user.id);
     const others = serving.filter((o) => o.servedBy?.id !== user.id);
-    const waiting = orders.filter((o) => o.status === "pending");
+    // waiting and returning customers, in number order
+    const waiting = orders.filter(inLine);
     // customers this person marked Done today, latest first
     const servedToday = orders
         .filter((o) => o.status === "done" && o.servedBy?.id === user.id)
@@ -53,7 +56,8 @@ export default function SalesPage() {
         setActionError("");
         try {
             replace(await updateOrderStatus(order.queueNum, status));
-            if (status === "done") setStatsVersion((v) => v + 1);
+            // Done gives a point and leaving Done takes it back
+            if (status === "done" || order.status === "done") setStatsVersion((v) => v + 1);
         } catch (err) {
             setActionError(err.message);
         } finally {
@@ -174,7 +178,10 @@ export default function SalesPage() {
                                 <li key={o.queueNum} className="counter-ticket">
                                     <div className="counter-ticket-main">
                                         <strong className="counter-number">{ticketOf(o)}</strong>
-                                        <span className="counter-name">{o.name}</span>
+                                        <span className="counter-name">
+                                            {o.name}
+                                            {o.status === "returning" && <span className="history-badge status-returning returning-tag">Returning</span>}
+                                        </span>
                                         <span className="counter-meta">{o.purpose}</span>
                                     </div>
                                     <div className="row-actions">
@@ -208,7 +215,10 @@ export default function SalesPage() {
                 {loading ? (
                     <p className="admin-empty">Loading...</p>
                 ) : servedToday.length === 0 ? (
-                    <p className="admin-empty">No one yet. Customers you mark Done are listed here, served by you.</p>
+                    <p className="admin-empty">
+                        No one yet. Customers you mark Done are listed here, served by you. If one comes back, press
+                        Returning to put them in line again.
+                    </p>
                 ) : (
                     <ul className="counter-list">
                         {servedToday.slice(0, SERVED_SHOWN).map((o) => (
@@ -218,6 +228,17 @@ export default function SalesPage() {
                                     <span className="counter-name">{o.name}</span>
                                     <span className="counter-meta">{o.purpose}</span>
                                     <ServedBy order={o} />
+                                </div>
+                                <div className="row-actions">
+                                    {/* they came back after being served: back in line until a counter calls them */}
+                                    <button
+                                        type="button"
+                                        className="admin-btn"
+                                        disabled={busy === o.queueNum}
+                                        onClick={() => setStatus(o, "returning")}
+                                    >
+                                        Returning
+                                    </button>
                                 </div>
                             </li>
                         ))}

@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import formatQueueNum from '../../data/queueNum.js';
 import OrderDetails from './orderDetails.jsx';
 import ServedBy from './servedBy.jsx';
+import { inLine } from '../data/orderStatus.js';
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
 
@@ -12,11 +13,11 @@ const duration = (ms) => {
     return minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
 };
 
-// one ticket up close, opened with View on a waiting ticket: its purpose and what the customer ordered,
+// one ticket up close, opened with View on a waiting or returning ticket: its purpose and what the customer ordered,
 // or their concern for a Customer Report
 // order: the ticket as it is now, so it shows straight away when someone else takes it
 // openedAt: when View was pressed, for how long they've waited
-// onServe: shows Serve while the ticket is still waiting (My counter); leave it out to only look
+// onServe: shows Serve while the ticket is still in line (My counter); leave it out to only look
 export default function TicketDialog({ order, openedAt, onServe, onClose }) {
     const dialogRef = useRef(null);
 
@@ -24,6 +25,7 @@ export default function TicketDialog({ order, openedAt, onServe, onClose }) {
         if (!dialogRef.current.open) dialogRef.current.showModal();
     }, []);
 
+    // how long they've waited counts from the ticket, so it's left off for a returning customer
     const waiting = order.status === "pending";
 
     return (
@@ -58,7 +60,7 @@ export default function TicketDialog({ order, openedAt, onServe, onClose }) {
                     <button type="button" className="admin-btn" onClick={() => dialogRef.current.close()}>
                         Close
                     </button>
-                    {onServe && waiting && (
+                    {onServe && inLine(order) && (
                         <button type="button" className="admin-btn admin-btn-call" onClick={() => onServe(order)}>
                             Serve
                         </button>

@@ -109,7 +109,7 @@ Queue numbers start again at 1 every day (by the server's clock). The queue, the
 | Role  | Can |
 | ----- | --- |
 | Admin | Everything: dashboard and sales graph, Customer order, Orders (including delete), History, display video, announcer voice and volume, printer, Accounts |
-| Sales | Customer order: take a customer's name, purpose and items (or concern) and print their ticket with its queue number (SHN 01); My counter: serve the next customer, recall, mark done, send back to waiting; see their own customers served (today / week / month / year / all time); History and restore; announcer volume |
+| Sales | Customer order: take a customer's name, purpose and items (or concern) and print their ticket with its queue number (SHN 01); My counter: serve the next customer, recall, mark done, send back to waiting, put a served customer who comes back in line as returning; see their own customers served (today / week / month / year / all time); History and restore; announcer volume |
 
 - **Accounts:** admins create them in Admin → Accounts. Passwords are stored hashed (scrypt). An account is switched off instead of deleted, so the customers it served stay on record. Switching an account off, or changing its password or role, signs it out everywhere.
 - **The built-in admin:** the account in `.env` (`ADMIN_USERNAME` / `ADMIN_PASSWORD`) is created at the first start and always keeps the `.env` password and the admin role, so you can't lock yourself out.
@@ -151,7 +151,7 @@ All paths are relative to `VITE_API_URL` (default `/api`).
 | POST   | `/auth/logout`           | staff | clears the cookie                                         |
 | GET    | `/admin/orders`          | staff | → today's `[{ queueNum, name, purpose, orders, status, servedBy?: { id, name, photo }, servedAt? }]` (`servedAt`: when it was marked Done) |
 | POST   | `/admin/orders/:queueNum/call` | staff | `{ remarks }` → order, served by the caller         |
-| PATCH  | `/admin/orders/:queueNum`| staff | `{ status: "pending" \| "serving" \| "done" }` → order    |
+| PATCH  | `/admin/orders/:queueNum`| staff | `{ status: "pending" \| "serving" \| "returning" \| "done" }` → order (`returning`: back in line after being served) |
 | DELETE | `/admin/orders/:queueNum`| admin | moves the ticket to History → `204`                       |
 | GET    | `/admin/history`         | staff | `?search=&day=YYYY-MM-DD&deleted=1` → tickets from any day, with `id` |
 | POST   | `/admin/history/:id/restore` | staff | → the ticket, back in today's queue as waiting        |

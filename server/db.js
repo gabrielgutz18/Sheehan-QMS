@@ -35,14 +35,25 @@ function migrate(db) {
     )`);
     const applied = new Set(db.prepare('SELECT name FROM schema_migrations').all().map((row) => row.name));
     const pending = readdirSync(MIGRATIONS_DIR).filter((file) => file.endsWith('.sql') && !applied.has(file)).sort();
+    if (pending.length === 0) return;
 
-    for (const file of pending) {
-        const sql = readFileSync(new URL(file, MIGRATIONS_DIR), 'utf8');
-        transaction(db, () => {
-            db.exec(sql);
-            db.prepare('INSERT INTO schema_migrations (name, applied_at) VALUES (?, ?)').run(file, new Date().toISOString());
-        });
-        console.log(`Database: applied migration ${file}`);
+    // foreign keys are off while migrations run, so one can rebuild a table (the only way SQLite changes a CHECK)
+    // without its DROP TABLE cascading into the rows that point at it; each is checked before it commits instead
+    // (SQLite ignores this pragma inside a transaction, so it's set around them)
+    db.exec('PRAGMA foreign_keys = OFF');
+    try {
+        for (const file of pending) {
+            const sql = readFileSync(new URL(file, MIGRATIONS_DIR), 'utf8');
+            transaction(db, () => {
+                db.exec(sql);
+                const broken = db.prepare('PRAGMA foreign_key_check').all();
+                if (broken.length) throw new Error(`Migration ${file} left ${broken.length} row(s) pointing at nothing`);
+                db.prepare('INSERT INTO schema_migrations (name, applied_at) VALUES (?, ?)').run(file, new Date().toISOString());
+            });
+            console.log(`Database: applied migration ${file}`);
+        }
+    } finally {
+        db.exec('PRAGMA foreign_keys = ON');
     }
 }
 

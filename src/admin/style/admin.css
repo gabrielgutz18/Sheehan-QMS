@@ -598,6 +598,19 @@
   border-color: #9fd3ae;
 }
 
+.status-returning {
+  background: #f3ecfd;
+  border-color: #c4aef0;
+}
+
+/* "Returning" beside a returning customer in the waiting lists */
+.returning-tag {
+  margin-left: 6px;
+  padding: 0 8px;
+  font-size: 12px;
+  vertical-align: middle;
+}
+
 /* ---------- customer order ---------- */
 
 /* the order form and ticket (src/style/customerOrder.css), centered in the panel; the wide side padding
