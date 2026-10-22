@@ -126,65 +126,16 @@
   margin: 0;
 }
 
-.print-status {
+/* under Print ticket: it opens the browser's print preview */
+.print-hint {
   max-width: calc(var(--u, 1px) * 260);
   margin: 0;
-  font-size: calc(var(--u, 1px) * 16);
-  font-weight: 600;
+  font-size: calc(var(--u, 1px) * 14);
   text-align: center;
-  color: var(--brand-red);
-}
-
-/* shown when the ticket can't be printed */
-.print-error {
-  width: min(calc(var(--u, 1px) * 420), calc(100vw - 32px));
-  padding: calc(var(--u, 1px) * 32) calc(var(--u, 1px) * 24) calc(var(--u, 1px) * 24);
-  text-align: center;
-  border: none;
-  border-top: calc(var(--u, 1px) * 4) solid var(--brand-red);
-  border-radius: calc(var(--u, 1px) * 6);
-  box-shadow: 0 calc(var(--u, 1px) * 16) calc(var(--u, 1px) * 48) rgba(0, 0, 0, 0.2);
-}
-
-.print-error[open] {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: calc(var(--u, 1px) * 12);
-}
-
-.print-error::backdrop {
-  background: rgba(0, 0, 0, 0.4);
-}
-
-.print-error p,
-.print-error h2 {
-  margin: 0;
-}
-
-.print-error-title {
-  font-size: calc(var(--u, 1px) * 26);
-  font-weight: 700;
-  color: var(--text-dark);
-}
-
-.print-error-code {
-  font-size: calc(var(--u, 1px) * 20);
-  font-weight: 700;
-  letter-spacing: 1px;
-  color: var(--brand-red);
-}
-
-.print-error-text {
-  font-size: calc(var(--u, 1px) * 18);
   color: var(--text-muted);
 }
 
-.print-error .submit-btn {
-  margin-top: calc(var(--u, 1px) * 8);
-}
-
-/* browser print (Ctrl+P): only the ticket goes on paper, filling a 90 x 148 mm page;
+/* Print ticket (or Ctrl+P): only the ticket goes on paper, filling a 90 x 148 mm page;
    the admin layout around it is dropped only while a ticket is showing, so other admin pages print as usual */
 @media print {
   @page {

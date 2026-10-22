@@ -523,6 +523,16 @@
   font-weight: 600;
 }
 
+/* View queue ticket on Customer order: wide enough for a number and a name */
+.ticket-picker {
+  flex-wrap: wrap;
+}
+
+.ticket-picker select {
+  min-width: 0;
+  max-width: min(280px, 100%);
+}
+
 .admin-filter select,
 .status-select {
   height: 36px;
@@ -863,6 +873,108 @@
   gap: 10px;
   font-weight: 600;
   cursor: pointer;
+}
+
+/* Customer order's invoices: a number and its type of order on each row, with × to take one away */
+.invoice-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.invoice-fields legend {
+  margin-bottom: 6px;
+  padding: 0;
+  font-weight: 600;
+}
+
+.invoice-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 160px) 44px;
+  gap: 8px;
+}
+
+@media (max-width: 480px) {
+  .invoice-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 116px) 44px;
+  }
+}
+
+.invoice-row input,
+.invoice-row select {
+  min-width: 0;
+  height: 44px;
+  font: inherit;
+  font-weight: 400;
+  background: var(--field-bg);
+  border: 1px solid var(--field-border);
+  border-radius: 6px;
+}
+
+.invoice-row input {
+  padding: 0 12px;
+}
+
+.invoice-row select {
+  padding: 0 8px;
+}
+
+.invoice-row input:focus-visible,
+.invoice-row select:focus-visible,
+.invoice-remove:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.invoice-remove {
+  font: inherit;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--text-muted);
+  background: none;
+  border: 1px solid var(--field-border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.invoice-remove:hover:not(:disabled) {
+  color: var(--brand-red);
+  border-color: var(--brand-red);
+}
+
+.invoice-remove:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.invoice-entry .field-error {
+  margin: 4px 0 0;
+}
+
+.invoice-add {
+  align-self: flex-start;
+}
+
+/* the type of order an invoice is for, after its number (Summary, Orders, My counter) */
+.invoice-type {
+  margin-left: 6px;
+  padding: 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--cream);
+  border: 1px solid var(--cream-border);
+  border-radius: 999px;
+}
+
+.summary-invoices {
+  display: grid;
+  gap: 4px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
 }
 
 /* the loading teams in Hand over to loading on My counter */

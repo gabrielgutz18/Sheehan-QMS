@@ -37,7 +37,9 @@ const MAX_CONCERN = 300;
 // is added in one place
 const PAYMENT_STATUSES = paymentStatus.map((p) => p.type);
 const TEAMS = teams.map((t) => t.name);
+// an order can have several invoices, each with its number and the type of order it's for
 const MAX_INVOICE = 30;
+const MAX_INVOICES = 20;
 const MAX_SALESMAN = 60;
 // several types of order are kept together, "Roofings, Steel", so a purpose can be longer than one name
 const MAX_PURPOSE = 200;
@@ -258,13 +260,21 @@ const sendVideoFile = (req, res, path, type) => {
     return stream({ start, end });
 };
 
-// an order lists 1-50 items, or none when it has an invoice number (the invoice lists them);
+// an order lists 1-50 items, or none when it has invoices (the invoices list them);
 // a customer report (REPORT_PURPOSE) has no items, only the concern
 const validOrder = (body) =>
     typeof body.name === "string" && body.name.trim() && body.name.length <= 100 &&
     typeof body.purpose === "string" && body.purpose.length <= MAX_PURPOSE &&
-    validSale(body) &&
-    (body.purpose === REPORT_PURPOSE ? validReport(body) : validItems(body.orders, hasText(body.invoiceNo)));
+    validSale(body) && validInvoices(body.invoices, splitList(body.purpose)) &&
+    (body.purpose === REPORT_PURPOSE ? validReport(body) : validItems(body.orders, body.invoices?.length > 0));
+
+// the invoices from Customer order, up to MAX_INVOICES: each has a number (no number twice) and the type of order
+// it's for, one of the order's own types
+const validInvoices = (invoices = [], types) =>
+    Array.isArray(invoices) && invoices.length <= MAX_INVOICES &&
+    invoices.every((i) => typeof i === "object" && i !== null && hasText(i.invoiceNo) &&
+        i.invoiceNo.trim().length <= MAX_INVOICE && types.includes(i.type)) &&
+    new Set(invoices.map((i) => i.invoiceNo.trim().toLowerCase())).size === invoices.length;
 
 const validItems = (items = [], invoiced) =>
     Array.isArray(items) && (items.length > 0 || invoiced) && items.length <= 50 &&
@@ -290,10 +300,10 @@ const validTeamList = (team) => {
     return names.every((name) => TEAMS.includes(name)) && new Set(names).size === names.length;
 };
 
-// the sales details from Customer order, each optional: invoice number, salesman, payment status, loading teams,
-// and for a returning customer, the day they come back for the items (null when they're taking them now)
-const validSale = ({ invoiceNo, salesman, paymentStatus: payment, team, pickupDate }) =>
-    optionalText(invoiceNo, MAX_INVOICE) && optionalText(salesman, MAX_SALESMAN) &&
+// the sales details from Customer order, each optional: salesman, payment status, loading teams, and for a
+// returning customer, the day they come back for the items (null when they're taking them now)
+const validSale = ({ salesman, paymentStatus: payment, team, pickupDate }) =>
+    optionalText(salesman, MAX_SALESMAN) &&
     optionalPick(payment, PAYMENT_STATUSES) && validTeamList(team) &&
     (pickupDate === undefined || pickupDate === null || validDay(pickupDate));
 
@@ -360,15 +370,15 @@ const toMe = (row) => ({
 });
 
 // a report keeps only its concern and an order only its items, so switching purpose on Edit drops the other
-// the keys besides orders are the insertOrder / updateOrder parameters
-const pickOrder = ({ name, purpose, orders: items = [], concern, invoiceNo, salesman, paymentStatus: payment, team, pickupDate }) => {
+// the keys besides orders and invoices are the insertOrder / updateOrder parameters
+const pickOrder = ({ name, purpose, orders: items = [], invoices = [], concern, salesman, paymentStatus: payment, team, pickupDate }) => {
     const isReport = purpose === REPORT_PURPOSE;
     return {
         name: name.trim(),
         purpose,
         orders: isReport ? [] : items.map(({ item, qty, color }) => ({ item, qty, ...(color && { color }) })),
+        invoices: invoices.map(({ invoiceNo, type }) => ({ invoiceNo: invoiceNo.trim(), type })),
         concern: isReport ? concern.trim() : "",
-        invoiceNo: invoiceNo?.trim() ?? "",
         salesman: salesman?.trim() ?? "",
         paymentStatus: payment ?? "",
         team: team ?? "",
@@ -377,11 +387,14 @@ const pickOrder = ({ name, purpose, orders: items = [], concern, invoiceNo, sale
 };
 
 // a stored order in the shape the front end expects
-const toOrder = (row, items) => ({
+const toOrder = (row, items, invoices) => ({
     queueNum: row.queue_num,
     name: row.name,
     purpose: row.purpose,
     orders: items.map(({ item, qty, color }) => ({ item, qty, ...(color && { color }) })),
+    // the invoices from Customer order, in the order they were added; type is the type of order each is for
+    // ('' on an older ticket with several types)
+    invoices: invoices.map(({ invoice_no, type }) => ({ invoiceNo: invoice_no, type })),
     status: row.status,
     createdAt: row.created_at,
     ...(row.called_at !== null && { calledAt: row.called_at, remarks: row.remarks }),
@@ -389,7 +402,6 @@ const toOrder = (row, items) => ({
     ...(row.concern && { concern: row.concern }),
     // the sales details from Customer order, each left out until it's filled in; pickupDate (YYYY-MM-DD) is the day
     // a returning customer comes back for the items
-    ...(row.invoice_no && { invoiceNo: row.invoice_no }),
     ...(row.salesman && { salesman: row.salesman }),
     ...(row.payment_status && { paymentStatus: row.payment_status }),
     ...(row.team && { team: row.team }),
@@ -409,11 +421,11 @@ const toOrder = (row, items) => ({
 });
 
 // a ticket from any day for the History page; id picks it out, since numbers repeat every day
-const toHistory = (row, items, todayDate) => ({
+const toHistory = (row, items, invoices, todayDate) => ({
     id: row.id,
     date: row.queue_date,
     isToday: row.queue_date === todayDate,
-    ...toOrder(row, items),
+    ...toOrder(row, items, invoices),
     deletedAt: row.deleted_at,
     restoredAt: row.restored_at,
     ...(row.original_date !== null && { originalDate: row.original_date, originalNum: row.original_num }),
@@ -451,12 +463,12 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             ON CONFLICT (queue_date) DO UPDATE SET last_num = last_num + 1
             RETURNING last_num`),
         insertOrder: db.prepare(`
-            INSERT INTO orders (queue_date, queue_num, name, purpose, concern, invoice_no, salesman, payment_status, team,
+            INSERT INTO orders (queue_date, queue_num, name, purpose, concern, salesman, payment_status, team,
                 pickup_date, created_at)
-            VALUES (:date, :queueNum, :name, :purpose, :concern, :invoiceNo, :salesman, :paymentStatus, :team,
+            VALUES (:date, :queueNum, :name, :purpose, :concern, :salesman, :paymentStatus, :team,
                 :pickupDate, :createdAt)`),
         updateOrder: db.prepare(`
-            UPDATE orders SET name = :name, purpose = :purpose, concern = :concern, invoice_no = :invoiceNo,
+            UPDATE orders SET name = :name, purpose = :purpose, concern = :concern,
                 salesman = :salesman, payment_status = :paymentStatus, team = :team, pickup_date = :pickupDate
             WHERE id = :id`),
         setStatus: db.prepare(`
@@ -491,22 +503,20 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             SELECT queue_num, name, purpose, status FROM orders
             WHERE queue_date = ? AND status IN ('pending', 'returning') AND NOT ${BETWEEN_CREWS} AND deleted_at IS NULL
             ORDER BY queue_num`),
-        // quantity ordered and tickets per time slot and purpose, deleted tickets left out
+        // orders per time slot and purpose ("Roofings, Steel" as it's stored), deleted tickets and Customer Reports
+        // left out; GET /admin/stats splits the purposes into their types of order
         statsByHour: db.prepare(`
-            SELECT strftime('%H', o.created_at, 'localtime') AS bucket, o.purpose, SUM(i.qty) AS qty, COUNT(DISTINCT o.id) AS tickets
-            FROM orders o JOIN order_items i ON i.order_id = o.id
-            WHERE o.deleted_at IS NULL AND o.queue_date BETWEEN :from AND :to
-            GROUP BY bucket, o.purpose`),
+            SELECT strftime('%H', created_at, 'localtime') AS bucket, purpose, COUNT(*) AS orders FROM orders
+            WHERE deleted_at IS NULL AND purpose != :report AND queue_date BETWEEN :from AND :to
+            GROUP BY bucket, purpose`),
         statsByDay: db.prepare(`
-            SELECT o.queue_date AS bucket, o.purpose, SUM(i.qty) AS qty, COUNT(DISTINCT o.id) AS tickets
-            FROM orders o JOIN order_items i ON i.order_id = o.id
-            WHERE o.deleted_at IS NULL AND o.queue_date BETWEEN :from AND :to
-            GROUP BY bucket, o.purpose`),
+            SELECT queue_date AS bucket, purpose, COUNT(*) AS orders FROM orders
+            WHERE deleted_at IS NULL AND purpose != :report AND queue_date BETWEEN :from AND :to
+            GROUP BY bucket, purpose`),
         statsByMonth: db.prepare(`
-            SELECT substr(o.queue_date, 1, 7) AS bucket, o.purpose, SUM(i.qty) AS qty, COUNT(DISTINCT o.id) AS tickets
-            FROM orders o JOIN order_items i ON i.order_id = o.id
-            WHERE o.deleted_at IS NULL AND o.queue_date BETWEEN :from AND :to
-            GROUP BY bucket, o.purpose`),
+            SELECT substr(queue_date, 1, 7) AS bucket, purpose, COUNT(*) AS orders FROM orders
+            WHERE deleted_at IS NULL AND purpose != :report AND queue_date BETWEEN :from AND :to
+            GROUP BY bucket, purpose`),
         servedOn: db.prepare("SELECT COUNT(*) AS n FROM orders WHERE queue_date = ? AND status = 'done' AND deleted_at IS NULL"),
         // History: any day, deleted only or all, by name or number; deleted ones newest-deleted first
         history: db.prepare(`
@@ -518,6 +528,9 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             LIMIT :limit`),
         itemsFor: db.prepare(`
             SELECT order_id, item, qty, color FROM order_items
+            WHERE order_id IN (SELECT value FROM json_each(?)) ORDER BY order_id, position`),
+        invoicesFor: db.prepare(`
+            SELECT order_id, invoice_no, type FROM order_invoices
             WHERE order_id IN (SELECT value FROM json_each(?)) ORDER BY order_id, position`),
         // Restore puts the ticket back in line: today's keeps its number, an earlier day's gets today's next one
         restoreSameDay: db.prepare(`
@@ -537,6 +550,12 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         dayItems: db.prepare(`
             SELECT i.order_id, i.item, i.qty, i.color FROM order_items i JOIN orders o ON o.id = i.order_id
             WHERE o.queue_date = ? ORDER BY i.order_id, i.position`),
+        insertInvoice: db.prepare("INSERT INTO order_invoices (order_id, position, invoice_no, type) VALUES (?, ?, ?, ?)"),
+        deleteInvoices: db.prepare("DELETE FROM order_invoices WHERE order_id = ?"),
+        orderInvoices: db.prepare("SELECT invoice_no, type FROM order_invoices WHERE order_id = ? ORDER BY position"),
+        dayInvoices: db.prepare(`
+            SELECT v.order_id, v.invoice_no, v.type FROM order_invoices v JOIN orders o ON o.id = v.order_id
+            WHERE o.queue_date = ? ORDER BY v.order_id, v.position`),
         getSetting: db.prepare("SELECT value FROM settings WHERE key = ?"),
         setSetting: db.prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value"),
         deleteSetting: db.prepare("DELETE FROM settings WHERE key = ?"),
@@ -642,11 +661,16 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
 
     // today's ticket with this number, as a database row
     const findToday = (queueNum) => sql.findOrder.get(today(), queueNum);
-    const loadOrder = (row) => toOrder(row, sql.orderItems.all(row.id));
+    const loadOrder = (row) => toOrder(row, sql.orderItems.all(row.id), sql.orderInvoices.all(row.id));
 
     const saveItems = (orderId, items) => {
         sql.deleteItems.run(orderId);
         items.forEach(({ item, qty, color }, i) => sql.insertItem.run(orderId, i, item, qty, color ?? null));
+    };
+
+    const saveInvoices = (orderId, invoices) => {
+        sql.deleteInvoices.run(orderId);
+        invoices.forEach(({ invoiceNo, type }, i) => sql.insertInvoice.run(orderId, i, invoiceNo, type));
     };
 
     const readSetting = (key) => {
@@ -734,13 +758,14 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         if (method === "POST" && path === "/orders") {
             const body = await readBody(req);
             if (!validOrder(body)) return send(res, 400, { message: "Invalid order." });
-            const { orders: items, ...fields } = pickOrder(body);
+            const { orders: items, invoices, ...fields } = pickOrder(body);
             const order = transaction(db, () => {
                 const date = today();
                 // a plain number; the front end formats it as "SHN 01"
                 const { last_num: queueNum } = sql.nextQueueNum.get(date);
                 const { lastInsertRowid } = sql.insertOrder.run({ ...fields, date, queueNum, createdAt: new Date().toISOString() });
                 saveItems(lastInsertRowid, items);
+                saveInvoices(lastInsertRowid, invoices);
                 return loadOrder(sql.findOrder.get(date, queueNum));
             });
             return send(res, 201, order);
@@ -778,10 +803,11 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             if (!existing) return send(res, 404, { message: "Order not found." });
             const body = await readBody(req);
             if (!validOrder(body)) return send(res, 400, { message: "Invalid order." });
-            const { orders: items, ...fields } = pickOrder(body);
+            const { orders: items, invoices, ...fields } = pickOrder(body);
             transaction(db, () => {
                 sql.updateOrder.run({ ...fields, id: existing.id });
                 saveItems(existing.id, items);
+                saveInvoices(existing.id, invoices);
             });
             return send(res, 200, loadOrder(findToday(existing.queue_num)));
         }
@@ -1030,9 +1056,11 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         if (method === "GET" && path === "/admin/orders") {
             const date = today();
             const itemsByOrder = Map.groupBy(sql.dayItems.all(date), (item) => item.order_id);
+            const invoicesByOrder = Map.groupBy(sql.dayInvoices.all(date), (invoice) => invoice.order_id);
             const rows = sql.dayOrders.all(date).filter((row) =>
                 me.role !== "loading" || (row.handed_over_by !== null && splitList(row.team).includes(me.team)));
-            return send(res, 200, rows.map((row) => toOrder(row, itemsByOrder.get(row.id) ?? [])));
+            return send(res, 200, rows.map((row) =>
+                toOrder(row, itemsByOrder.get(row.id) ?? [], invoicesByOrder.get(row.id) ?? [])));
         }
 
         // call (or call again) a ticket: it becomes the headline on the display with the admin's remarks
@@ -1135,7 +1163,8 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             return send(res, 200, loadOrder(findToday(order.queue_num)));
         }
 
-        // ?period=day|week|month|year → { period, from, to, buckets: [{ key, qty: { purpose: n }, tickets: { purpose: n } }], servedToday }
+        // ?period=day|week|month|year → { period, from, to, buckets: [{ key, orders: { type: n }, total }], servedToday }
+        // orders counts each type of order: one for Roofings and Steel is in both; total is the slot's orders, each once
         // every slot in the period is listed, empty ones included, so the graph and the export have no gaps
         if (method === "GET" && path === "/admin/stats") {
             const period = url.searchParams.get("period") ?? "week";
@@ -1144,15 +1173,15 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             const from = { day: to, week: localDate(daysAgo(6)), month: localDate(daysAgo(29)) }[period]
                 ?? `${STATS_PERIODS.year()[0]}-01`;
             const query = { day: sql.statsByHour, week: sql.statsByDay, month: sql.statsByDay, year: sql.statsByMonth }[period];
-            const rows = query.all({ from, to });
+            const rows = query.all({ from, to, report: REPORT_PURPOSE });
 
             const keys = STATS_PERIODS[period](rows.map((r) => Number(r.bucket)));
-            const buckets = new Map(keys.map((key) => [key, { key, qty: {}, tickets: {} }]));
-            for (const { bucket, purpose, qty, tickets } of rows) {
+            const buckets = new Map(keys.map((key) => [key, { key, orders: {}, total: 0 }]));
+            for (const { bucket, purpose, orders } of rows) {
                 const slot = buckets.get(bucket);
                 if (!slot) continue;
-                slot.qty[purpose] = qty;
-                slot.tickets[purpose] = tickets;
+                slot.total += orders;
+                for (const type of splitList(purpose)) slot.orders[type] = (slot.orders[type] ?? 0) + orders;
             }
             return send(res, 200, { period, from, to, buckets: [...buckets.values()], servedToday: sql.servedOn.get(to).n });
         }
@@ -1172,9 +1201,11 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
                 num,
                 limit: HISTORY_LIMIT,
             });
-            const itemsByOrder = Map.groupBy(sql.itemsFor.all(JSON.stringify(rows.map((r) => r.id))), (i) => i.order_id);
+            const ids = JSON.stringify(rows.map((r) => r.id));
+            const itemsByOrder = Map.groupBy(sql.itemsFor.all(ids), (i) => i.order_id);
+            const invoicesByOrder = Map.groupBy(sql.invoicesFor.all(ids), (i) => i.order_id);
             const date = today();
-            return send(res, 200, rows.map((row) => toHistory(row, itemsByOrder.get(row.id) ?? [], date)));
+            return send(res, 200, rows.map((row) => toHistory(row, itemsByOrder.get(row.id) ?? [], invoicesByOrder.get(row.id) ?? [], date)));
         }
 
         // back in today's queue as waiting, whether it was deleted or is from an earlier day

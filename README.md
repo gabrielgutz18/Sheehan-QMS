@@ -68,7 +68,7 @@ npm run seed                 # 5 customers in today's queue
 npm run seed -- 12           # 12 customers (up to 50)
 ```
 
-Like `php artisan db:seed`: adds made-up customers (names, one or two types of order, invoice numbers, salesmen, payment statuses, loading teams, and now and then a pick-up day for a returning customer) through the same `POST /orders` Customer order uses, so they get real queue numbers and show on the display and every counter. It writes to the data folder in `.env`, so don't run it on the live server.
+Like `php artisan db:seed`: adds made-up customers (names, one or two types of order with an invoice for each, salesmen, payment statuses, loading teams, and now and then a pick-up day for a returning customer) through the same `POST /orders` Customer order uses, so they get real queue numbers and show on the display and every counter. It writes to the data folder in `.env`, so don't run it on the live server.
 
 ## Loading staff accounts
 
@@ -98,7 +98,8 @@ The app keeps its data in one SQLite file, `queue.db`, in the data folder (`data
 
 | Table            | Holds                                                                |
 | ---------------- | -------------------------------------------------------------------- |
-| `orders`         | one row per ticket: day, number, name, type(s) of order, invoice number, salesman, payment status, team, pick-up day, status, remarks |
+| `orders`         | one row per ticket: day, number, name, type(s) of order, salesman, payment status, team, pick-up day, status, remarks |
+| `order_invoices` | each ticket's invoices: number and the type of order it's for (e.g. 43355521, Roofings) |
 | `order_items`    | the lines of tickets taken before invoices (item, qty, roofing color) |
 | `queue_counters` | last number given out each day, so a deleted ticket's number isn't reused |
 | `settings`       | the display video                                                    |
@@ -119,7 +120,7 @@ Queue numbers start again at 1 every day (by the server's clock). The queue, the
 | Role  | Can |
 | ----- | --- |
 | Admin | Everything: dashboard and sales graph, Customer order, Orders (including delete), History, display video, announcer voice and volume, printer, Accounts |
-| Sales | Customer order: take a customer's name, one or more types of order (e.g. Roofings and Steel), the invoice number, salesman, payment status (Vale, Paid, Terms), loading team and, for a customer who picks up the items on a later day, that day, and print their ticket with its queue number (R 01); edit it straight after, or later with Edit on Orders; My counter: serve the next customer, recall, mark done, hand over to loading (sends a customer whose order goes to the loading teams on to the Loading page; it counts as a customer served), send back to waiting, put a served customer who comes back in line as returning; Orders: set any ticket's status (waiting, now serving, done, returning customer) and call it, but not delete; see their own customers served (today / week / month / year / all time); History and restore; announcer volume |
+| Sales | Customer order: take a customer's name, one or more types of order (e.g. Roofings and Steel), one or more invoice numbers (each with the type of order it's for, e.g. 43355521 Roofings), salesman, payment status (Vale, Paid, Terms), loading team and, for a customer who picks up the items on a later day, that day, and print their ticket with its queue number (R 01); edit it straight after, or later with Edit on Orders; open any of today's tickets again to print it (View queue ticket on Customer order, or View ticket on Orders); My counter: serve the next customer, recall, mark done, hand over to loading (sends a customer whose order goes to the loading teams on to the Loading page; it counts as a customer served), send back to waiting, put a served customer who comes back in line as returning; Orders: set any ticket's status (waiting, now serving, done, returning customer) and call it, but not delete; see their own customers served (today / week / month / year / all time); History and restore; announcer volume |
 | Loading | The loading crews, each account on one team (Roofings or Steel, set by an admin on Accounts). Loading page: the customers whose order goes to their team, in queue order; call one to the team's area (the display shows "Please proceed to Roofings", which can be changed before calling), mark the team's part done (the order is done once every team on it is; until then the display keeps the customer under Now Serving as "Please wait" for the next team to call), or send them back to waiting. A customer is in one place at a time: while another team or a sales counter is serving them, Call is grayed out with "Please wait until Roofings finishes." My account; no admin or sales rights. A customer only reaches the Loading page once a sales counter has served them and pressed Hand over to loading, and each account only gets the orders that go to its own team |
 
 - **Accounts:** admins create them in Admin → Accounts. Passwords are stored hashed (scrypt). An account is switched off instead of deleted, so the customers it served stay on record. Switching an account off, or changing its password or role, signs it out everywhere.
@@ -155,12 +156,12 @@ All paths are relative to `VITE_API_URL` (default `/api`).
 
 | Method | Path                     | Auth  | Body / returns                                            |
 | ------ | ------------------------ | ----- | --------------------------------------------------------- |
-| POST   | `/orders`                | —     | `{ name, purpose: "Roofings, Steel", orders: [], invoiceNo, salesman, paymentStatus, team: "Roofings, Steel", pickupDate: "YYYY-MM-DD" \| null }` → saved order; `paymentStatus` must be in [`src/data/paymentStatus.js`](src/data/paymentStatus.js) and each `team` in [`src/data/teams.js`](src/data/teams.js) (or `""`); `orders` (`[{ item, qty }]`) can only be empty when there's an invoice number |
+| POST   | `/orders`                | —     | `{ name, purpose: "Roofings, Steel", orders: [], invoices: [{ invoiceNo, type }], salesman, paymentStatus, team: "Roofings, Steel", pickupDate: "YYYY-MM-DD" \| null }` → saved order; `paymentStatus` must be in [`src/data/paymentStatus.js`](src/data/paymentStatus.js) and each `team` in [`src/data/teams.js`](src/data/teams.js) (or `""`); each invoice's `type` is one of the order's own types, up to 20 invoices and no number twice; `orders` (`[{ item, qty }]`) can only be empty when there's an invoice |
 | PUT    | `/orders/:queueNum`      | —     | same body → saved order                                   |
 | POST   | `/auth/login`            | —     | `{ username, password }` → `{ id, username, name, role }` + cookie |
 | GET    | `/auth/me`               | staff | → `{ id, username, name, role }`, or `401`                |
 | POST   | `/auth/logout`           | staff | clears the cookie                                         |
-| GET    | `/admin/orders`          | staff | → today's (a loading account gets only the ones that go to its team) `[{ queueNum, name, purpose, orders, invoiceNo?, salesman?, paymentStatus?, team?, pickupDate?, status, servedBy?: { id, name, photo }, servedAt? }]` (`servedAt`: when it was marked Done) |
+| GET    | `/admin/orders`          | staff | → today's (a loading account gets only the ones that go to its team) `[{ queueNum, name, purpose, orders, invoices: [{ invoiceNo, type }], salesman?, paymentStatus?, team?, pickupDate?, status, servedBy?: { id, name, photo }, servedAt? }]` (`servedAt`: when it was marked Done) |
 | GET    | `/admin/orders/:queueNum`| admin, sales | → one of today's tickets, as above (Edit on Orders opens it on Customer order) |
 | POST   | `/admin/orders/:queueNum/call` | staff | `{ remarks }` → order, served by the caller         |
 | POST   | `/admin/orders/:queueNum/handover` | admin, sales | `{ team? }` (`"Roofings, Steel"`; the order's own teams if left out) → order, back in line for the loading crews with `handedOver: { by: { id, name }, at }`, and a point for whoever served them; `409` unless the customer is being served and not handed over yet |
@@ -199,7 +200,7 @@ All paths are relative to `VITE_API_URL` (default `/api`).
 6. Allow the port through Windows Defender Firewall for the local network, and give the server a fixed IP so kiosks and displays can find it.
 7. Back up daily: a Task Scheduler job that runs `npm run backup` in the app folder.
 
-Orders are taken by staff in Admin → Customer order; there is no customer kiosk. On each staff PC with a receipt printer, start the print service with `--origin http://<server-ip>:3000` so the page is allowed to print (see `src/printing/script/printService.py`).
+Orders are taken by staff in Admin → Customer order; there is no customer kiosk. Tickets print through the browser: **Print ticket** opens the print preview with just the ticket, and staff pick the printer there (any printer installed in Windows, including one shared from another computer on the network). Nothing prints by itself.
 
 On the display PC, open the display with [`deploy/display-screen.cmd`](deploy/display-screen.cmd) (set `SERVER` at the top to the server's address). It starts Microsoft Edge (for its natural voices; Chrome if Edge isn't installed) with sound allowed, so calls are read out without anyone clicking the page first; in an ordinary tab the browser keeps the display silent after every start or reload until someone clicks it.
 

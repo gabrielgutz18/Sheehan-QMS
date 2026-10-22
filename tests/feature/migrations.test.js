@@ -86,8 +86,9 @@ test("older tickets keep their items and get empty sales details and loading tea
     quiet.mock.restore();
 
     try {
-        const order = db.prepare("SELECT invoice_no, salesman, payment_status, team, pickup_date FROM orders WHERE id = 5").get();
-        assert.deepEqual({ ...order }, { invoice_no: "", salesman: "", payment_status: "", team: "", pickup_date: null });
+        const order = db.prepare("SELECT salesman, payment_status, team, pickup_date FROM orders WHERE id = 5").get();
+        assert.deepEqual({ ...order }, { salesman: "", payment_status: "", team: "", pickup_date: null });
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM order_invoices WHERE order_id = 5").get().n, 0);
         assert.equal(db.prepare("SELECT COUNT(*) AS n FROM order_items WHERE order_id = 5").get().n, 1);
         const loading = db.prepare("SELECT serving_team, teams_done FROM orders WHERE id = 5").get();
         assert.deepEqual({ ...loading }, { serving_team: null, teams_done: "" });
@@ -95,6 +96,34 @@ test("older tickets keep their items and get empty sales details and loading tea
         // still with sales until a counter hands them over
         const handover = db.prepare("SELECT handed_over_by, handed_over_at FROM orders WHERE id = 5").get();
         assert.deepEqual({ ...handover }, { handed_over_by: null, handed_over_at: null });
+    } finally {
+        db.close();
+    }
+});
+
+// 011 moves each ticket's one invoice number into order_invoices, where a ticket can have several
+test("each older ticket's invoice number becomes its first invoice, typed when it has one type of order", () => {
+    const old = databaseBefore("011");
+    old.exec(`
+        INSERT INTO orders (id, queue_date, queue_num, name, purpose, invoice_no, created_at) VALUES
+            (1, '2026-10-21', 1, 'Juan Dela Cruz', 'Roofings', '43355521', '2026-10-21T09:00:00.000Z'),
+            (2, '2026-10-21', 2, 'Ana Reyes', 'Roofings, Steel', '5566', '2026-10-21T09:05:00.000Z'),
+            (3, '2026-10-21', 3, 'Pedro Santos', 'Tire', '', '2026-10-21T09:10:00.000Z');
+    `);
+    old.close();
+
+    const quiet = mock.method(console, "log", () => {});
+    const db = openDatabase(dataDir);
+    quiet.mock.restore();
+
+    try {
+        const invoices = db.prepare("SELECT order_id, position, invoice_no, type FROM order_invoices ORDER BY order_id").all();
+        assert.deepEqual(invoices.map((row) => ({ ...row })), [
+            { order_id: 1, position: 0, invoice_no: "43355521", type: "Roofings" },
+            { order_id: 2, position: 0, invoice_no: "5566", type: "" },
+        ]);
+        assert.ok(!db.prepare("PRAGMA table_info(orders)").all().some((column) => column.name === "invoice_no"));
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM orders").get().n, 3);
     } finally {
         db.close();
     }

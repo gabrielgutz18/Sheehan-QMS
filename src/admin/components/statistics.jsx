@@ -6,8 +6,9 @@ import { asDate, longLabel, shortLabel } from '../data/periodLabels.js';
 import purpose from '../../data/purpose.js';
 import logoUrl from '../../assets/SheehanLogo.png';
 
-// sales line graph for the dashboard: quantity ordered per hour / day / month, for every product or one,
-// with today's served total, and an Excel export of the same numbers
+// sales line graph for the dashboard: orders taken per hour / day / month, for every type of order or one (an order
+// for Roofings and Steel counts for each, and once under All products), with today's served total, and an Excel
+// export of the same numbers
 
 const PERIODS = [
     { value: "day", label: "Day", range: "Today", column: "Hour" },
@@ -78,23 +79,22 @@ export default function Statistics() {
         };
     }, [period]);
 
-    // the types of order, plus any older purposes that only appear in the data
+    // the types of order, plus any older ones that only appear in the data
     const products = useMemo(() => {
         const names = new Set(purpose.map((p) => p.name));
-        stats?.buckets.forEach((b) => Object.keys(b.qty).forEach((name) => names.add(name)));
+        stats?.buckets.forEach((b) => Object.keys(b.orders).forEach((name) => names.add(name)));
         return [...names];
     }, [stats]);
 
-    const pickValue = (counts) => (product === ALL ? sum(Object.values(counts)) : counts[product] ?? 0);
+    // a slot's orders: all of them, each once, or the ones for the type picked
+    const pickValue = (b) => (product === ALL ? b.total : b.orders[product] ?? 0);
     // on the Day view, hours later today haven't happened, so they get no value rather than a 0
     const comingHour = (key) => stats.period === "day" && Number(key) > new Date().getHours();
     const points = (stats?.buckets ?? []).map((b) => ({
         key: b.key,
         label: shortLabel(stats.period, b.key),
         long: longLabel(stats.period, b.key),
-        value: comingHour(b.key) ? null : pickValue(b.qty),
-        tickets: pickValue(b.tickets),
-        detail: `${whole.format(pickValue(b.tickets))} tickets`,
+        value: comingHour(b.key) ? null : pickValue(b),
     }));
 
     const productLabel = product === ALL ? "All products" : product;
@@ -106,15 +106,15 @@ export default function Statistics() {
         try {
             const columns = product === ALL ? products : [product];
             const report = {
-                title: "Sales report: quantity ordered",
+                title: "Sales report: orders",
                 rangeLabel: rangeText(stats),
                 productLabel,
                 columnLabel: periodInfo(stats.period).column,
                 columns,
                 rows: stats.buckets.map((b) => ({
                     label: longLabel(stats.period, b.key),
-                    values: columns.map((name) => b.qty[name] ?? 0),
-                    tickets: pickValue(b.tickets),
+                    values: columns.map((name) => b.orders[name] ?? 0),
+                    total: pickValue(b),
                 })),
                 servedToday: stats.servedToday,
             };
@@ -174,22 +174,18 @@ export default function Statistics() {
                     <span className="stat-value">{stats ? whole.format(stats.servedToday) : "–"}</span>
                 </div>
                 <div className="stat-card">
-                    <span className="stat-label">Quantity ordered</span>
+                    <span className="stat-label">Orders</span>
                     <span className="stat-value">{stats ? whole.format(sum(points.map((p) => p.value ?? 0))) : "–"}</span>
-                </div>
-                <div className="stat-card">
-                    <span className="stat-label">Tickets</span>
-                    <span className="stat-value">{stats ? whole.format(sum(points.map((p) => p.tickets))) : "–"}</span>
                 </div>
             </div>
 
             <div className="admin-panel">
                 <p className="stats-caption">
-                    Quantity ordered · {stats ? rangeText(stats) : periodInfo(period).range} · {productLabel}
+                    Orders · {stats ? rangeText(stats) : periodInfo(period).range} · {productLabel}
                 </p>
                 <LineChart
                     points={points}
-                    unit="qty"
+                    unit="orders"
                     label="Sales graph"
                     dimmed={loading && !!stats}
                     emptyText="No orders in this period yet."
@@ -197,13 +193,13 @@ export default function Statistics() {
 
                 {/* the same numbers as a table, for screen readers */}
                 <table className="visually-hidden">
-                    <caption>Quantity ordered, {productLabel}</caption>
+                    <caption>Orders, {productLabel}</caption>
                     <thead>
-                        <tr><th scope="col">{periodInfo(stats?.period ?? period).column}</th><th scope="col">Quantity</th><th scope="col">Tickets</th></tr>
+                        <tr><th scope="col">{periodInfo(stats?.period ?? period).column}</th><th scope="col">Orders</th></tr>
                     </thead>
                     <tbody>
                         {points.map((p) => (
-                            <tr key={p.key}><th scope="row">{p.long}</th><td>{p.value ?? "–"}</td><td>{p.tickets}</td></tr>
+                            <tr key={p.key}><th scope="row">{p.long}</th><td>{p.value ?? "–"}</td></tr>
                         ))}
                     </tbody>
                 </table>

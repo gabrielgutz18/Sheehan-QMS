@@ -8,9 +8,9 @@ const TEAM_STATES = {
     done: { mark: " ✓", label: "done" },
 };
 
-// what the customer came for: the invoice, payment status, loading teams (and how far along each is), salesman and
-// pick-up day from Customer order, the items on a ticket taken before invoices, or a Customer Report's concern in
-// their own words
+// what the customer came for: the invoices (each with its type of order), payment status, loading teams (and how far
+// along each is), salesman and pick-up day from Customer order, the items on a ticket taken before invoices, or a
+// Customer Report's concern in their own words
 export default function OrderDetails({ order }) {
     if (order.concern) {
         return (
@@ -21,13 +21,19 @@ export default function OrderDetails({ order }) {
         );
     }
 
-    const hasSale = order.invoiceNo || order.paymentStatus || order.team || order.salesman || order.pickupDate;
+    const invoices = order.invoices ?? [];
+    const hasSale = invoices.length > 0 || order.paymentStatus || order.team || order.salesman || order.pickupDate;
 
     return (
         <>
             {hasSale && (
                 <ul className="sale-facts">
-                    {order.invoiceNo && <li>Invoice <strong>{order.invoiceNo}</strong></li>}
+                    {invoices.map(({ invoiceNo, type }) => (
+                        <li key={invoiceNo}>
+                            Invoice <strong>{invoiceNo}</strong>
+                            {type && <span className="invoice-type">{type}</span>}
+                        </li>
+                    ))}
                     {order.paymentStatus && <li className="sale-pay">{order.paymentStatus}</li>}
                     {teamsOf(order).map((team) => {
                         const state = teamState(order, team);

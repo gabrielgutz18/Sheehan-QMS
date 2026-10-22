@@ -43,9 +43,11 @@ const ticketOf = (o) => formatQueueNum(o.queueNum, o.purpose);
 // Done here lists this many of the latest; the rest are counted under it
 const DONE_SHOWN = 8;
 
-// the crews' areas as one-tap messages in the call dialog, this crew's first
+// the crews' areas as one-tap messages in the call dialog: this crew's first, then the ones marked quickRemark in
+// teams.js (Roofings and Steel)
 const quickRemarksFor = (team) =>
-    [team, ...teamNames.filter((name) => name !== team)].map((name) => ({ label: name, text: proceedTo(name) }));
+    [team, ...teams.filter((t) => t.quickRemark && t.name !== team).map((t) => t.name)]
+        .map((name) => ({ label: name, text: proceedTo(name) }));
 
 // the crews on the order still to serve the customer, besides this one
 const othersLeft = (order, team) => teamsOf(order).filter((t) => t !== team && teamState(order, t) !== "done");

@@ -107,7 +107,8 @@ describe("customer reports", () => {
 
         const { buckets } = (await admin.get("/admin/stats?period=day")).assertStatus(200).body;
 
-        const purposes = new Set(buckets.flatMap((b) => Object.keys(b.qty)));
+        const purposes = new Set(buckets.flatMap((b) => Object.keys(b.orders)));
         assert.deepEqual([...purposes], ["Roofings"]);
+        assert.equal(buckets.reduce((sum, b) => sum + b.total, 0), 1);
     });
 });

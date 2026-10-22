@@ -50,7 +50,7 @@ const daysFromNow = (n) => {
     return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 };
 
-// a customer as Customer order sends them: one or two types of order (in the list's order), an invoice number,
+// a customer as Customer order sends them: one or two types of order (in the list's order), an invoice for each,
 // the salesman, how they're paying, the loading crews for their types of order (a Roofings and Steel order goes to
 // both), and now and then a day they'll come back for the items
 const fakeCustomer = (name) => {
@@ -60,7 +60,7 @@ const fakeCustomer = (name) => {
         name,
         purpose: joinList(purpose),
         orders: [],
-        invoiceNo: String(between(1000, 9999)),
+        invoices: purpose.map((type) => ({ invoiceNo: String(between(10000000, 99999999)), type })),
         salesman: pick(SALESMEN),
         paymentStatus: pick(paymentStatus).type,
         team: joinList(teams.filter((t) => purpose.includes(t.name)).map((t) => t.name)),
@@ -85,7 +85,7 @@ try {
         if (res.status !== 201) throw new Error(`The API refused a customer (${res.status}): ${order.message}`);
         const details = [
             order.purpose,
-            `invoice ${order.invoiceNo}`,
+            order.invoices.map(({ invoiceNo, type }) => `invoice ${invoiceNo} (${type})`).join(", "),
             order.paymentStatus,
             order.team && `loading: ${order.team}`,
             order.pickupDate && `picks up ${order.pickupDate}`,

@@ -7,9 +7,12 @@ Run it on the computer the printer is plugged into, and leave it running:
     pip install -r src/printing/script/requirements.txt
     python src/printing/script/printService.py           (add --list to just show what it finds)
 
-It looks for the printer two ways, so either Windows driver setup works:
+It looks for the printer these ways, so any of these Windows setups works:
   - a receipt printer installed in Windows on a USB port (the maker's driver, or "Generic / Text Only")
+  - a receipt printer shared from another computer on the network (\\\\PC\\POS-80), added in Windows
   - a printer on the WinUSB/libusb driver (e.g. switched with Zadig), reached directly over USB
+A printer whose name or driver doesn't look like a receipt printer is skipped, so an office printer never gets
+ESC/POS garbage; name one with --printer "\\\\PC\\Printer name" (as Windows lists it) to use it anyway.
 """
 
 import argparse
@@ -138,16 +141,21 @@ def find_windows_printers():
     if win32print is None:
         return []
     found = []
-    for p in win32print.EnumPrinters(win32print.PRINTER_ENUM_LOCAL, None, 2):
+    # this computer's printers, and the ones shared from another computer that were added here (\\PC\Printer)
+    flags = win32print.PRINTER_ENUM_LOCAL | win32print.PRINTER_ENUM_CONNECTIONS
+    for p in win32print.EnumPrinters(flags, None, 2):
         name, port, driver = p["pPrinterName"], p["pPortName"] or "", p["pDriverName"] or ""
+        # a shared printer's port is on the computer it's plugged into, so only this computer's need to be USB
+        shared = name.startswith("\\\\")
         if options.printer:
             if name.lower() != options.printer.lower():
                 continue
-        elif not port.upper().startswith("USB") or not RECEIPT_WORDS.search(f"{name} {driver}"):
+        elif not (shared or port.upper().startswith("USB")) or not RECEIPT_WORDS.search(f"{name} {driver}"):
             continue
         if p["Attributes"] & PRINTER_ATTRIBUTE_WORK_OFFLINE or p["Status"] & PRINTER_STATUS_OFFLINE:
             continue
-        found.append({"connection": "windows", "name": name, "detail": f"Windows printer on {port}"})
+        detail = f"shared from {p['pServerName'] or 'another computer'}" if shared else f"Windows printer on {port}"
+        found.append({"connection": "windows", "name": name, "detail": detail})
     return found
 
 

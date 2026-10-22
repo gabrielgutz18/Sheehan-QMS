@@ -6,13 +6,13 @@ import { colorLabel } from '../data/roofingColors.js';
 import { formatPickup } from '../data/pickupDate.js';
 
 // purpose: the type or types of order, e.g. "Roofings, Steel"
-// invoiceNo, paymentStatus, salesman, team, pickupDate: the sales details from Customer order, each shown once it's set
+// invoices: [{ invoiceNo, type }], each with the type of order it's for
+// paymentStatus, salesman, team, pickupDate: the sales details from Customer order, each shown once it's set
 // orders: the items on a ticket taken before invoices; concern: a Customer Report's concern, shown in place of them
 export default function Receipt({
-    queueNumber, name, purpose, orders = [], concern, invoiceNo, paymentStatus, salesman, team, pickupDate,
+    queueNumber, name, purpose, orders = [], concern, invoices = [], paymentStatus, salesman, team, pickupDate,
 }) {
     const details = [
-        ["Invoice No.", invoiceNo],
         ["Payment", paymentStatus],
         ["Salesman", salesman],
         ["Team", team],
@@ -45,6 +45,20 @@ export default function Receipt({
                 <p className="receipt-label">Type of Order</p>
                 <p className="receipt-value">{purpose}</p>
             </div>
+
+            {invoices.length > 0 && (
+                <div className="receipt-row">
+                    <p className="receipt-label">{invoices.length > 1 ? "Invoice Nos." : "Invoice No."}</p>
+                    <ul className="receipt-invoices">
+                        {invoices.map(({ invoiceNo, type }) => (
+                            <li key={invoiceNo}>
+                                <span>{invoiceNo}</span>
+                                {type && <span className="receipt-invoice-type">{type}</span>}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
 
             {details.length > 0 && (
                 <dl className="receipt-row receipt-details">

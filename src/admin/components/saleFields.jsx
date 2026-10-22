@@ -119,6 +119,69 @@ export function CheckPicker({ id, label, names, value, onChange, placeholder, op
     );
 }
 
+// the invoices on Customer order, one row each: its number and the type of order it's for, picked from the types
+// ticked above (e.g. 43355521 for Roofings); Add invoice adds a row and × takes one away, leaving at least one
+// invoices: [{ key, invoiceNo, type }]; errors: { [key]: { invoiceNo?, type? } }
+export function InvoiceFields({ invoices, types, onChange, onAdd, onRemove, errors = {}, maxLength, max }) {
+    const update = (key, field) => (e) =>
+        onChange(invoices.map((invoice) => (invoice.key === key ? { ...invoice, [field]: e.target.value } : invoice)));
+
+    return (
+        <fieldset className="invoice-fields">
+            <legend>Invoices</legend>
+            {invoices.map(({ key, invoiceNo, type }, i) => {
+                const error = errors[key] ?? {};
+                const id = `sale-invoice-${key}`;
+                const message = error.invoiceNo || error.type;
+                return (
+                    <div key={key} className="invoice-entry">
+                        <div className="invoice-row">
+                            <input
+                                id={id}
+                                type="text"
+                                autoComplete="off"
+                                maxLength={maxLength}
+                                placeholder="Invoice number"
+                                aria-label={`Invoice ${i + 1} number`}
+                                value={invoiceNo}
+                                onChange={update(key, "invoiceNo")}
+                                aria-invalid={Boolean(error.invoiceNo)}
+                                aria-describedby={message ? `${id}-error` : undefined}
+                                className={error.invoiceNo ? "has-error" : undefined}
+                            />
+                            <select
+                                aria-label={`Invoice ${i + 1} type of order`}
+                                value={types.includes(type) ? type : ""}
+                                disabled={types.length === 0}
+                                onChange={update(key, "type")}
+                                aria-invalid={Boolean(error.type)}
+                                aria-describedby={message ? `${id}-error` : undefined}
+                                className={error.type ? "has-error" : undefined}
+                            >
+                                <option value="">{types.length ? "Type..." : "Pick a type of order first"}</option>
+                                {types.map((name) => <option key={name} value={name}>{name}</option>)}
+                            </select>
+                            <button
+                                type="button"
+                                className="invoice-remove"
+                                aria-label={`Remove invoice ${i + 1}`}
+                                disabled={invoices.length === 1}
+                                onClick={() => onRemove(key)}
+                            >
+                                ×
+                            </button>
+                        </div>
+                        {message && <p className="field-error" id={`${id}-error`}>{message}</p>}
+                    </div>
+                );
+            })}
+            {invoices.length < max && (
+                <button type="button" className="link-btn invoice-add" onClick={onAdd}>+ Add invoice</button>
+            )}
+        </fieldset>
+    );
+}
+
 // a customer who comes back on a later day for the items: tick Returning and pick the day
 export function ReturningField({ returning, pickupDate, onReturning, onPickupDate, error }) {
     return (

@@ -1,7 +1,7 @@
 import ExcelJS from 'exceljs';
 
 // the sales report as an Excel workbook: logo and company name on top, a short summary,
-// then one row per day (or hour / month) with a column per product and a total row
+// then one row per day (or hour / month) with a column per type of order and a total row
 // loaded only when someone exports, so the Excel library stays out of the admin bundle
 
 const RED = "FFC8202A";
@@ -13,14 +13,15 @@ const thin = (argb) => ({ style: "thin", color: { argb } });
 
 // report: {
 //   title, rangeLabel, productLabel, columnLabel ("Date" / "Hour" / "Month"),
-//   columns: product names, rows: [{ label, values: [qty per column], tickets }], servedToday
+//   columns: types of order, rows: [{ label, values: [orders per column], total }], servedToday
 // }
+// total is the row's orders, each once: an order for Roofings and Steel is in both columns but counts once there
 // logo: the company logo as a data: URL
 export function buildStatsWorkbook(report, logo) {
     const { title, rangeLabel, productLabel, columnLabel, columns, rows, servedToday } = report;
-    // one product already is the total; several get a Total qty column
+    // one type of order already is the total; several get an All orders column
     const showTotal = columns.length > 1;
-    const headers = [columnLabel, ...columns, ...(showTotal ? ["Total qty"] : []), "Tickets"];
+    const headers = [columnLabel, ...columns, ...(showTotal ? ["All orders"] : [])];
     const width = headers.length;
 
     const workbook = new ExcelJS.Workbook();
@@ -53,14 +54,12 @@ export function buildStatsWorkbook(report, logo) {
     });
 
     // summary
-    const totalQty = rows.reduce((sum, r) => sum + r.values.reduce((a, b) => a + b, 0), 0);
-    const totalTickets = rows.reduce((sum, r) => sum + r.tickets, 0);
+    const totalOrders = rows.reduce((sum, r) => sum + r.total, 0);
     sheet.getCell("A6").value = "Summary";
     sheet.getCell("A6").font = { bold: true, size: 12 };
     [
         ["Served today", servedToday],
-        ["Total quantity ordered", totalQty],
-        ["Tickets", totalTickets],
+        ["Orders", totalOrders],
     ].forEach(([label, value], i) => {
         const row = sheet.getRow(7 + i);
         row.getCell(1).value = label;
@@ -79,11 +78,7 @@ export function buildStatsWorkbook(report, logo) {
     });
 
     // the numbers in each row, after the label
-    const numbers = rows.map(({ values, tickets }) => [
-        ...values,
-        ...(showTotal ? [values.reduce((a, b) => a + b, 0)] : []),
-        tickets,
-    ]);
+    const numbers = rows.map(({ values, total }) => [...values, ...(showTotal ? [total] : [])]);
 
     const first = headerRow + 1;
     rows.forEach(({ label }, i) => {
