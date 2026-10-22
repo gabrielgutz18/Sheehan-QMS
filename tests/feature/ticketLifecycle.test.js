@@ -335,14 +335,15 @@ describe("who can do what", () => {
         (await maria.get("/admin/orders")).assertStatus(200);
     });
 
-    test("loading staff sign in and keep their own account, with no admin or sales rights", async () => {
+    test("loading staff sign in, keep their own account and see the queue, with no admin or sales rights", async () => {
         await takeTicket();
         const pedro = await app.actingAsLoading();
 
         assert.equal((await pedro.get("/auth/me")).assertStatus(200).body.role, "loading");
         (await pedro.patch("/admin/me", { firstName: "Pedro", surname: "Garcia", department: "Steel" })).assertStatus(200);
 
-        (await pedro.get("/admin/orders")).assertStatus(403);
+        (await pedro.get("/admin/orders")).assertStatus(200);
+        (await pedro.get("/admin/orders/1")).assertStatus(403);
         (await pedro.post("/admin/orders/1/call")).assertStatus(403);
         (await pedro.patch("/admin/orders/1", { status: "done" })).assertStatus(403);
         (await pedro.get("/admin/history")).assertStatus(403);

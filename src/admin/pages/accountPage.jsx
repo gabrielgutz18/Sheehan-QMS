@@ -29,6 +29,13 @@ export default function AccountPage() {
                             <dt>Role</dt>
                             <dd>{ROLE_LABELS[user.role]}</dd>
                         </div>
+                        {/* loading staff: set by an admin on Accounts */}
+                        {user.role === "loading" && (
+                            <div>
+                                <dt>Team</dt>
+                                <dd>{user.team ?? "Not on a team yet"}</dd>
+                            </div>
+                        )}
                     </dl>
                 </div>
 

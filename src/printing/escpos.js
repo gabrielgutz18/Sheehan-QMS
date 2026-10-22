@@ -1,4 +1,5 @@
 import { colorLabel } from '../data/roofingColors.js';
+import { formatPickup } from '../data/pickupDate.js';
 
 // ESC/POS: the command language almost every thermal receipt printer understands
 const ESC = 0x1b;
@@ -37,10 +38,15 @@ const formatIssued = (issuedAt) => {
     return Number.isNaN(date.getTime()) ? "" : date.toLocaleString();
 };
 
-// ticket: { queueNumber, name, purpose, orders: [{ qty, item, color? }], concern?, issuedAt }
-// concern: a Customer Report's concern, printed in place of the order
+// ticket: { queueNumber, name, purpose, orders: [{ qty, item, color? }], concern?, invoiceNo?, paymentStatus?,
+//   salesman?, team?, pickupDate?, issuedAt }
+// the sales details from Customer order are printed once they're set; orders are the items on a ticket taken before
+// invoices, and concern a Customer Report's concern, printed in place of them
 // columns: characters per line, 32 for 58mm paper and 48 for 80mm
-export function buildReceipt({ queueNumber, name, purpose, orders = [], concern, issuedAt }, { columns = 48 } = {}) {
+export function buildReceipt(
+    { queueNumber, name, purpose, orders = [], concern, invoiceNo, paymentStatus, salesman, team, pickupDate, issuedAt },
+    { columns = 48 } = {},
+) {
     const bytes = [];
     const raw = (...b) => bytes.push(...b);
     const line = (text = "") => {
@@ -80,22 +86,36 @@ export function buildReceipt({ queueNumber, name, purpose, orders = [], concern,
     bold(false);
     rule();
 
-    line("PURPOSE");
+    line("TYPE OF ORDER");
     bold(true);
     wrap(purpose, columns).forEach(line);
     bold(false);
     rule();
 
     align("left");
-    bold(true);
-    line(concern ? "CONCERN" : "ORDER");
-    bold(false);
-    if (concern) wrap(concern, columns).forEach(line);
-    for (const o of orders) {
-        const color = o.color ? ` (${colorLabel(o.color)})` : "";
-        wrap(`${o.qty}x ${o.item}${color}`, columns).forEach(line);
+    const details = [
+        ["INVOICE NO", invoiceNo],
+        ["PAYMENT", paymentStatus],
+        ["SALESMAN", salesman],
+        ["TEAM", team],
+        ["PICK-UP", pickupDate && formatPickup(pickupDate)],
+    ].filter(([, value]) => value);
+    if (details.length) {
+        details.forEach(([label, value]) => wrap(`${label}: ${value}`, columns).forEach(line));
+        rule();
     }
-    rule();
+
+    if (concern || orders.length) {
+        bold(true);
+        line(concern ? "CONCERN" : "ORDER");
+        bold(false);
+        if (concern) wrap(concern, columns).forEach(line);
+        for (const o of orders) {
+            const color = o.color ? ` (${colorLabel(o.color)})` : "";
+            wrap(`${o.qty}x ${o.item}${color}`, columns).forEach(line);
+        }
+        rule();
+    }
 
     align("center");
     line(formatIssued(issuedAt));

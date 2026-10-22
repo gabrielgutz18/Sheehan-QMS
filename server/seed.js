@@ -1,6 +1,5 @@
-// adds sample customers (orders and Customer Reports) to today's queue, like Laravel's db:seed, for trying the
-// counters and the display
-// each one goes through the same POST /orders the kiosk uses, so they get real queue numbers and show up
+// adds sample customers to today's queue, like Laravel's db:seed, for trying the counters and the display
+// each one goes through the same POST /orders Customer order uses, so they get real queue numbers and show up
 // everywhere a real customer would; safe to run while the app is running
 // run: npm run seed          5 customers
 //      npm run seed -- 12    12 customers (up to 50)
@@ -9,8 +8,9 @@ import { createServer } from 'node:http';
 
 import { createApi } from './api.js';
 import purposes from '../src/data/purpose.js';
-import roofingColors, { ROOFING_PURPOSE } from '../src/data/roofingColors.js';
-import { REPORT_PURPOSE } from '../src/data/customerReport.js';
+import { joinList } from '../src/data/list.js';
+import paymentStatus from '../src/data/paymentStatus.js';
+import teams from '../src/data/teams.js';
 import formatQueueNum from '../src/data/queueNum.js';
 
 const DEFAULT_COUNT = 5;
@@ -22,26 +22,9 @@ const NAMES = [
     "Jose Navarro", "Bea Castillo", "Paolo Domingo", "Tess Manalo",
 ];
 
-// what each purpose's customers usually ask for; a purpose missing here gets GENERAL_ITEMS
-const ITEMS = {
-    "Roofings": ["Long span roofing", "Rib type roofing", "Corrugated sheet"],
-    "Roofings Accessories": ["Ridge roll", "Gutter", "Flashing", "Tek screws"],
-    "Tire": ["Tire 7.50-16", "Tire 11R22.5", "Inner tube", "Flap"],
-    "Steel": ["Angle bar", "Flat bar", "C-purlins", "Deformed bar 10mm"],
-    "Hardwares": ["Concrete nails", "Blind rivets", "Welding rod", "Paint brush"],
-    "Chassis": ["Leaf spring", "U-bolt", "Center bolt", "Shackle"],
-};
-const GENERAL_ITEMS = ["Assorted parts"];
-
-// what Customer Report customers come in about
-const CONCERNS = [
-    "The roofing I bought last week is leaking at the joints.",
-    "I was charged twice on my receipt.",
-    "Wrong tire size was delivered to my shop.",
-    "I'd like to follow up on my delivery schedule.",
-    "Some of the steel bars I ordered arrived rusty.",
-    "I want to return unused gutters.",
-];
+const SALESMEN = ["Maria Santos", "Jun Villareal", "Kris Lopez"];
+// about one customer in five comes back for the items on a later day
+const RETURNING_SHARE = 0.2;
 
 const count = Number(process.argv[2] ?? DEFAULT_COUNT);
 if (!Number.isInteger(count) || count < 1 || count > MAX_COUNT) {
@@ -59,20 +42,29 @@ const pick = (list) => list[Math.floor(Math.random() * list.length)];
 const between = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
 const shuffled = (list) => list.map((value) => [Math.random(), value]).sort(([a], [b]) => a - b).map(([, value]) => value);
 
-// a customer as the kiosk would send them: 1 to 3 different items, with a color for roofing,
-// or for a Customer Report, just their concern
+const pad2 = (n) => String(n).padStart(2, "0");
+// YYYY-MM-DD, n days from today
+const daysFromNow = (n) => {
+    const d = new Date();
+    d.setDate(d.getDate() + n);
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+};
+
+// a customer as Customer order sends them: one or two types of order (in the list's order), an invoice number,
+// the salesman, how they're paying, the loading crews for their types of order (a Roofings and Steel order goes to
+// both), and now and then a day they'll come back for the items
 const fakeCustomer = (name) => {
-    const purpose = pick(purposes).name;
-    if (purpose === REPORT_PURPOSE) return { name, purpose, orders: [], concern: pick(CONCERNS) };
-    const items = shuffled(ITEMS[purpose] ?? GENERAL_ITEMS).slice(0, between(1, 3));
+    const types = shuffled(purposes).slice(0, between(1, 2));
+    const purpose = purposes.filter((p) => types.includes(p)).map((p) => p.name);
     return {
         name,
-        purpose,
-        orders: items.map((item) => ({
-            item,
-            qty: between(1, 20),
-            ...(purpose === ROOFING_PURPOSE && { color: pick(roofingColors).value }),
-        })),
+        purpose: joinList(purpose),
+        orders: [],
+        invoiceNo: String(between(1000, 9999)),
+        salesman: pick(SALESMEN),
+        paymentStatus: pick(paymentStatus).type,
+        team: joinList(teams.filter((t) => purpose.includes(t.name)).map((t) => t.name)),
+        pickupDate: Math.random() < RETURNING_SHARE ? daysFromNow(between(1, 5)) : null,
     };
 };
 
@@ -91,9 +83,13 @@ try {
         });
         const order = await res.json();
         if (res.status !== 201) throw new Error(`The API refused a customer (${res.status}): ${order.message}`);
-        const details = order.concern
-            ? `Concern: ${order.concern}`
-            : order.orders.map(({ qty, item, color }) => `${qty} × ${item}${color ? ` (${color})` : ""}`).join(", ");
+        const details = [
+            order.purpose,
+            `invoice ${order.invoiceNo}`,
+            order.paymentStatus,
+            order.team && `loading: ${order.team}`,
+            order.pickupDate && `picks up ${order.pickupDate}`,
+        ].filter(Boolean).join(" · ");
         console.log(`  ${formatQueueNum(order.queueNum, order.purpose).padEnd(7)} ${order.name.padEnd(16)} ${details}`);
     }
     console.log(`Data folder: ${api.dataDir}`);

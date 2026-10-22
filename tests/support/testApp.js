@@ -95,17 +95,18 @@ export async function bootApp() {
     };
 
     // a new staff account, made by the admin as in the app, and a browser signed in as it
-    const actingAsStaff = async (role, name) => {
+    // extra: more of the account, e.g. a loading account's team
+    const actingAsStaff = async (role, name, extra = {}) => {
         const admin = await actingAsAdmin();
         const credentials = { username: name.toLowerCase().replace(/[^a-z0-9]+/g, "."), password: `${role}-password` };
-        (await admin.post("/admin/users", { ...credentials, name, role })).assertStatus(201);
+        (await admin.post("/admin/users", { ...credentials, name, role, ...extra })).assertStatus(201);
         const browser = client();
         const { body: account } = (await browser.post("/auth/login", credentials)).assertStatus(200);
         return Object.assign(browser, { account });
     };
     const actingAsSales = (name = "Maria Santos") => actingAsStaff("sales", name);
-    // roofing and steel loading crew
-    const actingAsLoading = (name = "Pedro Garcia") => actingAsStaff("loading", name);
+    // someone on a loading crew (src/data/teams.js)
+    const actingAsLoading = (name = "Pedro Garcia", team = "Roofings") => actingAsStaff("loading", name, { team });
 
     const countRows = (table, conditions = {}) =>
         db.prepare(`SELECT COUNT(*) AS n FROM ${table}${whereClause(conditions)}`).get(...Object.values(conditions)).n;

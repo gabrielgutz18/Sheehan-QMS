@@ -4,7 +4,6 @@ import { getStats } from '../api/adminStatsController.js';
 import LineChart from './lineChart.jsx';
 import { asDate, longLabel, shortLabel } from '../data/periodLabels.js';
 import purpose from '../../data/purpose.js';
-import { REPORT_PURPOSE } from '../../data/customerReport.js';
 import logoUrl from '../../assets/SheehanLogo.png';
 
 // sales line graph for the dashboard: quantity ordered per hour / day / month, for every product or one,
@@ -79,9 +78,9 @@ export default function Statistics() {
         };
     }, [period]);
 
-    // the kiosk's purposes, plus any older ones that only appear in the data; a Customer Report orders nothing
+    // the types of order, plus any older purposes that only appear in the data
     const products = useMemo(() => {
-        const names = new Set(purpose.map((p) => p.name).filter((name) => name !== REPORT_PURPOSE));
+        const names = new Set(purpose.map((p) => p.name));
         stats?.buckets.forEach((b) => Object.keys(b.qty).forEach((name) => names.add(name)));
         return [...names];
     }, [stats]);

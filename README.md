@@ -44,7 +44,7 @@ server/
   server.js                production server: the built site + the API (npm start)
   backup.js                copies the database and video (npm run backup)
   seed.js                  adds sample customers to today's queue (npm run seed)
-  seedLoading.js           adds a Loading staff account (npm run seed:loading)
+  seedLoading.js           adds Loading staff accounts, one per crew (npm run seed:loading)
   snapshot.js              saves / loads a snapshot of the real data (npm run snapshot, seed:snapshot)
 tests/
   feature/                 API tests, e.g. ticketLifecycle.test.js (npm test)
@@ -68,16 +68,16 @@ npm run seed                 # 5 customers in today's queue
 npm run seed -- 12           # 12 customers (up to 50)
 ```
 
-Like `php artisan db:seed`: adds made-up customers (names, purposes, items, roofing colors, and concerns for Customer Reports) through the same `POST /orders` the kiosk uses, so they get real queue numbers and show on the display and every counter. It writes to the data folder in `.env`, so don't run it on the live server.
+Like `php artisan db:seed`: adds made-up customers (names, one or two types of order, invoice numbers, salesmen, payment statuses, loading teams, and now and then a pick-up day for a returning customer) through the same `POST /orders` Customer order uses, so they get real queue numbers and show on the display and every counter. It writes to the data folder in `.env`, so don't run it on the live server.
 
-## A Loading staff account
+## Loading staff accounts
 
 ```bash
-npm run seed:loading                          # username loading, password loading123
-npm run seed:loading -- pedro steel-crew-1    # your own username and password
+npm run seed:loading                                # loading_roofing1 (Roofings) and loading_steel1 (Steel), password loading123
+npm run seed:loading -- pedro steel-crew-1 Steel    # one account: your own username, password and team
 ```
 
-Adds an account with the Loading role (the roofing and steel loading crews) through the same `POST /admin/users` an admin uses on Accounts. It signs in to the Loading page and My account only; every admin and sales page and route is refused. Running it again leaves an existing account alone. Don't use the default password on the live server.
+Adds accounts with the Loading role on the loading crews (from [`src/data/teams.js`](src/data/teams.js)) through the same `POST /admin/users` an admin uses on Accounts. With no arguments it adds one demo account per crew, so you can take a Roofings and Steel order on Customer order and watch it pass from one crew to the other: sign in as `loading_roofing1` in one browser and `loading_steel1` in another (or a private window). Each signs in to the Loading page and My account only, and sees only the orders that go to its own team; every admin and sales page and route is refused. Running it again leaves existing accounts alone. Don't use the default password on the live server.
 
 ## Taking the current data to another computer
 
@@ -98,8 +98,8 @@ The app keeps its data in one SQLite file, `queue.db`, in the data folder (`data
 
 | Table            | Holds                                                                |
 | ---------------- | -------------------------------------------------------------------- |
-| `orders`         | one row per ticket: day, number, name, purpose, status, remarks      |
-| `order_items`    | the lines of each order (item, qty, roofing color)                   |
+| `orders`         | one row per ticket: day, number, name, type(s) of order, invoice number, salesman, payment status, team, pick-up day, status, remarks |
+| `order_items`    | the lines of tickets taken before invoices (item, qty, roofing color) |
 | `queue_counters` | last number given out each day, so a deleted ticket's number isn't reused |
 | `settings`       | the display video                                                    |
 | `sessions`       | staff sign-ins (hashed), so a restart doesn't sign everyone out      |
@@ -119,8 +119,8 @@ Queue numbers start again at 1 every day (by the server's clock). The queue, the
 | Role  | Can |
 | ----- | --- |
 | Admin | Everything: dashboard and sales graph, Customer order, Orders (including delete), History, display video, announcer voice and volume, printer, Accounts |
-| Sales | Customer order: take a customer's name, purpose and items (or concern) and print their ticket with its queue number (SHN 01); My counter: serve the next customer, recall, mark done, send back to waiting, put a served customer who comes back in line as returning; Orders: set any ticket's status (waiting, now serving, done, returning customer) and call it, but not delete; see their own customers served (today / week / month / year / all time); History and restore; announcer volume |
-| Loading | The roofing and steel loading crews: sign in to the admin area for their own Loading page (blank for now) and My account; no admin or sales rights |
+| Sales | Customer order: take a customer's name, one or more types of order (e.g. Roofings and Steel), the invoice number, salesman, payment status (Vale, Paid, Terms), loading team and, for a customer who picks up the items on a later day, that day, and print their ticket with its queue number (R 01); edit it straight after, or later with Edit on Orders; My counter: serve the next customer, recall, mark done, hand over to loading (sends a customer whose order goes to the loading teams on to the Loading page; it counts as a customer served), send back to waiting, put a served customer who comes back in line as returning; Orders: set any ticket's status (waiting, now serving, done, returning customer) and call it, but not delete; see their own customers served (today / week / month / year / all time); History and restore; announcer volume |
+| Loading | The loading crews, each account on one team (Roofings or Steel, set by an admin on Accounts). Loading page: the customers whose order goes to their team, in queue order; call one to the team's area (the display shows "Please proceed to Roofings", which can be changed before calling), mark the team's part done (the order is done once every team on it is; until then the display keeps the customer under Now Serving as "Please wait" for the next team to call), or send them back to waiting. A customer is in one place at a time: while another team or a sales counter is serving them, Call is grayed out with "Please wait until Roofings finishes." My account; no admin or sales rights. A customer only reaches the Loading page once a sales counter has served them and pressed Hand over to loading, and each account only gets the orders that go to its own team |
 
 - **Accounts:** admins create them in Admin → Accounts. Passwords are stored hashed (scrypt). An account is switched off instead of deleted, so the customers it served stay on record. Switching an account off, or changing its password or role, signs it out everywhere.
 - **The built-in admin:** the account in `.env` (`ADMIN_USERNAME` / `ADMIN_PASSWORD`) is created at the first start and always keeps the `.env` password and the admin role, so you can't lock yourself out.
@@ -155,13 +155,15 @@ All paths are relative to `VITE_API_URL` (default `/api`).
 
 | Method | Path                     | Auth  | Body / returns                                            |
 | ------ | ------------------------ | ----- | --------------------------------------------------------- |
-| POST   | `/orders`                | —     | `{ name, purpose, orders: [{ item, qty }] }` → saved order; a `Customer Report` sends `{ name, purpose, orders: [], concern }` (up to 300 characters) instead |
+| POST   | `/orders`                | —     | `{ name, purpose: "Roofings, Steel", orders: [], invoiceNo, salesman, paymentStatus, team: "Roofings, Steel", pickupDate: "YYYY-MM-DD" \| null }` → saved order; `paymentStatus` must be in [`src/data/paymentStatus.js`](src/data/paymentStatus.js) and each `team` in [`src/data/teams.js`](src/data/teams.js) (or `""`); `orders` (`[{ item, qty }]`) can only be empty when there's an invoice number |
 | PUT    | `/orders/:queueNum`      | —     | same body → saved order                                   |
 | POST   | `/auth/login`            | —     | `{ username, password }` → `{ id, username, name, role }` + cookie |
 | GET    | `/auth/me`               | staff | → `{ id, username, name, role }`, or `401`                |
 | POST   | `/auth/logout`           | staff | clears the cookie                                         |
-| GET    | `/admin/orders`          | staff | → today's `[{ queueNum, name, purpose, orders, status, servedBy?: { id, name, photo }, servedAt? }]` (`servedAt`: when it was marked Done) |
+| GET    | `/admin/orders`          | staff | → today's (a loading account gets only the ones that go to its team) `[{ queueNum, name, purpose, orders, invoiceNo?, salesman?, paymentStatus?, team?, pickupDate?, status, servedBy?: { id, name, photo }, servedAt? }]` (`servedAt`: when it was marked Done) |
+| GET    | `/admin/orders/:queueNum`| admin, sales | → one of today's tickets, as above (Edit on Orders opens it on Customer order) |
 | POST   | `/admin/orders/:queueNum/call` | staff | `{ remarks }` → order, served by the caller         |
+| POST   | `/admin/orders/:queueNum/handover` | admin, sales | `{ team? }` (`"Roofings, Steel"`; the order's own teams if left out) → order, back in line for the loading crews with `handedOver: { by: { id, name }, at }`, and a point for whoever served them; `409` unless the customer is being served and not handed over yet |
 | PATCH  | `/admin/orders/:queueNum`| staff | `{ status: "pending" \| "serving" \| "returning" \| "done" }` → order (`returning`: back in line after being served) |
 | DELETE | `/admin/orders/:queueNum`| admin | moves the ticket to History → `204`                       |
 | GET    | `/admin/history`         | staff | `?search=&day=YYYY-MM-DD&deleted=1` → tickets from any day, with `id` |
@@ -169,8 +171,11 @@ All paths are relative to `VITE_API_URL` (default `/api`).
 | GET    | `/admin/me/stats`        | staff | `?period=day\|week\|month\|year` → your customers served  |
 | PUT    | `/admin/announcer/volume`| staff | `{ volume: 0–1 }` → announcer settings                    |
 | GET    | `/admin/users`           | admin | → staff accounts with customers served                    |
-| POST   | `/admin/users`           | admin | `{ username, name, password, role }` → new account        |
-| PATCH  | `/admin/users/:id`       | admin | any of `{ name, role, password, disabled }` → account     |
+| POST   | `/admin/users`           | admin | `{ username, name, password, role, team }` → new account; `team` is required for `loading` |
+| PATCH  | `/admin/users/:id`       | admin | any of `{ name, role, team, password, disabled }` → account |
+| POST   | `/admin/loading/:queueNum/call` | loading, admin | `{ remarks, team }` → order, serving at the team (`team` only from an admin; loading staff act for their own); `409` "Please wait until Roofings finishes." while someone else is serving the customer |
+| POST   | `/admin/loading/:queueNum/done` | loading, admin | `{ team }` → order: back in line for the teams still to go, or done when it was the last |
+| POST   | `/admin/loading/:queueNum/back` | loading, admin | `{ team }` → order, back to waiting |
 | PATCH  | `/admin/me`              | staff | `{ firstName, middleName, surname, employeeId, department }` → your account (My account) |
 | PUT    | `/admin/me/photo`        | staff | the image itself (JPEG, PNG or WebP, up to 2 MB) → your account |
 | DELETE | `/admin/me/photo`        | staff | removes your photo → your account                         |

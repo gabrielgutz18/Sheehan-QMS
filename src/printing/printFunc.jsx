@@ -20,6 +20,11 @@ export default function PrintFunc({ ticket }) {
                 purpose: ticket.purpose,
                 orders: ticket.orders,
                 concern: ticket.concern,
+                invoiceNo: ticket.invoiceNo,
+                paymentStatus: ticket.paymentStatus,
+                salesman: ticket.salesman,
+                team: ticket.team,
+                pickupDate: ticket.pickupDate,
                 issuedAt: ticket.createdAt,
             });
             setPrintStatus("done");

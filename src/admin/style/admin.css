@@ -241,6 +241,8 @@
   background: var(--cream);
   border: 1px solid var(--cream-border);
   border-radius: 6px;
+  /* also on links that look like buttons (Edit on Orders) */
+  text-decoration: none;
   cursor: pointer;
   transition: background 0.2s;
 }
@@ -312,6 +314,13 @@
 .admin-empty {
   color: var(--text-muted);
   text-align: center;
+}
+
+/* what went wrong, under the field or above the table it's about */
+.field-error {
+  margin: 0;
+  font-size: 15px;
+  color: var(--brand-red);
 }
 
 .admin-link {
@@ -611,15 +620,375 @@
   vertical-align: middle;
 }
 
+/* an order's invoice, payment status, team, salesman and pick-up day, on one wrapping line
+   (Orders, My counter, History and the ticket dialog) */
+.sale-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+}
+
+.sale-pay {
+  padding: 0 8px;
+  font-weight: 600;
+  background: var(--cream);
+  border: 1px solid var(--cream-border);
+  border-radius: 999px;
+}
+
+/* a returning customer's day, in the returning status's purple */
+.sale-pickup {
+  font-weight: 600;
+  color: #5b3aa8;
+}
+
+.sale-facts + .item-list {
+  margin-top: 6px;
+}
+
+/* each loading team on the order, and how far along it is */
+.team-stop {
+  padding: 0 8px;
+  border: 1px solid var(--field-border);
+  border-radius: 999px;
+}
+
+.team-stop.is-serving {
+  font-weight: 600;
+  background: #e7f3ff;
+  border-color: #9cc7f0;
+}
+
+.team-stop.is-done {
+  color: #1d6b35;
+  background: #e8f6ec;
+  border-color: #9fd3ae;
+}
+
+/* a loading account's team on Accounts, under its role */
+.account-team {
+  display: block;
+  margin-top: 6px;
+}
+
+/* ---------- loading ---------- */
+
+/* "Roofings team" beside the page title */
+.team-badge {
+  margin-left: 12px;
+  padding: 2px 12px;
+  font-size: 15px;
+  font-weight: 700;
+  vertical-align: middle;
+  color: var(--text-dark);
+  background: var(--cream);
+  border: 1px solid var(--cream-border);
+  border-radius: 999px;
+}
+
+/* a customer another crew or counter is serving: grayed out, with the reason on its own line underneath */
+.counter-ticket.is-elsewhere .counter-ticket-main {
+  opacity: 0.6;
+}
+
+/* Call stays on the right, even when the details push it onto the next line */
+.loading-call {
+  margin-left: auto;
+}
+
+.loading-call .admin-btn-call:disabled {
+  color: #6f6f6f;
+  background: #e4e4e1;
+  border-color: #d4d4d0;
+  opacity: 1;
+}
+
+.wait-hint {
+  flex-basis: 100%;
+  margin: 0;
+  padding: 6px 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #5c5c58;
+  background: #f1f1ee;
+  border-radius: 6px;
+}
+
 /* ---------- customer order ---------- */
 
-/* the order form and ticket (src/style/customerOrder.css), centered in the panel; the wide side padding
-   leaves room for the × that sits just outside each order row */
+/* the printed ticket (src/style/customerOrder.css), centered in the panel */
 .order-panel {
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 32px 48px;
+}
+
+/* the form: fields on the left, Summary on the right, Serve under both */
+.sale-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
+  gap: 32px 56px;
+  padding: 32px 40px;
+}
+
+.sale-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 440px;
+}
+
+.sale-field.is-narrow {
+  max-width: 240px;
+}
+
+.sale-form .has-error {
+  border-color: var(--brand-red);
+}
+
+/* Type of order: a field that opens a list of checkboxes */
+.type-picker {
+  position: relative;
+}
+
+.type-trigger {
+  width: 100%;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 10px 0 12px;
+  font: inherit;
+  font-weight: 400;
+  text-align: left;
+  color: var(--text-dark);
+  background: var(--field-bg);
+  border: 1px solid var(--field-border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.type-trigger:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.type-trigger-text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.type-trigger-text.is-placeholder {
+  color: var(--text-muted);
+}
+
+.type-chevron {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: #777;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.2s;
+}
+
+.type-picker.is-open .type-chevron {
+  transform: rotate(180deg);
+}
+
+/* floats over the fields below instead of pushing them down */
+.type-menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  display: grid;
+  max-height: min(320px, 50svh);
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: #ffffff;
+  border: 1px solid var(--field-border);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.type-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  font-weight: 400;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.type-option:hover {
+  background: var(--field-bg);
+}
+
+.sale-form .type-option input,
+.sale-check input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--brand-red);
+}
+
+/* Returning, and the pick-up date under it once it's ticked */
+.sale-returning {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 4px;
+}
+
+.sale-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* the loading teams in Hand over to loading on My counter */
+.handover-teams {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.handover-teams legend {
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 0;
+  font-weight: 600;
+}
+
+.sale-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* reads like the field labels beside it */
+.sale-summary-title {
+  margin: 0;
+  font-size: 16px;
+}
+
+.sale-summary-box {
+  flex: 1;
+  min-height: 360px;
+  padding: 18px 20px;
+  background: var(--field-bg);
+  border: 1px solid var(--field-border);
+  border-radius: 6px;
+}
+
+.sale-summary-ticket {
+  margin: 0 0 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--field-border);
+}
+
+.sale-summary-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+
+.sale-summary-list dt {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.sale-summary-list dd {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.sale-summary-list dd.is-empty {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.type-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.type-chips li {
+  padding: 1px 10px;
+  font-size: 14px;
+  background: var(--cream);
+  border: 1px solid var(--cream-border);
+  border-radius: 999px;
+}
+
+.sale-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.sale-actions .submit-btn,
+.sale-actions .submit-hint {
+  margin: 0;
+}
+
+/* a ticket that couldn't be opened to edit */
+.sale-missing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+@media (max-width: 760px) {
+  .sale-form {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 20px 16px;
+  }
+  .sale-fields,
+  .sale-field.is-narrow {
+    max-width: none;
+  }
+  .sale-summary-box {
+    min-height: 0;
+  }
+  .order-panel {
+    padding: 24px 16px;
+  }
 }
 
 /* ---------- my counter (sales) ---------- */
