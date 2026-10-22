@@ -188,6 +188,11 @@ On every start, any `.sql` file not yet listed in `schema_migrations` runs, in n
 | [`003_staff_accounts.sql`](server/migrations/003_staff_accounts.sql) | `users`, `serves` (points), `orders.served_by`; rebuilds `sessions` to point at `users` |
 | [`004_staff_profiles.sql`](server/migrations/004_staff_profiles.sql) | adds `first_name`, `middle_name`, `surname`, `employee_id`, `department`, `photo` to `users` (My account), filling first name and surname from existing names |
 | [`005_customer_reports.sql`](server/migrations/005_customer_reports.sql) | adds `concern` to `orders`: a Customer Report's concern, in place of `order_items` (`''` on every order) |
+| [`006_returning_customers.sql`](server/migrations/006_returning_customers.sql) | rebuilds `orders` to allow the `returning` status (back in line after being served) |
+| [`007_loading_staff.sql`](server/migrations/007_loading_staff.sql) | rebuilds `users` to allow the `loading` role (the roofing and steel loading crews) |
+| [`008_sales_details.sql`](server/migrations/008_sales_details.sql) | adds `invoice_no`, `salesman`, `payment_status`, `team`, `pickup_date` to `orders` (Customer order as sales staff fill it in) |
+| [`009_loading_teams.sql`](server/migrations/009_loading_teams.sql) | adds `team` to `users` (a loading account's crew) and `serving_team`, `teams_done` to `orders` (which crew has the customer now, and which have finished) |
+| [`010_loading_handover.sql`](server/migrations/010_loading_handover.sql) | adds `handed_over_by`, `handed_over_at` to `orders`: the sales staff member who pressed Hand over to loading on My counter, and when; the crews can only call a customer once it's set |
 
 **Changing the tables later:** never edit a file that has already run anywhere. Add the next number instead, for example `server/migrations/006_add_counter_number.sql`:
 
@@ -205,6 +210,7 @@ erDiagram
     users ||--o{ sessions : "signs in with"
     users ||--o{ serves : "earns points"
     users |o--o{ orders : "is serving (served_by)"
+    users |o--o{ orders : "handed over to loading (handed_over_by)"
     orders ||--|{ order_items : "has lines"
     orders ||--o{ serves : "one point per visit"
     queue_counters ||..o{ orders : "gives queue_num for that queue_date"
@@ -214,8 +220,15 @@ erDiagram
         TEXT queue_date "YYYY-MM-DD"
         INTEGER queue_num "unique per day"
         TEXT name
-        TEXT purpose
+        TEXT purpose "type(s) of order, e.g. Roofings, Steel"
         TEXT concern "Customer Report only, else ''"
+        TEXT invoice_no "'' on older tickets"
+        TEXT salesman
+        TEXT payment_status "Vale | Paid | Terms, from src/data"
+        TEXT team "loading crews, e.g. Roofings, Steel; '' for none"
+        TEXT pickup_date "YYYY-MM-DD a returning customer collects, or NULL"
+        TEXT serving_team "the crew serving the customer now, or NULL"
+        TEXT teams_done "crews that have finished, e.g. Roofings"
         TEXT status "pending | serving | returning | done"
         TEXT remarks
         TEXT created_at
@@ -225,6 +238,8 @@ erDiagram
         TEXT original_date
         INTEGER original_num
         INTEGER served_by FK "users.id"
+        INTEGER handed_over_by FK "users.id; NULL while still with sales"
+        TEXT handed_over_at
     }
     order_items {
         INTEGER id PK
@@ -242,7 +257,7 @@ erDiagram
         INTEGER id PK
         TEXT username "unique, any case"
         TEXT name
-        TEXT role "admin | sales"
+        TEXT role "admin | sales | loading"
         TEXT password_hash "scrypt"
         TEXT created_at
         TEXT disabled_at
@@ -252,6 +267,7 @@ erDiagram
         TEXT employee_id "unique when set"
         TEXT department
         TEXT photo "file in photos/"
+        TEXT team "loading accounts: their crew, else NULL"
     }
     sessions {
         TEXT sid_hash PK "SHA-256 of the cookie"
@@ -277,6 +293,7 @@ The relationships, as SQLite reports them (`PRAGMA foreign_key_list`):
 |---|---|---|---|
 | `order_items.order_id` | `orders.id` | cascade: the lines go with the order | [`001_init.sql:20-27`](server/migrations/001_init.sql#L20-L27) |
 | `orders.served_by` | `users.id` | — | [`003_staff_accounts.sql:25`](server/migrations/003_staff_accounts.sql#L25) |
+| `orders.handed_over_by` | `users.id` | — | [`010_loading_handover.sql`](server/migrations/010_loading_handover.sql) |
 | `serves.order_id` | `orders.id` | cascade | [`003_staff_accounts.sql:29-36`](server/migrations/003_staff_accounts.sql#L29-L36) |
 | `serves.user_id` | `users.id` | — (accounts are switched off, never deleted, so points stay) | same |
 | `sessions.user_id` | `users.id` | cascade | [`003_staff_accounts.sql:18-22`](server/migrations/003_staff_accounts.sql#L18-L22) |
@@ -295,7 +312,7 @@ Orders are never deleted from the app. Delete only sets `deleted_at`, so the cas
 | `queue_counters` | last number given out each day | `nextQueueNum` (L330-333), on a new order and on a restore from an earlier day | same statement (`RETURNING last_num`) |
 | `users` | staff accounts and their profiles | built-in admin (L461-463), `insertUser` (L417), `updateUser` (L421), `updateProfile` (L426), `setPhoto` (L431) | `findUser` (L415), `findSession` join (L405), `ORDER_ROW` join (L313), `listUsers` (L432) |
 | `sessions` | who is signed in | `insertSession` (L403), `deleteSession`, `deleteExpiredSessions`, `deleteUserSessions` (L410-413) | `findSession` (L405) |
-| `serves` | the points | `addPoint` / `removePoint` (L340-343), only from `changeStatus()` (L478-487) | `listUsers` (L432-437), `myTotals` / `myByHour` / `myByDay` / `myByMonth` (L440-455) |
+| `serves` | the points | `addPoint` / `removePoint` (L340-343), from `changeStatus()` (L478-487), and `addPoint` on Hand over to loading (the point is the sales counter's; the crews finishing or reopening the order leave it alone) | `listUsers` (L432-437), `myTotals` / `myByHour` / `myByDay` / `myByMonth` (L440-455) |
 | `settings` | display video and announcer settings, as JSON | `writeSetting()` (L502) | `readSetting()` (L498) |
 | `schema_migrations` | which migration files have run | `migrate()` in `server/db.js` | `migrate()` |
 
@@ -318,18 +335,18 @@ Staff send the order from Admin → Customer order. [`src/admin/pages/customerOr
 export const createOrder = (order) => http.post("/orders", order);
 ```
 
-The server takes the next number for today, saves the order, then its lines, all in one transaction. [`server/api.js:589-602`](server/api.js#L589-L602)
+The server takes the next number for today, saves the order (with its invoice number, salesman, payment status, team and pick-up day), then its lines, all in one transaction. Orders from Customer order have no lines (the invoice lists the items), so `saveItems` writes none for them. [`server/api.js`](server/api.js)
 
 ```js
 if (method === "POST" && path === "/orders") {
     const body = await readBody(req);
     if (!validOrder(body)) return send(res, 400, { message: "Invalid order." });
-    const { name, purpose, orders: items } = pickOrder(body);
+    const { orders: items, ...fields } = pickOrder(body);
     const order = transaction(db, () => {
         const date = today();
         // a plain number; the front end formats it as "SHN 01"
         const { last_num: queueNum } = sql.nextQueueNum.get(date);
-        const { lastInsertRowid } = sql.insertOrder.run(date, queueNum, name, purpose, new Date().toISOString());
+        const { lastInsertRowid } = sql.insertOrder.run({ ...fields, date, queueNum, createdAt: new Date().toISOString() });
         saveItems(lastInsertRowid, items);
         return loadOrder(sql.findOrder.get(date, queueNum));
     });
@@ -337,7 +354,7 @@ if (method === "POST" && path === "/orders") {
 }
 ```
 
-The new `orders.id` (`lastInsertRowid`) becomes `order_items.order_id`. [`server/api.js:502-505`](server/api.js#L502-L505)
+The new `orders.id` (`lastInsertRowid`) becomes `order_items.order_id` for a ticket that has lines. [`server/api.js:502-505`](server/api.js#L502-L505)
 
 ```js
 const saveItems = (orderId, items) => {
@@ -538,11 +555,11 @@ findSession: db.prepare(`
 The account's `role` then decides what it may do. [`server/api.js:642-649`](server/api.js#L642-L649), with the sales list at [`server/api.js:33-43`](server/api.js#L33-L43)
 
 ```js
-// everything below needs a signed-in account; sales staff only get the routes in SALES_ROUTES
+// everything below needs a signed-in account; sales and loading staff only get their routes in ROLE_ROUTES
 const session = getSession(req);
 if (path.startsWith("/auth/") || path.startsWith("/admin/")) {
     if (!session) return send(res, 401, { message: "Please sign in." });
-    if (path.startsWith("/admin/") && session.user.role !== "admin" && !salesMay(method, path)) {
+    if (path.startsWith("/admin/") && session.user.role !== "admin" && !roleMay(session.user.role, method, path)) {
         return send(res, 403, { message: "Only an admin can do that." });
     }
 }
@@ -594,7 +611,7 @@ statsByDay: db.prepare(`
     GROUP BY bucket, o.purpose`),
 ```
 
-`COUNT(DISTINCT o.id)` counts each ticket once, even when it has several lines.
+`COUNT(DISTINCT o.id)` counts each ticket once, even when it has several lines. The inner `JOIN` means only tickets with lines are counted, so orders from Customer order (an invoice number, no lines) don't show in the graph.
 
 ### 5.9 Settings → `settings` (JSON per key)
 

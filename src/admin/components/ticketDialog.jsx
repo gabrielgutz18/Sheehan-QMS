@@ -13,8 +13,8 @@ const duration = (ms) => {
     return minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
 };
 
-// one ticket up close, opened with View on a waiting or returning ticket: its purpose and what the customer ordered,
-// or their concern for a Customer Report
+// one ticket up close, opened with View on a waiting or returning ticket: its purpose and what the customer ordered
+// (invoice, payment status, team, pick-up day), or their concern for a Customer Report
 // order: the ticket as it is now, so it shows straight away when someone else takes it
 // openedAt: when View was pressed, for how long they've waited
 // onServe: shows Serve while the ticket is still in line (My counter); leave it out to only look

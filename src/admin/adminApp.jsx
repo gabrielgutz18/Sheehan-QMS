@@ -15,6 +15,7 @@ import SalesPage from './pages/salesPage.jsx';
 import CustomerOrderPage from './pages/customerOrderPage.jsx';
 import AccCreation from './pages/accCreation.jsx';
 import AccountPage from './pages/accountPage.jsx';
+import LoadingPage from './pages/loadingPage.jsx';
 
 // mounted at /admin/* — paths below are relative to it
 export default function AdminApp() {
@@ -27,15 +28,23 @@ export default function AdminApp() {
             <Routes>
                 <Route path="login" element={<LoginPage />} />
 
-                {/* admins and sales staff share the layout; the pages inside are split by role */}
-                <Route element={<ProtectedRoute roles={["admin", "sales"]} />}>
+                {/* every kind of staff account shares the layout; the pages inside are split by role */}
+                <Route element={<ProtectedRoute roles={["admin", "sales", "loading"]} />}>
                     <Route element={<AdminLayout />}>
-                        <Route path="customer-order" element={<CustomerOrderPage />} />
-                        <Route path="counter" element={<SalesPage />} />
-                        {/* sales can set any status here too; Delete stays admin-only */}
-                        <Route path="orders" element={<OrdersPage />} />
-                        <Route path="history" element={<HistoryPage />} />
                         <Route path="account" element={<AccountPage />} />
+
+                        <Route element={<ProtectedRoute roles={["admin", "sales"]} />}>
+                            <Route path="customer-order" element={<CustomerOrderPage />} />
+                            <Route path="counter" element={<SalesPage />} />
+                            {/* sales can set any status here too; Delete stays admin-only */}
+                            <Route path="orders" element={<OrdersPage />} />
+                            <Route path="history" element={<HistoryPage />} />
+                        </Route>
+
+                        {/* the roofing and steel loading crews; no admin rights beyond this page and My account */}
+                        <Route element={<ProtectedRoute roles={["admin", "loading"]} />}>
+                            <Route path="loading" element={<LoadingPage />} />
+                        </Route>
 
                         <Route element={<ProtectedRoute roles={["admin"]} />}>
                             <Route index element={<DashboardPage />} />

@@ -3,7 +3,7 @@ import { ROLE_LABELS } from '../auth/roles.js';
 import ProfilePhoto from '../components/profilePhoto.jsx';
 import AccountForm from '../components/accountForm.jsx';
 
-// My account: every staff member (admin or sales) keeps their own photo, name, employee ID and department here
+// My account: every staff member (admin, sales or loading) keeps their own photo, name, employee ID and department here
 // the name shown around the app, e.g. "Served by Maria Santos", is the first name and surname
 export default function AccountPage() {
     const { user, setUser } = useAuth();
@@ -29,6 +29,13 @@ export default function AccountPage() {
                             <dt>Role</dt>
                             <dd>{ROLE_LABELS[user.role]}</dd>
                         </div>
+                        {/* loading staff: set by an admin on Accounts */}
+                        {user.role === "loading" && (
+                            <div>
+                                <dt>Team</dt>
+                                <dd>{user.team ?? "Not on a team yet"}</dd>
+                            </div>
+                        )}
                     </dl>
                 </div>
 

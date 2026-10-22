@@ -3,9 +3,22 @@ import '../style/receipt.css';
 //assets
 import logo from '../assets/SheehanLogo.png';
 import { colorLabel } from '../data/roofingColors.js';
+import { formatPickup } from '../data/pickupDate.js';
 
-// concern: a Customer Report's concern, shown in place of the order
-export default function Receipt({ queueNumber, name, purpose, orders = [], concern }) {
+// purpose: the type or types of order, e.g. "Roofings, Steel"
+// invoiceNo, paymentStatus, salesman, team, pickupDate: the sales details from Customer order, each shown once it's set
+// orders: the items on a ticket taken before invoices; concern: a Customer Report's concern, shown in place of them
+export default function Receipt({
+    queueNumber, name, purpose, orders = [], concern, invoiceNo, paymentStatus, salesman, team, pickupDate,
+}) {
+    const details = [
+        ["Invoice No.", invoiceNo],
+        ["Payment", paymentStatus],
+        ["Salesman", salesman],
+        ["Team", team],
+        ["Pick-up", pickupDate && formatPickup(pickupDate)],
+    ].filter(([, value]) => value);
+
     return (
         <section className="receipt">
             <hr className="receipt-tear" />
@@ -29,16 +42,27 @@ export default function Receipt({ queueNumber, name, purpose, orders = [], conce
             </div>
 
             <div className="receipt-row">
-                <p className="receipt-label">Purpose</p>
+                <p className="receipt-label">Type of Order</p>
                 <p className="receipt-value">{purpose}</p>
             </div>
+
+            {details.length > 0 && (
+                <dl className="receipt-row receipt-details">
+                    {details.map(([label, value]) => (
+                        <div key={label}>
+                            <dt className="receipt-label">{label}</dt>
+                            <dd>{value}</dd>
+                        </div>
+                    ))}
+                </dl>
+            )}
 
             {concern ? (
                 <div className="receipt-row">
                     <p className="receipt-label">Concern</p>
                     <p className="receipt-value receipt-concern">{concern}</p>
                 </div>
-            ) : (
+            ) : orders.length > 0 && (
                 <div className="receipt-row">
                     <p className="receipt-label">Order</p>
                     <ul className="receipt-orders">

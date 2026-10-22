@@ -1,7 +1,7 @@
 // the backend API, shared by the Vite dev server (npm run dev) and server/server.js (npm start)
 // orders, settings, staff accounts and sign-ins are saved in a SQLite database in the data folder
 // (see server/db.js), and an uploaded display video next to it in videos/, so nothing is lost on restart
-// two roles: admins can do everything; sales staff only what SALES_ROUTES lists
+// three roles: admins can do everything; sales and loading staff only what ROLE_ROUTES lists for them
 import { createHash, randomBytes, scrypt, scryptSync, timingSafeEqual } from 'node:crypto';
 import { createReadStream, createWriteStream, mkdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { extname, join } from 'node:path';
@@ -9,6 +9,9 @@ import { pipeline } from 'node:stream/promises';
 import { promisify } from 'node:util';
 
 import { openDatabase, resolveDataDir, transaction } from './db.js';
+import paymentStatus from '../src/data/paymentStatus.js';
+import teams from '../src/data/teams.js';
+import { joinList, splitList } from '../src/data/list.js';
 
 const SESSION_COOKIE = "sid";
 // each browser tab signs in on its own: the page sends its tab's id (X-Tab-Id) and the session cookie is named
@@ -26,9 +29,18 @@ const ORDER_STATUSES = ["pending", "serving", "returning", "done"];
 const MAX_REMARKS = 120;
 // optional per-item color for roofing orders; must match src/data/roofingColors.js
 const ROOFING_COLORS = ["red", "blue", "green"];
-// the purpose for a concern instead of an order: no items, just the concern; must match src/data/customerReport.js
+// the purpose of a Customer Report, a concern instead of an order: no items, just the concern; Customer order no
+// longer takes them, but older tickets are reports
 const REPORT_PURPOSE = "Customer Report";
 const MAX_CONCERN = 300;
+// what sales staff fill in on Customer order; the payment statuses and teams are the lists in src/data, so a new one
+// is added in one place
+const PAYMENT_STATUSES = paymentStatus.map((p) => p.type);
+const TEAMS = teams.map((t) => t.name);
+const MAX_INVOICE = 30;
+const MAX_SALESMAN = 60;
+// several types of order are kept together, "Roofings, Steel", so a purpose can be longer than one name
+const MAX_PURPOSE = 200;
 const VIDEO_EXTENSIONS = {
     "video/mp4": ".mp4",
     "video/webm": ".webm",
@@ -39,24 +51,41 @@ const VIDEO_EXTENSIONS = {
 const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 const HISTORY_LIMIT = 200;
 const ANNOUNCER_REPEATS = [1, 2];
-const ROLES = ["admin", "sales"];
+// loading: the roofing and steel loading crews
+const ROLES = ["admin", "sales", "loading"];
 const USERNAME = /^[a-z0-9._-]{3,32}$/i;
 const MIN_PASSWORD = 8;
 
-// what sales staff may do; every other /admin route is for admins only, so a new route is safe by default
-const SALES_ROUTES = [
-    ["GET", /^\/admin\/orders$/],
-    ["POST", /^\/admin\/orders\/[^/]+\/call$/],
-    ["PATCH", /^\/admin\/orders\/[^/]+$/],
-    ["GET", /^\/admin\/history$/],
-    ["POST", /^\/admin\/history\/\d+\/restore$/],
-    ["GET", /^\/admin\/me\/stats$/],
-    ["PUT", /^\/admin\/announcer\/volume$/],
+// My account: every staff member keeps their own name, details and photo
+const ACCOUNT_ROUTES = [
     ["PATCH", /^\/admin\/me$/],
     ["PUT", /^\/admin\/me\/photo$/],
     ["DELETE", /^\/admin\/me\/photo$/],
 ];
-const salesMay = (method, path) => SALES_ROUTES.some(([m, route]) => m === method && route.test(path));
+// what each role other than admin may do; every other /admin route is for admins only, so a new route is safe by default
+const ROLE_ROUTES = {
+    sales: [
+        ["GET", /^\/admin\/orders$/],
+        // one of today's tickets, opened on Customer order to edit it
+        ["GET", /^\/admin\/orders\/[^/]+$/],
+        ["POST", /^\/admin\/orders\/[^/]+\/call$/],
+        ["POST", /^\/admin\/orders\/[^/]+\/handover$/],
+        ["PATCH", /^\/admin\/orders\/[^/]+$/],
+        ["GET", /^\/admin\/history$/],
+        ["POST", /^\/admin\/history\/\d+\/restore$/],
+        ["GET", /^\/admin\/me\/stats$/],
+        ["PUT", /^\/admin\/announcer\/volume$/],
+        ...ACCOUNT_ROUTES,
+    ],
+    // the Loading page: today's queue, and calling, finishing or sending back customers at their own team only
+    // (and only once sales has handed them over)
+    loading: [
+        ["GET", /^\/admin\/orders$/],
+        ["POST", /^\/admin\/loading\/[^/]+\/(call|done|back)$/],
+        ...ACCOUNT_ROUTES,
+    ],
+};
+const roleMay = (role, method, path) => (ROLE_ROUTES[role] ?? []).some(([m, route]) => m === method && route.test(path));
 
 // passwords are stored as scrypt$<salt>$<hash>, with a new random salt for each
 const scryptAsync = promisify(scrypt);
@@ -229,16 +258,44 @@ const sendVideoFile = (req, res, path, type) => {
     return stream({ start, end });
 };
 
-// an order lists 1-50 items; a customer report (REPORT_PURPOSE) has no items, only the concern
+// an order lists 1-50 items, or none when it has an invoice number (the invoice lists them);
+// a customer report (REPORT_PURPOSE) has no items, only the concern
 const validOrder = (body) =>
     typeof body.name === "string" && body.name.trim() && body.name.length <= 100 &&
-    typeof body.purpose === "string" && body.purpose.length <= 100 &&
-    (body.purpose === REPORT_PURPOSE ? validReport(body) : validItems(body.orders));
+    typeof body.purpose === "string" && body.purpose.length <= MAX_PURPOSE &&
+    validSale(body) &&
+    (body.purpose === REPORT_PURPOSE ? validReport(body) : validItems(body.orders, hasText(body.invoiceNo)));
 
-const validItems = (items) =>
-    Array.isArray(items) && items.length > 0 && items.length <= 50 &&
+const validItems = (items = [], invoiced) =>
+    Array.isArray(items) && (items.length > 0 || invoiced) && items.length <= 50 &&
     items.every((o) => typeof o.item === "string" && o.item.length <= 100 && Number.isInteger(o.qty) && o.qty > 0 &&
         (o.color === undefined || ROOFING_COLORS.includes(o.color)));
+
+const hasText = (value) => typeof value === "string" && value.trim() !== "";
+const optionalText = (value, max) => value === undefined || (typeof value === "string" && value.trim().length <= max);
+const optionalPick = (value, list) => value === undefined || value === "" || list.includes(value);
+
+// a real day as YYYY-MM-DD; "2026-02-30" would quietly become 2 March, so it must survive the round trip
+const validDay = (day) => {
+    if (typeof day !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return false;
+    const date = new Date(`${day}T00:00:00Z`);
+    return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(day);
+};
+
+// the loading teams an order goes to, "Roofings, Steel", each from the list once; "" for none
+const validTeamList = (team) => {
+    if (team === undefined || team === "") return true;
+    if (typeof team !== "string") return false;
+    const names = splitList(team);
+    return names.every((name) => TEAMS.includes(name)) && new Set(names).size === names.length;
+};
+
+// the sales details from Customer order, each optional: invoice number, salesman, payment status, loading teams,
+// and for a returning customer, the day they come back for the items (null when they're taking them now)
+const validSale = ({ invoiceNo, salesman, paymentStatus: payment, team, pickupDate }) =>
+    optionalText(invoiceNo, MAX_INVOICE) && optionalText(salesman, MAX_SALESMAN) &&
+    optionalPick(payment, PAYMENT_STATUSES) && validTeamList(team) &&
+    (pickupDate === undefined || pickupDate === null || validDay(pickupDate));
 
 const validReport = ({ concern, orders }) =>
     typeof concern === "string" && concern.trim() !== "" && concern.trim().length <= MAX_CONCERN &&
@@ -298,16 +355,24 @@ const toMe = (row) => ({
     department: row.department,
     // the photo's file name doubles as a version for its URL, or null
     photo: row.photo,
+    // a loading account's crew (src/data/teams.js), or null
+    team: row.team,
 });
 
 // a report keeps only its concern and an order only its items, so switching purpose on Edit drops the other
-const pickOrder = ({ name, purpose, orders: items, concern }) => {
+// the keys besides orders are the insertOrder / updateOrder parameters
+const pickOrder = ({ name, purpose, orders: items = [], concern, invoiceNo, salesman, paymentStatus: payment, team, pickupDate }) => {
     const isReport = purpose === REPORT_PURPOSE;
     return {
         name: name.trim(),
         purpose,
         orders: isReport ? [] : items.map(({ item, qty, color }) => ({ item, qty, ...(color && { color }) })),
         concern: isReport ? concern.trim() : "",
+        invoiceNo: invoiceNo?.trim() ?? "",
+        salesman: salesman?.trim() ?? "",
+        paymentStatus: payment ?? "",
+        team: team ?? "",
+        pickupDate: pickupDate ?? null,
     };
 };
 
@@ -322,6 +387,21 @@ const toOrder = (row, items) => ({
     ...(row.called_at !== null && { calledAt: row.called_at, remarks: row.remarks }),
     // a customer report's concern, in place of items
     ...(row.concern && { concern: row.concern }),
+    // the sales details from Customer order, each left out until it's filled in; pickupDate (YYYY-MM-DD) is the day
+    // a returning customer comes back for the items
+    ...(row.invoice_no && { invoiceNo: row.invoice_no }),
+    ...(row.salesman && { salesman: row.salesman }),
+    ...(row.payment_status && { paymentStatus: row.payment_status }),
+    ...(row.team && { team: row.team }),
+    ...(row.pickup_date && { pickupDate: row.pickup_date }),
+    // team is the loading crews it goes to; servingTeam the one serving the customer now, teamsDone those finished
+    ...(row.serving_team && { servingTeam: row.serving_team }),
+    ...(row.teams_done && { teamsDone: row.teams_done }),
+    // the sales staff member who handed the customer over to the loading crews, and when (ISO 8601); until then it's
+    // served at a sales counter and the crews can't call it
+    ...(row.handed_over_by !== null && {
+        handedOver: { by: { id: row.handed_over_by, name: row.handed_over_by_name }, at: row.handed_over_at },
+    }),
     // the staff member serving it, or who served it; photo is for their avatar (see photoUrl in the front end)
     ...(row.served_by !== null && { servedBy: { id: row.served_by, name: row.served_by_name, photo: row.served_by_photo } }),
     // when they marked it Done (ISO 8601)
@@ -339,12 +419,17 @@ const toHistory = (row, items, todayDate) => ({
     ...(row.original_date !== null && { originalDate: row.original_date, originalNum: row.original_num }),
 });
 
-// order rows with the staff member serving them (o. prefixes keep "name" unambiguous) and, once it's done, when
-// they marked it Done: this visit's point, if the point is theirs (at most one per order and day)
-const ORDER_ROW = `o.*, u.name AS served_by_name, u.photo AS served_by_photo, s.served_at
+// order rows with the staff member serving them (o. prefixes keep "name" unambiguous), who handed them over to
+// loading, and, once it's done, when they marked it Done: this visit's point, if the point is theirs (at most one per
+// order and day)
+const ORDER_ROW = `o.*, u.name AS served_by_name, u.photo AS served_by_photo, h.name AS handed_over_by_name, s.served_at
     FROM orders o
     LEFT JOIN users u ON u.id = o.served_by
+    LEFT JOIN users h ON h.id = o.handed_over_by
     LEFT JOIN serves s ON s.order_id = o.id AND s.queue_date = o.queue_date AND s.user_id = o.served_by`;
+
+// waiting, with at least one loading crew finished: on their way from one crew to the next
+const BETWEEN_CREWS = "(status = 'pending' AND teams_done != '')";
 
 // "%" and "_" mean "anything" in LIKE, so a search for them is escaped
 const likePattern = (text) => `%${text.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
@@ -365,11 +450,24 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             INSERT INTO queue_counters (queue_date, last_num) VALUES (?, 1)
             ON CONFLICT (queue_date) DO UPDATE SET last_num = last_num + 1
             RETURNING last_num`),
-        insertOrder: db.prepare(
-            "INSERT INTO orders (queue_date, queue_num, name, purpose, concern, created_at) VALUES (?, ?, ?, ?, ?, ?)"),
-        updateOrder: db.prepare("UPDATE orders SET name = ?, purpose = ?, concern = ? WHERE id = ?"),
+        insertOrder: db.prepare(`
+            INSERT INTO orders (queue_date, queue_num, name, purpose, concern, invoice_no, salesman, payment_status, team,
+                pickup_date, created_at)
+            VALUES (:date, :queueNum, :name, :purpose, :concern, :invoiceNo, :salesman, :paymentStatus, :team,
+                :pickupDate, :createdAt)`),
+        updateOrder: db.prepare(`
+            UPDATE orders SET name = :name, purpose = :purpose, concern = :concern, invoice_no = :invoiceNo,
+                salesman = :salesman, payment_status = :paymentStatus, team = :team, pickup_date = :pickupDate
+            WHERE id = :id`),
         setStatus: db.prepare(`
-            UPDATE orders SET status = :status, called_at = :calledAt, remarks = :remarks, served_by = :servedBy
+            UPDATE orders SET status = :status, called_at = :calledAt, remarks = :remarks, served_by = :servedBy,
+                serving_team = :servingTeam, teams_done = :teamsDone
+            WHERE id = :id`),
+        // sales hands the customer over to the loading crews: back in line, for the crews now, with the counter's
+        // remarks cleared so they don't follow the customer
+        handOver: db.prepare(`
+            UPDATE orders SET team = :team, handed_over_by = :user, handed_over_at = :at, status = 'pending', remarks = '',
+                served_by = NULL, serving_team = NULL, teams_done = ''
             WHERE id = :id`),
         // a point for the staff member who served this visit; reopening the ticket takes it back
         addPoint: db.prepare(`
@@ -381,13 +479,18 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         findOrder: db.prepare(`SELECT ${ORDER_ROW} WHERE o.queue_date = ? AND o.queue_num = ? AND o.deleted_at IS NULL`),
         findById: db.prepare(`SELECT ${ORDER_ROW} WHERE o.id = ?`),
         dayOrders: db.prepare(`SELECT ${ORDER_ROW} WHERE o.queue_date = ? AND o.deleted_at IS NULL ORDER BY o.queue_num`),
+        // a customer one loading crew has finished with while another still has to call them stays on the display as
+        // "Please wait" (no remarks) until that crew calls them, instead of going back in line
         serving: db.prepare(`
-            SELECT queue_num, name, purpose, remarks, called_at FROM orders
-            WHERE queue_date = ? AND status = 'serving' AND deleted_at IS NULL ORDER BY called_at DESC`),
+            SELECT queue_num, name, purpose, CASE WHEN status = 'serving' THEN remarks ELSE '' END AS remarks, called_at
+            FROM orders
+            WHERE queue_date = ? AND deleted_at IS NULL AND (status = 'serving' OR ${BETWEEN_CREWS})
+            ORDER BY called_at DESC`),
         // the line: waiting and returning customers, in number order
         upcoming: db.prepare(`
             SELECT queue_num, name, purpose, status FROM orders
-            WHERE queue_date = ? AND status IN ('pending', 'returning') AND deleted_at IS NULL ORDER BY queue_num`),
+            WHERE queue_date = ? AND status IN ('pending', 'returning') AND NOT ${BETWEEN_CREWS} AND deleted_at IS NULL
+            ORDER BY queue_num`),
         // quantity ordered and tickets per time slot and purpose, deleted tickets left out
         statsByHour: db.prepare(`
             SELECT strftime('%H', o.created_at, 'localtime') AS bucket, o.purpose, SUM(i.qty) AS qty, COUNT(DISTINCT o.id) AS tickets
@@ -419,13 +522,14 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         // Restore puts the ticket back in line: today's keeps its number, an earlier day's gets today's next one
         restoreSameDay: db.prepare(`
             UPDATE orders SET deleted_at = NULL, restored_at = ?, status = 'pending', called_at = NULL, remarks = '',
-                served_by = NULL
+                served_by = NULL, serving_team = NULL, teams_done = '', handed_over_by = NULL, handed_over_at = NULL
             WHERE id = ?`),
         restoreToToday: db.prepare(`
             UPDATE orders SET
                 original_date = COALESCE(original_date, queue_date), original_num = COALESCE(original_num, queue_num),
                 queue_date = ?, queue_num = ?,
-                deleted_at = NULL, restored_at = ?, status = 'pending', called_at = NULL, remarks = '', served_by = NULL
+                deleted_at = NULL, restored_at = ?, status = 'pending', called_at = NULL, remarks = '', served_by = NULL,
+                serving_team = NULL, teams_done = '', handed_over_by = NULL, handed_over_at = NULL
             WHERE id = ?`),
         insertItem: db.prepare("INSERT INTO order_items (order_id, position, item, qty, color) VALUES (?, ?, ?, ?, ?)"),
         deleteItems: db.prepare("DELETE FROM order_items WHERE order_id = ?"),
@@ -440,7 +544,7 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         // a disabled account's sign-ins stop working at once
         findSession: db.prepare(`
             SELECT s.expires, u.id, u.username, u.name, u.role, u.first_name, u.middle_name, u.surname,
-                u.employee_id, u.department, u.photo
+                u.employee_id, u.department, u.photo, u.team
             FROM sessions s JOIN users u ON u.id = s.user_id
             WHERE s.sid_hash = ? AND u.disabled_at IS NULL`),
         deleteSession: db.prepare("DELETE FROM sessions WHERE sid_hash = ?"),
@@ -451,11 +555,11 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         findUser: db.prepare("SELECT * FROM users WHERE username = ?"),
         findUserById: db.prepare("SELECT * FROM users WHERE id = ?"),
         insertUser: db.prepare(`
-            INSERT INTO users (username, name, first_name, surname, role, password_hash, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)`),
-        resetBuiltInAdmin: db.prepare("UPDATE users SET role = 'admin', disabled_at = NULL, password_hash = ? WHERE id = ?"),
+            INSERT INTO users (username, name, first_name, surname, role, team, password_hash, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`),
+        resetBuiltInAdmin: db.prepare("UPDATE users SET role = 'admin', team = NULL, disabled_at = NULL, password_hash = ? WHERE id = ?"),
         updateUser: db.prepare(`
-            UPDATE users SET name = :name, first_name = :firstName, surname = :surname, role = :role,
+            UPDATE users SET name = :name, first_name = :firstName, surname = :surname, role = :role, team = :team,
                 disabled_at = :disabledAt, password_hash = :passwordHash
             WHERE id = :id`),
         // My account
@@ -500,7 +604,7 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
     // the admin from .env always exists, as an enabled admin with the .env password, so nobody is locked out
     const builtIn = sql.findUser.get(adminUsername);
     if (builtIn) sql.resetBuiltInAdmin.run(hashPasswordSync(adminPassword), builtIn.id);
-    else sql.insertUser.run(adminUsername, adminUsername, adminUsername, "", "admin", hashPasswordSync(adminPassword), new Date().toISOString());
+    else sql.insertUser.run(adminUsername, adminUsername, adminUsername, "", "admin", null, hashPasswordSync(adminPassword), new Date().toISOString());
 
     const toUser = (row) => ({
         ...toMe(row),
@@ -517,13 +621,21 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
     // moves a ticket to a new status and keeps "who is serving it" and the points in step:
     // serving → the person who called it; waiting or returning → nobody; done → a point for whoever served it
     // (or whoever marked it done, if nobody called it); leaving done takes that visit's point back
-    const changeStatus = (order, status, user, { calledAt = order.called_at, remarks = order.remarks, servedBy } = {}) =>
+    // the loading crew serving it stays only while the same person keeps serving it, and leaving done puts the
+    // customer back in line for every crew; a customer handed over to loading already gave the sales staff member
+    // their point, so the crews finishing or reopening it leave that point alone
+    const changeStatus = (order, status, user, { calledAt = order.called_at, remarks = order.remarks, servedBy, servingTeam, teamsDone } = {}) =>
         transaction(db, () => {
             const server = servedBy !== undefined ? servedBy
                 : status === "pending" || status === "returning" ? null
                 : status === "serving" ? (order.status === "serving" ? order.served_by : user.id)
                 : order.served_by ?? user.id;
-            sql.setStatus.run({ status, calledAt, remarks, servedBy: server, id: order.id });
+            const team = servingTeam !== undefined ? servingTeam
+                : status === "serving" && server === order.served_by ? order.serving_team
+                : null;
+            const done = teamsDone ?? (order.status === "done" && status !== "done" ? "" : order.teams_done);
+            sql.setStatus.run({ status, calledAt, remarks, servedBy: server, servingTeam: team, teamsDone: done, id: order.id });
+            if (order.handed_over_by !== null) return;
             if (order.status === "done" && status !== "done") sql.removePoint.run(order.id, order.queue_date);
             if (status === "done") sql.addPoint.run(order.id, server, order.queue_date, new Date().toISOString());
         });
@@ -622,12 +734,12 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         if (method === "POST" && path === "/orders") {
             const body = await readBody(req);
             if (!validOrder(body)) return send(res, 400, { message: "Invalid order." });
-            const { name, purpose, orders: items, concern } = pickOrder(body);
+            const { orders: items, ...fields } = pickOrder(body);
             const order = transaction(db, () => {
                 const date = today();
                 // a plain number; the front end formats it as "SHN 01"
                 const { last_num: queueNum } = sql.nextQueueNum.get(date);
-                const { lastInsertRowid } = sql.insertOrder.run(date, queueNum, name, purpose, concern, new Date().toISOString());
+                const { lastInsertRowid } = sql.insertOrder.run({ ...fields, date, queueNum, createdAt: new Date().toISOString() });
                 saveItems(lastInsertRowid, items);
                 return loadOrder(sql.findOrder.get(date, queueNum));
             });
@@ -666,19 +778,19 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             if (!existing) return send(res, 404, { message: "Order not found." });
             const body = await readBody(req);
             if (!validOrder(body)) return send(res, 400, { message: "Invalid order." });
-            const { name, purpose, orders: items, concern } = pickOrder(body);
+            const { orders: items, ...fields } = pickOrder(body);
             transaction(db, () => {
-                sql.updateOrder.run(name, purpose, concern, existing.id);
+                sql.updateOrder.run({ ...fields, id: existing.id });
                 saveItems(existing.id, items);
             });
             return send(res, 200, loadOrder(findToday(existing.queue_num)));
         }
 
-        // everything below needs a signed-in account; sales staff only get the routes in SALES_ROUTES
+        // everything below needs a signed-in account; sales and loading staff only get their routes in ROLE_ROUTES
         const session = getSession(req);
         if (path.startsWith("/auth/") || path.startsWith("/admin/")) {
             if (!session) return send(res, 401, { message: "Please sign in." });
-            if (path.startsWith("/admin/") && session.user.role !== "admin" && !salesMay(method, path)) {
+            if (path.startsWith("/admin/") && session.user.role !== "admin" && !roleMay(session.user.role, method, path)) {
                 return send(res, 403, { message: "Only an admin can do that." });
             }
         }
@@ -763,24 +875,26 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
 
         if (method === "GET" && path === "/admin/users") return send(res, 200, sql.listUsers.all({ today: today(), now: Date.now() }).map(toUser));
 
-        // only admins get here (see SALES_ROUTES); new accounts are usually sales staff
+        // only admins get here (see ROLE_ROUTES); new accounts are usually sales staff
+        // team: the crew a loading account belongs to; other roles have none
         if (method === "POST" && path === "/admin/users") {
-            const { username, name, password, role = "sales" } = await readBody(req);
+            const { username, name, password, role = "sales", team = null } = await readBody(req);
             if (typeof username !== "string" || !USERNAME.test(username.trim())) {
                 return send(res, 400, { message: "Usernames are 3–32 letters, numbers, dots, dashes or underscores." });
             }
             if (!validName(name)) return send(res, 400, { message: "Enter the staff member's name." });
             if (!validPassword(password)) return send(res, 400, { message: `Passwords need at least ${MIN_PASSWORD} characters.` });
-            if (!ROLES.includes(role)) return send(res, 400, { message: "Pick sales or admin." });
+            if (!ROLES.includes(role)) return send(res, 400, { message: "Pick admin, sales or loading." });
+            if (role === "loading" && !TEAMS.includes(team)) return send(res, 400, { message: `Pick a team: ${joinList(TEAMS)}.` });
             if (sql.findUser.get(username.trim())) return send(res, 409, { message: "That username is taken." });
             // they can add a middle name, employee ID and department themselves on My account
             const [firstName, surname] = splitName(name);
-            const { lastInsertRowid } = sql.insertUser.run(
-                username.trim(), name.trim(), firstName, surname, role, await hashPassword(password), new Date().toISOString());
+            const { lastInsertRowid } = sql.insertUser.run(username.trim(), name.trim(), firstName, surname, role,
+                role === "loading" ? team : null, await hashPassword(password), new Date().toISOString());
             return send(res, 201, toUser({ ...sql.findUserById.get(lastInsertRowid), served_total: 0, served_today: 0, serving_now: 0, signed_in: 0 }));
         }
 
-        // { name?, role?, password?, disabled? }
+        // { name?, role?, team?, password?, disabled? }
         const userMatch = path.match(/^\/admin\/users\/(\d+)$/);
         if (method === "PATCH" && userMatch) {
             const account = sql.findUserById.get(Number(userMatch[1]));
@@ -791,6 +905,7 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
                 firstName: account.first_name,
                 surname: account.surname,
                 role: account.role,
+                team: account.team,
                 disabledAt: account.disabled_at,
                 passwordHash: account.password_hash,
             };
@@ -801,10 +916,15 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             }
             const lockedOut = isBuiltIn(account) || account.id === me.id;
             if (body.role !== undefined && body.role !== account.role) {
-                if (!ROLES.includes(body.role)) return send(res, 400, { message: "Pick sales or admin." });
+                if (!ROLES.includes(body.role)) return send(res, 400, { message: "Pick admin, sales or loading." });
                 if (lockedOut) return send(res, 400, { message: "You can't change the role of this account." });
                 changes.role = body.role;
             }
+            // a loading account keeps a team (the first one, until one is picked); any other role has none
+            if (body.team !== undefined && body.team !== null && !TEAMS.includes(body.team)) {
+                return send(res, 400, { message: `Pick a team: ${joinList(TEAMS)}.` });
+            }
+            changes.team = changes.role !== "loading" ? null : body.team ?? changes.team ?? TEAMS[0];
             if (body.disabled !== undefined && body.disabled !== (account.disabled_at !== null)) {
                 if (lockedOut) return send(res, 400, { message: "You can't switch off this account." });
                 changes.disabledAt = body.disabled ? new Date().toISOString() : null;
@@ -905,10 +1025,14 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             return send(res, 200, { period, from: range[0], to: range[1], totals, buckets });
         }
 
+        // a loading account only gets the orders sales has handed over to its own team (none until an admin picks
+        // one), so each crew sees its own department's customers and nothing else
         if (method === "GET" && path === "/admin/orders") {
             const date = today();
             const itemsByOrder = Map.groupBy(sql.dayItems.all(date), (item) => item.order_id);
-            return send(res, 200, sql.dayOrders.all(date).map((row) => toOrder(row, itemsByOrder.get(row.id) ?? [])));
+            const rows = sql.dayOrders.all(date).filter((row) =>
+                me.role !== "loading" || (row.handed_over_by !== null && splitList(row.team).includes(me.team)));
+            return send(res, 200, rows.map((row) => toOrder(row, itemsByOrder.get(row.id) ?? [])));
         }
 
         // call (or call again) a ticket: it becomes the headline on the display with the admin's remarks
@@ -922,6 +1046,25 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             }
             // whoever calls the customer is the one serving them
             changeStatus(order, "serving", me, { calledAt: Date.now(), remarks: remarks.trim(), servedBy: me.id });
+            return send(res, 200, loadOrder(findToday(order.queue_num)));
+        }
+
+        // a sales counter hands the customer it's serving over to the loading crews: { team: "Roofings, Steel" }, the
+        // order's own teams if left out; they wait in line for the crews on the Loading page, and it counts as the
+        // customer served for whoever served them at the counter
+        const handOverMatch = path.match(/^\/admin\/orders\/([^/]+)\/handover$/);
+        if (method === "POST" && handOverMatch) {
+            const order = findToday(Number(decodeURIComponent(handOverMatch[1])));
+            if (!order) return send(res, 404, { message: "Order not found." });
+            if (order.handed_over_by !== null) return send(res, 409, { message: "This customer is already with loading." });
+            if (order.status !== "serving") return send(res, 409, { message: "Serve the customer first, then hand them over." });
+            const { team = order.team } = await readBody(req);
+            if (!team || !validTeamList(team)) return send(res, 400, { message: `Pick a team: ${joinList(TEAMS)}.` });
+            const at = new Date().toISOString();
+            transaction(db, () => {
+                sql.handOver.run({ team, user: me.id, at, id: order.id });
+                sql.addPoint.run(order.id, order.served_by ?? me.id, order.queue_date, at);
+            });
             return send(res, 200, loadOrder(findToday(order.queue_num)));
         }
 
@@ -943,6 +1086,53 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
                 sql.deleteOrder.run(new Date().toISOString(), order.id);
                 return send(res, 204);
             }
+        }
+
+        // the Loading page: a crew calls a customer to its area, marks its part done, or sends them back to waiting
+        // a loading account acts for its own team; an admin names one: { team, remarks? }
+        // a customer is in one place at a time, so while anyone is serving them, no other crew can call them;
+        // once every crew on the order is done, so is the order
+        const loadingMatch = path.match(/^\/admin\/loading\/([^/]+)\/(call|done|back)$/);
+        if (method === "POST" && loadingMatch) {
+            const order = findToday(Number(decodeURIComponent(loadingMatch[1])));
+            if (!order) return send(res, 404, { message: "Order not found." });
+            const body = await readBody(req);
+            const team = me.role === "loading" ? me.team : body.team;
+            if (!TEAMS.includes(team)) {
+                return send(res, 400, {
+                    message: me.role === "loading" ? "Your account isn't on a team yet. Ask an admin to pick one on Accounts." : "Pick a team.",
+                });
+            }
+            const orderTeams = splitList(order.team);
+            const finished = splitList(order.teams_done);
+            if (!orderTeams.includes(team)) return send(res, 409, { message: `This order doesn't go to ${team}.` });
+            if (order.handed_over_by === null) return send(res, 409, { message: "Sales hasn't handed this customer over yet." });
+            const servingHere = order.status === "serving" && order.serving_team === team;
+
+            if (loadingMatch[2] === "call") {
+                if (order.status === "done" || finished.includes(team)) {
+                    return send(res, 409, { message: `${team} has already finished this order.` });
+                }
+                if (order.status === "serving" && !servingHere) {
+                    return send(res, 409, { message: `Please wait until ${order.serving_team ?? order.served_by_name ?? "the other counter"} finishes.` });
+                }
+                const { remarks = "" } = body;
+                if (typeof remarks !== "string" || remarks.trim().length > MAX_REMARKS) {
+                    return send(res, 400, { message: `Remarks must be ${MAX_REMARKS} characters or fewer.` });
+                }
+                changeStatus(order, "serving", me, { calledAt: Date.now(), remarks: remarks.trim(), servedBy: me.id, servingTeam: team });
+            } else {
+                if (!servingHere) return send(res, 409, { message: `${team} isn't serving this customer.` });
+                if (loadingMatch[2] === "back") {
+                    changeStatus(order, "pending", me);
+                } else {
+                    // kept in the order's own order of teams; the customer waits in line for any still to go
+                    const teamsDone = orderTeams.filter((t) => t === team || finished.includes(t));
+                    const left = orderTeams.length - teamsDone.length;
+                    changeStatus(order, left ? "pending" : "done", me, { teamsDone: joinList(teamsDone), ...(left && { remarks: "" }) });
+                }
+            }
+            return send(res, 200, loadOrder(findToday(order.queue_num)));
         }
 
         // ?period=day|week|month|year → { period, from, to, buckets: [{ key, qty: { purpose: n }, tickets: { purpose: n } }], servedToday }

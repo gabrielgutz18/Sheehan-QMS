@@ -94,6 +94,23 @@
   color: var(--text-dark);
 }
 
+/* the invoice, payment, salesman, team and pick-up day, two to a line */
+.receipt-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: calc(var(--u, 1px) * 8) calc(var(--u, 1px) * 12);
+  margin: 0;
+}
+
+.receipt-details dd {
+  margin: 0;
+  font-size: calc(var(--u, 1px) * 15);
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--text-dark);
+  overflow-wrap: anywhere;
+}
+
 /* a Customer Report's concern: the customer's own words, smaller than the name above it */
 .receipt-concern {
   font-size: calc(var(--u, 1px) * 15);

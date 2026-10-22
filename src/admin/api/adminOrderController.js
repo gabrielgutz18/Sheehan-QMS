@@ -14,6 +14,11 @@ export const updateOrderStatus = (queueNum, status) =>
 export const callOrder = (queueNum, remarks) =>
     http.post(`/admin/orders/${encodeURIComponent(queueNum)}/call`, { remarks });
 
+// a sales counter hands the customer it's serving over to the loading crews: team is "Roofings, Steel"; they wait in
+// line for the crews on the Loading page, and it counts as the customer served
+export const handOverOrder = (queueNum, team) =>
+    http.post(`/admin/orders/${encodeURIComponent(queueNum)}/handover`, { team });
+
 // takes the ticket out of the queue and moves it to History, where it can be restored
 export const deleteOrder = (queueNum) => http.delete(`/admin/orders/${encodeURIComponent(queueNum)}`);
 

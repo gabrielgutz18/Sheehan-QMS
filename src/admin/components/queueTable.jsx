@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router';
 
 import orderStatus from '../data/orderStatus.js';
 import { useAuth } from '../auth/authContext.js';
@@ -9,8 +10,9 @@ import OrderDetails from './orderDetails.jsx';
 import formatQueueNum from '../../data/queueNum.js';
 import { readLastRemarks, saveLastRemarks } from '../data/lastRemarks.js';
 
-// orders table with the row actions (status, call, delete) and the call dialog
-// admins and sales staff can both set the status and call; only admins can delete (the backend checks too)
+// orders table with the row actions (status, call, edit, delete) and the call dialog
+// admins and sales staff can both set the status, call and edit; only admins can delete (the backend checks too)
+// Edit opens the ticket on Customer order, e.g. to change its payment status or pick-up day later
 export default function QueueTable({ orders, setOrders, loading, error }) {
     const { user } = useAuth();
     const canDelete = user?.role === "admin";
@@ -127,6 +129,12 @@ export default function QueueTable({ orders, setOrders, loading, error }) {
                                                 >
                                                     {o.status === "serving" ? "Call again" : "Call"}
                                                 </button>
+                                            )}
+                                            {/* a Customer Report has a concern, which Customer order no longer takes */}
+                                            {!o.concern && (
+                                                <Link className="admin-btn" to={`/admin/customer-order?ticket=${o.queueNum}`}>
+                                                    Edit
+                                                </Link>
                                             )}
                                             {canDelete && (
                                                 <button

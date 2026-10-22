@@ -13,30 +13,6 @@
   padding: calc(var(--u, 1px) * 24) calc(var(--u, 1px) * 16);
 }
 
-/* in a box shorter than the form, everything keeps its size except the order list,
-   which shrinks and scrolls on its own, so Submit stays visible */
-.order-card {
-  flex: 0 1 auto;
-  min-height: 0;
-  width: 100%;
-  max-width: calc(var(--u, 1px) * 700);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: calc(var(--u, 1px) * 24);
-  /* hints and errors stay centered when they wrap, in the left-aligned admin too */
-  text-align: center;
-}
-
-.order-card > * {
-  flex-shrink: 0;
-}
-
-.order-card > .order-field {
-  flex-shrink: 1;
-  min-height: 0;
-}
-
 .submit-btn {
   width: calc(var(--u, 1px) * 220);
   height: calc(var(--u, 1px) * 52);

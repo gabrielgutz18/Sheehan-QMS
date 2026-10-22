@@ -13,7 +13,8 @@ const QUICK_REMARKS = [
 ];
 
 // modal for calling a ticket; the remarks show under the number on the display screen
-export default function CallDialog({ order, defaultRemarks = "", busy, error, onCall, onClose }) {
+// quickRemarks: the one-tap messages under the box (the Loading page offers its teams' areas instead)
+export default function CallDialog({ order, defaultRemarks = "", quickRemarks = QUICK_REMARKS, busy, error, onCall, onClose }) {
     const dialogRef = useRef(null);
     const inputRef = useRef(null);
     const [remarks, setRemarks] = useState(order.remarks || defaultRemarks);
@@ -60,7 +61,7 @@ export default function CallDialog({ order, defaultRemarks = "", busy, error, on
                 </label>
 
                 <div className="remark-chips" role="group" aria-label="Quick remarks">
-                    {QUICK_REMARKS.map(({ label, text }) => (
+                    {quickRemarks.map(({ label, text }) => (
                         <button
                             key={text}
                             type="button"

@@ -1,13 +1,9 @@
-// the color picker only shows for this purpose; must match a name in purpose.js
-export const ROOFING_PURPOSE = "Roofings";
-
-// values must match the backend; swatch is what the button is filled with
+// the roof color on a roofing item, on tickets taken before invoices (Customer order no longer lists items);
+// values must match the backend
 const roofingColors = [
-    { value: "red", label: "Red", swatch: "#c8202a" },
-    { value: "blue", label: "Blue", swatch: "#1d4ed8" },
-    { value: "green", label: "Green", swatch: "#15803d" },
+    { value: "red", label: "Red" },
+    { value: "blue", label: "Blue" },
+    { value: "green", label: "Green" },
 ];
 
 export const colorLabel = (value) => roofingColors.find((c) => c.value === value)?.label ?? value;
-
-export default roofingColors;

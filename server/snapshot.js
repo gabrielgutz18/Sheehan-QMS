@@ -45,7 +45,7 @@ const TIME_COLUMNS = {
     users: { created_at: "iso", disabled_at: "iso" },
     orders: {
         queue_date: "day", original_date: "day",
-        created_at: "iso", deleted_at: "iso", restored_at: "iso", called_at: "ms",
+        created_at: "iso", deleted_at: "iso", restored_at: "iso", called_at: "ms", handed_over_at: "iso",
     },
     serves: { queue_date: "day", served_at: "iso" },
     queue_counters: { queue_date: "day" },
