@@ -193,6 +193,7 @@ On every start, any `.sql` file not yet listed in `schema_migrations` runs, in n
 | [`008_sales_details.sql`](server/migrations/008_sales_details.sql) | adds `invoice_no`, `salesman`, `payment_status`, `team`, `pickup_date` to `orders` (Customer order as sales staff fill it in) |
 | [`009_loading_teams.sql`](server/migrations/009_loading_teams.sql) | adds `team` to `users` (a loading account's crew) and `serving_team`, `teams_done` to `orders` (which crew has the customer now, and which have finished) |
 | [`010_loading_handover.sql`](server/migrations/010_loading_handover.sql) | adds `handed_over_by`, `handed_over_at` to `orders`: the sales staff member who pressed Hand over to loading on My counter, and when; the crews can only call a customer once it's set |
+| [`011_order_invoices.sql`](server/migrations/011_order_invoices.sql) | `order_invoices`: several invoices per ticket, each with the type of order it's for; moves each ticket's `invoice_no` into it (typed when the ticket has one type of order) and drops `orders.invoice_no` |
 
 **Changing the tables later:** never edit a file that has already run anywhere. Add the next number instead, for example `server/migrations/006_add_counter_number.sql`:
 
@@ -212,6 +213,7 @@ erDiagram
     users |o--o{ orders : "is serving (served_by)"
     users |o--o{ orders : "handed over to loading (handed_over_by)"
     orders ||--|{ order_items : "has lines"
+    orders ||--o{ order_invoices : "has invoices"
     orders ||--o{ serves : "one point per visit"
     queue_counters ||..o{ orders : "gives queue_num for that queue_date"
 
@@ -222,7 +224,6 @@ erDiagram
         TEXT name
         TEXT purpose "type(s) of order, e.g. Roofings, Steel"
         TEXT concern "Customer Report only, else ''"
-        TEXT invoice_no "'' on older tickets"
         TEXT salesman
         TEXT payment_status "Vale | Paid | Terms, from src/data"
         TEXT team "loading crews, e.g. Roofings, Steel; '' for none"
@@ -248,6 +249,13 @@ erDiagram
         TEXT item
         INTEGER qty
         TEXT color
+    }
+    order_invoices {
+        INTEGER id PK
+        INTEGER order_id FK "orders.id, cascade"
+        INTEGER position
+        TEXT invoice_no
+        TEXT type "type of order it's for, e.g. Roofings; '' on older tickets"
     }
     queue_counters {
         TEXT queue_date PK
@@ -294,6 +302,7 @@ The relationships, as SQLite reports them (`PRAGMA foreign_key_list`):
 | `order_items.order_id` | `orders.id` | cascade: the lines go with the order | [`001_init.sql:20-27`](server/migrations/001_init.sql#L20-L27) |
 | `orders.served_by` | `users.id` | — | [`003_staff_accounts.sql:25`](server/migrations/003_staff_accounts.sql#L25) |
 | `orders.handed_over_by` | `users.id` | — | [`010_loading_handover.sql`](server/migrations/010_loading_handover.sql) |
+| `order_invoices.order_id` | `orders.id` | cascade: the invoices go with the order | [`011_order_invoices.sql`](server/migrations/011_order_invoices.sql) |
 | `serves.order_id` | `orders.id` | cascade | [`003_staff_accounts.sql:29-36`](server/migrations/003_staff_accounts.sql#L29-L36) |
 | `serves.user_id` | `users.id` | — (accounts are switched off, never deleted, so points stay) | same |
 | `sessions.user_id` | `users.id` | cascade | [`003_staff_accounts.sql:18-22`](server/migrations/003_staff_accounts.sql#L18-L22) |
@@ -308,6 +317,7 @@ Orders are never deleted from the app. Delete only sets `deleted_at`, so the cas
 | Table | Holds | Written by (`server/api.js`) | Read by |
 |---|---|---|---|
 | `orders` | one row per ticket | `insertOrder` (L334), `updateOrder` (L335), `setStatus` (L336), `deleteOrder` (L345), `restoreSameDay` / `restoreToToday` (L384-393) | `findOrder`, `findById`, `dayOrders` (L346-348), `serving` / `upcoming` (L349-354), `history` (L373), stats (L356-371) |
+| `order_invoices` | the invoices of each order, with their type of order | `saveInvoices()` → `deleteInvoices` + `insertInvoice` | `orderInvoices`, `dayInvoices`, `invoicesFor` |
 | `order_items` | the lines of each order | `saveItems()` → `deleteItems` + `insertItem` (L493-496) | `orderItems`, `dayItems` (L396-399), `itemsFor` (L380), stats joins |
 | `queue_counters` | last number given out each day | `nextQueueNum` (L330-333), on a new order and on a restore from an earlier day | same statement (`RETURNING last_num`) |
 | `users` | staff accounts and their profiles | built-in admin (L461-463), `insertUser` (L417), `updateUser` (L421), `updateProfile` (L426), `setPhoto` (L431) | `findUser` (L415), `findSession` join (L405), `ORDER_ROW` join (L313), `listUsers` (L432) |
@@ -335,7 +345,7 @@ Staff send the order from Admin → Customer order. [`src/admin/pages/customerOr
 export const createOrder = (order) => http.post("/orders", order);
 ```
 
-The server takes the next number for today, saves the order (with its invoice number, salesman, payment status, team and pick-up day), then its lines, all in one transaction. Orders from Customer order have no lines (the invoice lists the items), so `saveItems` writes none for them. [`server/api.js`](server/api.js)
+The server takes the next number for today, saves the order (with its salesman, payment status, team and pick-up day), then its lines and its invoices, all in one transaction. Orders from Customer order have no lines (the invoice lists the items), so `saveItems` writes none for them. [`server/api.js`](server/api.js)
 
 ```js
 if (method === "POST" && path === "/orders") {
@@ -599,19 +609,18 @@ myTotals: db.prepare(`
     FROM (SELECT date(served_at, 'localtime') AS day FROM serves WHERE user_id = :user)`),
 ```
 
-### 5.8 Dashboard sales graph → `orders` joined to `order_items`
+### 5.8 Dashboard sales graph → `orders`
 
-[`src/admin/components/statistics.jsx:67`](src/admin/components/statistics.jsx#L67) calls `GET /api/admin/stats`. [`server/api.js:370-374`](server/api.js#L370-L374)
+[`src/admin/components/statistics.jsx`](src/admin/components/statistics.jsx) calls `GET /api/admin/stats`. [`server/api.js`](server/api.js)
 
 ```js
 statsByDay: db.prepare(`
-    SELECT o.queue_date AS bucket, o.purpose, SUM(i.qty) AS qty, COUNT(DISTINCT o.id) AS tickets
-    FROM orders o JOIN order_items i ON i.order_id = o.id
-    WHERE o.deleted_at IS NULL AND o.queue_date BETWEEN :from AND :to
-    GROUP BY bucket, o.purpose`),
+    SELECT queue_date AS bucket, purpose, COUNT(*) AS orders FROM orders
+    WHERE deleted_at IS NULL AND purpose != :report AND queue_date BETWEEN :from AND :to
+    GROUP BY bucket, purpose`),
 ```
 
-`COUNT(DISTINCT o.id)` counts each ticket once, even when it has several lines. The inner `JOIN` means only tickets with lines are counted, so orders from Customer order (an invoice number, no lines) don't show in the graph.
+The graph counts orders: orders from Customer order have invoices and no item lines, so there are no quantities to add up. The route splits each `purpose` into its types of order, so an order for "Roofings, Steel" counts once for Roofings and once for Steel, and once in the slot's `total` (All products). Deleted tickets and Customer Reports are left out.
 
 ### 5.9 Settings → `settings` (JSON per key)
 

@@ -94,7 +94,33 @@
   color: var(--text-dark);
 }
 
-/* the invoice, payment, salesman, team and pick-up day, two to a line */
+/* each invoice number, with the type of order it's for at the right */
+.receipt-invoices {
+  display: grid;
+  gap: calc(var(--u, 1px) * 4);
+  margin: calc(var(--u, 1px) * 4) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.receipt-invoices li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: calc(var(--u, 1px) * 8);
+  font-size: calc(var(--u, 1px) * 15);
+  font-weight: 700;
+  color: var(--text-dark);
+  overflow-wrap: anywhere;
+}
+
+.receipt-invoice-type {
+  font-size: calc(var(--u, 1px) * 12);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* the payment, salesman, team and pick-up day, two to a line */
 .receipt-details {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -241,13 +241,7 @@ scp -r <user>@<server-ip>:/var/backups/sheehan-queue ./sheehan-backups
 
 On the Windows PC that drives the display screen, copy [`deploy/display-screen.cmd`](deploy/display-screen.cmd) from this repo, set `SERVER` at the top to the server's address (with nginx, `http://<server-ip>`), and double-click it. It opens the display full screen in its own Microsoft Edge window (Chrome if Edge isn't installed) that's allowed to play sound, so calls are read out without anyone clicking the page. Edge has Microsoft's natural voices (Ava, Emma, Jenny, Rosa for Philippine English, ...): pick one under Admin → Call announcements with the admin page open in Edge, so it's a voice the display has too. Put a shortcut to it in `shell:startup` to open the display when Windows starts. Opened any other way, the browser keeps the display silent after every start or reload until someone clicks on the page.
 
-Orders are taken by staff in Admin → Customer order; there is no customer kiosk. On each staff PC with a receipt printer, start the print service with the server's address, so the page is allowed to print:
-
-```bash
-python src/printing/script/printService.py --origin http://<server-ip>:3000
-```
-
-With nginx, use `--origin http://<server-ip>` instead.
+Orders are taken by staff in Admin → Customer order; there is no customer kiosk. Tickets print through the browser: after Serve, **Print ticket** opens the print preview with just the ticket, and staff pick the printer there. Any printer installed in Windows on that PC works, including one shared from another computer on the network (add it once in Windows: Settings → Printers & scanners → Add device, or open `\\<computer>` in File Explorer and double-click the printer). Nothing needs to run on the staff PCs.
 
 ## 11. Updating (the GitHub workflow)
 

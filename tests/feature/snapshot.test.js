@@ -123,4 +123,24 @@ describe("snapshot", () => {
         home.assertDatabaseMissing("orders", { name: "Home test" });
         home.assertDatabaseHas("orders", { name: "Ana Reyes" });
     });
+
+    test("a snapshot from before several invoices per ticket keeps each ticket's invoice number", async () => {
+        await office.client().post("/orders", {
+            name: "Juan Dela Cruz", purpose: "Roofings", orders: [], invoices: [{ invoiceNo: "43355521", type: "Roofings" }],
+        });
+        const file = join(folder, "snapshot.json");
+        saveSnapshot(office.dataDir, file);
+        // as an older copy of the app saved it: the invoice number on the ticket itself
+        const snapshot = JSON.parse(readFileSync(file, "utf8"));
+        const [invoice] = snapshot.tables.order_invoices;
+        delete snapshot.tables.order_invoices;
+        snapshot.tables.orders[0].invoice_no = invoice.invoice_no;
+        snapshot.migrations = snapshot.migrations.filter((name) => name !== "011_order_invoices.sql");
+        writeFileSync(file, JSON.stringify(snapshot));
+
+        quietly(() => loadSnapshot(home.dataDir, file));
+
+        home.assertDatabaseHas("order_invoices", { position: 0, invoice_no: "43355521", type: "Roofings" });
+        home.assertDatabaseCount("order_invoices", 1);
+    });
 });

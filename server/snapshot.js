@@ -22,7 +22,7 @@ export const SNAPSHOT_FILE = fileURLToPath(new URL('../seeders/snapshot.json', i
 // bumped if the file's layout ever changes, so an old snapshot is refused instead of half-loaded
 const FORMAT = 1;
 // parents before children, so the foreign keys hold while loading; sign-ins (sessions) aren't carried
-const TABLES = ["users", "orders", "order_items", "serves", "queue_counters", "settings"];
+const TABLES = ["users", "orders", "order_items", "order_invoices", "serves", "queue_counters", "settings"];
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const pad2 = (n) => String(n).padStart(2, "0");
@@ -49,6 +49,21 @@ const TIME_COLUMNS = {
     },
     serves: { queue_date: "day", served_at: "iso" },
     queue_counters: { queue_date: "day" },
+};
+
+// a snapshot taken before 011_order_invoices.sql has one invoice number on each ticket; like the migration, it
+// becomes the ticket's first invoice, typed with its type of order when it has only one
+const INVOICES_MIGRATION = "011_order_invoices.sql";
+const withInvoices = ({ tables, migrations }) => {
+    if (migrations.includes(INVOICES_MIGRATION)) return tables;
+    const orders = tables.orders ?? [];
+    return {
+        ...tables,
+        orders: orders.map((o) => Object.fromEntries(Object.entries(o).filter(([column]) => column !== "invoice_no"))),
+        order_invoices: orders.filter((o) => o.invoice_no).map((o) => ({
+            order_id: o.id, position: 0, invoice_no: o.invoice_no, type: o.purpose.includes(",") ? "" : o.purpose,
+        })),
+    };
 };
 
 const shiftRow = (table, row, days) => {
@@ -139,10 +154,11 @@ export function loadSnapshot(dataDir, file = SNAPSHOT_FILE, { replace = false, k
         }
 
         const days = keepDates ? 0 : daysBetween(snapshot.takenOn, localDate(new Date()));
+        const tables = withInvoices(snapshot);
         transaction(db, () => {
             for (const table of ["sessions", ...TABLES.toReversed()]) db.exec(`DELETE FROM ${table}`);
             for (const table of TABLES) {
-                const rows = snapshot.tables[table] ?? [];
+                const rows = tables[table] ?? [];
                 if (!rows.length) continue;
                 // column names come from the file, so only ones this table really has are let into the SQL
                 const known = new Set(db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name));

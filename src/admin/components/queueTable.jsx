@@ -130,6 +130,10 @@ export default function QueueTable({ orders, setOrders, loading, error }) {
                                                     {o.status === "serving" ? "Call again" : "Call"}
                                                 </button>
                                             )}
+                                            {/* the queue ticket, to print it again */}
+                                            <Link className="admin-btn" to={`/admin/customer-order?ticket=${o.queueNum}&view=1`}>
+                                                View ticket
+                                            </Link>
                                             {/* a Customer Report has a concern, which Customer order no longer takes */}
                                             {!o.concern && (
                                                 <Link className="admin-btn" to={`/admin/customer-order?ticket=${o.queueNum}`}>

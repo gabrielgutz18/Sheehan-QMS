@@ -38,13 +38,13 @@ const formatIssued = (issuedAt) => {
     return Number.isNaN(date.getTime()) ? "" : date.toLocaleString();
 };
 
-// ticket: { queueNumber, name, purpose, orders: [{ qty, item, color? }], concern?, invoiceNo?, paymentStatus?,
-//   salesman?, team?, pickupDate?, issuedAt }
+// ticket: { queueNumber, name, purpose, orders: [{ qty, item, color? }], concern?, invoices: [{ invoiceNo, type }],
+//   paymentStatus?, salesman?, team?, pickupDate?, issuedAt }
 // the sales details from Customer order are printed once they're set; orders are the items on a ticket taken before
 // invoices, and concern a Customer Report's concern, printed in place of them
 // columns: characters per line, 32 for 58mm paper and 48 for 80mm
 export function buildReceipt(
-    { queueNumber, name, purpose, orders = [], concern, invoiceNo, paymentStatus, salesman, team, pickupDate, issuedAt },
+    { queueNumber, name, purpose, orders = [], concern, invoices = [], paymentStatus, salesman, team, pickupDate, issuedAt },
     { columns = 48 } = {},
 ) {
     const bytes = [];
@@ -93,8 +93,15 @@ export function buildReceipt(
     rule();
 
     align("left");
+    // one line each: the number, and the type of order it's for
+    if (invoices.length) {
+        line(invoices.length > 1 ? "INVOICE NOS" : "INVOICE NO");
+        bold(true);
+        invoices.forEach(({ invoiceNo, type }) => wrap(type ? `${invoiceNo} - ${type}` : invoiceNo, columns).forEach(line));
+        bold(false);
+        rule();
+    }
     const details = [
-        ["INVOICE NO", invoiceNo],
         ["PAYMENT", paymentStatus],
         ["SALESMAN", salesman],
         ["TEAM", team],

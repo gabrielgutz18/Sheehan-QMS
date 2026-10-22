@@ -3,8 +3,9 @@ import { useSearchParams } from 'react-router';
 import '../../style/customerOrder.css';
 
 import Receipt from '../../components/receipt.jsx';
-import { CheckPicker, ReturningField, SaleSelect, SaleText } from '../components/saleFields.jsx';
+import { CheckPicker, InvoiceFields, ReturningField, SaleSelect, SaleText } from '../components/saleFields.jsx';
 import OrderSummary from '../components/orderSummary.jsx';
+import TicketPicker from '../components/ticketPicker.jsx';
 import { useAuth } from '../auth/authContext.js';
 import formatQueueNum from '../../data/queueNum.js';
 import { joinList, splitList } from '../../data/list.js';
@@ -18,13 +19,20 @@ import PrintFunc from '../../printing/printFunc.jsx';
 // must match the backend (server/api.js)
 const MAX_NAME = 100;
 const MAX_INVOICE = 30;
+const MAX_INVOICES = 20;
 const MAX_SALESMAN = 60;
+
+// one row of the invoice list; the key keeps each row's fields its own while rows are added and taken away
+let nextInvoiceKey = 0;
+const invoiceRow = (invoiceNo = "", type = "") => ({ key: nextInvoiceKey++, invoiceNo, type });
 
 // the form for a saved ticket, or a blank one with the signed-in staff member as the salesman
 const fieldsFor = (saved, salesman) => ({
     name: saved?.name ?? "",
     types: splitList(saved?.purpose),
-    invoiceNo: saved?.invoiceNo ?? "",
+    invoices: saved?.invoices?.length
+        ? saved.invoices.map((invoice) => invoiceRow(invoice.invoiceNo, invoice.type))
+        : [invoiceRow()],
     salesman: saved ? saved.salesman ?? "" : salesman,
     paymentStatus: saved?.paymentStatus ?? "",
     teams: splitList(saved?.team),
@@ -32,13 +40,17 @@ const fieldsFor = (saved, salesman) => ({
     pickupDate: saved?.pickupDate ?? "",
 });
 
-// staff (admin or sales) take a customer's order: their name, the types of order, the invoice, the salesman, how
+// staff (admin or sales) take a customer's order: their name, the types of order, the invoices (each with the type
+// of order it's for), the salesman, how
 // it's paid, the loading teams that call them on the Loading page, and for a customer coming back for the items on
-// a later day, that day; Serve gives the ticket its queue number and prints it
-// ?ticket=5 opens today's ticket 5 to edit it (Edit on Orders)
+// a later day, that day; Serve gives the ticket its queue number and shows it, and Print ticket opens the print
+// preview to pick the printer
+// ?ticket=5 opens today's ticket 5 to edit it (Edit on Orders); ?ticket=5&view=1 shows its ticket to print it again
+// (View queue ticket here, or View ticket on Orders)
 export default function CustomerOrderPage() {
     const [params, setParams] = useSearchParams();
     const ticket = Number(params.get("ticket")) || null;
+    const viewing = params.get("view") === "1";
     // the ticket ?ticket= asks for, once it's loaded: { ticket, order } or { ticket, error }
     const [opened, setOpened] = useState(null);
     // New order starts the form over
@@ -64,6 +76,7 @@ export default function CustomerOrderPage() {
         <section className="admin-page">
             <div className="admin-page-head">
                 <h1 className="admin-title">Customer order</h1>
+                <TicketPicker current={ticket} onView={(queueNum) => setParams({ ticket: String(queueNum), view: "1" })} />
             </div>
 
             {ticket && !loaded ? (
@@ -74,20 +87,25 @@ export default function CustomerOrderPage() {
                     <button type="button" className="admin-btn" onClick={startNew}>Take a new order</button>
                 </div>
             ) : (
-                <OrderDesk key={`${ticket ?? "new"}-${round}`} saved={loaded?.order ?? null} onNew={startNew} />
+                <OrderDesk
+                    key={`${ticket ?? "new"}-${viewing ? "view" : "edit"}-${round}`}
+                    saved={loaded?.order ?? null}
+                    viewing={viewing}
+                    onNew={startNew}
+                />
             )}
         </section>
     );
 }
 
-// the form, then the printed ticket with Edit, Print again and New order
-// saved: a ticket opened to edit, or null for a new order
-function OrderDesk({ saved, onNew }) {
+// the form, then the ticket with Edit, Print ticket and New order
+// saved: a ticket opened to edit, or null for a new order; viewing: show the saved ticket instead, to print it again
+function OrderDesk({ saved, viewing, onNew }) {
     const { user } = useAuth();
     const [fields, setFields] = useState(() => fieldsFor(saved, user?.name ?? ""));
     const [errors, setErrors] = useState({});
     const [submitted, setSubmitted] = useState(saved);
-    const [editing, setEditing] = useState(Boolean(saved));
+    const [editing, setEditing] = useState(Boolean(saved) && !viewing);
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState("");
 
@@ -100,11 +118,46 @@ function OrderDesk({ saved, onNew }) {
         if (errors[key]) setErrors((prev) => ({ ...prev, [key]: undefined }));
     };
 
+    // the invoices can only be for the types of order ticked: one that's unticked is cleared from them, and with
+    // just one type ticked, every invoice is for it
+    const setTypes = (types) => {
+        setFields((prev) => ({
+            ...prev,
+            types,
+            invoices: prev.invoices.map((invoice) => ({
+                ...invoice,
+                type: types.length === 1 ? types[0] : types.includes(invoice.type) ? invoice.type : "",
+            })),
+        }));
+        if (errors.types) setErrors((prev) => ({ ...prev, types: undefined }));
+    };
+
+    const addInvoice = () =>
+        set("invoices")([...fields.invoices, invoiceRow("", fields.types.length === 1 ? fields.types[0] : "")]);
+    const removeInvoice = (key) => set("invoices")(fields.invoices.filter((invoice) => invoice.key !== key));
+
+    // each invoice needs its number, once, and the type of order it's for
+    const invoiceErrors = () => {
+        const found = {};
+        const seen = new Set();
+        for (const { key, invoiceNo, type } of fields.invoices) {
+            const number = invoiceNo.trim().toLowerCase();
+            const error = {};
+            if (!number) error.invoiceNo = "Please enter the invoice number.";
+            else if (seen.has(number)) error.invoiceNo = "This invoice number is already listed.";
+            if (fields.types.length && !fields.types.includes(type)) error.type = "Please choose the type of order this invoice is for.";
+            seen.add(number);
+            if (error.invoiceNo || error.type) found[key] = error;
+        }
+        return Object.keys(found).length ? found : undefined;
+    };
+
     const validate = () => {
         const next = {};
         if (!fields.name.trim()) next.name = "Please enter the customer's name.";
         if (fields.types.length === 0) next.types = "Please choose at least one type of order.";
-        if (!fields.invoiceNo.trim()) next.invoiceNo = "Please enter the invoice number.";
+        const invoices = invoiceErrors();
+        if (invoices) next.invoices = invoices;
         if (!fields.salesman.trim()) next.salesman = "Please enter the salesman's name.";
         if (!fields.paymentStatus) next.paymentStatus = "Please choose a payment status.";
         if (fields.returning && !fields.pickupDate) next.pickupDate = "Please pick the day they'll come back.";
@@ -121,9 +174,9 @@ function OrderDesk({ saved, onNew }) {
         const payload = {
             name: fields.name.trim(),
             purpose: joinList(fields.types),
-            // the invoice lists what they bought; a ticket taken before keeps the items it was taken with
+            // the invoices list what they bought; a ticket taken before keeps the items it was taken with
             orders: submitted?.orders ?? [],
-            invoiceNo: fields.invoiceNo.trim(),
+            invoices: fields.invoices.map(({ invoiceNo, type }) => ({ invoiceNo: invoiceNo.trim(), type })),
             salesman: fields.salesman.trim(),
             paymentStatus: fields.paymentStatus,
             team: joinList(fields.teams),
@@ -157,17 +210,20 @@ function OrderDesk({ saved, onNew }) {
                         purpose={submitted.purpose}
                         orders={submitted.orders}
                         concern={submitted.concern}
-                        invoiceNo={submitted.invoiceNo}
+                        invoices={submitted.invoices}
                         paymentStatus={submitted.paymentStatus}
                         salesman={submitted.salesman}
                         team={submitted.team}
                         pickupDate={submitted.pickupDate}
                     />
                     <div className="receipt-actions">
-                        <button type="button" className="submit-btn" onClick={() => setEditing(true)}>
-                            Edit
-                        </button>
-                        <PrintFunc ticket={submitted} />
+                        {/* a Customer Report has a concern, which Customer order no longer takes */}
+                        {!submitted.concern && (
+                            <button type="button" className="submit-btn" onClick={() => setEditing(true)}>
+                                Edit
+                            </button>
+                        )}
+                        <PrintFunc />
                         <button type="button" className="submit-btn" onClick={onNew}>
                             New order
                         </button>
@@ -184,9 +240,10 @@ function OrderDesk({ saved, onNew }) {
                     value={fields.name} onChange={set("name")} error={errors.name} />
                 <CheckPicker id="sale-types" label="Type of order" placeholder="Choose one or more"
                     names={purpose.map((p) => p.name)}
-                    value={fields.types} onChange={set("types")} error={errors.types} />
-                <SaleText id="sale-invoice" label="Invoice number" maxLength={MAX_INVOICE} placeholder="e.g. 2223"
-                    value={fields.invoiceNo} onChange={set("invoiceNo")} error={errors.invoiceNo} />
+                    value={fields.types} onChange={setTypes} error={errors.types} />
+                <InvoiceFields invoices={fields.invoices} types={fields.types} errors={errors.invoices}
+                    maxLength={MAX_INVOICE} max={MAX_INVOICES}
+                    onChange={set("invoices")} onAdd={addInvoice} onRemove={removeInvoice} />
                 <SaleText id="sale-salesman" label="Salesman name" narrow maxLength={MAX_SALESMAN}
                     value={fields.salesman} onChange={set("salesman")} error={errors.salesman} />
                 <SaleSelect id="sale-payment" label="Payment status" narrow placeholder="Choose..."
@@ -213,7 +270,9 @@ function OrderDesk({ saved, onNew }) {
                 <button type="submit" className="submit-btn" disabled={submitting}>
                     {submitting ? "Sending..." : editing ? "Update" : "Serve"}
                 </button>
-                <p className="submit-hint">The ticket prints as soon as it's {editing ? "updated" : "served"}.</p>
+                <p className="submit-hint">
+                    The ticket shows once it's {editing ? "updated" : "served"}; print it from there.
+                </p>
             </div>
         </form>
     );

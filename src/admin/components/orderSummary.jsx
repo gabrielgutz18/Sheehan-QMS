@@ -15,8 +15,8 @@ function SummaryRow({ label, value }) {
 // fields: the form as it is now; ticket: the saved ticket while it's being edited, for its number
 export default function OrderSummary({ fields, ticket }) {
     const pickup = !fields.returning ? "Today" : fields.pickupDate && formatPickup(fields.pickupDate);
+    const invoices = fields.invoices.filter((invoice) => invoice.invoiceNo.trim());
     const rows = [
-        ["Invoice number", fields.invoiceNo.trim()],
         ["Salesman", fields.salesman.trim()],
         ["Payment status", fields.paymentStatus],
         ["Team", fields.teams.join(", ")],
@@ -40,6 +40,23 @@ export default function OrderSummary({ fields, ticket }) {
                             <dd>
                                 <ul className="type-chips">
                                     {fields.types.map((type) => <li key={type}>{type}</li>)}
+                                </ul>
+                            </dd>
+                        ) : (
+                            <dd className="is-empty">—</dd>
+                        )}
+                    </div>
+                    <div>
+                        <dt>{invoices.length > 1 ? `Invoices (${invoices.length})` : "Invoice"}</dt>
+                        {invoices.length ? (
+                            <dd>
+                                <ul className="summary-invoices">
+                                    {invoices.map(({ key, invoiceNo, type }) => (
+                                        <li key={key}>
+                                            {invoiceNo.trim()}
+                                            {fields.types.includes(type) && <span className="invoice-type">{type}</span>}
+                                        </li>
+                                    ))}
                                 </ul>
                             </dd>
                         ) : (
