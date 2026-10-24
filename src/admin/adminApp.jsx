@@ -16,6 +16,7 @@ import CustomerOrderPage from './pages/customerOrderPage.jsx';
 import AccCreation from './pages/accCreation.jsx';
 import AccountPage from './pages/accountPage.jsx';
 import LoadingPage from './pages/loadingPage.jsx';
+import OrderStatusPage from './pages/orderStatusPage.jsx';
 
 // mounted at /admin/* — paths below are relative to it
 export default function AdminApp() {
@@ -41,9 +42,11 @@ export default function AdminApp() {
                             <Route path="history" element={<HistoryPage />} />
                         </Route>
 
-                        {/* the roofing and steel loading crews; no admin rights beyond this page and My account */}
+                        {/* the loading crew; no admin rights beyond these pages and My account */}
                         <Route element={<ProtectedRoute roles={["admin", "loading"]} />}>
                             <Route path="loading" element={<LoadingPage />} />
+                            {/* where every customer is; admins and sales have the same board on Customer order */}
+                            <Route path="order-status" element={<OrderStatusPage />} />
                         </Route>
 
                         <Route element={<ProtectedRoute roles={["admin"]} />}>

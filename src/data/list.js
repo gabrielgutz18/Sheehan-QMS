@@ -1,4 +1,4 @@
-// several types of order, or several loading teams, are kept as one text: "Roofings, Steel"
+// several types of order are kept as one text: "Roofings, Steel"
 // the backend reads and checks them the same way (server/api.js imports this)
 export const LIST_SEPARATOR = ", ";
 

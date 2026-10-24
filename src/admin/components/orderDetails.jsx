@@ -1,21 +1,14 @@
 import { colorLabel } from '../../data/roofingColors.js';
 import { formatPickup } from '../../data/pickupDate.js';
 import { checkerSummary } from '../../data/checkers.js';
-import { teamState, teamsOf } from '../data/loadingTeams.js';
-
-const TEAM_STATES = {
-    waiting: { mark: "", label: "waiting" },
-    serving: { mark: " · now", label: "serving now" },
-    done: { mark: " ✓", label: "done" },
-};
 
 // a sales time as Customer order keeps it, "13:05", the way this computer shows the time, e.g. "1:05 PM"
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
 const formatSalesTime = (time) => timeFormat.format(new Date(`2000-01-01T${time}`));
 
-// what the customer came for: the invoices (each with its type of order), payment status, loading teams (and how far
-// along each is), salesman, runner, receiver, sales times, checkers and pick-up day from Customer order, the items on
-// a ticket taken before invoices, or a Customer Report's concern in their own words
+// what the customer came for: the invoices (each with its type of order), payment status, sales team, salesman,
+// runner, receiver, sales times, checkers and pick-up day from Customer order, the items on a ticket taken before
+// invoices, or a Customer Report's concern in their own words
 export default function OrderDetails({ order }) {
     if (order.concern) {
         return (
@@ -43,16 +36,8 @@ export default function OrderDetails({ order }) {
                         </li>
                     ))}
                     {order.paymentStatus && <li className="sale-pay">{order.paymentStatus}</li>}
-                    {teamsOf(order).map((team) => {
-                        const state = teamState(order, team);
-                        return (
-                            <li key={team} className={`team-stop is-${state}`}>
-                                {team}
-                                <span aria-hidden="true">{TEAM_STATES[state].mark}</span>
-                                <span className="visually-hidden"> ({TEAM_STATES[state].label})</span>
-                            </li>
-                        );
-                    })}
+                    {/* the sales team that served the customer */}
+                    {order.team && <li>{order.team} team</li>}
                     {order.salesman && <li>Sold by {order.salesman}</li>}
                     {/* who the customer sent to collect the items */}
                     {order.runner && <li>Runner <strong>{order.runner}</strong></li>}

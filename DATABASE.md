@@ -197,6 +197,7 @@ On every start, any `.sql` file not yet listed in `schema_migrations` runs, in n
 | [`012_runner_name.sql`](server/migrations/012_runner_name.sql) | adds `runner` to `orders`: the person a customer sends to collect the items for them (`''` when they collect them themselves) |
 | [`013_receiver_sales_times.sql`](server/migrations/013_receiver_sales_times.sql) | adds `receiver`, `sales_time_in`, `sales_time_out` to `orders`: the receiver's name and the times (HH:MM) the customer came in to sales and left it, each `''` when left blank; like the runner, never printed on the ticket |
 | [`014_order_checkers.sql`](server/migrations/014_order_checkers.sql) | adds `checkers` to `orders`: the 1st and 2nd checker for each column of [`src/data/checkers.js`](src/data/checkers.js) (Roofing, Construction, Hardware/TBA/Chassis) as JSON with only the columns that have a name, e.g. `{"Roofing":["Pedro",""]}`; `''` while none is filled in (the ticket then has blank lines to write them on by hand) |
+| [`015_shared_loading.sql`](server/migrations/015_shared_loading.sql) | one shared loading line (Roofings and Steel are departments, not teams): adds `at_loading` to `orders` (1 while the loading crew is serving the customer), drops `orders.serving_team`, `orders.teams_done` and `users.team`, and takes Roofings and Steel off `orders.team`, which is now the sales team that served the customer |
 
 **Changing the tables later:** never edit a file that has already run anywhere. Add the next number instead, for example `server/migrations/006_add_counter_number.sql`:
 
@@ -234,10 +235,9 @@ erDiagram
         TEXT sales_time_out "HH:MM they left sales, or ''"
         TEXT checkers "JSON 1st and 2nd checker per column, or ''"
         TEXT payment_status "Vale | Paid | Terms, from src/data"
-        TEXT team "loading crews, e.g. Roofings, Steel; '' for none"
+        TEXT team "sales team that served them, e.g. GIGA; '' for none"
         TEXT pickup_date "YYYY-MM-DD a returning customer collects, or NULL"
-        TEXT serving_team "the crew serving the customer now, or NULL"
-        TEXT teams_done "crews that have finished, e.g. Roofings"
+        INTEGER at_loading "1 while the loading crew is serving them"
         TEXT status "pending | serving | returning | done"
         TEXT remarks
         TEXT created_at
@@ -283,7 +283,6 @@ erDiagram
         TEXT employee_id "unique when set"
         TEXT department
         TEXT photo "file in photos/"
-        TEXT team "loading accounts: their crew, else NULL"
     }
     sessions {
         TEXT sid_hash PK "SHA-256 of the cookie"

@@ -12,7 +12,7 @@ import { openDatabase, resolveDataDir, transaction } from './db.js';
 import paymentStatus from '../src/data/paymentStatus.js';
 import teams from '../src/data/teams.js';
 import checkers, { CHECKER_ROUNDS } from '../src/data/checkers.js';
-import { joinList, splitList } from '../src/data/list.js';
+import { splitList } from '../src/data/list.js';
 
 const SESSION_COOKIE = "sid";
 // each browser tab signs in on its own: the page sends its tab's id (X-Tab-Id) and the session cookie is named
@@ -59,7 +59,7 @@ const VIDEO_EXTENSIONS = {
 const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 const HISTORY_LIMIT = 200;
 const ANNOUNCER_REPEATS = [1, 2];
-// loading: the roofing and steel loading crews
+// loading: the loading crew, one shared line for every department (Roofings, Steel, ...)
 const ROLES = ["admin", "sales", "loading"];
 const USERNAME = /^[a-z0-9._-]{3,32}$/i;
 const MIN_PASSWORD = 8;
@@ -74,6 +74,7 @@ const ACCOUNT_ROUTES = [
 const ROLE_ROUTES = {
     sales: [
         ["GET", /^\/admin\/orders$/],
+        ["GET", /^\/admin\/order-status$/],
         // one of today's tickets, opened on Customer order to edit it
         ["GET", /^\/admin\/orders\/[^/]+$/],
         ["POST", /^\/admin\/orders\/[^/]+\/call$/],
@@ -85,10 +86,11 @@ const ROLE_ROUTES = {
         ["PUT", /^\/admin\/announcer\/volume$/],
         ...ACCOUNT_ROUTES,
     ],
-    // the Loading page: today's queue, and calling, finishing or sending back customers at their own team only
-    // (and only once sales has handed them over)
+    // the Loading page: the customers sales has handed over, and calling, finishing or sending them back to waiting
     loading: [
         ["GET", /^\/admin\/orders$/],
+        // the Order status board: every order, not just the ones handed over, with none of the sales details
+        ["GET", /^\/admin\/order-status$/],
         ["POST", /^\/admin\/loading\/[^/]+\/(call|done|back)$/],
         ...ACCOUNT_ROUTES,
     ],
@@ -318,23 +320,15 @@ const storedCheckers = (value = {}) => {
     return filled.length ? JSON.stringify(Object.fromEntries(filled)) : "";
 };
 
-// the loading teams an order goes to, "Roofings, Steel", each from the list once; "" for none
-const validTeamList = (team) => {
-    if (team === undefined || team === "") return true;
-    if (typeof team !== "string") return false;
-    const names = splitList(team);
-    return names.every((name) => TEAMS.includes(name)) && new Set(names).size === names.length;
-};
-
 // the sales details from Customer order, each optional: salesman, runner, receiver, the times the customer came in to
-// sales and left it, payment status, loading teams, and for a returning customer, the day they come back for the
-// items (null when they're taking them now)
+// sales and left it, payment status, the sales team that served them, and for a returning customer, the day they come
+// back for the items (null when they're taking them now)
 const validSale = ({
     salesman, runner, receiver, salesTimeIn, salesTimeOut, checkers: checkerNames, paymentStatus: payment, team, pickupDate,
 }) =>
     optionalText(salesman, MAX_SALESMAN) && optionalText(runner, MAX_RUNNER) && optionalText(receiver, MAX_RECEIVER) &&
     optionalTime(salesTimeIn) && optionalTime(salesTimeOut) && validCheckers(checkerNames) &&
-    optionalPick(payment, PAYMENT_STATUSES) && validTeamList(team) &&
+    optionalPick(payment, PAYMENT_STATUSES) && optionalPick(team, TEAMS) &&
     (pickupDate === undefined || pickupDate === null || validDay(pickupDate));
 
 const validReport = ({ concern, orders }) =>
@@ -395,8 +389,6 @@ const toMe = (row) => ({
     department: row.department,
     // the photo's file name doubles as a version for its URL, or null
     photo: row.photo,
-    // a loading account's crew (src/data/teams.js), or null
-    team: row.team,
 });
 
 // a report keeps only its concern and an order only its items, so switching purpose on Edit drops the other
@@ -449,13 +441,13 @@ const toOrder = (row, items, invoices) => ({
     // the checkers, { Roofing: ["Pedro", ""] }, with only the columns that have a name
     ...(row.checkers && { checkers: JSON.parse(row.checkers) }),
     ...(row.payment_status && { paymentStatus: row.payment_status }),
+    // team is the sales team that served the customer (src/data/teams.js); it stays theirs after the hand-over
     ...(row.team && { team: row.team }),
     ...(row.pickup_date && { pickupDate: row.pickup_date }),
-    // team is the loading crews it goes to; servingTeam the one serving the customer now, teamsDone those finished
-    ...(row.serving_team && { servingTeam: row.serving_team }),
-    ...(row.teams_done && { teamsDone: row.teams_done }),
-    // the sales staff member who handed the customer over to the loading crews, and when (ISO 8601); until then it's
-    // served at a sales counter and the crews can't call it
+    // the loading crew is serving the customer now (rather than a sales counter that called them back)
+    ...(row.at_loading === 1 && { atLoading: true }),
+    // the sales staff member who handed the customer over to loading, and when (ISO 8601); until then it's served at
+    // a sales counter and loading can't call it
     ...(row.handed_over_by !== null && {
         handedOver: { by: { id: row.handed_over_by, name: row.handed_over_by_name }, at: row.handed_over_at },
     }),
@@ -463,6 +455,22 @@ const toOrder = (row, items, invoices) => ({
     ...(row.served_by !== null && { servedBy: { id: row.served_by, name: row.served_by_name, photo: row.served_by_photo } }),
     // when they marked it Done (ISO 8601)
     ...(row.status === "done" && row.served_at && { servedAt: row.served_at }),
+});
+
+// an order on the Order status board, which every staff member sees: where the customer is, from the line to a sales
+// counter to loading, and nothing else (no invoices, payment or other sales details); servedBy is whoever is serving
+// them or last did, atLoading that it's the loading crew, team the sales team that served them
+const toStatus = (row) => ({
+    queueNum: row.queue_num,
+    name: row.name,
+    purpose: row.purpose,
+    status: row.status,
+    createdAt: row.created_at,
+    ...(row.team && { team: row.team }),
+    ...(row.at_loading === 1 && { atLoading: true }),
+    ...(row.handed_over_by !== null && { handedOver: true }),
+    ...(row.served_by !== null && { servedBy: { name: row.served_by_name } }),
+    ...(row.pickup_date && { pickupDate: row.pickup_date }),
 });
 
 // a ticket from any day for the History page; id picks it out, since numbers repeat every day
@@ -484,9 +492,6 @@ const ORDER_ROW = `o.*, u.name AS served_by_name, u.photo AS served_by_photo, h.
     LEFT JOIN users u ON u.id = o.served_by
     LEFT JOIN users h ON h.id = o.handed_over_by
     LEFT JOIN serves s ON s.order_id = o.id AND s.queue_date = o.queue_date AND s.user_id = o.served_by`;
-
-// waiting, with at least one loading crew finished: on their way from one crew to the next
-const BETWEEN_CREWS = "(status = 'pending' AND teams_done != '')";
 
 // "%" and "_" mean "anything" in LIKE, so a search for them is escaped
 const likePattern = (text) => `%${text.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
@@ -520,13 +525,13 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             WHERE id = :id`),
         setStatus: db.prepare(`
             UPDATE orders SET status = :status, called_at = :calledAt, remarks = :remarks, served_by = :servedBy,
-                serving_team = :servingTeam, teams_done = :teamsDone
+                at_loading = :atLoading
             WHERE id = :id`),
-        // sales hands the customer over to the loading crews: back in line, for the crews now, with the counter's
-        // remarks cleared so they don't follow the customer
+        // sales hands the customer over to loading: back in line, for the loading crew now, with the counter's
+        // remarks cleared so they don't follow the customer; the order keeps its sales team
         handOver: db.prepare(`
-            UPDATE orders SET team = :team, handed_over_by = :user, handed_over_at = :at, status = 'pending', remarks = '',
-                served_by = NULL, serving_team = NULL, teams_done = ''
+            UPDATE orders SET handed_over_by = :user, handed_over_at = :at, status = 'pending', remarks = '',
+                served_by = NULL, at_loading = 0
             WHERE id = :id`),
         // a point for the staff member who served this visit; reopening the ticket takes it back
         addPoint: db.prepare(`
@@ -543,12 +548,12 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         serving: db.prepare(`
             SELECT queue_num, name, purpose, CASE WHEN status = 'serving' THEN remarks ELSE '' END AS remarks, called_at
             FROM orders
-            WHERE queue_date = ? AND deleted_at IS NULL AND (status = 'serving' OR ${BETWEEN_CREWS})
+            WHERE queue_date = ? AND deleted_at IS NULL AND status = 'serving'
             ORDER BY called_at DESC`),
         // the line: waiting and returning customers, in number order
         upcoming: db.prepare(`
             SELECT queue_num, name, purpose, status FROM orders
-            WHERE queue_date = ? AND status IN ('pending', 'returning') AND NOT ${BETWEEN_CREWS} AND deleted_at IS NULL
+            WHERE queue_date = ? AND status IN ('pending', 'returning') AND deleted_at IS NULL
             ORDER BY queue_num`),
         // orders per time slot and purpose ("Roofings, Steel" as it's stored), deleted tickets and Customer Reports
         // left out; GET /admin/stats splits the purposes into their types of order
@@ -582,14 +587,14 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         // Restore puts the ticket back in line: today's keeps its number, an earlier day's gets today's next one
         restoreSameDay: db.prepare(`
             UPDATE orders SET deleted_at = NULL, restored_at = ?, status = 'pending', called_at = NULL, remarks = '',
-                served_by = NULL, serving_team = NULL, teams_done = '', handed_over_by = NULL, handed_over_at = NULL
+                served_by = NULL, at_loading = 0, handed_over_by = NULL, handed_over_at = NULL
             WHERE id = ?`),
         restoreToToday: db.prepare(`
             UPDATE orders SET
                 original_date = COALESCE(original_date, queue_date), original_num = COALESCE(original_num, queue_num),
                 queue_date = ?, queue_num = ?,
                 deleted_at = NULL, restored_at = ?, status = 'pending', called_at = NULL, remarks = '', served_by = NULL,
-                serving_team = NULL, teams_done = '', handed_over_by = NULL, handed_over_at = NULL
+                at_loading = 0, handed_over_by = NULL, handed_over_at = NULL
             WHERE id = ?`),
         insertItem: db.prepare("INSERT INTO order_items (order_id, position, item, qty, color) VALUES (?, ?, ?, ?, ?)"),
         deleteItems: db.prepare("DELETE FROM order_items WHERE order_id = ?"),
@@ -610,7 +615,7 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         // a disabled account's sign-ins stop working at once
         findSession: db.prepare(`
             SELECT s.expires, u.id, u.username, u.name, u.role, u.first_name, u.middle_name, u.surname,
-                u.employee_id, u.department, u.photo, u.team
+                u.employee_id, u.department, u.photo
             FROM sessions s JOIN users u ON u.id = s.user_id
             WHERE s.sid_hash = ? AND u.disabled_at IS NULL`),
         deleteSession: db.prepare("DELETE FROM sessions WHERE sid_hash = ?"),
@@ -621,11 +626,11 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         findUser: db.prepare("SELECT * FROM users WHERE username = ?"),
         findUserById: db.prepare("SELECT * FROM users WHERE id = ?"),
         insertUser: db.prepare(`
-            INSERT INTO users (username, name, first_name, surname, role, team, password_hash, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`),
-        resetBuiltInAdmin: db.prepare("UPDATE users SET role = 'admin', team = NULL, disabled_at = NULL, password_hash = ? WHERE id = ?"),
+            INSERT INTO users (username, name, first_name, surname, role, password_hash, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)`),
+        resetBuiltInAdmin: db.prepare("UPDATE users SET role = 'admin', disabled_at = NULL, password_hash = ? WHERE id = ?"),
         updateUser: db.prepare(`
-            UPDATE users SET name = :name, first_name = :firstName, surname = :surname, role = :role, team = :team,
+            UPDATE users SET name = :name, first_name = :firstName, surname = :surname, role = :role,
                 disabled_at = :disabledAt, password_hash = :passwordHash
             WHERE id = :id`),
         // My account
@@ -670,7 +675,7 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
     // the admin from .env always exists, as an enabled admin with the .env password, so nobody is locked out
     const builtIn = sql.findUser.get(adminUsername);
     if (builtIn) sql.resetBuiltInAdmin.run(hashPasswordSync(adminPassword), builtIn.id);
-    else sql.insertUser.run(adminUsername, adminUsername, adminUsername, "", "admin", null, hashPasswordSync(adminPassword), new Date().toISOString());
+    else sql.insertUser.run(adminUsername, adminUsername, adminUsername, "", "admin", hashPasswordSync(adminPassword), new Date().toISOString());
 
     const toUser = (row) => ({
         ...toMe(row),
@@ -687,20 +692,16 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
     // moves a ticket to a new status and keeps "who is serving it" and the points in step:
     // serving → the person who called it; waiting or returning → nobody; done → a point for whoever served it
     // (or whoever marked it done, if nobody called it); leaving done takes that visit's point back
-    // the loading crew serving it stays only while the same person keeps serving it, and leaving done puts the
-    // customer back in line for every crew; a customer handed over to loading already gave the sales staff member
-    // their point, so the crews finishing or reopening it leave that point alone
-    const changeStatus = (order, status, user, { calledAt = order.called_at, remarks = order.remarks, servedBy, servingTeam, teamsDone } = {}) =>
+    // atLoading (1 or 0) stays only while the same person keeps serving it; a customer handed over to loading already
+    // gave the sales staff member their point, so loading finishing or reopening it leaves that point alone
+    const changeStatus = (order, status, user, { calledAt = order.called_at, remarks = order.remarks, servedBy, atLoading } = {}) =>
         transaction(db, () => {
             const server = servedBy !== undefined ? servedBy
                 : status === "pending" || status === "returning" ? null
                 : status === "serving" ? (order.status === "serving" ? order.served_by : user.id)
                 : order.served_by ?? user.id;
-            const team = servingTeam !== undefined ? servingTeam
-                : status === "serving" && server === order.served_by ? order.serving_team
-                : null;
-            const done = teamsDone ?? (order.status === "done" && status !== "done" ? "" : order.teams_done);
-            sql.setStatus.run({ status, calledAt, remarks, servedBy: server, servingTeam: team, teamsDone: done, id: order.id });
+            const loading = atLoading ?? (status === "serving" && server === order.served_by ? order.at_loading : 0);
+            sql.setStatus.run({ status, calledAt, remarks, servedBy: server, atLoading: loading, id: order.id });
             if (order.handed_over_by !== null) return;
             if (order.status === "done" && status !== "done") sql.removePoint.run(order.id, order.queue_date);
             if (status === "done") sql.addPoint.run(order.id, server, order.queue_date, new Date().toISOString());
@@ -949,25 +950,23 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         if (method === "GET" && path === "/admin/users") return send(res, 200, sql.listUsers.all({ today: today(), now: Date.now() }).map(toUser));
 
         // only admins get here (see ROLE_ROUTES); new accounts are usually sales staff
-        // team: the crew a loading account belongs to; other roles have none
         if (method === "POST" && path === "/admin/users") {
-            const { username, name, password, role = "sales", team = null } = await readBody(req);
+            const { username, name, password, role = "sales" } = await readBody(req);
             if (typeof username !== "string" || !USERNAME.test(username.trim())) {
                 return send(res, 400, { message: "Usernames are 3–32 letters, numbers, dots, dashes or underscores." });
             }
             if (!validName(name)) return send(res, 400, { message: "Enter the staff member's name." });
             if (!validPassword(password)) return send(res, 400, { message: `Passwords need at least ${MIN_PASSWORD} characters.` });
             if (!ROLES.includes(role)) return send(res, 400, { message: "Pick admin, sales or loading." });
-            if (role === "loading" && !TEAMS.includes(team)) return send(res, 400, { message: `Pick a team: ${joinList(TEAMS)}.` });
             if (sql.findUser.get(username.trim())) return send(res, 409, { message: "That username is taken." });
             // they can add a middle name, employee ID and department themselves on My account
             const [firstName, surname] = splitName(name);
             const { lastInsertRowid } = sql.insertUser.run(username.trim(), name.trim(), firstName, surname, role,
-                role === "loading" ? team : null, await hashPassword(password), new Date().toISOString());
+                await hashPassword(password), new Date().toISOString());
             return send(res, 201, toUser({ ...sql.findUserById.get(lastInsertRowid), served_total: 0, served_today: 0, serving_now: 0, signed_in: 0 }));
         }
 
-        // { name?, role?, team?, password?, disabled? }
+        // { name?, role?, password?, disabled? }
         const userMatch = path.match(/^\/admin\/users\/(\d+)$/);
         if (method === "PATCH" && userMatch) {
             const account = sql.findUserById.get(Number(userMatch[1]));
@@ -978,7 +977,6 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
                 firstName: account.first_name,
                 surname: account.surname,
                 role: account.role,
-                team: account.team,
                 disabledAt: account.disabled_at,
                 passwordHash: account.password_hash,
             };
@@ -993,11 +991,6 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
                 if (lockedOut) return send(res, 400, { message: "You can't change the role of this account." });
                 changes.role = body.role;
             }
-            // a loading account keeps a team (the first one, until one is picked); any other role has none
-            if (body.team !== undefined && body.team !== null && !TEAMS.includes(body.team)) {
-                return send(res, 400, { message: `Pick a team: ${joinList(TEAMS)}.` });
-            }
-            changes.team = changes.role !== "loading" ? null : body.team ?? changes.team ?? TEAMS[0];
             if (body.disabled !== undefined && body.disabled !== (account.disabled_at !== null)) {
                 if (lockedOut) return send(res, 400, { message: "You can't switch off this account." });
                 changes.disabledAt = body.disabled ? new Date().toISOString() : null;
@@ -1098,16 +1091,21 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             return send(res, 200, { period, from: range[0], to: range[1], totals, buckets });
         }
 
-        // a loading account only gets the orders sales has handed over to its own team (none until an admin picks
-        // one), so each crew sees its own department's customers and nothing else
+        // a loading account only gets the orders sales has handed over: the one shared loading line
         if (method === "GET" && path === "/admin/orders") {
             const date = today();
             const itemsByOrder = Map.groupBy(sql.dayItems.all(date), (item) => item.order_id);
             const invoicesByOrder = Map.groupBy(sql.dayInvoices.all(date), (invoice) => invoice.order_id);
             const rows = sql.dayOrders.all(date).filter((row) =>
-                me.role !== "loading" || (row.handed_over_by !== null && splitList(row.team).includes(me.team)));
+                me.role !== "loading" || row.handed_over_by !== null);
             return send(res, 200, rows.map((row) =>
                 toOrder(row, itemsByOrder.get(row.id) ?? [], invoicesByOrder.get(row.id) ?? [])));
+        }
+
+        // the Order status board: all of today's orders for every staff member, a loading crew's included, so anyone
+        // can see where a customer is
+        if (method === "GET" && path === "/admin/order-status") {
+            return send(res, 200, sql.dayOrders.all(today()).map(toStatus));
         }
 
         // call (or call again) a ticket: it becomes the headline on the display with the admin's remarks
@@ -1124,20 +1122,17 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             return send(res, 200, loadOrder(findToday(order.queue_num)));
         }
 
-        // a sales counter hands the customer it's serving over to the loading crews: { team: "Roofings, Steel" }, the
-        // order's own teams if left out; they wait in line for the crews on the Loading page, and it counts as the
-        // customer served for whoever served them at the counter
+        // a sales counter hands the customer it's serving over to loading: they wait in line on the Loading page, the
+        // order keeps its sales team, and it counts as the customer served for whoever served them at the counter
         const handOverMatch = path.match(/^\/admin\/orders\/([^/]+)\/handover$/);
         if (method === "POST" && handOverMatch) {
             const order = findToday(Number(decodeURIComponent(handOverMatch[1])));
             if (!order) return send(res, 404, { message: "Order not found." });
             if (order.handed_over_by !== null) return send(res, 409, { message: "This customer is already with loading." });
             if (order.status !== "serving") return send(res, 409, { message: "Serve the customer first, then hand them over." });
-            const { team = order.team } = await readBody(req);
-            if (!team || !validTeamList(team)) return send(res, 400, { message: `Pick a team: ${joinList(TEAMS)}.` });
             const at = new Date().toISOString();
             transaction(db, () => {
-                sql.handOver.run({ team, user: me.id, at, id: order.id });
+                sql.handOver.run({ user: me.id, at, id: order.id });
                 sql.addPoint.run(order.id, order.served_by ?? me.id, order.queue_date, at);
             });
             return send(res, 200, loadOrder(findToday(order.queue_num)));
@@ -1163,49 +1158,31 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             }
         }
 
-        // the Loading page: a crew calls a customer to its area, marks its part done, or sends them back to waiting
-        // a loading account acts for its own team; an admin names one: { team, remarks? }
-        // a customer is in one place at a time, so while anyone is serving them, no other crew can call them;
-        // once every crew on the order is done, so is the order
+        // the Loading page: the loading crew calls a customer sales has handed over, marks them done, or sends them back
+        // to waiting; it's one shared line, so any loading account (or an admin) can call any of them, and finish or
+        // send back one the crew is serving; a customer is in one place at a time, so while a sales counter has them
+        // again, loading can't call them
         const loadingMatch = path.match(/^\/admin\/loading\/([^/]+)\/(call|done|back)$/);
         if (method === "POST" && loadingMatch) {
             const order = findToday(Number(decodeURIComponent(loadingMatch[1])));
             if (!order) return send(res, 404, { message: "Order not found." });
             const body = await readBody(req);
-            const team = me.role === "loading" ? me.team : body.team;
-            if (!TEAMS.includes(team)) {
-                return send(res, 400, {
-                    message: me.role === "loading" ? "Your account isn't on a team yet. Ask an admin to pick one on Accounts." : "Pick a team.",
-                });
-            }
-            const orderTeams = splitList(order.team);
-            const finished = splitList(order.teams_done);
-            if (!orderTeams.includes(team)) return send(res, 409, { message: `This order doesn't go to ${team}.` });
             if (order.handed_over_by === null) return send(res, 409, { message: "Sales hasn't handed this customer over yet." });
-            const servingHere = order.status === "serving" && order.serving_team === team;
+            const servingHere = order.status === "serving" && order.at_loading === 1;
 
             if (loadingMatch[2] === "call") {
-                if (order.status === "done" || finished.includes(team)) {
-                    return send(res, 409, { message: `${team} has already finished this order.` });
-                }
+                if (order.status === "done") return send(res, 409, { message: "Loading has already finished this order." });
                 if (order.status === "serving" && !servingHere) {
-                    return send(res, 409, { message: `Please wait until ${order.serving_team ?? order.served_by_name ?? "the other counter"} finishes.` });
+                    return send(res, 409, { message: `Please wait until ${order.served_by_name ?? "the other counter"} finishes.` });
                 }
                 const { remarks = "" } = body;
                 if (typeof remarks !== "string" || remarks.trim().length > MAX_REMARKS) {
                     return send(res, 400, { message: `Remarks must be ${MAX_REMARKS} characters or fewer.` });
                 }
-                changeStatus(order, "serving", me, { calledAt: Date.now(), remarks: remarks.trim(), servedBy: me.id, servingTeam: team });
+                changeStatus(order, "serving", me, { calledAt: Date.now(), remarks: remarks.trim(), servedBy: me.id, atLoading: 1 });
             } else {
-                if (!servingHere) return send(res, 409, { message: `${team} isn't serving this customer.` });
-                if (loadingMatch[2] === "back") {
-                    changeStatus(order, "pending", me);
-                } else {
-                    // kept in the order's own order of teams; the customer waits in line for any still to go
-                    const teamsDone = orderTeams.filter((t) => t === team || finished.includes(t));
-                    const left = orderTeams.length - teamsDone.length;
-                    changeStatus(order, left ? "pending" : "done", me, { teamsDone: joinList(teamsDone), ...(left && { remarks: "" }) });
-                }
+                if (!servingHere) return send(res, 409, { message: "Loading isn't serving this customer." });
+                changeStatus(order, loadingMatch[2] === "back" ? "pending" : "done", me);
             }
             return send(res, 200, loadOrder(findToday(order.queue_num)));
         }

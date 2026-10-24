@@ -103,9 +103,9 @@ export function SaleSelect({ id, label, value, onChange, options, placeholder, e
 // the 4px between the field and its list, and a little room to spare at the edge of the window
 const MENU_EDGE = 12;
 
-// a field that opens a list to tick one or more of, e.g. Roofings and Steel (Type of order, Team name)
-// they're kept in the list's order whatever order they're ticked in, so the first type (which gives the queue
-// number its letters) doesn't depend on the clicking
+// a field that opens a list to tick one or more of, e.g. Roofings and Steel (Type of order)
+// they're kept in the list's order whatever order they're ticked in, so the queue number's letters (one set per type,
+// "RT" for Roofings and Tire) don't depend on the clicking
 export function CheckPicker({ id, label, names, value, onChange, placeholder, optional, error }) {
     const [open, setOpen] = useState(false);
     const containerRef = useRef(null);

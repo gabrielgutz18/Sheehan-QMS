@@ -7,6 +7,9 @@ import {
     CheckPicker, InvoiceFields, ReturningField, SaleSelect, SaleTabs, SaleText, SaleTime,
 } from '../components/saleFields.jsx';
 import CheckerSection from './checkerSection.jsx';
+import LifeCycleTable from '../../components/lifeCycleStatus/lifecyle.jsx';
+import { BOARD_DOCKS } from '../components/orderStatusDrawer.jsx';
+import useMediaQuery from '../hooks/useMediaQuery.js';
 import OrderSummary from '../components/orderSummary.jsx';
 import TicketPicker from '../components/ticketPicker.jsx';
 import { useAuth } from '../auth/authContext.js';
@@ -15,6 +18,8 @@ import { joinList, splitList } from '../../data/list.js';
 import purpose from '../../data/purpose.js';
 import paymentStatus from '../../data/paymentStatus.js';
 import teams from '../../data/teams.js';
+
+const teamNames = teams.map((t) => t.name);
 import checkerColumns, { CHECKER_ROUNDS } from '../../data/checkers.js';
 import { createOrder, updateOrder } from '../../api/orderController.js';
 import { getOrder } from '../api/adminOrderController.js';
@@ -57,7 +62,8 @@ const fieldsFor = (saved, salesman) => ({
     checkers: Object.fromEntries(checkerColumns.map(({ name }) =>
         [name, CHECKER_ROUNDS.map((_, i) => saved?.checkers?.[name]?.[i] ?? "")])),
     paymentStatus: saved?.paymentStatus ?? "",
-    teams: splitList(saved?.team),
+    // one sales team; a ticket from before had a list, which has to be picked again
+    team: teamNames.includes(saved?.team) ? saved.team : "",
     returning: Boolean(saved?.pickupDate),
     pickupDate: saved?.pickupDate ?? "",
 });
@@ -77,7 +83,7 @@ const orderFrom = (fields, submitted) => ({
     checkers: Object.fromEntries(Object.entries(fields.checkers).map(([column, names]) =>
         [column, names.map((name) => name.trim())])),
     paymentStatus: fields.paymentStatus,
-    team: joinList(fields.teams),
+    team: fields.team,
     pickupDate: fields.returning ? fields.pickupDate : null,
 });
 
@@ -95,14 +101,17 @@ const previewOf = (fields, submitted) => {
 
 // staff (admin or sales) take a customer's order: their name, the runner they sent to collect the items and the
 // receiver (if any), the types of order, the invoices (each with the type of order it's for), the salesman, how
-// it's paid, the times the customer came in to sales and left it (if typed in), the loading teams that call them on
-// the Loading page, and for a customer coming back for the items on a later day, that day; the Checker tab takes the
+// it's paid, the times the customer came in to sales and left it (if typed in), the sales team that served them (it
+// stays theirs after the hand-over to loading), and for a customer coming back for the items on a later day, that
+// day; the Checker tab takes the
 // checkers, which the ticket always has, blank to be written in by hand, and Ticket preview shows the ticket exactly
 // as it will print; Serve gives the ticket its queue number and shows it, and Print ticket opens the print preview to
 // pick the printer
 // the runner, receiver and sales times are kept for staff only: they're never on the ticket
 // ?ticket=5 opens today's ticket 5 to edit it (Edit on Orders); ?ticket=5&view=1 shows its ticket to print it again
 // (View queue ticket here, or View ticket on Orders)
+// beside it all on the right, the Order status board: where every customer today is (in a narrower window, the top
+// bar's Order status drawer opens it)
 export default function CustomerOrderPage() {
     const [params, setParams] = useSearchParams();
     const ticket = Number(params.get("ticket")) || null;
@@ -111,6 +120,7 @@ export default function CustomerOrderPage() {
     const [opened, setOpened] = useState(null);
     // New order starts the form over
     const [round, setRound] = useState(0);
+    const boardDocks = useMediaQuery(BOARD_DOCKS);
 
     useEffect(() => {
         if (!ticket) return;
@@ -135,21 +145,33 @@ export default function CustomerOrderPage() {
                 <TicketPicker current={ticket} onView={(queueNum) => setParams({ ticket: String(queueNum), view: "1" })} />
             </div>
 
-            {ticket && !loaded ? (
-                <p className="admin-status">Opening the ticket...</p>
-            ) : loaded?.error ? (
-                <div className="admin-panel sale-missing">
-                    <p className="field-error" role="alert">Couldn't open ticket {ticket}: {loaded.error}</p>
-                    <button type="button" className="admin-btn" onClick={startNew}>Take a new order</button>
+            <div className={`desk-layout${boardDocks ? " has-status" : ""}`}>
+                <div className="desk-main">
+                    {ticket && !loaded ? (
+                        <p className="admin-status">Opening the ticket...</p>
+                    ) : loaded?.error ? (
+                        <div className="admin-panel sale-missing">
+                            <p className="field-error" role="alert">Couldn't open ticket {ticket}: {loaded.error}</p>
+                            <button type="button" className="admin-btn" onClick={startNew}>Take a new order</button>
+                        </div>
+                    ) : (
+                        <OrderDesk
+                            key={`${ticket ?? "new"}-${viewing ? "view" : "edit"}-${round}`}
+                            saved={loaded?.order ?? null}
+                            viewing={viewing}
+                            onNew={startNew}
+                        />
+                    )}
                 </div>
-            ) : (
-                <OrderDesk
-                    key={`${ticket ?? "new"}-${viewing ? "view" : "edit"}-${round}`}
-                    saved={loaded?.order ?? null}
-                    viewing={viewing}
-                    onNew={startNew}
-                />
-            )}
+
+                {/* every order today and where its customer is, the same board every counter and crew sees; in a
+                    narrower window, the top bar's Order status drawer opens it instead */}
+                {boardDocks && (
+                    <aside className="admin-panel desk-status">
+                        <LifeCycleTable compact />
+                    </aside>
+                )}
+            </div>
         </section>
     );
 }
@@ -319,10 +341,10 @@ function OrderDesk({ saved, viewing, onNew }) {
                         value={fields.salesTimeIn} onChange={set("salesTimeIn")} />
                     <SaleTime id="sale-time-out" label="Time out (sales)" optional narrow
                         value={fields.salesTimeOut} onChange={set("salesTimeOut")} />
-                    {/* the loading crews that call the customer, one at a time, on the Loading page */}
-                    <CheckPicker id="sale-teams" label="Team name" optional placeholder="No team"
-                        names={teams.map((t) => t.name)}
-                        value={fields.teams} onChange={set("teams")} />
+                    {/* the sales team serving the customer; handing them over to loading doesn't change it */}
+                    <SaleSelect id="sale-team" label="Sales team" optional narrow placeholder="No team"
+                        options={teamNames}
+                        value={fields.team} onChange={set("team")} />
                     <ReturningField
                         returning={fields.returning}
                         pickupDate={fields.pickupDate}

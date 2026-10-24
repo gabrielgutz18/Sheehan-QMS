@@ -1,7 +1,7 @@
 // Customer order as sales staff fill it in: one or more types of order, the invoices that list the items (each with
 // the type of order it's for), the runner the customer sent and the receiver (if any), the salesman, payment status,
-// the times the customer came in to sales and left it (if typed in), loading team, and for a returning customer, the
-// day they come back for the items
+// the times the customer came in to sales and left it (if typed in), the sales team serving them, and for a returning
+// customer, the day they come back for the items
 // run: npm test            only these: npm test -- --test-name-pattern="sales order"
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, test } from 'node:test';
@@ -30,7 +30,7 @@ const sale = (overrides = {}) => ({
     salesTimeOut: "",
     checkers: {},
     paymentStatus: "Vale",
-    team: "Roofings",
+    team: "GIGA",
     pickupDate: null,
     ...overrides,
 });
@@ -50,10 +50,10 @@ describe("sales order", () => {
         assert.deepEqual(saved.invoices, [{ invoiceNo: "43355521", type: "Roofings" }, { invoiceNo: "5566", type: "Steel" }]);
         assert.equal(saved.salesman, "Maria Santos");
         assert.equal(saved.paymentStatus, "Vale");
-        assert.equal(saved.team, "Roofings");
+        assert.equal(saved.team, "GIGA");
         assert.equal(saved.pickupDate, undefined);
         app.assertDatabaseHas("orders", {
-            queue_num: 1, salesman: "Maria Santos", payment_status: "Vale", team: "Roofings", pickup_date: null,
+            queue_num: 1, salesman: "Maria Santos", payment_status: "Vale", team: "GIGA", pickup_date: null,
         });
         app.assertDatabaseHas("order_invoices", { position: 0, invoice_no: "43355521", type: "Roofings" });
         app.assertDatabaseHas("order_invoices", { position: 1, invoice_no: "5566", type: "Steel" });
@@ -231,6 +231,9 @@ describe("sales order", () => {
         (await desk.post("/orders", sale({ paymentStatus: "Cash" }))).assertStatus(400);
         (await desk.post("/orders", sale({ paymentStatus: "vale" }))).assertStatus(400);
         (await desk.post("/orders", sale({ team: "Tires" }))).assertStatus(400);
+        // Roofings and Steel are departments, not sales teams, and an order has one team
+        (await desk.post("/orders", sale({ team: "Roofings" }))).assertStatus(400);
+        (await desk.post("/orders", sale({ team: "GIGA, MEGA" }))).assertStatus(400);
         (await desk.post("/orders", sale({ invoices: [{ invoiceNo: "9".repeat(31), type: "Roofings" }] }))).assertStatus(400);
         (await desk.post("/orders", sale({ salesman: "x".repeat(61) }))).assertStatus(400);
         (await desk.post("/orders", sale({ runner: "x".repeat(61) }))).assertStatus(400);
@@ -260,14 +263,14 @@ describe("sales order", () => {
         const day = localDay(-2);
 
         const changed = (await app.client().put("/orders/1", sale({
-            purpose: "Steel", invoices: [{ invoiceNo: "2563", type: "Steel" }], paymentStatus: "Paid", team: "Steel", pickupDate: day,
+            purpose: "Steel", invoices: [{ invoiceNo: "2563", type: "Steel" }], paymentStatus: "Paid", team: "MEGA", pickupDate: day,
         }))).assertStatus(200).body;
 
         assert.equal(changed.queueNum, 1);
         assert.equal(changed.purpose, "Steel");
         assert.deepEqual(changed.invoices, [{ invoiceNo: "2563", type: "Steel" }]);
         assert.equal(changed.paymentStatus, "Paid");
-        assert.equal(changed.team, "Steel");
+        assert.equal(changed.team, "MEGA");
         assert.equal(changed.pickupDate, day);
         app.assertDatabaseCount("order_invoices", 1);
 

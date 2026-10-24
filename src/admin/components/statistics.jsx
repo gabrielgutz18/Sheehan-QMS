@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { getStats } from '../api/adminStatsController.js';
 import LineChart from './lineChart.jsx';
 import { asDate, longLabel, shortLabel } from '../data/periodLabels.js';
+import { downloadFile, fileAsDataUrl } from '../export/download.js';
 import purpose from '../../data/purpose.js';
 import logoUrl from '../../assets/SheehanLogo.png';
 
@@ -33,25 +34,6 @@ const rangeText = ({ period, from, to }) => {
         return `${range}: ${month(from)} – ${month(to)}`;
     }
     return `${range}: ${day(from)} – ${day(to)}`;
-};
-
-function downloadFile(buffer, fileName) {
-    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = fileName;
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-}
-
-const fileAsDataUrl = async (url) => {
-    const blob = await (await fetch(url)).blob();
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-    });
 };
 
 export default function Statistics() {

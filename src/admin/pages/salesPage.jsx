@@ -10,7 +10,6 @@ import AnnouncerVolume from '../components/announcerVolume.jsx';
 import { readLastRemarks, saveLastRemarks } from '../data/lastRemarks.js';
 import { inLine } from '../data/orderStatus.js';
 import formatQueueNum from '../../data/queueNum.js';
-import { joinList } from '../../data/list.js';
 import Greetings from '../components/greetings.jsx';
 import ServedBy from '../components/servedBy.jsx';
 import OrderDetails from '../components/orderDetails.jsx';
@@ -20,8 +19,9 @@ import TicketDialog from '../components/ticketDialog.jsx';
 // or send them back to waiting, put a served customer who comes back in line as returning,
 // plus their own served totals and the announcer volume
 // (sales can't change the voice or the display video; the backend enforces that too)
-// every customer is served here first; for an order that goes to the loading crews, Hand over to loading sends
-// the customer on to the Loading page (it counts as a customer served), and they leave this counter's lists
+// every customer is served here first; for an order that goes on to loading, Hand over to loading sends the customer
+// on to the Loading page (it counts as a customer served, and the order keeps its sales team), and they leave this
+// counter's lists
 
 const ticketOf = (o) => formatQueueNum(o.queueNum, o.purpose);
 // Served today lists this many of the latest; the rest are counted under it
@@ -32,7 +32,7 @@ const servedTime = (o) => o.handedOver?.at ?? o.servedAt ?? "";
 export default function SalesPage() {
     const { user } = useAuth();
     const { orders: allOrders, setOrders, loading, error } = useOrders();
-    // the customers handed over are with the loading crews now
+    // the customers handed over are with loading now
     const orders = allOrders.filter((o) => !o.handedOver);
     const [busy, setBusy] = useState(null);
     const [actionError, setActionError] = useState("");
@@ -102,13 +102,13 @@ export default function SalesPage() {
         setHandingOver(order);
     };
 
-    // errors stay inside the dialog so the teams can be fixed and sent again
-    const handOver = async (teams) => {
+    // errors stay inside the dialog so it can be sent again
+    const handOver = async () => {
         const { queueNum } = handingOver;
         setBusy(queueNum);
         setHandOverError("");
         try {
-            replace(await handOverOrder(queueNum, joinList(teams)));
+            replace(await handOverOrder(queueNum));
             setStatsVersion((v) => v + 1);
             setHandingOver(null);
         } catch (err) {
@@ -157,10 +157,9 @@ export default function SalesPage() {
                                         <ServedBy order={o} />
                                     </div>
                                     <div className="row-actions">
-                                        {/* an order with loading teams goes on to them, so that's the main button */}
                                         <button
                                             type="button"
-                                            className={`admin-btn${o.team ? "" : " admin-btn-primary"}`}
+                                            className="admin-btn admin-btn-primary"
                                             disabled={busy === o.queueNum}
                                             onClick={() => setStatus(o, "done")}
                                         >
@@ -168,7 +167,7 @@ export default function SalesPage() {
                                         </button>
                                         <button
                                             type="button"
-                                            className={`admin-btn${o.team ? " admin-btn-primary" : ""}`}
+                                            className="admin-btn"
                                             disabled={busy === o.queueNum}
                                             aria-haspopup="dialog"
                                             onClick={() => openHandOver(o)}
@@ -269,7 +268,6 @@ export default function SalesPage() {
                                     <span className="counter-name">{o.name}</span>
                                     {o.handedOver ? (
                                         <>
-                                            {/* the teams, and how far along each is with them */}
                                             <span className="counter-meta">{o.purpose} · handed over to loading</span>
                                             <OrderDetails order={o} />
                                         </>
@@ -281,7 +279,7 @@ export default function SalesPage() {
                                     )}
                                 </div>
                                 {/* they came back after being served: back in line until a counter calls them (or,
-                                    once loading has finished with them, until the crews do) */}
+                                    once loading has finished with them, until loading does) */}
                                 {o.status === "done" && (
                                     <div className="row-actions">
                                         <button
