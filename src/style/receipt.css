@@ -145,6 +145,50 @@
   overflow-wrap: anywhere;
 }
 
+/* the checkers: a column each, a row for the 1st and the 2nd; each cell is underlined so a name left out can be
+   written in by hand */
+.receipt-checkers {
+  width: calc(100% + calc(var(--u, 1px) * 12));
+  margin: 0 calc(var(--u, 1px) * -6);
+  border-collapse: separate;
+  border-spacing: calc(var(--u, 1px) * 6) 0;
+  table-layout: fixed;
+}
+
+.receipt-checkers th {
+  padding: 0;
+  font-size: calc(var(--u, 1px) * 9);
+  font-weight: 600;
+  line-height: 1.15;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.receipt-checkers thead th {
+  padding-bottom: calc(var(--u, 1px) * 2);
+  vertical-align: bottom;
+}
+
+.receipt-checkers tr > :first-child {
+  width: calc(var(--u, 1px) * 44);
+  text-align: left;
+}
+
+.receipt-checkers tbody > * > * {
+  height: calc(var(--u, 1px) * 22);
+  vertical-align: bottom;
+}
+
+.receipt-checkers td {
+  padding: 0 0 calc(var(--u, 1px) * 1);
+  font-size: calc(var(--u, 1px) * 11);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text-dark);
+  border-bottom: 1px solid #555555;
+  overflow-wrap: anywhere;
+}
+
 /* pushed to the bottom of the ticket */
 .receipt .receipt-footer {
   margin-top: auto;
@@ -152,6 +196,62 @@
   font-size: calc(var(--u, 1px) * 10);
   font-weight: 500;
   color: var(--text-muted);
+}
+
+/* the ticket as it prints on its 90 x 148 mm page: Ticket preview, the ticket after Serve, and the print itself all use
+   it, so what's on screen is what comes out; it's the page less its 4 mm margins, with everything a little closer
+   together than the plain ticket so two invoices, all the sales details and the checkers still fit on one page */
+.receipt.receipt--paper {
+  width: 82mm;
+  max-width: none;
+  min-height: 139mm;
+  padding: 0;
+  /* the sheet under it is the paper, and shows where the page ends */
+  background: none;
+  box-shadow: none;
+}
+
+.receipt--paper .receipt-tear {
+  margin-bottom: 4px;
+}
+
+.receipt--paper .receipt-brand {
+  padding-bottom: 6px;
+}
+
+.receipt--paper .receipt-row {
+  padding: 5px 0 4px;
+}
+
+.receipt--paper .receipt-label {
+  line-height: 1.2;
+}
+
+.receipt--paper .receipt-queue {
+  font-size: 54px;
+}
+
+.receipt--paper .receipt-value {
+  font-size: 23px;
+}
+
+.receipt--paper .receipt-details {
+  gap: 4px 12px;
+}
+
+.receipt.receipt--paper .receipt-footer {
+  padding-top: 10px;
+}
+
+/* the sheet of paper the ticket is shown on: 90 x 148 mm with the printer's 4 mm margins; anything past the end of
+   the page is tinted red, since it would print on a second page */
+.ticket-sheet {
+  width: 90mm;
+  min-height: 148mm;
+  padding: 4mm;
+  background: linear-gradient(#ffffff 0 calc(148mm - 1px), var(--brand-red) calc(148mm - 1px) 148mm, #fbe9ea 148mm);
+  border: 1px solid var(--field-border);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.1);
 }
 
 @media (max-width: 480px) {

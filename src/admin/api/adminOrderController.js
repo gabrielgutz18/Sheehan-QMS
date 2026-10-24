@@ -5,6 +5,11 @@ import http from '../../api/http.js';
 
 export const listOrders = (options) => http.get("/admin/orders", options);
 
+// the Order status board, for every staff member: all of today's orders, with only where each customer is
+// → [{ queueNum, name, purpose, status, createdAt, team? (the sales team), atLoading?, handedOver?, servedBy?: { name },
+//      pickupDate? }]
+export const listOrderStatus = (options) => http.get("/admin/order-status", options);
+
 export const getOrder = (queueNum, options) => http.get(`/admin/orders/${encodeURIComponent(queueNum)}`, options);
 
 export const updateOrderStatus = (queueNum, status) =>
@@ -14,10 +19,9 @@ export const updateOrderStatus = (queueNum, status) =>
 export const callOrder = (queueNum, remarks) =>
     http.post(`/admin/orders/${encodeURIComponent(queueNum)}/call`, { remarks });
 
-// a sales counter hands the customer it's serving over to the loading crews: team is "Roofings, Steel"; they wait in
-// line for the crews on the Loading page, and it counts as the customer served
-export const handOverOrder = (queueNum, team) =>
-    http.post(`/admin/orders/${encodeURIComponent(queueNum)}/handover`, { team });
+// a sales counter hands the customer it's serving over to loading: they wait in line on the Loading page, the order
+// keeps its sales team, and it counts as the customer served
+export const handOverOrder = (queueNum) => http.post(`/admin/orders/${encodeURIComponent(queueNum)}/handover`);
 
 // takes the ticket out of the queue and moves it to History, where it can be restored
 export const deleteOrder = (queueNum) => http.delete(`/admin/orders/${encodeURIComponent(queueNum)}`);

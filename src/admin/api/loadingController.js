@@ -1,14 +1,13 @@
 import http from '../../api/http.js';
 
-// the Loading page: a crew calls a customer to its area, marks its part done, or sends them back to waiting
-// a loading account always acts for its own team; an admin passes the team they're working as
-// each returns the order; a call while another crew or counter is serving the customer is refused (409,
-// "Please wait until Roofings finishes.")
+// the Loading page: one shared line, so the loading crew calls any customer sales has handed over, marks them done,
+// or sends them back to waiting
+// each returns the order; a call while a sales counter is serving the customer again is refused (409,
+// "Please wait until Maria Santos finishes.")
 
-export const callAtTeam = (queueNum, { team, remarks }) =>
-    http.post(`/admin/loading/${encodeURIComponent(queueNum)}/call`, { team, remarks });
+export const callAtLoading = (queueNum, remarks) =>
+    http.post(`/admin/loading/${encodeURIComponent(queueNum)}/call`, { remarks });
 
-// the last crew on the order finishing marks the whole order done
-export const finishAtTeam = (queueNum, team) => http.post(`/admin/loading/${encodeURIComponent(queueNum)}/done`, { team });
+export const finishAtLoading = (queueNum) => http.post(`/admin/loading/${encodeURIComponent(queueNum)}/done`);
 
-export const sendBackFromTeam = (queueNum, team) => http.post(`/admin/loading/${encodeURIComponent(queueNum)}/back`, { team });
+export const sendBackFromLoading = (queueNum) => http.post(`/admin/loading/${encodeURIComponent(queueNum)}/back`);

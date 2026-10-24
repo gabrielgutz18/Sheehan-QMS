@@ -71,8 +71,9 @@ test("rebuilding orders and users keeps every ticket, its items, its point and s
     }
 });
 
-// 008 adds the sales details from Customer order, 009 the loading teams, 010 handing over to loading
-test("older tickets keep their items and get empty sales details and loading teams", () => {
+// 008 adds the sales details from Customer order, 010 handing over to loading, 012 the runner, 013 the receiver and
+// sales times, 014 the checkers, 015 the one shared loading line
+test("older tickets keep their items and get empty sales details", () => {
     const old = databaseBefore("008");
     old.exec(`
         INSERT INTO orders (id, queue_date, queue_num, name, purpose, created_at)
@@ -90,12 +91,17 @@ test("older tickets keep their items and get empty sales details and loading tea
         assert.deepEqual({ ...order }, { salesman: "", payment_status: "", team: "", pickup_date: null });
         assert.equal(db.prepare("SELECT COUNT(*) AS n FROM order_invoices WHERE order_id = 5").get().n, 0);
         assert.equal(db.prepare("SELECT COUNT(*) AS n FROM order_items WHERE order_id = 5").get().n, 1);
-        const loading = db.prepare("SELECT serving_team, teams_done FROM orders WHERE id = 5").get();
-        assert.deepEqual({ ...loading }, { serving_team: null, teams_done: "" });
-        assert.ok(db.prepare("PRAGMA table_info(users)").all().some((column) => column.name === "team"));
+        assert.equal(db.prepare("SELECT at_loading FROM orders WHERE id = 5").get().at_loading, 0);
         // still with sales until a counter hands them over
         const handover = db.prepare("SELECT handed_over_by, handed_over_at FROM orders WHERE id = 5").get();
         assert.deepEqual({ ...handover }, { handed_over_by: null, handed_over_at: null });
+        // the customer collects the items themselves
+        assert.equal(db.prepare("SELECT runner FROM orders WHERE id = 5").get().runner, "");
+        // no receiver or sales times on a ticket taken before they were asked for
+        const staffOnly = db.prepare("SELECT receiver, sales_time_in, sales_time_out FROM orders WHERE id = 5").get();
+        assert.deepEqual({ ...staffOnly }, { receiver: "", sales_time_in: "", sales_time_out: "" });
+        // no checkers yet: the ticket has blank lines for them
+        assert.equal(db.prepare("SELECT checkers FROM orders WHERE id = 5").get().checkers, "");
     } finally {
         db.close();
     }
@@ -124,6 +130,42 @@ test("each older ticket's invoice number becomes its first invoice, typed when i
         ]);
         assert.ok(!db.prepare("PRAGMA table_info(orders)").all().some((column) => column.name === "invoice_no"));
         assert.equal(db.prepare("SELECT COUNT(*) AS n FROM orders").get().n, 3);
+    } finally {
+        db.close();
+    }
+});
+
+// 015: Roofings and Steel are departments, not teams; loading is one shared line, and an order's team is its sales team
+test("loading crews are gone: Roofings and Steel come off the orders, and a customer at a crew stays at loading", () => {
+    const old = databaseBefore("015");
+    old.exec(`
+        INSERT INTO users (id, username, name, role, team, password_hash, created_at)
+            VALUES (1, 'pedro', 'Pedro Garcia', 'loading', 'Roofings', 'x', '2026-10-20T08:00:00.000Z');
+        INSERT INTO orders (id, queue_date, queue_num, name, purpose, team, status, serving_team, teams_done, served_by, created_at) VALUES
+            (1, '2026-10-24', 1, 'Juan Dela Cruz', 'Roofings, Steel', 'Roofings, Steel', 'serving', 'Steel', 'Roofings', 1, '2026-10-24T09:00:00.000Z'),
+            (2, '2026-10-24', 2, 'Ana Reyes', 'Roofings', 'Roofings, GIGA', 'pending', NULL, '', NULL, '2026-10-24T09:05:00.000Z'),
+            (3, '2026-10-24', 3, 'Pedro Santos', 'Tire', 'MEGA', 'done', NULL, '', NULL, '2026-10-24T09:10:00.000Z'),
+            (4, '2026-10-24', 4, 'Liza Mendoza', 'Steel', '', 'serving', NULL, '', 1, '2026-10-24T09:15:00.000Z');
+    `);
+    old.close();
+
+    const quiet = mock.method(console, "log", () => {});
+    const db = openDatabase(dataDir);
+    quiet.mock.restore();
+
+    try {
+        const orders = db.prepare("SELECT id, team, status, at_loading FROM orders ORDER BY id").all();
+        assert.deepEqual(orders.map((row) => ({ ...row })), [
+            { id: 1, team: "", status: "serving", at_loading: 1 },
+            { id: 2, team: "GIGA", status: "pending", at_loading: 0 },
+            { id: 3, team: "MEGA", status: "done", at_loading: 0 },
+            { id: 4, team: "", status: "serving", at_loading: 0 },
+        ]);
+        const columns = (table) => db.prepare(`PRAGMA table_info(${table})`).all().map((column) => column.name);
+        assert.ok(!columns("orders").includes("serving_team"));
+        assert.ok(!columns("orders").includes("teams_done"));
+        assert.ok(!columns("users").includes("team"));
+        assert.equal(db.prepare("SELECT role FROM users WHERE id = 1").get().role, "loading");
     } finally {
         db.close();
     }

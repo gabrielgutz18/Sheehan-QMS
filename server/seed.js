@@ -23,6 +23,9 @@ const NAMES = [
 ];
 
 const SALESMEN = ["Maria Santos", "Jun Villareal", "Kris Lopez"];
+// about one customer in four sends a runner to collect the items
+const RUNNERS = ["Boy Reyes", "Nonoy Santos", "Dodong Cruz", "Totoy Garcia"];
+const RUNNER_SHARE = 0.25;
 // about one customer in five comes back for the items on a later day
 const RETURNING_SHARE = 0.2;
 
@@ -51,8 +54,8 @@ const daysFromNow = (n) => {
 };
 
 // a customer as Customer order sends them: one or two types of order (in the list's order), an invoice for each,
-// the salesman, how they're paying, the loading crews for their types of order (a Roofings and Steel order goes to
-// both), and now and then a day they'll come back for the items
+// now and then a runner, the salesman, how they're paying, the sales team serving them, and now and then a day
+// they'll come back for the items
 const fakeCustomer = (name) => {
     const types = shuffled(purposes).slice(0, between(1, 2));
     const purpose = purposes.filter((p) => types.includes(p)).map((p) => p.name);
@@ -62,8 +65,9 @@ const fakeCustomer = (name) => {
         orders: [],
         invoices: purpose.map((type) => ({ invoiceNo: String(between(10000000, 99999999)), type })),
         salesman: pick(SALESMEN),
+        runner: Math.random() < RUNNER_SHARE ? pick(RUNNERS) : "",
         paymentStatus: pick(paymentStatus).type,
-        team: joinList(teams.filter((t) => purpose.includes(t.name)).map((t) => t.name)),
+        team: pick(teams).name,
         pickupDate: Math.random() < RETURNING_SHARE ? daysFromNow(between(1, 5)) : null,
     };
 };
@@ -87,7 +91,8 @@ try {
             order.purpose,
             order.invoices.map(({ invoiceNo, type }) => `invoice ${invoiceNo} (${type})`).join(", "),
             order.paymentStatus,
-            order.team && `loading: ${order.team}`,
+            order.runner && `runner: ${order.runner}`,
+            order.team && `${order.team} team`,
             order.pickupDate && `picks up ${order.pickupDate}`,
         ].filter(Boolean).join(" · ");
         console.log(`  ${formatQueueNum(order.queueNum, order.purpose).padEnd(7)} ${order.name.padEnd(16)} ${details}`);

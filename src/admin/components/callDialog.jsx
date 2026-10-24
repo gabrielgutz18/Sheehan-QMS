@@ -13,7 +13,7 @@ const QUICK_REMARKS = [
 ];
 
 // modal for calling a ticket; the remarks show under the number on the display screen
-// quickRemarks: the one-tap messages under the box (the Loading page offers its teams' areas instead)
+// quickRemarks: the one-tap messages under the box (the Loading page offers the loading areas instead)
 export default function CallDialog({ order, defaultRemarks = "", quickRemarks = QUICK_REMARKS, busy, error, onCall, onClose }) {
     const dialogRef = useRef(null);
     const inputRef = useRef(null);

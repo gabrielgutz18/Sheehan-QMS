@@ -5,6 +5,7 @@ import orderStatus from '../data/orderStatus.js';
 import formatQueueNum from '../../data/queueNum.js';
 import ServedBy from '../components/servedBy.jsx';
 import OrderDetails from '../components/orderDetails.jsx';
+import OrderExport from '../components/orderExport.jsx';
 
 const VIEWS = [
     { value: "deleted", label: "Deleted" },
@@ -22,7 +23,8 @@ const formatDay = (day) =>
 const formatTime = (iso) =>
     new Date(iso).toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 
-// deleted tickets and every earlier day's tickets, with Restore to put one back in today's queue
+// deleted tickets and every earlier day's tickets, with Restore to put one back in today's queue, and Export to Excel
+// for a range of days' customer orders
 export default function HistoryPage() {
     const [view, setView] = useState("deleted");
     const [search, setSearch] = useState("");
@@ -76,6 +78,7 @@ export default function HistoryPage() {
         <section className="admin-page">
             <div className="admin-page-head">
                 <h1 className="admin-title">Ticket history</h1>
+                <OrderExport />
             </div>
 
             <div className="history-filters">

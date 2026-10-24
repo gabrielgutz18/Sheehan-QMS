@@ -1,10 +1,12 @@
 // Customer order as sales staff fill it in: one or more types of order, the invoices that list the items (each with
-// the type of order it's for), the salesman, payment status, loading team, and for a returning customer, the day
-// they come back for the items
+// the type of order it's for), the runner the customer sent and the receiver (if any), the salesman, payment status,
+// the times the customer came in to sales and left it (if typed in), the sales team serving them, and for a returning
+// customer, the day they come back for the items
 // run: npm test            only these: npm test -- --test-name-pattern="sales order"
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, test } from 'node:test';
 
+import { buildReceipt } from '../../src/printing/escpos.js';
 import { bootApp, localDay } from '../support/testApp.js';
 
 let app;
@@ -22,8 +24,13 @@ const sale = (overrides = {}) => ({
     orders: [],
     invoices: [{ invoiceNo: "2223", type: "Roofings" }],
     salesman: "Maria Santos",
+    runner: "",
+    receiver: "",
+    salesTimeIn: "",
+    salesTimeOut: "",
+    checkers: {},
     paymentStatus: "Vale",
-    team: "Roofings",
+    team: "GIGA",
     pickupDate: null,
     ...overrides,
 });
@@ -43,10 +50,10 @@ describe("sales order", () => {
         assert.deepEqual(saved.invoices, [{ invoiceNo: "43355521", type: "Roofings" }, { invoiceNo: "5566", type: "Steel" }]);
         assert.equal(saved.salesman, "Maria Santos");
         assert.equal(saved.paymentStatus, "Vale");
-        assert.equal(saved.team, "Roofings");
+        assert.equal(saved.team, "GIGA");
         assert.equal(saved.pickupDate, undefined);
         app.assertDatabaseHas("orders", {
-            queue_num: 1, salesman: "Maria Santos", payment_status: "Vale", team: "Roofings", pickup_date: null,
+            queue_num: 1, salesman: "Maria Santos", payment_status: "Vale", team: "GIGA", pickup_date: null,
         });
         app.assertDatabaseHas("order_invoices", { position: 0, invoice_no: "43355521", type: "Roofings" });
         app.assertDatabaseHas("order_invoices", { position: 1, invoice_no: "5566", type: "Steel" });
@@ -60,6 +67,121 @@ describe("sales order", () => {
 
         assert.equal(saved.pickupDate, day);
         app.assertDatabaseHas("orders", { queue_num: 1, pickup_date: day });
+    });
+
+    test("a runner the customer sends to collect the items is kept with the order and shown to staff", async () => {
+        const saved = await takeOrder({ runner: "  Boy Reyes " });
+
+        assert.equal(saved.runner, "Boy Reyes");
+        app.assertDatabaseHas("orders", { queue_num: 1, runner: "Boy Reyes" });
+        const [listed] = (await (await app.actingAsSales()).get("/admin/orders")).assertStatus(200).body;
+        assert.equal(listed.runner, "Boy Reyes");
+
+        // the customer collects the items themselves after all
+        const cleared = (await app.client().put("/orders/1", sale({ runner: "" }))).assertStatus(200).body;
+        assert.equal(cleared.runner, undefined);
+        app.assertDatabaseHas("orders", { queue_num: 1, runner: "" });
+    });
+
+    test("the receiver and the times the customer came in to sales and left it are kept and shown to staff", async () => {
+        const saved = await takeOrder({ receiver: " Ana Cruz  ", salesTimeIn: "09:05", salesTimeOut: "13:40" });
+
+        assert.equal(saved.receiver, "Ana Cruz");
+        assert.equal(saved.salesTimeIn, "09:05");
+        assert.equal(saved.salesTimeOut, "13:40");
+        app.assertDatabaseHas("orders", {
+            queue_num: 1, receiver: "Ana Cruz", sales_time_in: "09:05", sales_time_out: "13:40",
+        });
+        const [listed] = (await (await app.actingAsSales()).get("/admin/orders")).assertStatus(200).body;
+        assert.equal(listed.receiver, "Ana Cruz");
+        assert.equal(listed.salesTimeIn, "09:05");
+        assert.equal(listed.salesTimeOut, "13:40");
+
+        // left blank on Edit
+        const cleared = (await app.client().put("/orders/1", sale())).assertStatus(200).body;
+        assert.equal(cleared.receiver, undefined);
+        assert.equal(cleared.salesTimeIn, undefined);
+        assert.equal(cleared.salesTimeOut, undefined);
+        app.assertDatabaseHas("orders", { queue_num: 1, receiver: "", sales_time_in: "", sales_time_out: "" });
+    });
+
+    test("the runner, receiver and sales times are optional", async () => {
+        const saved = await takeOrder({
+            runner: undefined, receiver: undefined, salesTimeIn: undefined, salesTimeOut: undefined,
+        });
+
+        assert.equal(saved.runner, undefined);
+        assert.equal(saved.receiver, undefined);
+        assert.equal(saved.salesTimeIn, undefined);
+        assert.equal(saved.salesTimeOut, undefined);
+        app.assertDatabaseHas("orders", { queue_num: 1, runner: "", receiver: "", sales_time_in: "", sales_time_out: "" });
+    });
+
+    test("the checkers are kept with only the names filled in, and can be filled in later with Edit", async () => {
+        const saved = await takeOrder({
+            checkers: { Roofing: [" Pedro ", ""], Construction: ["", ""], "Hardware/TBA/Chassis": ["", "Ana"] },
+        });
+
+        assert.deepEqual(saved.checkers, { Roofing: ["Pedro", ""], "Hardware/TBA/Chassis": ["", "Ana"] });
+        app.assertDatabaseHas("orders", {
+            queue_num: 1, checkers: JSON.stringify({ Roofing: ["Pedro", ""], "Hardware/TBA/Chassis": ["", "Ana"] }),
+        });
+
+        // sales fill in the rest later, and staff see them on the order
+        const later = { Roofing: ["Pedro", "Ben"], Construction: ["Carlo", ""], "Hardware/TBA/Chassis": ["", "Ana"] };
+        const edited = (await app.client().put("/orders/1", sale({ checkers: later }))).assertStatus(200).body;
+        assert.deepEqual(edited.checkers, later);
+        const [listed] = (await (await app.actingAsSales()).get("/admin/orders")).assertStatus(200).body;
+        assert.deepEqual(listed.checkers, later);
+
+        // all left blank again: to be written in by hand
+        const cleared = (await app.client().put("/orders/1", sale())).assertStatus(200).body;
+        assert.equal(cleared.checkers, undefined);
+        app.assertDatabaseHas("orders", { queue_num: 1, checkers: "" });
+    });
+
+    test("the checkers are optional", async () => {
+        const saved = await takeOrder({ checkers: undefined });
+
+        assert.equal(saved.checkers, undefined);
+        app.assertDatabaseHas("orders", { queue_num: 1, checkers: "" });
+    });
+
+    test("the ticket always has the checkers, with a line to write each one left blank on", async () => {
+        const saved = await takeOrder({ checkers: { Roofing: ["Pedro", ""] } });
+        const issuedAt = new Date("2026-10-24T15:20:00");
+
+        const printed = new TextDecoder().decode(
+            buildReceipt({ ...saved, queueNumber: "RS 01", issuedAt }, { columns: 32 }));
+
+        // each of these in turn, on 58mm paper: 32 characters a line
+        const blank = (round) => `${round}: ${"_".repeat(27)}\n`;
+        let from = printed.indexOf("CHECKERS");
+        assert.ok(from > 0, "the ticket has the checkers");
+        for (const text of [
+            "ROOFING", "1ST: Pedro\n", blank("2ND"),
+            "CONSTRUCTION", blank("1ST"), blank("2ND"),
+            "HARDWARE/TBA/CHASSIS", blank("1ST"), blank("2ND"),
+        ]) {
+            const at = printed.indexOf(text, from);
+            assert.ok(at >= from, `the checkers go on with ${text.trim()}`);
+            from = at + text.length;
+        }
+    });
+
+    test("the ticket never shows the runner, receiver or sales times", async () => {
+        const saved = await takeOrder({
+            runner: "Boy Reyes", receiver: "Ana Cruz", salesTimeIn: "09:05", salesTimeOut: "13:40",
+        });
+
+        // issued at a time that can't be mistaken for the sales times
+        const issuedAt = new Date("2026-10-24T15:20:00");
+        const printed = new TextDecoder().decode(buildReceipt({ ...saved, queueNumber: "RS 01", issuedAt }));
+
+        assert.ok(printed.includes("Juan Dela Cruz"));
+        for (const hidden of ["Boy Reyes", "Ana Cruz", "09:05", "13:40", "RUNNER", "RECEIVER"]) {
+            assert.ok(!printed.includes(hidden), `the ticket shows ${hidden}`);
+        }
     });
 
     test("the team is optional", async () => {
@@ -109,8 +231,24 @@ describe("sales order", () => {
         (await desk.post("/orders", sale({ paymentStatus: "Cash" }))).assertStatus(400);
         (await desk.post("/orders", sale({ paymentStatus: "vale" }))).assertStatus(400);
         (await desk.post("/orders", sale({ team: "Tires" }))).assertStatus(400);
+        // Roofings and Steel are departments, not sales teams, and an order has one team
+        (await desk.post("/orders", sale({ team: "Roofings" }))).assertStatus(400);
+        (await desk.post("/orders", sale({ team: "GIGA, MEGA" }))).assertStatus(400);
         (await desk.post("/orders", sale({ invoices: [{ invoiceNo: "9".repeat(31), type: "Roofings" }] }))).assertStatus(400);
         (await desk.post("/orders", sale({ salesman: "x".repeat(61) }))).assertStatus(400);
+        (await desk.post("/orders", sale({ runner: "x".repeat(61) }))).assertStatus(400);
+        (await desk.post("/orders", sale({ runner: 5 }))).assertStatus(400);
+        (await desk.post("/orders", sale({ receiver: "x".repeat(61) }))).assertStatus(400);
+        (await desk.post("/orders", sale({ checkers: { Tires: ["Pedro", ""] } }))).assertStatus(400);
+        (await desk.post("/orders", sale({ checkers: { Roofing: "Pedro" } }))).assertStatus(400);
+        (await desk.post("/orders", sale({ checkers: { Roofing: ["Pedro", "Ana", "Ben"] } }))).assertStatus(400);
+        (await desk.post("/orders", sale({ checkers: { Roofing: ["x".repeat(61), ""] } }))).assertStatus(400);
+        (await desk.post("/orders", sale({ checkers: { Roofing: [5, ""] } }))).assertStatus(400);
+        (await desk.post("/orders", sale({ checkers: [["Pedro"]] }))).assertStatus(400);
+        for (const time of ["9:05", "24:00", "12:60", "noon", "09:05:30", 905]) {
+            (await desk.post("/orders", sale({ salesTimeIn: time }))).assertStatus(400);
+            (await desk.post("/orders", sale({ salesTimeOut: time }))).assertStatus(400);
+        }
         (await desk.post("/orders", sale({ pickupDate: "2026-02-30" }))).assertStatus(400);
         (await desk.post("/orders", sale({ pickupDate: "tomorrow" }))).assertStatus(400);
         app.assertDatabaseCount("orders", 0);
@@ -125,14 +263,14 @@ describe("sales order", () => {
         const day = localDay(-2);
 
         const changed = (await app.client().put("/orders/1", sale({
-            purpose: "Steel", invoices: [{ invoiceNo: "2563", type: "Steel" }], paymentStatus: "Paid", team: "Steel", pickupDate: day,
+            purpose: "Steel", invoices: [{ invoiceNo: "2563", type: "Steel" }], paymentStatus: "Paid", team: "MEGA", pickupDate: day,
         }))).assertStatus(200).body;
 
         assert.equal(changed.queueNum, 1);
         assert.equal(changed.purpose, "Steel");
         assert.deepEqual(changed.invoices, [{ invoiceNo: "2563", type: "Steel" }]);
         assert.equal(changed.paymentStatus, "Paid");
-        assert.equal(changed.team, "Steel");
+        assert.equal(changed.team, "MEGA");
         assert.equal(changed.pickupDate, day);
         app.assertDatabaseCount("order_invoices", 1);
 
@@ -145,7 +283,7 @@ describe("sales order", () => {
     });
 
     test("the display shows the number but never the sales details", async () => {
-        await takeOrder();
+        await takeOrder({ runner: "Boy Reyes", receiver: "Ana Cruz", salesTimeIn: "09:05", salesTimeOut: "09:40" });
 
         const { upcoming } = (await app.client().get("/queue")).assertStatus(200).body;
 

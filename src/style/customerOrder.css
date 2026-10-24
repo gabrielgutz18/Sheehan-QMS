@@ -115,6 +115,10 @@
   margin: 0;
 }
 
+.receipt-section .ticket-sheet {
+  flex-shrink: 0;
+}
+
 .receipt-actions {
   display: flex;
   flex-direction: column;
@@ -147,11 +151,11 @@
     min-height: 0;
     background: none;
   }
-  .admin-shell:has(.receipt-section) :is(.admin-sidebar, .admin-scrim, .admin-topbar, .admin-page-head),
+  .admin-shell:has(.receipt-section) :is(.admin-sidebar, .admin-scrim, .admin-topbar, .admin-page-head, .desk-status),
   .receipt-actions {
     display: none !important;
   }
-  .admin-shell:has(.receipt-section) :is(.admin-body, .admin-main, .admin-page, .admin-panel),
+  .admin-shell:has(.receipt-section) :is(.admin-body, .admin-main, .admin-page, .admin-panel, .desk-layout),
   .receipt-section {
     display: block;
     max-width: none;
@@ -166,6 +170,15 @@
     /* the page less its margins, a hair short so rounding never spills onto a blank second page */
     min-height: 139mm;
     padding: 0;
+    box-shadow: none;
+  }
+  /* the page itself is the sheet */
+  .receipt-section .ticket-sheet {
+    width: auto;
+    min-height: 0;
+    padding: 0;
+    background: none;
+    border: none;
     box-shadow: none;
   }
 }

@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 
 import Clock from '../../components/clock.jsx';
 import { useAuth } from '../auth/authContext.js';
 import { ROLE_LABELS } from '../auth/roles.js';
+import useMediaQuery from '../hooks/useMediaQuery.js';
 import Avatar from './avatar.jsx';
+import OrderStatusDrawer, { BOARD_DOCKS } from './orderStatusDrawer.jsx';
 import logo from '../../assets/SheehanLogo.png';
 
 const icon = (d) => (
@@ -20,6 +22,8 @@ const navItems = [
     { to: "/admin/counter", label: "My counter", roles: ["admin", "sales"], icon: icon("M3 10h18M5 10v10h14V10M8 10V6a4 4 0 0 1 8 0v4") },
     { to: "/admin/orders", label: "Orders", roles: ["admin", "sales"], icon: icon("M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01") },
     { to: "/admin/loading", label: "Loading", roles: ["admin", "loading"], icon: icon("M3 6h11v10H3zM14 10h4l3 3v3h-7M5 18a2 2 0 1 0 4 0 2 2 0 1 0-4 0M15 18a2 2 0 1 0 4 0 2 2 0 1 0-4 0") },
+    // admins and sales have the same board on Customer order
+    { to: "/admin/order-status", label: "Order status", roles: ["loading"], icon: icon("M4 6h3M4 12h3M4 18h3M11 6h9M11 12h9M11 18h9M5.5 4.5v3M5.5 10.5v3M5.5 16.5v3") },
     { to: "/admin/history", label: "History", roles: ["admin", "sales"], icon: icon("M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2") },
     { to: "/admin/video", label: "Display video", roles: ["admin"], icon: icon("M3 6h13v12H3zM16 10l5-3v10l-5-3") },
     { to: "/admin/announcer", label: "Announcer", roles: ["admin"], icon: icon("M4 9v6h4l5 4V5L8 9zM16 9a3 3 0 0 1 0 6M18.5 6.5a7 7 0 0 1 0 11") },
@@ -34,6 +38,11 @@ export default function AdminLayout() {
     const [signingOut, setSigningOut] = useState(false);
     // only matters on narrow screens, where the sidebar slides over the page
     const [menuOpen, setMenuOpen] = useState(false);
+    const { pathname } = useLocation();
+    const boardDocks = useMediaQuery(BOARD_DOCKS);
+    // the Order status board is already on the page: the loading crews' Order status page, or beside Customer order
+    // in a window wide enough for it; everywhere else the top bar's drawer opens it
+    const boardOnPage = pathname === "/admin/order-status" || (pathname === "/admin/customer-order" && boardDocks);
 
     useEffect(() => {
         if (!menuOpen) return;
@@ -94,6 +103,7 @@ export default function AdminLayout() {
                         {icon("M4 6h16M4 12h16M4 18h16")}
                     </button>
                     <Clock />
+                    {!boardOnPage && <OrderStatusDrawer />}
                 </header>
 
                 <main className="admin-main">

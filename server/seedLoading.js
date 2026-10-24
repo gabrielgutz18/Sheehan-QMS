@@ -1,27 +1,26 @@
-// adds Loading staff accounts on the loading crews, like Laravel's db:seed, for trying the Loading page; each
-// signs in to the admin area for Loading and My account only, with no admin or sales rights, and sees only the
-// orders that go to its own team
+// adds Loading staff accounts, like Laravel's db:seed, for trying the Loading page; each signs in to the admin area
+// for Loading and My account only, with no admin or sales rights, and sees every order sales has handed over (loading
+// is one shared line)
 // they're made through the same POST /admin/users an admin uses on Accounts, signed in as the built-in admin from
 // .env; safe to run while the app is running, and running it again leaves existing accounts alone
-// run: npm run seed:loading                                 one demo account per crew, password loading123:
-//                                                           loading_roofing1 (Roofings) and loading_steel1 (Steel)
-//      npm run seed:loading -- pedro steel-crew-1 Steel     one account: your own username, password and team
+// run: npm run seed:loading                                 two demo accounts, password loading123:
+//                                                           loading1 and loading2
+//      npm run seed:loading -- pedro crew-password-1        one account: your own username and password
 // don't run it on the live server with the default password
 import { createServer } from 'node:http';
 
 import { createApi } from './api.js';
-import teams from '../src/data/teams.js';
 
 const DEFAULT_PASSWORD = "loading123";
 
-// one per crew, to hand over a Roofings and Steel order between them
+// two, to see them share the one loading line
 const DEMO_ACCOUNTS = [
-    { username: "loading_roofing1", name: "Roofing Loading 1", team: "Roofings" },
-    { username: "loading_steel1", name: "Steel Loading 1", team: "Steel" },
+    { username: "loading1", name: "Loading Staff 1" },
+    { username: "loading2", name: "Loading Staff 2" },
 ];
 
-const [username, password = DEFAULT_PASSWORD, team = teams[0].name] = process.argv.slice(2);
-const accounts = username ? [{ username, name: "Loading Staff", team }] : DEMO_ACCOUNTS;
+const [username, password = DEFAULT_PASSWORD] = process.argv.slice(2);
+const accounts = username ? [{ username, name: "Loading Staff" }] : DEMO_ACCOUNTS;
 
 const { ADMIN_USERNAME, ADMIN_PASSWORD, DATA_DIR } = process.env;
 if (!ADMIN_USERNAME || !ADMIN_PASSWORD) {
@@ -64,8 +63,7 @@ try {
         if (created.status === 409) {
             const existing = (await admin("GET", "/admin/users")).body
                 .find((a) => a.username.toLowerCase() === account.username.toLowerCase());
-            const on = existing?.team ? `, ${existing.team} team` : "";
-            console.log(`There's already an account named ${account.username} (role: ${existing?.role ?? "unknown"}${on}); left it as it is.`);
+            console.log(`There's already an account named ${account.username} (role: ${existing?.role ?? "unknown"}); left it as it is.`);
             continue;
         }
         if (created.status !== 201) throw new Error(`The API refused ${account.username} (${created.status}): ${created.body?.message}`);
@@ -75,8 +73,8 @@ try {
         await staff("POST", "/auth/login", { username: account.username, password });
         const me = (await staff("GET", "/auth/me")).body;
         const history = (await staff("GET", "/admin/history")).status;
-        console.log(`Added ${me.name}: username ${account.username}, password ${password}, role ${me.role}, ${me.team} team`);
-        console.log(`  signs in to the Loading page and My account; sees only ${me.team} orders; admin and sales pages refused (${history})`);
+        console.log(`Added ${me.name}: username ${account.username}, password ${password}, role ${me.role}`);
+        console.log(`  signs in to the Loading page and My account; sees every order handed over; admin and sales pages refused (${history})`);
     }
     console.log(`Data folder: ${api.dataDir}`);
 } catch (err) {

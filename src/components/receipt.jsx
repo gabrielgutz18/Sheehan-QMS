@@ -4,13 +4,18 @@ import '../style/receipt.css';
 import logo from '../assets/SheehanLogo.png';
 import { colorLabel } from '../data/roofingColors.js';
 import { formatPickup } from '../data/pickupDate.js';
+import checkerColumns, { CHECKER_ROUNDS, breakable } from '../data/checkers.js';
 
 // purpose: the type or types of order, e.g. "Roofings, Steel"
 // invoices: [{ invoiceNo, type }], each with the type of order it's for
 // paymentStatus, salesman, team, pickupDate: the sales details from Customer order, each shown once it's set
 // orders: the items on a ticket taken before invoices; concern: a Customer Report's concern, shown in place of them
+// checkers: { Roofing: ["Pedro", ""] }; the table is always on the ticket, each name left out a line to write it on
+// the runner, receiver and sales times from Customer order are for staff only, so the ticket never shows them
+// paper: laid out exactly as it prints on its 90 x 148 mm page (see .receipt--paper in receipt.css)
 export default function Receipt({
     queueNumber, name, purpose, orders = [], concern, invoices = [], paymentStatus, salesman, team, pickupDate,
+    checkers = {}, paper = false,
 }) {
     const details = [
         ["Payment", paymentStatus],
@@ -20,7 +25,7 @@ export default function Receipt({
     ].filter(([, value]) => value);
 
     return (
-        <section className="receipt">
+        <section className={`receipt${paper ? " receipt--paper" : ""}`}>
             <hr className="receipt-tear" />
 
             <div className="receipt-brand">
@@ -84,6 +89,32 @@ export default function Receipt({
                             <li key={i}>{o.qty}x {o.item}{o.color && ` (${colorLabel(o.color)})`}</li>
                         ))}
                     </ul>
+                </div>
+            )}
+
+            {/* a Customer Report's ticket isn't checked out */}
+            {!concern && (
+                <div className="receipt-row">
+                    <table className="receipt-checkers">
+                        <thead>
+                            <tr>
+                                <th scope="col">Checker</th>
+                                {checkerColumns.map(({ name: column }) => (
+                                    <th key={column} scope="col">{breakable(column)}</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {CHECKER_ROUNDS.map(({ name: round, short }, i) => (
+                                <tr key={round}>
+                                    <th scope="row" aria-label={round}>{short}</th>
+                                    {checkerColumns.map(({ name: column }) => (
+                                        <td key={column}>{checkers[column]?.[i]}</td>
+                                    ))}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
             )}
 

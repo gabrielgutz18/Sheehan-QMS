@@ -5,18 +5,16 @@ import { useAuth } from '../auth/authContext.js';
 import { ROLE_LABELS } from '../auth/roles.js';
 import Avatar from '../components/avatar.jsx';
 import EmployeeGrid from '../components/employeeGrid.jsx';
-import teams from '../../data/teams.js';
 
-// staff accounts, admins only: create accounts (usually sales staff), reset passwords, switch accounts off,
-// put loading staff on a team, and see how many customers each person has served
+// staff accounts, admins only: create accounts (usually sales staff), reset passwords, switch accounts off, and see
+// how many customers each person has served
 // an account is switched off rather than deleted, so the customers it served stay on record
 
 const MIN_PASSWORD = 8;
 // who's signed in and serving keeps changing, so the list refreshes while the page is open
 const REFRESH_MS = 30000;
 const whole = new Intl.NumberFormat();
-const teamNames = teams.map((t) => t.name);
-const EMPTY_FORM = { name: "", username: "", password: "", role: "sales", team: teamNames[0] };
+const EMPTY_FORM = { name: "", username: "", password: "", role: "sales" };
 
 // a small dialog for typing someone's new password
 function PasswordDialog({ account, busy, error, onSave, onClose }) {
@@ -115,14 +113,7 @@ export default function AccCreation() {
         setError("");
         setNotice("");
         try {
-            const { team, ...account } = form;
-            const created = await createUser({
-                ...account,
-                username: form.username.trim(),
-                name: form.name.trim(),
-                // only loading staff are on a team
-                ...(form.role === "loading" && { team }),
-            });
+            const created = await createUser({ ...form, username: form.username.trim(), name: form.name.trim() });
             edits.current += 1;
             setAccounts((prev) => [...prev, created]);
             setNotice(`Account created. ${created.name} can sign in with the username “${created.username}”.`);
@@ -225,18 +216,10 @@ export default function AccCreation() {
                         Role
                         <select {...field("role")}>
                             <option value="sales">Sales: serves customers from My counter</option>
-                            <option value="loading">Loading: calls customers to their team's area, their own page only</option>
+                            <option value="loading">Loading: calls customers sales hands over, their own page only</option>
                             <option value="admin">Admin: everything, including accounts</option>
                         </select>
                     </label>
-                    {form.role === "loading" && (
-                        <label className="admin-field">
-                            Team
-                            <select {...field("team")}>
-                                {teamNames.map((name) => <option key={name} value={name}>{name}</option>)}
-                            </select>
-                        </label>
-                    )}
                     <div className="account-form-actions">
                         <button type="submit" className="admin-btn admin-btn-primary" disabled={creating}>
                             {creating ? "Creating..." : "Create account"}
@@ -293,19 +276,6 @@ export default function AccCreation() {
                                                 <option value="sales">Sales</option>
                                                 <option value="loading">Loading</option>
                                                 <option value="admin">Admin</option>
-                                            </select>
-                                        )}
-                                        {/* the crew whose customers they call on the Loading page */}
-                                        {a.role === "loading" && (
-                                            <select
-                                                className="status-select account-team"
-                                                aria-label={`Team for ${a.name}`}
-                                                value={a.team ?? ""}
-                                                disabled={busy === a.id}
-                                                onChange={(e) => change(a, { team: e.target.value }, `${a.name} is now on the ${e.target.value} team.`)}
-                                            >
-                                                {!a.team && <option value="" disabled>Pick a team</option>}
-                                                {teamNames.map((name) => <option key={name} value={name}>{name} team</option>)}
                                             </select>
                                         )}
                                     </td>
