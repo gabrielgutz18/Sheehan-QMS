@@ -1,22 +1,31 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { listOrders } from '../api/adminOrderController.js';
 
 // keep the queue fresh while the page is open
 const REFRESH_MS = 10000;
 
-export default function useOrders() {
+// refreshMs: how often to fetch again; the Order sheet, which several people work on at once, asks for it sooner
+// changed(): call it when a save starts and when it ends; a refresh asked for before then is dropped, since it would
+// show the change undone until the next one
+export default function useOrders({ refreshMs = REFRESH_MS } = {}) {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const saves = useRef(0);
+    const changed = useCallback(() => {
+        saves.current += 1;
+    }, []);
 
     useEffect(() => {
         const controller = new AbortController();
         const { signal } = controller;
 
-        const load = () =>
-            listOrders({ signal })
+        const load = () => {
+            const asked = saves.current;
+            return listOrders({ signal })
                 .then((data) => {
+                    if (saves.current !== asked) return;
                     setOrders(data ?? []);
                     setError("");
                 })
@@ -26,14 +35,15 @@ export default function useOrders() {
                 .finally(() => {
                     if (!signal.aborted) setLoading(false);
                 });
+        };
 
         load();
-        const id = setInterval(load, REFRESH_MS);
+        const id = setInterval(load, refreshMs);
         return () => {
             clearInterval(id);
             controller.abort();
         };
-    }, []);
+    }, [refreshMs]);
 
-    return { orders, setOrders, loading, error };
+    return { orders, setOrders, loading, error, changed };
 }

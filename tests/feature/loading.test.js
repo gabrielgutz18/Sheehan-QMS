@@ -74,12 +74,50 @@ describe("loading", () => {
         const finished = (await pedro.post("/admin/loading/1/done")).assertStatus(200).body;
         assert.equal(finished.status, "done");
         assert.equal(finished.atLoading, undefined);
-        // the point is the sales counter's, from the handover
+        // whoever pressed Done loaded it; the point is the sales counter's, from the handover
+        assert.equal(finished.loaded.by.name, "Pedro Garcia");
         app.assertDatabaseCount("serves", 1);
         app.assertDatabaseHas("serves", { user_id: maria.account.id });
 
         const refused = (await rico.post("/admin/loading/1/call")).assertStatus(409).body;
         assert.equal(refused.message, "Loading has already finished this order.");
+        // nor can a sales counter call them back once it's loaded
+        (await maria.post("/admin/orders/1/call")).assertStatus(409);
+        app.assertDatabaseHas("orders", { queue_num: 1, status: "done", loaded_by: pedro.account.id });
+    });
+
+    test("loading isn't serving: Done means the order is loaded, and it stays served by the sales counter", async () => {
+        await takeOrder();
+        const { maria, pedro } = await staff();
+        const handed = await handOver(maria, 1);
+        (await pedro.post("/admin/loading/1/call")).assertStatus(200);
+
+        const loaded = (await pedro.post("/admin/loading/1/done")).assertStatus(200).body;
+
+        assert.equal(loaded.status, "done");
+        assert.equal(loaded.servedBy.name, "Maria Santos");
+        // when the sales counter served them: the handover
+        assert.equal(loaded.servedAt, handed.handedOver.at);
+        assert.equal(loaded.loaded.by.name, "Pedro Garcia");
+        assert.ok(loaded.loaded.at);
+        app.assertDatabaseHas("orders", { queue_num: 1, served_by: maria.account.id, loaded_by: pedro.account.id });
+        // it's the sales counter's customer served, not loading's
+        assert.equal((await maria.get("/admin/me/stats?period=day")).assertStatus(200).body.totals.today, 1);
+        const users = (await (await app.actingAsAdmin()).get("/admin/users")).assertStatus(200).body;
+        assert.equal(users.find((u) => u.name === "Pedro Garcia").servedToday, 0);
+    });
+
+    test("an admin marking a customer at loading Done records the loading staff member as loading it", async () => {
+        await takeOrder();
+        const admin = await app.actingAsAdmin();
+        const { maria, pedro } = await staff();
+        await handOver(maria, 1);
+        (await pedro.post("/admin/loading/1/call")).assertStatus(200);
+
+        const done = (await admin.patch("/admin/orders/1", { status: "done" })).assertStatus(200).body;
+
+        assert.equal(done.servedBy.name, "Maria Santos");
+        assert.equal(done.loaded.by.name, "Pedro Garcia");
     });
 
     test("a customer called back to a sales counter can't be called by loading", async () => {
@@ -152,6 +190,9 @@ describe("loading", () => {
         const reopened = (await maria.patch("/admin/orders/1", { status: "returning" })).assertStatus(200).body;
 
         assert.equal(reopened.handedOver.by.id, maria.account.id);
+        // it isn't loaded any more
+        assert.equal(reopened.loaded, undefined);
+        app.assertDatabaseHas("orders", { queue_num: 1, loaded_by: null, loaded_at: null });
         (await pedro.post("/admin/loading/1/call")).assertStatus(200);
         // the sales counter keeps the point from the handover
         app.assertDatabaseHas("serves", { user_id: maria.account.id });
@@ -250,7 +291,8 @@ describe("sales teams", () => {
             username: "pedro", name: "Pedro Garcia", password: "password1", role: "loading",
         })).assertStatus(201).body;
 
-        assert.equal(created.team, undefined);
+        // no loading crew; an account's own sales team (users.sales_team) is only for marking edits, and this one has none
+        assert.equal(created.team, "");
         assert.ok(!app.db.prepare("PRAGMA table_info(users)").all().some((column) => column.name === "team"));
     });
 });

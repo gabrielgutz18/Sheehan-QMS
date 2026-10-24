@@ -22,7 +22,7 @@ export const SNAPSHOT_FILE = fileURLToPath(new URL('../seeders/snapshot.json', i
 // bumped if the file's layout ever changes, so an old snapshot is refused instead of half-loaded
 const FORMAT = 1;
 // parents before children, so the foreign keys hold while loading; sign-ins (sessions) aren't carried
-const TABLES = ["users", "orders", "order_items", "order_invoices", "serves", "queue_counters", "settings"];
+const TABLES = ["users", "orders", "order_items", "order_invoices", "order_edits", "serves", "queue_counters", "settings"];
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const pad2 = (n) => String(n).padStart(2, "0");
@@ -46,7 +46,9 @@ const TIME_COLUMNS = {
     orders: {
         queue_date: "day", original_date: "day",
         created_at: "iso", deleted_at: "iso", restored_at: "iso", called_at: "ms", handed_over_at: "iso",
+        loaded_at: "iso",
     },
+    order_edits: { edited_at: "iso" },
     serves: { queue_date: "day", served_at: "iso" },
     queue_counters: { queue_date: "day" },
 };

@@ -73,15 +73,15 @@ describe("customer reports", () => {
     });
 
     test("editing switches cleanly between a report and an order", async () => {
-        const kiosk = app.client();
-        await kiosk.post("/orders", report());
+        await app.client().post("/orders", report());
+        const desk = await app.actingAsSales();
 
-        const asOrder = (await kiosk.put("/orders/1", ticket())).assertStatus(200).body;
+        const asOrder = (await desk.put("/admin/orders/1", ticket())).assertStatus(200).body;
         assert.equal(asOrder.concern, undefined);
         assert.equal(asOrder.orders.length, 1);
         app.assertDatabaseHas("orders", { queue_num: 1, purpose: "Roofings", concern: "" });
 
-        const asReport = (await kiosk.put("/orders/1", report({ concern: "Changed my mind" }))).assertStatus(200).body;
+        const asReport = (await desk.put("/admin/orders/1", report({ concern: "Changed my mind" }))).assertStatus(200).body;
         assert.equal(asReport.concern, "Changed my mind");
         assert.deepEqual(asReport.orders, []);
         app.assertDatabaseCount("order_items", 0);

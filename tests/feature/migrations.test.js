@@ -170,3 +170,62 @@ test("loading crews are gone: Roofings and Steel come off the orders, and a cust
         db.close();
     }
 });
+
+// 016: loading isn't serving; an order loading already finished goes back to the sales staff member who handed it over
+test("an order loading has finished is served by the sales counter again, and loaded by the loading staff member", () => {
+    const old = databaseBefore("016");
+    old.exec(`
+        INSERT INTO users (id, username, name, role, password_hash, created_at) VALUES
+            (1, 'maria', 'Maria Santos', 'sales', 'x', '2026-10-20T08:00:00.000Z'),
+            (2, 'pedro', 'Pedro Garcia', 'loading', 'x', '2026-10-20T08:00:00.000Z');
+        INSERT INTO orders (id, queue_date, queue_num, name, purpose, status, served_by, handed_over_by, created_at) VALUES
+            (1, '2026-10-24', 1, 'Juan Dela Cruz', 'Roofings', 'done', 2, 1, '2026-10-24T09:00:00.000Z'),
+            (2, '2026-10-24', 2, 'Ana Reyes', 'Roofings', 'serving', 2, 1, '2026-10-24T09:05:00.000Z'),
+            (3, '2026-10-24', 3, 'Pedro Santos', 'Tire', 'done', 1, NULL, '2026-10-24T09:10:00.000Z');
+    `);
+    old.close();
+
+    const quiet = mock.method(console, "log", () => {});
+    const db = openDatabase(dataDir);
+    quiet.mock.restore();
+
+    try {
+        const orders = db.prepare("SELECT id, served_by, loaded_by, loaded_at FROM orders ORDER BY id").all();
+        assert.deepEqual(orders.map((row) => ({ ...row })), [
+            { id: 1, served_by: 1, loaded_by: 2, loaded_at: null },
+            // still at loading, and an order that never went to loading
+            { id: 2, served_by: 2, loaded_by: null, loaded_at: null },
+            { id: 3, served_by: 1, loaded_by: null, loaded_at: null },
+        ]);
+    } finally {
+        db.close();
+    }
+});
+
+// 017: each account gets its own sales team (none yet), and each order a list of edits (empty yet)
+test("accounts start with no sales team and orders with no edits, and an order's edits go with it", () => {
+    const old = databaseBefore("017");
+    old.exec(`
+        INSERT INTO users (id, username, name, role, password_hash, created_at)
+            VALUES (1, 'maria', 'Maria Santos', 'sales', 'x', '2026-10-20T08:00:00.000Z');
+        INSERT INTO orders (id, queue_date, queue_num, name, purpose, status, created_at)
+            VALUES (1, '2026-10-24', 1, 'Juan Dela Cruz', 'Roofings', 'pending', '2026-10-24T09:00:00.000Z');
+    `);
+    old.close();
+
+    const quiet = mock.method(console, "log", () => {});
+    const db = openDatabase(dataDir);
+    quiet.mock.restore();
+
+    try {
+        assert.equal(db.prepare("SELECT sales_team FROM users WHERE id = 1").get().sales_team, "");
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM order_edits").get().n, 0);
+
+        db.prepare(`INSERT INTO order_edits (order_id, user_id, sales_team, changes, edited_at)
+            VALUES (1, 1, 'GIGA', '["runner"]', '2026-10-24T09:30:00.000Z')`).run();
+        db.prepare("DELETE FROM orders WHERE id = 1").run();
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM order_edits").get().n, 0);
+    } finally {
+        db.close();
+    }
+});

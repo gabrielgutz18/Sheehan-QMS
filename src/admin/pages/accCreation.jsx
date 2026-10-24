@@ -5,16 +5,19 @@ import { useAuth } from '../auth/authContext.js';
 import { ROLE_LABELS } from '../auth/roles.js';
 import Avatar from '../components/avatar.jsx';
 import EmployeeGrid from '../components/employeeGrid.jsx';
+import teams from '../../data/teams.js';
 
-// staff accounts, admins only: create accounts (usually sales staff), reset passwords, switch accounts off, and see
-// how many customers each person has served
+// staff accounts, admins only: create accounts (usually sales staff), set each person's sales team, reset passwords,
+// switch accounts off, and see how many customers each person has served
 // an account is switched off rather than deleted, so the customers it served stay on record
+// the sales team marks the edits they save on Customer order ("Edited by Maria Santos · GIGA")
 
 const MIN_PASSWORD = 8;
 // who's signed in and serving keeps changing, so the list refreshes while the page is open
 const REFRESH_MS = 30000;
 const whole = new Intl.NumberFormat();
-const EMPTY_FORM = { name: "", username: "", password: "", role: "sales" };
+const EMPTY_FORM = { name: "", username: "", password: "", role: "sales", team: "" };
+const teamNames = teams.map((t) => t.name);
 
 // a small dialog for typing someone's new password
 function PasswordDialog({ account, busy, error, onSave, onClose }) {
@@ -220,6 +223,13 @@ export default function AccCreation() {
                             <option value="admin">Admin: everything, including accounts</option>
                         </select>
                     </label>
+                    <label className="admin-field">
+                        Sales team
+                        <select {...field("team")}>
+                            <option value="">No team</option>
+                            {teamNames.map((name) => <option key={name} value={name}>{name}</option>)}
+                        </select>
+                    </label>
                     <div className="account-form-actions">
                         <button type="submit" className="admin-btn admin-btn-primary" disabled={creating}>
                             {creating ? "Creating..." : "Create account"}
@@ -235,7 +245,7 @@ export default function AccCreation() {
                         <tr>
                             <th scope="col">Name</th>
                             <th scope="col">Username</th>
-                            <th scope="col">Role</th>
+                            <th scope="col">Role and team</th>
                             <th scope="col">Served today</th>
                             <th scope="col">Total served</th>
                             <th scope="col">Status</th>
@@ -278,6 +288,20 @@ export default function AccCreation() {
                                                 <option value="admin">Admin</option>
                                             </select>
                                         )}
+                                        {/* their sales team, under the role: anyone's, yours and the built-in admin's
+                                            too, since it only marks the edits they save */}
+                                        <select
+                                            className="status-select account-team"
+                                            aria-label={`Sales team for ${a.name}`}
+                                            value={a.team}
+                                            disabled={busy === a.id}
+                                            onChange={(e) => change(a, { team: e.target.value }, e.target.value
+                                                ? `${a.name} is now on team ${e.target.value}.`
+                                                : `${a.name} has no sales team now.`)}
+                                        >
+                                            <option value="">No team</option>
+                                            {teamNames.map((name) => <option key={name} value={name}>{name}</option>)}
+                                        </select>
                                     </td>
                                     <td>{whole.format(a.servedToday)}</td>
                                     <td>{whole.format(a.servedTotal)}</td>

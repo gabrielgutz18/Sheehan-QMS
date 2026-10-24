@@ -57,10 +57,11 @@ describe("taking a ticket", () => {
         assert.equal((await takeTicket()).queueNum, 1);
     });
 
-    test("the customer can change their order while they wait", async () => {
+    test("staff can change a customer's order while they wait", async () => {
         await takeTicket();
+        const desk = await app.actingAsSales();
 
-        const changed = (await app.client().put("/orders/1", ticket({ orders: [{ item: "Gutter", qty: 2 }] })))
+        const changed = (await desk.put("/admin/orders/1", ticket({ orders: [{ item: "Gutter", qty: 2 }] })))
             .assertStatus(200).body;
 
         assert.deepEqual(changed.orders, [{ item: "Gutter", qty: 2 }]);
@@ -191,6 +192,28 @@ describe("finishing a ticket", () => {
 
         assert.equal(done.servedBy.id, admin.account.id);
         app.assertDatabaseHas("serves", { user_id: admin.account.id });
+    });
+
+    test("a done ticket can't be called again until it's back in line, so it keeps its point", async () => {
+        await takeTicket();
+        const maria = await app.actingAsSales();
+        const admin = await app.actingAsAdmin();
+        await maria.post("/admin/orders/1/call");
+        await maria.patch("/admin/orders/1", { status: "done" });
+
+        // e.g. from a page that hadn't refreshed yet
+        const refused = (await admin.post("/admin/orders/1/call", { remarks: "Counter 3" })).assertStatus(409).body;
+        assert.equal(refused.message, "This order is already done. Mark them Returning to put them back in line, then call them.");
+        // Now serving would put them on the display too
+        (await admin.patch("/admin/orders/1", { status: "serving" })).assertStatus(409);
+
+        app.assertDatabaseHas("orders", { queue_num: 1, status: "done", served_by: maria.account.id });
+        app.assertDatabaseHas("serves", { user_id: maria.account.id });
+        assert.deepEqual((await app.client().get("/queue")).assertStatus(200).body.serving, []);
+
+        // back in line, they can be called as usual
+        (await maria.patch("/admin/orders/1", { status: "returning" })).assertStatus(200);
+        (await admin.post("/admin/orders/1/call")).assertStatus(200);
     });
 });
 
