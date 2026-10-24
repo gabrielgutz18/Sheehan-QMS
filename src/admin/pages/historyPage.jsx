@@ -4,6 +4,7 @@ import { listHistory, restoreOrder } from '../api/adminOrderController.js';
 import orderStatus from '../data/orderStatus.js';
 import formatQueueNum from '../../data/queueNum.js';
 import ServedBy from '../components/servedBy.jsx';
+import EditedBy from '../components/editedBy.jsx';
 import OrderDetails from '../components/orderDetails.jsx';
 import OrderExport from '../components/orderExport.jsx';
 
@@ -166,6 +167,7 @@ export default function HistoryPage() {
                                             <span className={`history-badge status-${row.status}`}>{statusLabel(row.status)}</span>
                                         )}
                                         <ServedBy order={row} />
+                                        <EditedBy edits={row.edits} />
                                         {row.restoredAt && <span className="history-note">Restored {formatTime(row.restoredAt)}</span>}
                                     </td>
                                     <td>

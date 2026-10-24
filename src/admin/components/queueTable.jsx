@@ -6,6 +6,7 @@ import { useAuth } from '../auth/authContext.js';
 import { callOrder, deleteOrder, updateOrderStatus } from '../api/adminOrderController.js';
 import CallDialog from './callDialog.jsx';
 import ServedBy from './servedBy.jsx';
+import EditedBy from './editedBy.jsx';
 import OrderDetails from './orderDetails.jsx';
 import formatQueueNum from '../../data/queueNum.js';
 import { readLastRemarks, saveLastRemarks } from '../data/lastRemarks.js';
@@ -109,14 +110,18 @@ export default function QueueTable({ orders, setOrders, loading, error }) {
                                             disabled={busy === o.queueNum}
                                             onChange={(e) => changeStatus(o.queueNum, e.target.value)}
                                         >
+                                            {/* a done order goes back in line (Waiting or Returning) before it's called */}
                                             {orderStatus.map(({ value, label }) => (
-                                                <option key={value} value={value}>{label}</option>
+                                                <option key={value} value={value} disabled={o.status === "done" && value === "serving"}>
+                                                    {label}
+                                                </option>
                                             ))}
                                         </select>
                                         {o.status === "serving" && o.remarks && (
                                             <p className="order-remarks">“{o.remarks}”</p>
                                         )}
                                         <ServedBy order={o} />
+                                        <EditedBy edits={o.edits} />
                                     </td>
                                     <td>
                                         <div className="row-actions">

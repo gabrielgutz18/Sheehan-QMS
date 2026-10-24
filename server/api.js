@@ -27,6 +27,8 @@ const readCookies = (req) => Object.fromEntries(
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 // returning: back in line after being served; like pending, it waits for a counter to call it
 const ORDER_STATUSES = ["pending", "serving", "returning", "done"];
+// a done order can't be called (or set to Now serving) again: it has to go back in line first
+const ALREADY_DONE = "This order is already done. Mark them Returning to put them back in line, then call them.";
 const MAX_REMARKS = 120;
 // optional per-item color for roofing orders; must match src/data/roofingColors.js
 const ROOFING_COLORS = ["red", "blue", "green"];
@@ -61,6 +63,7 @@ const HISTORY_LIMIT = 200;
 const ANNOUNCER_REPEATS = [1, 2];
 // loading: the loading crew, one shared line for every department (Roofings, Steel, ...)
 const ROLES = ["admin", "sales", "loading"];
+const NO_SUCH_TEAM = `Pick a sales team from the list (${TEAMS.join(", ")}), or none.`;
 const USERNAME = /^[a-z0-9._-]{3,32}$/i;
 const MIN_PASSWORD = 8;
 
@@ -75,8 +78,9 @@ const ROLE_ROUTES = {
     sales: [
         ["GET", /^\/admin\/orders$/],
         ["GET", /^\/admin\/order-status$/],
-        // one of today's tickets, opened on Customer order to edit it
+        // one of today's tickets, opened on Customer order to edit it, and saved again (kept as an edit, with who saved it)
         ["GET", /^\/admin\/orders\/[^/]+$/],
+        ["PUT", /^\/admin\/orders\/[^/]+$/],
         ["POST", /^\/admin\/orders\/[^/]+\/call$/],
         ["POST", /^\/admin\/orders\/[^/]+\/handover$/],
         ["PATCH", /^\/admin\/orders\/[^/]+$/],
@@ -387,6 +391,9 @@ const toMe = (row) => ({
     surname: row.surname,
     employeeId: row.employee_id,
     department: row.department,
+    // their own sales team (GIGA, MEGA, ... from src/data/teams.js), set by an admin on Accounts; "" for none; an edit
+    // they save on Customer order is marked with it
+    team: row.sales_team,
     // the photo's file name doubles as a version for its URL, or null
     photo: row.photo,
 });
@@ -416,15 +423,44 @@ const pickOrder = ({
     };
 };
 
+// the details a save on Customer order can change, each with its column in orders; items and invoices are compared
+// on their own
+const EDITABLE_COLUMNS = {
+    name: "name", purpose: "purpose", concern: "concern", salesman: "salesman", runner: "runner", receiver: "receiver",
+    salesTimeIn: "sales_time_in", salesTimeOut: "sales_time_out", checkers: "checkers", paymentStatus: "payment_status",
+    team: "team", pickupDate: "pickup_date",
+};
+const itemsOf = (rows) => rows.map(({ item, qty, color }) => ({ item, qty, ...(color && { color }) }));
+const invoicesOf = (rows) => rows.map(({ invoice_no, type }) => ({ invoiceNo: invoice_no, type }));
+
+// which details a save changes: the stored order (its row, item rows and invoice rows) against what pickOrder made of
+// the save, as the keys an edit keeps, e.g. ["runner", "invoices"]; [] when nothing changed
+const changedDetails = (row, storedItems, storedInvoices, { orders: items, invoices, ...fields }) => [
+    ...Object.entries(EDITABLE_COLUMNS)
+        .filter(([key, column]) => (row[column] ?? null) !== (fields[key] ?? null))
+        .map(([key]) => key),
+    ...(JSON.stringify(itemsOf(storedItems)) !== JSON.stringify(items) ? ["items"] : []),
+    ...(JSON.stringify(invoicesOf(storedInvoices)) !== JSON.stringify(invoices) ? ["invoices"] : []),
+];
+
+// one save on Customer order that changed something: who saved it, their sales team then (left out for none), what
+// changed and when (ISO 8601)
+const toEdit = (row) => ({
+    by: { id: row.user_id, name: row.name, photo: row.photo },
+    ...(row.sales_team && { team: row.sales_team }),
+    changes: JSON.parse(row.changes),
+    at: row.edited_at,
+});
+
 // a stored order in the shape the front end expects
-const toOrder = (row, items, invoices) => ({
+const toOrder = (row, items, invoices, edits = []) => ({
     queueNum: row.queue_num,
     name: row.name,
     purpose: row.purpose,
-    orders: items.map(({ item, qty, color }) => ({ item, qty, ...(color && { color }) })),
+    orders: itemsOf(items),
     // the invoices from Customer order, in the order they were added; type is the type of order each is for
     // ('' on an older ticket with several types)
-    invoices: invoices.map(({ invoice_no, type }) => ({ invoiceNo: invoice_no, type })),
+    invoices: invoicesOf(invoices),
     status: row.status,
     createdAt: row.created_at,
     ...(row.called_at !== null && { calledAt: row.called_at, remarks: row.remarks }),
@@ -455,6 +491,16 @@ const toOrder = (row, items, invoices) => ({
     ...(row.served_by !== null && { servedBy: { id: row.served_by, name: row.served_by_name, photo: row.served_by_photo } }),
     // when they marked it Done (ISO 8601)
     ...(row.status === "done" && row.served_at && { servedAt: row.served_at }),
+    // the loading staff member who finished loading a handed-over order, and when they pressed Done (ISO 8601; left
+    // out on one loaded before it was kept); loading isn't serving, so servedBy stays the sales staff member
+    ...(row.loaded_by !== null && {
+        loaded: {
+            by: { id: row.loaded_by, name: row.loaded_by_name, photo: row.loaded_by_photo },
+            ...(row.loaded_at && { at: row.loaded_at }),
+        },
+    }),
+    // every save on Customer order that changed something, newest first (see toEdit); left out until the first one
+    ...(edits.length > 0 && { edits: edits.map(toEdit) }),
 });
 
 // an order on the Order status board, which every staff member sees: where the customer is, from the line to a sales
@@ -474,23 +520,25 @@ const toStatus = (row) => ({
 });
 
 // a ticket from any day for the History page; id picks it out, since numbers repeat every day
-const toHistory = (row, items, invoices, todayDate) => ({
+const toHistory = (row, items, invoices, edits, todayDate) => ({
     id: row.id,
     date: row.queue_date,
     isToday: row.queue_date === todayDate,
-    ...toOrder(row, items, invoices),
+    ...toOrder(row, items, invoices, edits),
     deletedAt: row.deleted_at,
     restoredAt: row.restored_at,
     ...(row.original_date !== null && { originalDate: row.original_date, originalNum: row.original_num }),
 });
 
 // order rows with the staff member serving them (o. prefixes keep "name" unambiguous), who handed them over to
-// loading, and, once it's done, when they marked it Done: this visit's point, if the point is theirs (at most one per
-// order and day)
-const ORDER_ROW = `o.*, u.name AS served_by_name, u.photo AS served_by_photo, h.name AS handed_over_by_name, s.served_at
+// loading, who finished loading them, and, once it's done, when they marked it Done: this visit's point, if the point
+// is theirs (at most one per order and day)
+const ORDER_ROW = `o.*, u.name AS served_by_name, u.photo AS served_by_photo, h.name AS handed_over_by_name,
+    l.name AS loaded_by_name, l.photo AS loaded_by_photo, s.served_at
     FROM orders o
     LEFT JOIN users u ON u.id = o.served_by
     LEFT JOIN users h ON h.id = o.handed_over_by
+    LEFT JOIN users l ON l.id = o.loaded_by
     LEFT JOIN serves s ON s.order_id = o.id AND s.queue_date = o.queue_date AND s.user_id = o.served_by`;
 
 // "%" and "_" mean "anything" in LIKE, so a search for them is escaped
@@ -525,7 +573,7 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             WHERE id = :id`),
         setStatus: db.prepare(`
             UPDATE orders SET status = :status, called_at = :calledAt, remarks = :remarks, served_by = :servedBy,
-                at_loading = :atLoading
+                at_loading = :atLoading, loaded_by = :loadedBy, loaded_at = :loadedAt
             WHERE id = :id`),
         // sales hands the customer over to loading: back in line, for the loading crew now, with the counter's
         // remarks cleared so they don't follow the customer; the order keeps its sales team
@@ -587,14 +635,15 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         // Restore puts the ticket back in line: today's keeps its number, an earlier day's gets today's next one
         restoreSameDay: db.prepare(`
             UPDATE orders SET deleted_at = NULL, restored_at = ?, status = 'pending', called_at = NULL, remarks = '',
-                served_by = NULL, at_loading = 0, handed_over_by = NULL, handed_over_at = NULL
+                served_by = NULL, at_loading = 0, handed_over_by = NULL, handed_over_at = NULL, loaded_by = NULL,
+                loaded_at = NULL
             WHERE id = ?`),
         restoreToToday: db.prepare(`
             UPDATE orders SET
                 original_date = COALESCE(original_date, queue_date), original_num = COALESCE(original_num, queue_num),
                 queue_date = ?, queue_num = ?,
                 deleted_at = NULL, restored_at = ?, status = 'pending', called_at = NULL, remarks = '', served_by = NULL,
-                at_loading = 0, handed_over_by = NULL, handed_over_at = NULL
+                at_loading = 0, handed_over_by = NULL, handed_over_at = NULL, loaded_by = NULL, loaded_at = NULL
             WHERE id = ?`),
         insertItem: db.prepare("INSERT INTO order_items (order_id, position, item, qty, color) VALUES (?, ?, ?, ?, ?)"),
         deleteItems: db.prepare("DELETE FROM order_items WHERE order_id = ?"),
@@ -602,6 +651,21 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         dayItems: db.prepare(`
             SELECT i.order_id, i.item, i.qty, i.color FROM order_items i JOIN orders o ON o.id = i.order_id
             WHERE o.queue_date = ? ORDER BY i.order_id, i.position`),
+        // a save on Customer order that changed something, with the editor's sales team at the time
+        insertEdit: db.prepare(`
+            INSERT INTO order_edits (order_id, user_id, sales_team, changes, edited_at) VALUES (?, ?, ?, ?, ?)`),
+        orderEdits: db.prepare(`
+            SELECT e.order_id, e.user_id, u.name, u.photo, e.sales_team, e.changes, e.edited_at
+            FROM order_edits e JOIN users u ON u.id = e.user_id
+            WHERE e.order_id = ? ORDER BY e.id DESC`),
+        dayEdits: db.prepare(`
+            SELECT e.order_id, e.user_id, u.name, u.photo, e.sales_team, e.changes, e.edited_at
+            FROM order_edits e JOIN users u ON u.id = e.user_id JOIN orders o ON o.id = e.order_id
+            WHERE o.queue_date = ? ORDER BY e.order_id, e.id DESC`),
+        editsFor: db.prepare(`
+            SELECT e.order_id, e.user_id, u.name, u.photo, e.sales_team, e.changes, e.edited_at
+            FROM order_edits e JOIN users u ON u.id = e.user_id
+            WHERE e.order_id IN (SELECT value FROM json_each(?)) ORDER BY e.order_id, e.id DESC`),
         insertInvoice: db.prepare("INSERT INTO order_invoices (order_id, position, invoice_no, type) VALUES (?, ?, ?, ?)"),
         deleteInvoices: db.prepare("DELETE FROM order_invoices WHERE order_id = ?"),
         orderInvoices: db.prepare("SELECT invoice_no, type FROM order_invoices WHERE order_id = ? ORDER BY position"),
@@ -615,7 +679,7 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         // a disabled account's sign-ins stop working at once
         findSession: db.prepare(`
             SELECT s.expires, u.id, u.username, u.name, u.role, u.first_name, u.middle_name, u.surname,
-                u.employee_id, u.department, u.photo
+                u.employee_id, u.department, u.sales_team, u.photo
             FROM sessions s JOIN users u ON u.id = s.user_id
             WHERE s.sid_hash = ? AND u.disabled_at IS NULL`),
         deleteSession: db.prepare("DELETE FROM sessions WHERE sid_hash = ?"),
@@ -626,12 +690,12 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         findUser: db.prepare("SELECT * FROM users WHERE username = ?"),
         findUserById: db.prepare("SELECT * FROM users WHERE id = ?"),
         insertUser: db.prepare(`
-            INSERT INTO users (username, name, first_name, surname, role, password_hash, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)`),
+            INSERT INTO users (username, name, first_name, surname, role, sales_team, password_hash, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`),
         resetBuiltInAdmin: db.prepare("UPDATE users SET role = 'admin', disabled_at = NULL, password_hash = ? WHERE id = ?"),
         updateUser: db.prepare(`
             UPDATE users SET name = :name, first_name = :firstName, surname = :surname, role = :role,
-                disabled_at = :disabledAt, password_hash = :passwordHash
+                sales_team = :team, disabled_at = :disabledAt, password_hash = :passwordHash
             WHERE id = :id`),
         // My account
         updateProfile: db.prepare(`
@@ -675,7 +739,7 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
     // the admin from .env always exists, as an enabled admin with the .env password, so nobody is locked out
     const builtIn = sql.findUser.get(adminUsername);
     if (builtIn) sql.resetBuiltInAdmin.run(hashPasswordSync(adminPassword), builtIn.id);
-    else sql.insertUser.run(adminUsername, adminUsername, adminUsername, "", "admin", hashPasswordSync(adminPassword), new Date().toISOString());
+    else sql.insertUser.run(adminUsername, adminUsername, adminUsername, "", "admin", "", hashPasswordSync(adminPassword), new Date().toISOString());
 
     const toUser = (row) => ({
         ...toMe(row),
@@ -694,22 +758,34 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
     // (or whoever marked it done, if nobody called it); leaving done takes that visit's point back
     // atLoading (1 or 0) stays only while the same person keeps serving it; a customer handed over to loading already
     // gave the sales staff member their point, so loading finishing or reopening it leaves that point alone
-    const changeStatus = (order, status, user, { calledAt = order.called_at, remarks = order.remarks, servedBy, atLoading } = {}) =>
+    // loading isn't serving, it's loading the order (the truck, for roofing): a handed-over order that's done is still
+    // served by the sales staff member who handed it over, and loadedBy is who finished loading it (the loading staff
+    // member serving it, unless the Loading page says who pressed Done); leaving done clears it
+    const changeStatus = (order, status, user, { calledAt = order.called_at, remarks = order.remarks, servedBy, atLoading, loadedBy } = {}) =>
         transaction(db, () => {
+            const handedOver = order.handed_over_by !== null;
             const server = servedBy !== undefined ? servedBy
                 : status === "pending" || status === "returning" ? null
                 : status === "serving" ? (order.status === "serving" ? order.served_by : user.id)
+                : handedOver ? order.handed_over_by
                 : order.served_by ?? user.id;
             const loading = atLoading ?? (status === "serving" && server === order.served_by ? order.at_loading : 0);
-            sql.setStatus.run({ status, calledAt, remarks, servedBy: server, atLoading: loading, id: order.id });
-            if (order.handed_over_by !== null) return;
+            const stillDone = order.status === "done" && status === "done";
+            const loader = stillDone ? order.loaded_by
+                : status !== "done" || !handedOver ? null
+                : loadedBy ?? (order.at_loading === 1 ? order.served_by : null);
+            const loadedAt = stillDone ? order.loaded_at : loader === null ? null : new Date().toISOString();
+            sql.setStatus.run({
+                status, calledAt, remarks, servedBy: server, atLoading: loading, loadedBy: loader, loadedAt, id: order.id,
+            });
+            if (handedOver) return;
             if (order.status === "done" && status !== "done") sql.removePoint.run(order.id, order.queue_date);
             if (status === "done") sql.addPoint.run(order.id, server, order.queue_date, new Date().toISOString());
         });
 
     // today's ticket with this number, as a database row
     const findToday = (queueNum) => sql.findOrder.get(today(), queueNum);
-    const loadOrder = (row) => toOrder(row, sql.orderItems.all(row.id), sql.orderInvoices.all(row.id));
+    const loadOrder = (row) => toOrder(row, sql.orderItems.all(row.id), sql.orderInvoices.all(row.id), sql.orderEdits.all(row.id));
 
     const saveItems = (orderId, items) => {
         sql.deleteItems.run(orderId);
@@ -845,21 +921,6 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             return sendVideoFile(req, res, join(videosDir, video.file), video.type);
         }
 
-        const orderMatch = path.match(/^\/orders\/([^/]+)$/);
-        if (method === "PUT" && orderMatch) {
-            const existing = findToday(Number(decodeURIComponent(orderMatch[1])));
-            if (!existing) return send(res, 404, { message: "Order not found." });
-            const body = await readBody(req);
-            if (!validOrder(body)) return send(res, 400, { message: "Invalid order." });
-            const { orders: items, invoices, ...fields } = pickOrder(body);
-            transaction(db, () => {
-                sql.updateOrder.run({ ...fields, id: existing.id });
-                saveItems(existing.id, items);
-                saveInvoices(existing.id, invoices);
-            });
-            return send(res, 200, loadOrder(findToday(existing.queue_num)));
-        }
-
         // everything below needs a signed-in account; sales and loading staff only get their routes in ROLE_ROUTES
         const session = getSession(req);
         if (path.startsWith("/auth/") || path.startsWith("/admin/")) {
@@ -951,22 +1012,23 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
 
         // only admins get here (see ROLE_ROUTES); new accounts are usually sales staff
         if (method === "POST" && path === "/admin/users") {
-            const { username, name, password, role = "sales" } = await readBody(req);
+            const { username, name, password, role = "sales", team = "" } = await readBody(req);
             if (typeof username !== "string" || !USERNAME.test(username.trim())) {
                 return send(res, 400, { message: "Usernames are 3–32 letters, numbers, dots, dashes or underscores." });
             }
             if (!validName(name)) return send(res, 400, { message: "Enter the staff member's name." });
             if (!validPassword(password)) return send(res, 400, { message: `Passwords need at least ${MIN_PASSWORD} characters.` });
             if (!ROLES.includes(role)) return send(res, 400, { message: "Pick admin, sales or loading." });
+            if (!optionalPick(team, TEAMS)) return send(res, 400, { message: NO_SUCH_TEAM });
             if (sql.findUser.get(username.trim())) return send(res, 409, { message: "That username is taken." });
             // they can add a middle name, employee ID and department themselves on My account
             const [firstName, surname] = splitName(name);
-            const { lastInsertRowid } = sql.insertUser.run(username.trim(), name.trim(), firstName, surname, role,
+            const { lastInsertRowid } = sql.insertUser.run(username.trim(), name.trim(), firstName, surname, role, team,
                 await hashPassword(password), new Date().toISOString());
             return send(res, 201, toUser({ ...sql.findUserById.get(lastInsertRowid), served_total: 0, served_today: 0, serving_now: 0, signed_in: 0 }));
         }
 
-        // { name?, role?, password?, disabled? }
+        // { name?, role?, team?, password?, disabled? }; team is "" for none
         const userMatch = path.match(/^\/admin\/users\/(\d+)$/);
         if (method === "PATCH" && userMatch) {
             const account = sql.findUserById.get(Number(userMatch[1]));
@@ -977,6 +1039,7 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
                 firstName: account.first_name,
                 surname: account.surname,
                 role: account.role,
+                team: account.sales_team,
                 disabledAt: account.disabled_at,
                 passwordHash: account.password_hash,
             };
@@ -984,6 +1047,11 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
                 if (!validName(body.name)) return send(res, 400, { message: "Enter the staff member's name." });
                 changes.name = body.name.trim();
                 [changes.firstName, changes.surname] = splitName(body.name);
+            }
+            // any account's team, your own and the built-in admin's included: it only marks the edits they save
+            if (body.team !== undefined) {
+                if (!optionalPick(body.team, TEAMS)) return send(res, 400, { message: NO_SUCH_TEAM });
+                changes.team = body.team;
             }
             const lockedOut = isBuiltIn(account) || account.id === me.id;
             if (body.role !== undefined && body.role !== account.role) {
@@ -1096,10 +1164,11 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             const date = today();
             const itemsByOrder = Map.groupBy(sql.dayItems.all(date), (item) => item.order_id);
             const invoicesByOrder = Map.groupBy(sql.dayInvoices.all(date), (invoice) => invoice.order_id);
+            const editsByOrder = Map.groupBy(sql.dayEdits.all(date), (edit) => edit.order_id);
             const rows = sql.dayOrders.all(date).filter((row) =>
                 me.role !== "loading" || row.handed_over_by !== null);
-            return send(res, 200, rows.map((row) =>
-                toOrder(row, itemsByOrder.get(row.id) ?? [], invoicesByOrder.get(row.id) ?? [])));
+            return send(res, 200, rows.map((row) => toOrder(row, itemsByOrder.get(row.id) ?? [],
+                invoicesByOrder.get(row.id) ?? [], editsByOrder.get(row.id) ?? [])));
         }
 
         // the Order status board: all of today's orders for every staff member, a loading crew's included, so anyone
@@ -1109,10 +1178,12 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         }
 
         // call (or call again) a ticket: it becomes the headline on the display with the admin's remarks
+        // a done one is refused, e.g. from a page that hadn't refreshed yet when someone else (or loading) finished it
         const callMatch = path.match(/^\/admin\/orders\/([^/]+)\/call$/);
         if (method === "POST" && callMatch) {
             const order = findToday(Number(decodeURIComponent(callMatch[1])));
             if (!order) return send(res, 404, { message: "Order not found." });
+            if (order.status === "done") return send(res, 409, { message: ALREADY_DONE });
             const { remarks = "" } = await readBody(req);
             if (typeof remarks !== "string" || remarks.trim().length > MAX_REMARKS) {
                 return send(res, 400, { message: `Remarks must be ${MAX_REMARKS} characters or fewer.` });
@@ -1144,9 +1215,29 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             if (!order) return send(res, 404, { message: "Order not found." });
 
             if (method === "GET") return send(res, 200, loadOrder(order));
+            // Customer order saves the whole order again (admins and sales staff only); a save that changes something
+            // is kept as an edit with who saved it, their sales team and when; one that changes nothing isn't
+            if (method === "PUT") {
+                const body = await readBody(req);
+                if (!validOrder(body)) return send(res, 400, { message: "Invalid order." });
+                const saved = pickOrder(body);
+                const { orders: items, invoices, ...fields } = saved;
+                transaction(db, () => {
+                    const changes = changedDetails(order, sql.orderItems.all(order.id), sql.orderInvoices.all(order.id), saved);
+                    sql.updateOrder.run({ ...fields, id: order.id });
+                    saveItems(order.id, items);
+                    saveInvoices(order.id, invoices);
+                    if (changes.length) {
+                        sql.insertEdit.run(order.id, me.id, me.team, JSON.stringify(changes), new Date().toISOString());
+                    }
+                });
+                return send(res, 200, loadOrder(findToday(order.queue_num)));
+            }
             if (method === "PATCH") {
                 const { status } = await readBody(req);
                 if (!ORDER_STATUSES.includes(status)) return send(res, 400, { message: "Invalid status." });
+                // Now serving puts them on the display, the same as calling them
+                if (order.status === "done" && status === "serving") return send(res, 409, { message: ALREADY_DONE });
                 const calledAt = status === "serving" && order.status !== "serving" ? Date.now() : order.called_at;
                 changeStatus(order, status, me, { calledAt });
                 return send(res, 200, loadOrder(findToday(order.queue_num)));
@@ -1162,6 +1253,8 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         // to waiting; it's one shared line, so any loading account (or an admin) can call any of them, and finish or
         // send back one the crew is serving; a customer is in one place at a time, so while a sales counter has them
         // again, loading can't call them
+        // Done means the crew has finished loading the order: whoever pressed it loaded it, and the sales staff member
+        // who handed it over still served it
         const loadingMatch = path.match(/^\/admin\/loading\/([^/]+)\/(call|done|back)$/);
         if (method === "POST" && loadingMatch) {
             const order = findToday(Number(decodeURIComponent(loadingMatch[1])));
@@ -1182,7 +1275,8 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
                 changeStatus(order, "serving", me, { calledAt: Date.now(), remarks: remarks.trim(), servedBy: me.id, atLoading: 1 });
             } else {
                 if (!servingHere) return send(res, 409, { message: "Loading isn't serving this customer." });
-                changeStatus(order, loadingMatch[2] === "back" ? "pending" : "done", me);
+                if (loadingMatch[2] === "back") changeStatus(order, "pending", me);
+                else changeStatus(order, "done", me, { loadedBy: me.id });
             }
             return send(res, 200, loadOrder(findToday(order.queue_num)));
         }
@@ -1228,8 +1322,10 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             const ids = JSON.stringify(rows.map((r) => r.id));
             const itemsByOrder = Map.groupBy(sql.itemsFor.all(ids), (i) => i.order_id);
             const invoicesByOrder = Map.groupBy(sql.invoicesFor.all(ids), (i) => i.order_id);
+            const editsByOrder = Map.groupBy(sql.editsFor.all(ids), (e) => e.order_id);
             const date = today();
-            return send(res, 200, rows.map((row) => toHistory(row, itemsByOrder.get(row.id) ?? [], invoicesByOrder.get(row.id) ?? [], date)));
+            return send(res, 200, rows.map((row) => toHistory(row, itemsByOrder.get(row.id) ?? [],
+                invoicesByOrder.get(row.id) ?? [], editsByOrder.get(row.id) ?? [], date)));
         }
 
         // back in today's queue as waiting, whether it was deleted or is from an earlier day

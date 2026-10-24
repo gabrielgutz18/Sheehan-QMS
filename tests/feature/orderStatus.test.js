@@ -89,5 +89,7 @@ describe("order status", () => {
         assert.equal((await now()).status, "done");
         assert.equal((await now()).atLoading, undefined);
         assert.equal((await now()).team, "GIGA");
+        // loading only loaded it: the sales counter served them
+        assert.deepEqual((await now()).servedBy, { name: "Maria Santos" });
     });
 });

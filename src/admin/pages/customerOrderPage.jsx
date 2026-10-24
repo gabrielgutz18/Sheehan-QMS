@@ -21,8 +21,9 @@ import teams from '../../data/teams.js';
 
 const teamNames = teams.map((t) => t.name);
 import checkerColumns, { CHECKER_ROUNDS } from '../../data/checkers.js';
-import { createOrder, updateOrder } from '../../api/orderController.js';
-import { getOrder } from '../api/adminOrderController.js';
+import { createOrder } from '../../api/orderController.js';
+import { getOrder, updateOrder } from '../api/adminOrderController.js';
+import EditedBy from '../components/editedBy.jsx';
 import PrintFunc from '../../printing/printFunc.jsx';
 
 // must match the backend (server/api.js)
@@ -305,6 +306,8 @@ function OrderDesk({ saved, viewing, onNew }) {
                         <button type="button" className="submit-btn" onClick={onNew}>
                             New order
                         </button>
+                        {/* who last saved a change to it, and when; never printed */}
+                        <EditedBy edits={submitted.edits} />
                     </div>
                 </section>
             </div>

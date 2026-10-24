@@ -78,7 +78,7 @@ describe("sales order", () => {
         assert.equal(listed.runner, "Boy Reyes");
 
         // the customer collects the items themselves after all
-        const cleared = (await app.client().put("/orders/1", sale({ runner: "" }))).assertStatus(200).body;
+        const cleared = (await (await app.actingAsAdmin()).put("/admin/orders/1", sale({ runner: "" }))).assertStatus(200).body;
         assert.equal(cleared.runner, undefined);
         app.assertDatabaseHas("orders", { queue_num: 1, runner: "" });
     });
@@ -98,7 +98,7 @@ describe("sales order", () => {
         assert.equal(listed.salesTimeOut, "13:40");
 
         // left blank on Edit
-        const cleared = (await app.client().put("/orders/1", sale())).assertStatus(200).body;
+        const cleared = (await (await app.actingAsAdmin()).put("/admin/orders/1", sale())).assertStatus(200).body;
         assert.equal(cleared.receiver, undefined);
         assert.equal(cleared.salesTimeIn, undefined);
         assert.equal(cleared.salesTimeOut, undefined);
@@ -128,14 +128,15 @@ describe("sales order", () => {
         });
 
         // sales fill in the rest later, and staff see them on the order
+        const desk = await app.actingAsSales();
         const later = { Roofing: ["Pedro", "Ben"], Construction: ["Carlo", ""], "Hardware/TBA/Chassis": ["", "Ana"] };
-        const edited = (await app.client().put("/orders/1", sale({ checkers: later }))).assertStatus(200).body;
+        const edited = (await desk.put("/admin/orders/1", sale({ checkers: later }))).assertStatus(200).body;
         assert.deepEqual(edited.checkers, later);
-        const [listed] = (await (await app.actingAsSales()).get("/admin/orders")).assertStatus(200).body;
+        const [listed] = (await desk.get("/admin/orders")).assertStatus(200).body;
         assert.deepEqual(listed.checkers, later);
 
         // all left blank again: to be written in by hand
-        const cleared = (await app.client().put("/orders/1", sale())).assertStatus(200).body;
+        const cleared = (await desk.put("/admin/orders/1", sale())).assertStatus(200).body;
         assert.equal(cleared.checkers, undefined);
         app.assertDatabaseHas("orders", { queue_num: 1, checkers: "" });
     });
@@ -261,8 +262,9 @@ describe("sales order", () => {
     test("editing changes the details and invoices and keeps the number", async () => {
         await takeOrder({ invoices: [{ invoiceNo: "2223", type: "Roofings" }, { invoiceNo: "5566", type: "Steel" }] });
         const day = localDay(-2);
+        const desk = await app.actingAsSales();
 
-        const changed = (await app.client().put("/orders/1", sale({
+        const changed = (await desk.put("/admin/orders/1", sale({
             purpose: "Steel", invoices: [{ invoiceNo: "2563", type: "Steel" }], paymentStatus: "Paid", team: "MEGA", pickupDate: day,
         }))).assertStatus(200).body;
 
@@ -275,11 +277,11 @@ describe("sales order", () => {
         app.assertDatabaseCount("order_invoices", 1);
 
         // they took the items after all
-        const cleared = (await app.client().put("/orders/1", sale({ pickupDate: null }))).assertStatus(200).body;
+        const cleared = (await desk.put("/admin/orders/1", sale({ pickupDate: null }))).assertStatus(200).body;
         assert.equal(cleared.pickupDate, undefined);
         app.assertDatabaseHas("orders", { queue_num: 1, pickup_date: null });
         // an invoice for a type the order no longer has is refused
-        (await app.client().put("/orders/1", sale({ purpose: "Tire" }))).assertStatus(400);
+        (await desk.put("/admin/orders/1", sale({ purpose: "Tire" }))).assertStatus(400);
     });
 
     test("the display shows the number but never the sales details", async () => {

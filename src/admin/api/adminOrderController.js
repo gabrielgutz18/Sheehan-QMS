@@ -12,6 +12,11 @@ export const listOrderStatus = (options) => http.get("/admin/order-status", opti
 
 export const getOrder = (queueNum, options) => http.get(`/admin/orders/${encodeURIComponent(queueNum)}`, options);
 
+// saves one of today's orders again from Customer order (admins and sales staff only), in the shape createOrder
+// sends; a save that changes something is kept as an edit → the order, with edits: [{ by: { id, name, photo },
+// team?, changes: ["runner", ...], at }], newest first
+export const updateOrder = (queueNum, order) => http.put(`/admin/orders/${encodeURIComponent(queueNum)}`, order);
+
 export const updateOrderStatus = (queueNum, status) =>
     http.patch(`/admin/orders/${encodeURIComponent(queueNum)}`, { status });
 

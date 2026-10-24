@@ -685,6 +685,13 @@
   font-weight: 600;
 }
 
+/* Accounts: the sales team picker, on its own line under the role */
+.account-team {
+  display: block;
+  margin-top: 6px;
+  font-weight: 500;
+}
+
 .status-pending {
   background: #fff7e0;
   border-color: #e9cf85;
@@ -1455,6 +1462,63 @@
 
 .served-by-time {
   color: var(--text-muted);
+}
+
+/* "Edited by Gabriel Gutierrez · GIGA · 12:54 PM" and what changed, under the served-by tags; earlier edits fold away */
+.edited-by {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  margin-top: 6px;
+  max-width: 100%;
+}
+
+.edited-by-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 2px 10px 2px 2px;
+  font-size: 13px;
+  color: #6b4e10;
+  background: var(--cream);
+  border: 1px solid var(--cream-border);
+  border-radius: 999px;
+}
+
+.edited-by-changes {
+  padding-left: 30px;
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.edited-by-earlier {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.edited-by-earlier summary {
+  cursor: pointer;
+  width: fit-content;
+}
+
+.edited-by-earlier ul {
+  display: grid;
+  gap: 6px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.edited-by-earlier li {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
 }
 
 .volume-row {

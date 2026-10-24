@@ -198,6 +198,8 @@ On every start, any `.sql` file not yet listed in `schema_migrations` runs, in n
 | [`013_receiver_sales_times.sql`](server/migrations/013_receiver_sales_times.sql) | adds `receiver`, `sales_time_in`, `sales_time_out` to `orders`: the receiver's name and the times (HH:MM) the customer came in to sales and left it, each `''` when left blank; like the runner, never printed on the ticket |
 | [`014_order_checkers.sql`](server/migrations/014_order_checkers.sql) | adds `checkers` to `orders`: the 1st and 2nd checker for each column of [`src/data/checkers.js`](src/data/checkers.js) (Roofing, Construction, Hardware/TBA/Chassis) as JSON with only the columns that have a name, e.g. `{"Roofing":["Pedro",""]}`; `''` while none is filled in (the ticket then has blank lines to write them on by hand) |
 | [`015_shared_loading.sql`](server/migrations/015_shared_loading.sql) | one shared loading line (Roofings and Steel are departments, not teams): adds `at_loading` to `orders` (1 while the loading crew is serving the customer), drops `orders.serving_team`, `orders.teams_done` and `users.team`, and takes Roofings and Steel off `orders.team`, which is now the sales team that served the customer |
+| [`016_loaded_by.sql`](server/migrations/016_loaded_by.sql) | adds `loaded_by`, `loaded_at` to `orders`: loading isn't serving, so Done at loading means the crew has finished loading the order; the loading staff member who pressed Done is kept here and `served_by` stays the sales staff member who handed it over (orders loading had already finished are moved over the same way) |
+| [`017_order_edits.sql`](server/migrations/017_order_edits.sql) | Edited by: adds `sales_team` to `users` (each staff member's own sales team, set by an admin on Accounts; `''` for none) and the `order_edits` table: every save on Customer order that changes something, with who saved it, their sales team at the time, which details changed and when |
 
 **Changing the tables later:** never edit a file that has already run anywhere. Add the next number instead, for example `server/migrations/006_add_counter_number.sql`:
 
@@ -216,6 +218,9 @@ erDiagram
     users ||--o{ serves : "earns points"
     users |o--o{ orders : "is serving (served_by)"
     users |o--o{ orders : "handed over to loading (handed_over_by)"
+    users |o--o{ orders : "finished loading (loaded_by)"
+    users ||--o{ order_edits : "saved a change"
+    orders ||--o{ order_edits : "has edits"
     orders ||--|{ order_items : "has lines"
     orders ||--o{ order_invoices : "has invoices"
     orders ||--o{ serves : "one point per visit"
@@ -249,6 +254,8 @@ erDiagram
         INTEGER served_by FK "users.id"
         INTEGER handed_over_by FK "users.id; NULL while still with sales"
         TEXT handed_over_at
+        INTEGER loaded_by FK "users.id; who pressed Done at loading, else NULL"
+        TEXT loaded_at
     }
     order_items {
         INTEGER id PK
@@ -264,6 +271,14 @@ erDiagram
         INTEGER position
         TEXT invoice_no
         TEXT type "type of order it's for, e.g. Roofings; '' on older tickets"
+    }
+    order_edits {
+        INTEGER id PK
+        INTEGER order_id FK "orders.id, cascade"
+        INTEGER user_id FK "users.id; who saved it"
+        TEXT sales_team "their sales team when they saved it, or ''"
+        TEXT changes "JSON list of what changed, e.g. runner, invoices"
+        TEXT edited_at
     }
     queue_counters {
         TEXT queue_date PK
@@ -282,6 +297,7 @@ erDiagram
         TEXT surname
         TEXT employee_id "unique when set"
         TEXT department
+        TEXT sales_team "their own sales team, e.g. GIGA; '' for none"
         TEXT photo "file in photos/"
     }
     sessions {
@@ -309,7 +325,10 @@ The relationships, as SQLite reports them (`PRAGMA foreign_key_list`):
 | `order_items.order_id` | `orders.id` | cascade: the lines go with the order | [`001_init.sql:20-27`](server/migrations/001_init.sql#L20-L27) |
 | `orders.served_by` | `users.id` | — | [`003_staff_accounts.sql:25`](server/migrations/003_staff_accounts.sql#L25) |
 | `orders.handed_over_by` | `users.id` | — | [`010_loading_handover.sql`](server/migrations/010_loading_handover.sql) |
+| `orders.loaded_by` | `users.id` | — | [`016_loaded_by.sql`](server/migrations/016_loaded_by.sql) |
 | `order_invoices.order_id` | `orders.id` | cascade: the invoices go with the order | [`011_order_invoices.sql`](server/migrations/011_order_invoices.sql) |
+| `order_edits.order_id` | `orders.id` | cascade: the edits go with the order | [`017_order_edits.sql`](server/migrations/017_order_edits.sql) |
+| `order_edits.user_id` | `users.id` | — (accounts are switched off, never deleted, so edits stay) | same |
 | `serves.order_id` | `orders.id` | cascade | [`003_staff_accounts.sql:29-36`](server/migrations/003_staff_accounts.sql#L29-L36) |
 | `serves.user_id` | `users.id` | — (accounts are switched off, never deleted, so points stay) | same |
 | `sessions.user_id` | `users.id` | cascade | [`003_staff_accounts.sql:18-22`](server/migrations/003_staff_accounts.sql#L18-L22) |
@@ -325,6 +344,7 @@ Orders are never deleted from the app. Delete only sets `deleted_at`, so the cas
 |---|---|---|---|
 | `orders` | one row per ticket | `insertOrder` (L334), `updateOrder` (L335), `setStatus` (L336), `deleteOrder` (L345), `restoreSameDay` / `restoreToToday` (L384-393) | `findOrder`, `findById`, `dayOrders` (L346-348), `serving` / `upcoming` (L349-354), `history` (L373), stats (L356-371) |
 | `order_invoices` | the invoices of each order, with their type of order | `saveInvoices()` → `deleteInvoices` + `insertInvoice` | `orderInvoices`, `dayInvoices`, `invoicesFor` |
+| `order_edits` | every save on Customer order that changed something: who, their sales team then, what changed, when | `insertEdit`, in `PUT /admin/orders/:queueNum` when `changedDetails()` finds a change | `orderEdits`, `dayEdits`, `editsFor` → `edits` on each order (`toEdit()`) |
 | `order_items` | the lines of each order | `saveItems()` → `deleteItems` + `insertItem` (L493-496) | `orderItems`, `dayItems` (L396-399), `itemsFor` (L380), stats joins |
 | `queue_counters` | last number given out each day | `nextQueueNum` (L330-333), on a new order and on a restore from an earlier day | same statement (`RETURNING last_num`) |
 | `users` | staff accounts and their profiles | built-in admin (L461-463), `insertUser` (L417), `updateUser` (L421), `updateProfile` (L426), `setPhoto` (L431) | `findUser` (L415), `findSession` join (L405), `ORDER_ROW` join (L313), `listUsers` (L432) |
@@ -473,6 +493,8 @@ addPoint: db.prepare(`
 removePoint: db.prepare("DELETE FROM serves WHERE order_id = ? AND queue_date = ?"),
 ```
 
+**Loading isn't serving.** Once sales hands a customer over, the loading crew calls them from the Loading page, and `served_by` is the loading staff member only while they have the customer (`at_loading = 1`). Their **Done** means they've finished loading the order (the truck, for roofing): `changeStatus()` puts `served_by` back to `handed_over_by`, the sales staff member who served the customer and has the point, and keeps the loading staff member who pressed Done in `loaded_by`, with the time in `loaded_at`. Leaving Done (Returning, a restore) clears both.
+
 ### 5.4 Showing who served a ticket → `orders` joined to `users` and `serves`
 
 Every order query uses one shared `FROM` clause that joins the staff member's name and photo, and the time they marked it Done (this visit's point in `serves`, when the point is theirs; `UNIQUE (order_id, queue_date)` keeps it to one row per order). [`server/api.js:323-328`](server/api.js#L323-L328)
@@ -564,7 +586,7 @@ On every later request, the cookie is looked up and joined to the account, so a 
 ```js
 findSession: db.prepare(`
     SELECT s.expires, u.id, u.username, u.name, u.role, u.first_name, u.middle_name, u.surname,
-        u.employee_id, u.department, u.photo
+        u.employee_id, u.department, u.sales_team, u.photo
     FROM sessions s JOIN users u ON u.id = s.user_id
     WHERE s.sid_hash = ? AND u.disabled_at IS NULL`),
 ```
@@ -739,6 +761,30 @@ if (method === "GET" && photoMatch) {
     const stats = file ? statSync(file, { throwIfNoEntry: false }) : undefined;
     if (!stats) return send(res, 404, { message: "No photo." });
 ```
+
+### 5.11 Editing an order → `orders`, `order_edits`
+
+Edit on Orders opens the ticket on Customer order, and saving it sends the whole order again. Only a signed-in admin or sales account may: the route is in `ROLE_ROUTES.sales`, and loading gets `403`. [`src/admin/api/adminOrderController.js`](src/admin/api/adminOrderController.js)
+
+```js
+export const updateOrder = (queueNum, order) => http.put(`/admin/orders/${encodeURIComponent(queueNum)}`, order);
+```
+
+Before saving, `changedDetails()` compares the stored order (its row, items and invoices) with the save. If anything changed, the same transaction adds a row to `order_edits` with the signed-in account, its `users.sales_team` at that moment and the list of what changed. A save that changes nothing adds no row. [`server/api.js`](server/api.js)
+
+```js
+transaction(db, () => {
+    const changes = changedDetails(order, sql.orderItems.all(order.id), sql.orderInvoices.all(order.id), saved);
+    sql.updateOrder.run({ ...fields, id: order.id });
+    saveItems(order.id, items);
+    saveInvoices(order.id, invoices);
+    if (changes.length) {
+        sql.insertEdit.run(order.id, me.id, me.team, JSON.stringify(changes), new Date().toISOString());
+    }
+});
+```
+
+Every order the pages get carries its edits, newest first, as `edits: [{ by: { id, name, photo }, team?, changes, at }]`. The team is copied into the edit, so moving someone to another team later doesn't change the edits they already made. [`src/admin/components/editedBy.jsx`](src/admin/components/editedBy.jsx) shows the newest one on Orders, History and Customer order as "Edited by Maria Santos · GIGA · 12:54 PM" with what changed, and folds the earlier ones under it.
 
 ## 6. Check it yourself
 

@@ -14,6 +14,8 @@ import formatQueueNum from '../../data/queueNum.js';
 // the loading crew's counter, one shared line for every loading account: today's customers once a sales counter has
 // served them and pressed Hand over to loading on My counter, in queue order; call one (the display shows "Please
 // proceed to Roofings", which can be changed before calling), mark them done, or send them back to waiting
+// loading isn't serving: Done means the crew has finished loading the order (the truck, for roofing), so the ticket
+// says "Loaded by" whoever pressed it, and stays served by the sales staff member who handed it over
 // a customer is in one place at a time: while a sales counter has called them back, their Call button is grayed out
 // here with "Please wait until Maria Santos finishes." (the backend refuses the call too)
 
@@ -190,7 +192,7 @@ export default function LoadingPage() {
                 {loading ? (
                     <p className="admin-empty">Loading...</p>
                 ) : doneHere.length === 0 ? (
-                    <p className="admin-empty">No one yet. Customers loading has finished with are listed here.</p>
+                    <p className="admin-empty">No one yet. Orders loading has finished loading are listed here.</p>
                 ) : (
                     <ul className="counter-list">
                         {doneHere.slice(0, DONE_SHOWN).map((o) => (
