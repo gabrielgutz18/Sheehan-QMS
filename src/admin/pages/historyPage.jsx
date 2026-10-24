@@ -3,10 +3,10 @@ import { useEffect, useState } from 'react';
 import { listHistory, restoreOrder } from '../api/adminOrderController.js';
 import orderStatus from '../data/orderStatus.js';
 import formatQueueNum from '../../data/queueNum.js';
-import ServedBy from '../components/servedBy.jsx';
-import EditedBy from '../components/editedBy.jsx';
-import OrderDetails from '../components/orderDetails.jsx';
-import OrderExport from '../components/orderExport.jsx';
+import ServedBy from '../components/orders/servedBy.jsx';
+import EditedBy from '../components/orders/editedBy.jsx';
+import OrderDetails from '../components/orders/orderDetails.jsx';
+import OrderExport from '../components/orders/orderExport.jsx';
 
 const VIEWS = [
     { value: "deleted", label: "Deleted" },

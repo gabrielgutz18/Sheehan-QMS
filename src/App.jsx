@@ -3,7 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import './App.css'
 
 import NotFound from './pages/notFound.jsx'
-import QueueNum from './pages/QueueNum.jsx'
+import QueueDisplay from './display/queueDisplay.jsx'
 
 // admin code is split into its own bundle, so the display screen never downloads it
 const AdminApp = lazy(() => import('./admin/adminApp.jsx'))
@@ -14,7 +14,7 @@ function App() {
     <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Routes>
         {/* the queue display; orders are taken by staff under Customer order in admin, not at a kiosk */}
-        <Route path="/" element={<QueueNum />} />
+        <Route path="/" element={<QueueDisplay />} />
         {/* the display's old address, so screens opened with it still work */}
         <Route path="/queue" element={<Navigate to="/" replace />} />
         {/* short address for sales staff: their counter, by way of the sign-in page if needed */}

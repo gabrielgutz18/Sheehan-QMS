@@ -26,17 +26,35 @@ npm run dev                  # http://localhost:5173
 
 ```
 src/
-  api/http.js              shared HTTP client (cookies, timeout, 401 handling)
-  api/orderController.js   customer endpoints
-  components/  pages/  style/  data/   customer side
-  admin/
-    adminApp.jsx           admin routes (mounted at /admin/*)
-    api/                   authController.js, adminOrderController.js
-    auth/                  authProvider.jsx, protectedRoute.jsx, authContext.js
-    components/            adminLayout.jsx
-    hooks/                 useOrders.js (auto-refreshes every 10s)
-    pages/                 loginPage, dashboardPage, ordersPage
-    data/  style/
+  main.jsx  App.jsx        entry point and the top-level routes (display, /sales, /admin, not found)
+  api/                     shared HTTP client (http.js: cookies, timeout, 401 handling) and the public endpoints
+  components/              used by both the display and admin: clock, header, display video
+  data/                    constants shared by the pages and the server: order types, teams, queue numbers, ...
+  sound/                   call announcements (display and admin)
+  style/                   shared styles; index.css and App.css hold the app-wide ones
+  pages/notFound.jsx       the page for an unknown address
+  display/                 the queue display screen (/)
+    queueDisplay.jsx       the page
+    components/  style/    now-serving call, number cards and their styles
+  admin/                   the staff area, lazy-loaded (/admin/*)
+    adminApp.jsx           admin routes
+    api/                   the /admin endpoints
+    auth/                  sign-in, roles and the route guard
+    hooks/                 useOrders (auto-refreshes), useOrderStatus, useMediaQuery
+    pages/                 one file per admin page
+    components/            grouped by where they're used:
+      layout/              the sidebar layout every admin page shares
+      common/              avatar, greeting, line chart
+      orders/              order details, Served by / Edited by, call and ticket dialogs, queue table, export
+      customerOrder/       the Queue ticket form's parts and the Order sheet
+      orderStatus/         the Order status board and its drawer
+      dashboard/           the admin Dashboard's cards and statistics
+      counter/             My counter: hand over, announcer volume, my stats
+      accounts/            Accounts and My account
+    data/                  admin-only constants and helpers (stages, edits, sheet columns, ...)
+    export/                Excel exports
+    printing/              ticket printing: the on-screen receipt, ESC/POS and the print service client
+    style/                 admin styles
 server/
   api.js                   every /api route
   db.js                    opens the database and runs migrations
@@ -49,6 +67,11 @@ server/
 tests/
   feature/                 API tests, e.g. ticketLifecycle.test.js (npm test)
   support/testApp.js       starts the API on a fresh, throwaway database for each test
+docs/                      DATABASE.md (every table and the code behind it), DEPLOY-UBUNTU.md, notes.md
+deploy/                    the Ubuntu server's service, nginx, sudoers and update script, and the display PC's launcher
+tools/
+  print-service/           the Python print service for the PC with the receipt printer (see Admin → Printer)
+  google-apps-script/      Google Apps Script files (salesTemp.gs, empty for now)
 data/                      created on first start, not in git: queue.db, videos/, backups/
 ```
 
@@ -94,7 +117,7 @@ A seeder made from the real database: staff accounts (same passwords), profiles 
 
 ## Database
 
-The app keeps its data in one SQLite file, `queue.db`, in the data folder (`data/` in the project, or `DATA_DIR` in `.env`). It's created on first start. **Full walkthrough with the code behind every table and relationship: [DATABASE.md](DATABASE.md).**
+The app keeps its data in one SQLite file, `queue.db`, in the data folder (`data/` in the project, or `DATA_DIR` in `.env`). It's created on first start. **Full walkthrough with the code behind every table and relationship: [DATABASE.md](docs/DATABASE.md).**
 
 | Table            | Holds                                                                |
 | ---------------- | -------------------------------------------------------------------- |
@@ -210,6 +233,6 @@ On the display PC, open the display with [`deploy/display-screen.cmd`](deploy/di
 
 ### Ubuntu server (e.g. a Hyper-V VM)
 
-Step by step in **[DEPLOY-UBUNTU.md](DEPLOY-UBUNTU.md)**: the code is a `git clone` of this repo in `/opt/sheehan-queue`, the data lives in `/var/lib/sheehan-queue`, a systemd service ([`deploy/sheehan-queue.service`](deploy/sheehan-queue.service)) keeps it running, and `bash deploy/update.sh` pulls `master` from GitHub, rebuilds and restarts. Optionally, a self-hosted GitHub Actions runner on the server runs it on every merge to `master` (the *Deploy to the Ubuntu server* job in the CI workflow).
+Step by step in **[DEPLOY-UBUNTU.md](docs/DEPLOY-UBUNTU.md)**: the code is a `git clone` of this repo in `/opt/sheehan-queue`, the data lives in `/var/lib/sheehan-queue`, a systemd service ([`deploy/sheehan-queue.service`](deploy/sheehan-queue.service)) keeps it running, and `bash deploy/update.sh` pulls `master` from GitHub, rebuilds and restarts. Optionally, a self-hosted GitHub Actions runner on the server runs it on every merge to `master` (the *Deploy to the Ubuntu server* job in the CI workflow).
 
 **Public / online:** same setup behind HTTPS. If the API lives on another domain, set `VITE_API_URL=https://api.example.com/api` before building.

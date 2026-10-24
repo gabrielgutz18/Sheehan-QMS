@@ -43,7 +43,7 @@ jobs:
     name: Deploy to the Ubuntu server
     needs: ci
     # master only, never pull requests: this job runs on the office server itself (a self-hosted runner,
-    # see DEPLOY-UBUNTU.md); skipped until the DEPLOY_SERVER repository variable is set to true
+    # see docs/DEPLOY-UBUNTU.md); skipped until the DEPLOY_SERVER repository variable is set to true
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && vars.DEPLOY_SERVER == 'true'
     runs-on: [self-hosted, linux, sheehan-server]
     timeout-minutes: 15
