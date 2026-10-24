@@ -7,8 +7,16 @@ const teams = [
     { name: "Steel", quickRemark: true },
     { name: "GIGA"},
     { name: "MEGA"},
-    { name: "TBA"},
-    { name: "ULTRA"}
+    { name: "TBA", quickRemark: true},
+    { name: "ULTRA"},
+    { name: "TERA"},
+    { name: "FIELD"},
+    { name: "HR"},
+    { name: "PUR"},
+    { name: "MANILA"},
+    { name: "SVDK"},
+    
+
 ];
 
 // what the display shows under the number when a crew calls a customer; it can be changed before calling

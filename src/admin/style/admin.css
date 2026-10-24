@@ -816,7 +816,8 @@
   transform: rotate(180deg);
 }
 
-/* floats over the fields below instead of pushing them down */
+/* floats over the fields below instead of pushing them down; --menu-room is the room the window has for it on that
+   side, so it never hangs past the end of the page (CheckPicker in saleFields.jsx sets it) */
 .type-menu {
   position: absolute;
   z-index: 20;
@@ -824,7 +825,7 @@
   left: 0;
   right: 0;
   display: grid;
-  max-height: min(320px, 50svh);
+  max-height: min(320px, 50svh, var(--menu-room, 320px));
   margin: 0;
   padding: 6px;
   overflow-y: auto;
@@ -833,6 +834,12 @@
   border: 1px solid var(--field-border);
   border-radius: 6px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+/* opens upward when there's more room above the field than below it */
+.type-menu[data-side="up"] {
+  top: auto;
+  bottom: calc(100% + 4px);
 }
 
 .type-option {

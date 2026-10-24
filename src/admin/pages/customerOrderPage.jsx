@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router';
 import '../../style/customerOrder.css';
 
 import Receipt from '../../components/receipt.jsx';
-import { CheckPicker, InvoiceFields, ReturningField, SaleSelect, SaleText } from '../components/saleFields.jsx';
+import { CheckPicker, InvoiceFields, ReturningField, SaleSelect, SaleText, SaleTime } from '../components/saleFields.jsx';
 import OrderSummary from '../components/orderSummary.jsx';
 import TicketPicker from '../components/ticketPicker.jsx';
 import { useAuth } from '../auth/authContext.js';
@@ -21,6 +21,8 @@ const MAX_NAME = 100;
 const MAX_INVOICE = 30;
 const MAX_INVOICES = 20;
 const MAX_SALESMAN = 60;
+const MAX_RUNNER = 60;
+const MAX_RECEIVER = 60;
 
 // one row of the invoice list; the key keeps each row's fields its own while rows are added and taken away
 let nextInvoiceKey = 0;
@@ -34,17 +36,22 @@ const fieldsFor = (saved, salesman) => ({
         ? saved.invoices.map((invoice) => invoiceRow(invoice.invoiceNo, invoice.type))
         : [invoiceRow()],
     salesman: saved ? saved.salesman ?? "" : salesman,
+    runner: saved?.runner ?? "",
+    receiver: saved?.receiver ?? "",
+    salesTimeIn: saved?.salesTimeIn ?? "",
+    salesTimeOut: saved?.salesTimeOut ?? "",
     paymentStatus: saved?.paymentStatus ?? "",
     teams: splitList(saved?.team),
     returning: Boolean(saved?.pickupDate),
     pickupDate: saved?.pickupDate ?? "",
 });
 
-// staff (admin or sales) take a customer's order: their name, the types of order, the invoices (each with the type
-// of order it's for), the salesman, how
-// it's paid, the loading teams that call them on the Loading page, and for a customer coming back for the items on
-// a later day, that day; Serve gives the ticket its queue number and shows it, and Print ticket opens the print
-// preview to pick the printer
+// staff (admin or sales) take a customer's order: their name, the runner they sent to collect the items and the
+// receiver (if any), the types of order, the invoices (each with the type of order it's for), the salesman, how
+// it's paid, the times the customer came in to sales and left it (if typed in), the loading teams that call them on
+// the Loading page, and for a customer coming back for the items on a later day, that day; Serve gives the ticket
+// its queue number and shows it, and Print ticket opens the print preview to pick the printer
+// the runner, receiver and sales times are kept for staff only: they're never on the ticket
 // ?ticket=5 opens today's ticket 5 to edit it (Edit on Orders); ?ticket=5&view=1 shows its ticket to print it again
 // (View queue ticket here, or View ticket on Orders)
 export default function CustomerOrderPage() {
@@ -178,6 +185,10 @@ function OrderDesk({ saved, viewing, onNew }) {
             orders: submitted?.orders ?? [],
             invoices: fields.invoices.map(({ invoiceNo, type }) => ({ invoiceNo: invoiceNo.trim(), type })),
             salesman: fields.salesman.trim(),
+            runner: fields.runner.trim(),
+            receiver: fields.receiver.trim(),
+            salesTimeIn: fields.salesTimeIn,
+            salesTimeOut: fields.salesTimeOut,
             paymentStatus: fields.paymentStatus,
             team: joinList(fields.teams),
             pickupDate: fields.returning ? fields.pickupDate : null,
@@ -238,6 +249,8 @@ function OrderDesk({ saved, viewing, onNew }) {
             <div className="sale-fields">
                 <SaleText id="sale-name" label="Customer name" maxLength={MAX_NAME}
                     value={fields.name} onChange={set("name")} error={errors.name} />
+                {/* someone the customer sent to collect the items for them; the loading crews hand them over to this person */}
+                
                 <CheckPicker id="sale-types" label="Type of order" placeholder="Choose one or more"
                     names={purpose.map((p) => p.name)}
                     value={fields.types} onChange={setTypes} error={errors.types} />
@@ -246,9 +259,19 @@ function OrderDesk({ saved, viewing, onNew }) {
                     onChange={set("invoices")} onAdd={addInvoice} onRemove={removeInvoice} />
                 <SaleText id="sale-salesman" label="Salesman name" narrow maxLength={MAX_SALESMAN}
                     value={fields.salesman} onChange={set("salesman")} error={errors.salesman} />
+                <SaleText id="sale-runner" label="Runner name" optional maxLength={MAX_RUNNER}
+                    placeholder="Input the name"
+                    value={fields.runner} onChange={set("runner")} />
+                <SaleText id="sale-receiver" label="Receiver name" optional maxLength={MAX_RECEIVER}
+                    value={fields.receiver} onChange={set("receiver")} />
                 <SaleSelect id="sale-payment" label="Payment status" narrow placeholder="Choose..."
                     options={paymentStatus.map((p) => p.type)}
                     value={fields.paymentStatus} onChange={set("paymentStatus")} error={errors.paymentStatus} />
+                {/* when the customer came in to sales and when they left it */}
+                <SaleTime id="sale-time-in" label="Time in (sales)" optional narrow
+                    value={fields.salesTimeIn} onChange={set("salesTimeIn")} />
+                <SaleTime id="sale-time-out" label="Time out (sales)" optional narrow
+                    value={fields.salesTimeOut} onChange={set("salesTimeOut")} />
                 {/* the loading crews that call the customer, one at a time, on the Loading page */}
                 <CheckPicker id="sale-teams" label="Team name" optional placeholder="No team"
                     names={teams.map((t) => t.name)}

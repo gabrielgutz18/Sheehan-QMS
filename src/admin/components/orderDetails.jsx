@@ -8,9 +8,13 @@ const TEAM_STATES = {
     done: { mark: " ✓", label: "done" },
 };
 
+// a sales time as Customer order keeps it, "13:05", the way this computer shows the time, e.g. "1:05 PM"
+const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
+const formatSalesTime = (time) => timeFormat.format(new Date(`2000-01-01T${time}`));
+
 // what the customer came for: the invoices (each with its type of order), payment status, loading teams (and how far
-// along each is), salesman and pick-up day from Customer order, the items on a ticket taken before invoices, or a
-// Customer Report's concern in their own words
+// along each is), salesman, runner, receiver, sales times and pick-up day from Customer order, the items on a ticket
+// taken before invoices, or a Customer Report's concern in their own words
 export default function OrderDetails({ order }) {
     if (order.concern) {
         return (
@@ -22,7 +26,9 @@ export default function OrderDetails({ order }) {
     }
 
     const invoices = order.invoices ?? [];
-    const hasSale = invoices.length > 0 || order.paymentStatus || order.team || order.salesman || order.pickupDate;
+    const hasSale =
+        invoices.length > 0 || order.paymentStatus || order.team || order.salesman || order.runner || order.receiver ||
+        order.salesTimeIn || order.salesTimeOut || order.pickupDate;
 
     return (
         <>
@@ -46,6 +52,12 @@ export default function OrderDetails({ order }) {
                         );
                     })}
                     {order.salesman && <li>Sold by {order.salesman}</li>}
+                    {/* who the customer sent to collect the items */}
+                    {order.runner && <li>Runner <strong>{order.runner}</strong></li>}
+                    {order.receiver && <li>Receiver <strong>{order.receiver}</strong></li>}
+                    {/* when the customer came in to sales and when they left it */}
+                    {order.salesTimeIn && <li>Time in {formatSalesTime(order.salesTimeIn)}</li>}
+                    {order.salesTimeOut && <li>Time out {formatSalesTime(order.salesTimeOut)}</li>}
                     {/* a returning customer: they come back for the items that day */}
                     {order.pickupDate && <li className="sale-pickup">Picks up {formatPickup(order.pickupDate)}</li>}
                 </ul>

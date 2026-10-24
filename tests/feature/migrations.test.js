@@ -71,7 +71,8 @@ test("rebuilding orders and users keeps every ticket, its items, its point and s
     }
 });
 
-// 008 adds the sales details from Customer order, 009 the loading teams, 010 handing over to loading
+// 008 adds the sales details from Customer order, 009 the loading teams, 010 handing over to loading, 012 the runner,
+// 013 the receiver and sales times
 test("older tickets keep their items and get empty sales details and loading teams", () => {
     const old = databaseBefore("008");
     old.exec(`
@@ -96,6 +97,11 @@ test("older tickets keep their items and get empty sales details and loading tea
         // still with sales until a counter hands them over
         const handover = db.prepare("SELECT handed_over_by, handed_over_at FROM orders WHERE id = 5").get();
         assert.deepEqual({ ...handover }, { handed_over_by: null, handed_over_at: null });
+        // the customer collects the items themselves
+        assert.equal(db.prepare("SELECT runner FROM orders WHERE id = 5").get().runner, "");
+        // no receiver or sales times on a ticket taken before they were asked for
+        const staffOnly = db.prepare("SELECT receiver, sales_time_in, sales_time_out FROM orders WHERE id = 5").get();
+        assert.deepEqual({ ...staffOnly }, { receiver: "", sales_time_in: "", sales_time_out: "" });
     } finally {
         db.close();
     }

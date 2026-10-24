@@ -40,8 +40,9 @@ const formatIssued = (issuedAt) => {
 
 // ticket: { queueNumber, name, purpose, orders: [{ qty, item, color? }], concern?, invoices: [{ invoiceNo, type }],
 //   paymentStatus?, salesman?, team?, pickupDate?, issuedAt }
-// the sales details from Customer order are printed once they're set; orders are the items on a ticket taken before
-// invoices, and concern a Customer Report's concern, printed in place of them
+// the sales details from Customer order are printed once they're set, except the runner, receiver and sales times,
+// which are for staff only; orders are the items on a ticket taken before invoices, and concern a Customer Report's
+// concern, printed in place of them
 // columns: characters per line, 32 for 58mm paper and 48 for 80mm
 export function buildReceipt(
     { queueNumber, name, purpose, orders = [], concern, invoices = [], paymentStatus, salesman, team, pickupDate, issuedAt },

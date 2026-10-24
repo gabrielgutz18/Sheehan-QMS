@@ -41,6 +41,9 @@ const TEAMS = teams.map((t) => t.name);
 const MAX_INVOICE = 30;
 const MAX_INVOICES = 20;
 const MAX_SALESMAN = 60;
+// the person a customer sends to collect the items for them
+const MAX_RUNNER = 60;
+const MAX_RECEIVER = 60;
 // several types of order are kept together, "Roofings, Steel", so a purpose can be longer than one name
 const MAX_PURPOSE = 200;
 const VIDEO_EXTENSIONS = {
@@ -284,6 +287,9 @@ const validItems = (items = [], invoiced) =>
 const hasText = (value) => typeof value === "string" && value.trim() !== "";
 const optionalText = (value, max) => value === undefined || (typeof value === "string" && value.trim().length <= max);
 const optionalPick = (value, list) => value === undefined || value === "" || list.includes(value);
+// a time of day as HH:MM (24-hour), the way a time field sends it; "" when left blank
+const optionalTime = (value) =>
+    value === undefined || value === "" || (typeof value === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(value));
 
 // a real day as YYYY-MM-DD; "2026-02-30" would quietly become 2 March, so it must survive the round trip
 const validDay = (day) => {
@@ -300,10 +306,12 @@ const validTeamList = (team) => {
     return names.every((name) => TEAMS.includes(name)) && new Set(names).size === names.length;
 };
 
-// the sales details from Customer order, each optional: salesman, payment status, loading teams, and for a
-// returning customer, the day they come back for the items (null when they're taking them now)
-const validSale = ({ salesman, paymentStatus: payment, team, pickupDate }) =>
-    optionalText(salesman, MAX_SALESMAN) &&
+// the sales details from Customer order, each optional: salesman, runner, receiver, the times the customer came in to
+// sales and left it, payment status, loading teams, and for a returning customer, the day they come back for the
+// items (null when they're taking them now)
+const validSale = ({ salesman, runner, receiver, salesTimeIn, salesTimeOut, paymentStatus: payment, team, pickupDate }) =>
+    optionalText(salesman, MAX_SALESMAN) && optionalText(runner, MAX_RUNNER) && optionalText(receiver, MAX_RECEIVER) &&
+    optionalTime(salesTimeIn) && optionalTime(salesTimeOut) &&
     optionalPick(payment, PAYMENT_STATUSES) && validTeamList(team) &&
     (pickupDate === undefined || pickupDate === null || validDay(pickupDate));
 
@@ -371,7 +379,10 @@ const toMe = (row) => ({
 
 // a report keeps only its concern and an order only its items, so switching purpose on Edit drops the other
 // the keys besides orders and invoices are the insertOrder / updateOrder parameters
-const pickOrder = ({ name, purpose, orders: items = [], invoices = [], concern, salesman, paymentStatus: payment, team, pickupDate }) => {
+const pickOrder = ({
+    name, purpose, orders: items = [], invoices = [], concern, salesman, runner, receiver, salesTimeIn, salesTimeOut,
+    paymentStatus: payment, team, pickupDate,
+}) => {
     const isReport = purpose === REPORT_PURPOSE;
     return {
         name: name.trim(),
@@ -380,6 +391,10 @@ const pickOrder = ({ name, purpose, orders: items = [], invoices = [], concern, 
         invoices: invoices.map(({ invoiceNo, type }) => ({ invoiceNo: invoiceNo.trim(), type })),
         concern: isReport ? concern.trim() : "",
         salesman: salesman?.trim() ?? "",
+        runner: runner?.trim() ?? "",
+        receiver: receiver?.trim() ?? "",
+        salesTimeIn: salesTimeIn ?? "",
+        salesTimeOut: salesTimeOut ?? "",
         paymentStatus: payment ?? "",
         team: team ?? "",
         pickupDate: pickupDate ?? null,
@@ -401,8 +416,13 @@ const toOrder = (row, items, invoices) => ({
     // a customer report's concern, in place of items
     ...(row.concern && { concern: row.concern }),
     // the sales details from Customer order, each left out until it's filled in; pickupDate (YYYY-MM-DD) is the day
-    // a returning customer comes back for the items
+    // a returning customer comes back for the items; runner is who the customer sent to collect them; salesTimeIn and
+    // salesTimeOut (HH:MM) are when the customer came in to sales and left it
     ...(row.salesman && { salesman: row.salesman }),
+    ...(row.runner && { runner: row.runner }),
+    ...(row.receiver && { receiver: row.receiver }),
+    ...(row.sales_time_in && { salesTimeIn: row.sales_time_in }),
+    ...(row.sales_time_out && { salesTimeOut: row.sales_time_out }),
     ...(row.payment_status && { paymentStatus: row.payment_status }),
     ...(row.team && { team: row.team }),
     ...(row.pickup_date && { pickupDate: row.pickup_date }),
@@ -463,13 +483,15 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             ON CONFLICT (queue_date) DO UPDATE SET last_num = last_num + 1
             RETURNING last_num`),
         insertOrder: db.prepare(`
-            INSERT INTO orders (queue_date, queue_num, name, purpose, concern, salesman, payment_status, team,
-                pickup_date, created_at)
-            VALUES (:date, :queueNum, :name, :purpose, :concern, :salesman, :paymentStatus, :team,
-                :pickupDate, :createdAt)`),
+            INSERT INTO orders (queue_date, queue_num, name, purpose, concern, salesman, runner, receiver,
+                sales_time_in, sales_time_out, payment_status, team, pickup_date, created_at)
+            VALUES (:date, :queueNum, :name, :purpose, :concern, :salesman, :runner, :receiver,
+                :salesTimeIn, :salesTimeOut, :paymentStatus, :team, :pickupDate, :createdAt)`),
         updateOrder: db.prepare(`
             UPDATE orders SET name = :name, purpose = :purpose, concern = :concern,
-                salesman = :salesman, payment_status = :paymentStatus, team = :team, pickup_date = :pickupDate
+                salesman = :salesman, runner = :runner, receiver = :receiver, sales_time_in = :salesTimeIn,
+                sales_time_out = :salesTimeOut, payment_status = :paymentStatus, team = :team,
+                pickup_date = :pickupDate
             WHERE id = :id`),
         setStatus: db.prepare(`
             UPDATE orders SET status = :status, called_at = :calledAt, remarks = :remarks, served_by = :servedBy,

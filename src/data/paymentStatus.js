@@ -5,6 +5,9 @@ const paymentStatus = [
     { type: "Vale" },
     { type: "Paid" },
     { type: "Terms" },
+    { type: "COD"},
+    { type: "Partial"},
+
 ];
 
 export default paymentStatus;

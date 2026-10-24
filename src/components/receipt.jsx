@@ -9,6 +9,7 @@ import { formatPickup } from '../data/pickupDate.js';
 // invoices: [{ invoiceNo, type }], each with the type of order it's for
 // paymentStatus, salesman, team, pickupDate: the sales details from Customer order, each shown once it's set
 // orders: the items on a ticket taken before invoices; concern: a Customer Report's concern, shown in place of them
+// the runner, receiver and sales times from Customer order are for staff only, so the ticket never shows them
 export default function Receipt({
     queueNumber, name, purpose, orders = [], concern, invoices = [], paymentStatus, salesman, team, pickupDate,
 }) {

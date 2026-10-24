@@ -194,6 +194,8 @@ On every start, any `.sql` file not yet listed in `schema_migrations` runs, in n
 | [`009_loading_teams.sql`](server/migrations/009_loading_teams.sql) | adds `team` to `users` (a loading account's crew) and `serving_team`, `teams_done` to `orders` (which crew has the customer now, and which have finished) |
 | [`010_loading_handover.sql`](server/migrations/010_loading_handover.sql) | adds `handed_over_by`, `handed_over_at` to `orders`: the sales staff member who pressed Hand over to loading on My counter, and when; the crews can only call a customer once it's set |
 | [`011_order_invoices.sql`](server/migrations/011_order_invoices.sql) | `order_invoices`: several invoices per ticket, each with the type of order it's for; moves each ticket's `invoice_no` into it (typed when the ticket has one type of order) and drops `orders.invoice_no` |
+| [`012_runner_name.sql`](server/migrations/012_runner_name.sql) | adds `runner` to `orders`: the person a customer sends to collect the items for them (`''` when they collect them themselves) |
+| [`013_receiver_sales_times.sql`](server/migrations/013_receiver_sales_times.sql) | adds `receiver`, `sales_time_in`, `sales_time_out` to `orders`: the receiver's name and the times (HH:MM) the customer came in to sales and left it, each `''` when left blank; like the runner, never printed on the ticket |
 
 **Changing the tables later:** never edit a file that has already run anywhere. Add the next number instead, for example `server/migrations/006_add_counter_number.sql`:
 
@@ -225,6 +227,10 @@ erDiagram
         TEXT purpose "type(s) of order, e.g. Roofings, Steel"
         TEXT concern "Customer Report only, else ''"
         TEXT salesman
+        TEXT runner "who collects the items for the customer, or ''"
+        TEXT receiver "or ''"
+        TEXT sales_time_in "HH:MM the customer came in to sales, or ''"
+        TEXT sales_time_out "HH:MM they left sales, or ''"
         TEXT payment_status "Vale | Paid | Terms, from src/data"
         TEXT team "loading crews, e.g. Roofings, Steel; '' for none"
         TEXT pickup_date "YYYY-MM-DD a returning customer collects, or NULL"
@@ -345,7 +351,7 @@ Staff send the order from Admin → Customer order. [`src/admin/pages/customerOr
 export const createOrder = (order) => http.post("/orders", order);
 ```
 
-The server takes the next number for today, saves the order (with its salesman, payment status, team and pick-up day), then its lines and its invoices, all in one transaction. Orders from Customer order have no lines (the invoice lists the items), so `saveItems` writes none for them. [`server/api.js`](server/api.js)
+The server takes the next number for today, saves the order (with its salesman, runner, receiver, sales times, payment status, team and pick-up day), then its lines and its invoices, all in one transaction. Orders from Customer order have no lines (the invoice lists the items), so `saveItems` writes none for them. [`server/api.js`](server/api.js)
 
 ```js
 if (method === "POST" && path === "/orders") {

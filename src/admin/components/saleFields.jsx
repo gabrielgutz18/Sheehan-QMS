@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { todayKey } from '../../data/pickupDate.js';
 
@@ -23,9 +23,9 @@ const errorProps = (id, error) => ({
     className: error ? "has-error" : undefined,
 });
 
-export function SaleText({ id, label, value, onChange, error, narrow, maxLength, placeholder }) {
+export function SaleText({ id, label, value, onChange, error, optional, narrow, maxLength, placeholder }) {
     return (
-        <Field id={id} label={label} narrow={narrow} error={error}>
+        <Field id={id} label={label} optional={optional} narrow={narrow} error={error}>
             <input
                 id={id}
                 type="text"
@@ -36,6 +36,15 @@ export function SaleText({ id, label, value, onChange, error, narrow, maxLength,
                 onChange={(e) => onChange(e.target.value)}
                 {...errorProps(id, error)}
             />
+        </Field>
+    );
+}
+
+// a time of day, which the field gives as HH:MM (24-hour) whatever way the computer shows it; "" when left blank
+export function SaleTime({ id, label, value, onChange, optional, narrow }) {
+    return (
+        <Field id={id} label={label} optional={optional} narrow={narrow}>
+            <input id={id} type="time" value={value} onChange={(e) => onChange(e.target.value)} />
         </Field>
     );
 }
@@ -54,12 +63,16 @@ export function SaleSelect({ id, label, value, onChange, options, placeholder, e
     );
 }
 
+// the 4px between the field and its list, and a little room to spare at the edge of the window
+const MENU_EDGE = 12;
+
 // a field that opens a list to tick one or more of, e.g. Roofings and Steel (Type of order, Team name)
 // they're kept in the list's order whatever order they're ticked in, so the first type (which gives the queue
 // number its letters) doesn't depend on the clicking
 export function CheckPicker({ id, label, names, value, onChange, placeholder, optional, error }) {
     const [open, setOpen] = useState(false);
     const containerRef = useRef(null);
+    const menuRef = useRef(null);
 
     // a name that has since left the list stays on the tickets that have it, at the end, until it's unticked
     const options = [...names, ...value.filter((name) => !names.includes(name))];
@@ -80,6 +93,28 @@ export function CheckPicker({ id, label, names, value, onChange, placeholder, op
             document.removeEventListener("mousedown", handleClick);
             document.removeEventListener("keydown", handleKey);
         };
+    }, [open]);
+
+    // the list opens downward, or upward when there's more room above (Team name is near the bottom of the form),
+    // and is kept inside the window: hanging past the end of the page would make the page longer
+    // set on the element itself, before it's painted, since it's measured from where the field sits on screen
+    useLayoutEffect(() => {
+        if (!open) return;
+        const menu = menuRef.current;
+        const place = () => {
+            menu.dataset.side = "down";
+            menu.style.removeProperty("--menu-room");
+            const field = containerRef.current.getBoundingClientRect();
+            const topbar = document.querySelector(".admin-topbar")?.getBoundingClientRect().bottom ?? 0;
+            const below = window.innerHeight - field.bottom - MENU_EDGE;
+            const above = field.top - Math.max(topbar, 0) - MENU_EDGE;
+            const up = menu.offsetHeight > below && above > below;
+            menu.dataset.side = up ? "up" : "down";
+            menu.style.setProperty("--menu-room", `${Math.max(0, Math.floor(up ? above : below))}px`);
+        };
+        place();
+        window.addEventListener("resize", place);
+        return () => window.removeEventListener("resize", place);
     }, [open]);
 
     return (
@@ -104,7 +139,7 @@ export function CheckPicker({ id, label, names, value, onChange, placeholder, op
                 </button>
 
                 {open && (
-                    <fieldset id={`${id}-menu`} className="type-menu">
+                    <fieldset id={`${id}-menu`} className="type-menu" ref={menuRef}>
                         <legend className="visually-hidden">{label}</legend>
                         {options.map((name) => (
                             <label key={name} className="type-option">
