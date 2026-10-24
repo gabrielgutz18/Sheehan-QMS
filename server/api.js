@@ -11,6 +11,7 @@ import { promisify } from 'node:util';
 import { openDatabase, resolveDataDir, transaction } from './db.js';
 import paymentStatus from '../src/data/paymentStatus.js';
 import teams from '../src/data/teams.js';
+import checkers, { CHECKER_ROUNDS } from '../src/data/checkers.js';
 import { joinList, splitList } from '../src/data/list.js';
 
 const SESSION_COOKIE = "sid";
@@ -37,6 +38,7 @@ const MAX_CONCERN = 300;
 // is added in one place
 const PAYMENT_STATUSES = paymentStatus.map((p) => p.type);
 const TEAMS = teams.map((t) => t.name);
+const CHECKER_COLUMNS = checkers.map((c) => c.name);
 // an order can have several invoices, each with its number and the type of order it's for
 const MAX_INVOICE = 30;
 const MAX_INVOICES = 20;
@@ -44,6 +46,7 @@ const MAX_SALESMAN = 60;
 // the person a customer sends to collect the items for them
 const MAX_RUNNER = 60;
 const MAX_RECEIVER = 60;
+const MAX_CHECKER = 60;
 // several types of order are kept together, "Roofings, Steel", so a purpose can be longer than one name
 const MAX_PURPOSE = 200;
 const VIDEO_EXTENSIONS = {
@@ -298,6 +301,23 @@ const validDay = (day) => {
     return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(day);
 };
 
+// the checkers from Customer order, each optional: { Roofing: ["Pedro", ""] }, a column from src/data/checkers.js
+// with its 1st and 2nd checker
+const validCheckers = (value) =>
+    value === undefined ||
+    (typeof value === "object" && value !== null && !Array.isArray(value) &&
+        Object.entries(value).every(([column, names]) =>
+            CHECKER_COLUMNS.includes(column) && Array.isArray(names) && names.length <= CHECKER_ROUNDS.length &&
+            names.every((name) => optionalText(name, MAX_CHECKER))));
+
+// the checkers as stored: JSON with only the columns that have a name, each with its 1st and 2nd checker; "" for none
+const storedCheckers = (value = {}) => {
+    const filled = CHECKER_COLUMNS
+        .map((column) => [column, CHECKER_ROUNDS.map((_, i) => value[column]?.[i]?.trim() ?? "")])
+        .filter(([, names]) => names.some(Boolean));
+    return filled.length ? JSON.stringify(Object.fromEntries(filled)) : "";
+};
+
 // the loading teams an order goes to, "Roofings, Steel", each from the list once; "" for none
 const validTeamList = (team) => {
     if (team === undefined || team === "") return true;
@@ -309,9 +329,11 @@ const validTeamList = (team) => {
 // the sales details from Customer order, each optional: salesman, runner, receiver, the times the customer came in to
 // sales and left it, payment status, loading teams, and for a returning customer, the day they come back for the
 // items (null when they're taking them now)
-const validSale = ({ salesman, runner, receiver, salesTimeIn, salesTimeOut, paymentStatus: payment, team, pickupDate }) =>
+const validSale = ({
+    salesman, runner, receiver, salesTimeIn, salesTimeOut, checkers: checkerNames, paymentStatus: payment, team, pickupDate,
+}) =>
     optionalText(salesman, MAX_SALESMAN) && optionalText(runner, MAX_RUNNER) && optionalText(receiver, MAX_RECEIVER) &&
-    optionalTime(salesTimeIn) && optionalTime(salesTimeOut) &&
+    optionalTime(salesTimeIn) && optionalTime(salesTimeOut) && validCheckers(checkerNames) &&
     optionalPick(payment, PAYMENT_STATUSES) && validTeamList(team) &&
     (pickupDate === undefined || pickupDate === null || validDay(pickupDate));
 
@@ -381,7 +403,7 @@ const toMe = (row) => ({
 // the keys besides orders and invoices are the insertOrder / updateOrder parameters
 const pickOrder = ({
     name, purpose, orders: items = [], invoices = [], concern, salesman, runner, receiver, salesTimeIn, salesTimeOut,
-    paymentStatus: payment, team, pickupDate,
+    checkers: checkerNames, paymentStatus: payment, team, pickupDate,
 }) => {
     const isReport = purpose === REPORT_PURPOSE;
     return {
@@ -395,6 +417,7 @@ const pickOrder = ({
         receiver: receiver?.trim() ?? "",
         salesTimeIn: salesTimeIn ?? "",
         salesTimeOut: salesTimeOut ?? "",
+        checkers: storedCheckers(checkerNames),
         paymentStatus: payment ?? "",
         team: team ?? "",
         pickupDate: pickupDate ?? null,
@@ -423,6 +446,8 @@ const toOrder = (row, items, invoices) => ({
     ...(row.receiver && { receiver: row.receiver }),
     ...(row.sales_time_in && { salesTimeIn: row.sales_time_in }),
     ...(row.sales_time_out && { salesTimeOut: row.sales_time_out }),
+    // the checkers, { Roofing: ["Pedro", ""] }, with only the columns that have a name
+    ...(row.checkers && { checkers: JSON.parse(row.checkers) }),
     ...(row.payment_status && { paymentStatus: row.payment_status }),
     ...(row.team && { team: row.team }),
     ...(row.pickup_date && { pickupDate: row.pickup_date }),
@@ -484,13 +509,13 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             RETURNING last_num`),
         insertOrder: db.prepare(`
             INSERT INTO orders (queue_date, queue_num, name, purpose, concern, salesman, runner, receiver,
-                sales_time_in, sales_time_out, payment_status, team, pickup_date, created_at)
+                sales_time_in, sales_time_out, checkers, payment_status, team, pickup_date, created_at)
             VALUES (:date, :queueNum, :name, :purpose, :concern, :salesman, :runner, :receiver,
-                :salesTimeIn, :salesTimeOut, :paymentStatus, :team, :pickupDate, :createdAt)`),
+                :salesTimeIn, :salesTimeOut, :checkers, :paymentStatus, :team, :pickupDate, :createdAt)`),
         updateOrder: db.prepare(`
             UPDATE orders SET name = :name, purpose = :purpose, concern = :concern,
                 salesman = :salesman, runner = :runner, receiver = :receiver, sales_time_in = :salesTimeIn,
-                sales_time_out = :salesTimeOut, payment_status = :paymentStatus, team = :team,
+                sales_time_out = :salesTimeOut, checkers = :checkers, payment_status = :paymentStatus, team = :team,
                 pickup_date = :pickupDate
             WHERE id = :id`),
         setStatus: db.prepare(`

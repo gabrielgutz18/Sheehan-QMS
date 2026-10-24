@@ -40,6 +40,43 @@ export function SaleText({ id, label, value, onChange, error, optional, narrow, 
     );
 }
 
+// the tabs along the top of Customer order's card, like a browser's: the one picked joins the card below it
+// tabs: [{ id, label }]; each tab's panel is `${id}-panel` (see the tabpanels in customerOrderPage.jsx)
+// the arrow keys, Home and End move between them, as in any tab list
+export function SaleTabs({ label, tabs, current, onChange }) {
+    const listRef = useRef(null);
+
+    const handleKey = (e) => {
+        const at = tabs.findIndex((tab) => tab.id === current);
+        const next = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: tabs.length - 1 }[e.key];
+        if (next === undefined) return;
+        e.preventDefault();
+        const tab = tabs[(next + tabs.length) % tabs.length];
+        onChange(tab.id);
+        listRef.current.querySelector(`#${tab.id}`).focus();
+    };
+
+    return (
+        <div className="sale-tabs" role="tablist" aria-label={label} ref={listRef} onKeyDown={handleKey}>
+            {tabs.map(({ id, label: tabLabel }) => (
+                <button
+                    key={id}
+                    id={id}
+                    type="button"
+                    role="tab"
+                    className="sale-tab"
+                    aria-selected={id === current}
+                    aria-controls={`${id}-panel`}
+                    tabIndex={id === current ? 0 : -1}
+                    onClick={() => onChange(id)}
+                >
+                    {tabLabel}
+                </button>
+            ))}
+        </div>
+    );
+}
+
 // a time of day, which the field gives as HH:MM (24-hour) whatever way the computer shows it; "" when left blank
 export function SaleTime({ id, label, value, onChange, optional, narrow }) {
     return (

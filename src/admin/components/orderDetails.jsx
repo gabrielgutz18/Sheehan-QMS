@@ -1,5 +1,6 @@
 import { colorLabel } from '../../data/roofingColors.js';
 import { formatPickup } from '../../data/pickupDate.js';
+import { checkerSummary } from '../../data/checkers.js';
 import { teamState, teamsOf } from '../data/loadingTeams.js';
 
 const TEAM_STATES = {
@@ -13,8 +14,8 @@ const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute:
 const formatSalesTime = (time) => timeFormat.format(new Date(`2000-01-01T${time}`));
 
 // what the customer came for: the invoices (each with its type of order), payment status, loading teams (and how far
-// along each is), salesman, runner, receiver, sales times and pick-up day from Customer order, the items on a ticket
-// taken before invoices, or a Customer Report's concern in their own words
+// along each is), salesman, runner, receiver, sales times, checkers and pick-up day from Customer order, the items on
+// a ticket taken before invoices, or a Customer Report's concern in their own words
 export default function OrderDetails({ order }) {
     if (order.concern) {
         return (
@@ -26,9 +27,10 @@ export default function OrderDetails({ order }) {
     }
 
     const invoices = order.invoices ?? [];
+    const checked = checkerSummary(order.checkers);
     const hasSale =
         invoices.length > 0 || order.paymentStatus || order.team || order.salesman || order.runner || order.receiver ||
-        order.salesTimeIn || order.salesTimeOut || order.pickupDate;
+        order.salesTimeIn || order.salesTimeOut || checked || order.pickupDate;
 
     return (
         <>
@@ -58,6 +60,7 @@ export default function OrderDetails({ order }) {
                     {/* when the customer came in to sales and when they left it */}
                     {order.salesTimeIn && <li>Time in {formatSalesTime(order.salesTimeIn)}</li>}
                     {order.salesTimeOut && <li>Time out {formatSalesTime(order.salesTimeOut)}</li>}
+                    {checked && <li>Checked by {checked}</li>}
                     {/* a returning customer: they come back for the items that day */}
                     {order.pickupDate && <li className="sale-pickup">Picks up {formatPickup(order.pickupDate)}</li>}
                 </ul>

@@ -3,7 +3,10 @@ import { useSearchParams } from 'react-router';
 import '../../style/customerOrder.css';
 
 import Receipt from '../../components/receipt.jsx';
-import { CheckPicker, InvoiceFields, ReturningField, SaleSelect, SaleText, SaleTime } from '../components/saleFields.jsx';
+import {
+    CheckPicker, InvoiceFields, ReturningField, SaleSelect, SaleTabs, SaleText, SaleTime,
+} from '../components/saleFields.jsx';
+import CheckerSection from './checkerSection.jsx';
 import OrderSummary from '../components/orderSummary.jsx';
 import TicketPicker from '../components/ticketPicker.jsx';
 import { useAuth } from '../auth/authContext.js';
@@ -12,6 +15,7 @@ import { joinList, splitList } from '../../data/list.js';
 import purpose from '../../data/purpose.js';
 import paymentStatus from '../../data/paymentStatus.js';
 import teams from '../../data/teams.js';
+import checkerColumns, { CHECKER_ROUNDS } from '../../data/checkers.js';
 import { createOrder, updateOrder } from '../../api/orderController.js';
 import { getOrder } from '../api/adminOrderController.js';
 import PrintFunc from '../../printing/printFunc.jsx';
@@ -23,6 +27,15 @@ const MAX_INVOICES = 20;
 const MAX_SALESMAN = 60;
 const MAX_RUNNER = 60;
 const MAX_RECEIVER = 60;
+const MAX_CHECKER = 60;
+
+// the tabs along the top of the form: the order itself, the checkers printed on the ticket, and the ticket as it
+// will print
+const DESK_TABS = [
+    { id: "sale-tab-order", label: "Order" },
+    { id: "sale-tab-checker", label: "Checker" },
+    { id: "sale-tab-preview", label: "Ticket preview" },
+];
 
 // one row of the invoice list; the key keeps each row's fields its own while rows are added and taken away
 let nextInvoiceKey = 0;
@@ -40,17 +53,53 @@ const fieldsFor = (saved, salesman) => ({
     receiver: saved?.receiver ?? "",
     salesTimeIn: saved?.salesTimeIn ?? "",
     salesTimeOut: saved?.salesTimeOut ?? "",
+    // every column's 1st and 2nd checker, "" until it's filled in
+    checkers: Object.fromEntries(checkerColumns.map(({ name }) =>
+        [name, CHECKER_ROUNDS.map((_, i) => saved?.checkers?.[name]?.[i] ?? "")])),
     paymentStatus: saved?.paymentStatus ?? "",
     teams: splitList(saved?.team),
     returning: Boolean(saved?.pickupDate),
     pickupDate: saved?.pickupDate ?? "",
 });
 
+// what Serve sends: the form as it is now; submitted is the ticket being edited, if any
+const orderFrom = (fields, submitted) => ({
+    name: fields.name.trim(),
+    purpose: joinList(fields.types),
+    // the invoices list what they bought; a ticket taken before keeps the items it was taken with
+    orders: submitted?.orders ?? [],
+    invoices: fields.invoices.map(({ invoiceNo, type }) => ({ invoiceNo: invoiceNo.trim(), type })),
+    salesman: fields.salesman.trim(),
+    runner: fields.runner.trim(),
+    receiver: fields.receiver.trim(),
+    salesTimeIn: fields.salesTimeIn,
+    salesTimeOut: fields.salesTimeOut,
+    checkers: Object.fromEntries(Object.entries(fields.checkers).map(([column, names]) =>
+        [column, names.map((name) => name.trim())])),
+    paymentStatus: fields.paymentStatus,
+    team: joinList(fields.teams),
+    pickupDate: fields.returning ? fields.pickupDate : null,
+});
+
+// the ticket Receipt shows for the form as it is now (Ticket preview); a new order gets its number with Serve, so it
+// shows as "R --" until then
+const previewOf = (fields, submitted) => {
+    const order = orderFrom(fields, submitted);
+    return {
+        ...order,
+        queueNumber: formatQueueNum(submitted?.queueNum ?? "--", order.purpose || submitted?.purpose),
+        invoices: order.invoices.filter((invoice) => invoice.invoiceNo),
+        concern: submitted?.concern,
+    };
+};
+
 // staff (admin or sales) take a customer's order: their name, the runner they sent to collect the items and the
 // receiver (if any), the types of order, the invoices (each with the type of order it's for), the salesman, how
 // it's paid, the times the customer came in to sales and left it (if typed in), the loading teams that call them on
-// the Loading page, and for a customer coming back for the items on a later day, that day; Serve gives the ticket
-// its queue number and shows it, and Print ticket opens the print preview to pick the printer
+// the Loading page, and for a customer coming back for the items on a later day, that day; the Checker tab takes the
+// checkers, which the ticket always has, blank to be written in by hand, and Ticket preview shows the ticket exactly
+// as it will print; Serve gives the ticket its queue number and shows it, and Print ticket opens the print preview to
+// pick the printer
 // the runner, receiver and sales times are kept for staff only: they're never on the ticket
 // ?ticket=5 opens today's ticket 5 to edit it (Edit on Orders); ?ticket=5&view=1 shows its ticket to print it again
 // (View queue ticket here, or View ticket on Orders)
@@ -115,6 +164,7 @@ function OrderDesk({ saved, viewing, onNew }) {
     const [editing, setEditing] = useState(Boolean(saved) && !viewing);
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState("");
+    const [tab, setTab] = useState(DESK_TABS[0].id);
 
     // fields show before the first Serve and while editing; the ticket shows otherwise
     const showForm = !submitted || editing;
@@ -176,23 +226,13 @@ function OrderDesk({ saved, viewing, onNew }) {
         if (submitting) return;
         const next = validate();
         setErrors(next);
-        if (Object.keys(next).length > 0) return;
+        // every field that can be wrong is on the Order tab, so that's where to look
+        if (Object.keys(next).length > 0) {
+            setTab("sale-tab-order");
+            return;
+        }
 
-        const payload = {
-            name: fields.name.trim(),
-            purpose: joinList(fields.types),
-            // the invoices list what they bought; a ticket taken before keeps the items it was taken with
-            orders: submitted?.orders ?? [],
-            invoices: fields.invoices.map(({ invoiceNo, type }) => ({ invoiceNo: invoiceNo.trim(), type })),
-            salesman: fields.salesman.trim(),
-            runner: fields.runner.trim(),
-            receiver: fields.receiver.trim(),
-            salesTimeIn: fields.salesTimeIn,
-            salesTimeOut: fields.salesTimeOut,
-            paymentStatus: fields.paymentStatus,
-            team: joinList(fields.teams),
-            pickupDate: fields.returning ? fields.pickupDate : null,
-        };
+        const payload = orderFrom(fields, submitted);
 
         setSubmitting(true);
         setSubmitError("");
@@ -215,18 +255,23 @@ function OrderDesk({ saved, viewing, onNew }) {
             <div className="admin-panel order-panel">
                 {/* ticket on the left, actions beside it */}
                 <section className="receipt-section">
-                    <Receipt
-                        queueNumber={formatQueueNum(submitted.queueNum, submitted.purpose)}
-                        name={submitted.name}
-                        purpose={submitted.purpose}
-                        orders={submitted.orders}
-                        concern={submitted.concern}
-                        invoices={submitted.invoices}
-                        paymentStatus={submitted.paymentStatus}
-                        salesman={submitted.salesman}
-                        team={submitted.team}
-                        pickupDate={submitted.pickupDate}
-                    />
+                    {/* on its paper, exactly as it prints */}
+                    <div className="ticket-sheet">
+                        <Receipt
+                            paper
+                            queueNumber={formatQueueNum(submitted.queueNum, submitted.purpose)}
+                            name={submitted.name}
+                            purpose={submitted.purpose}
+                            orders={submitted.orders}
+                            concern={submitted.concern}
+                            invoices={submitted.invoices}
+                            paymentStatus={submitted.paymentStatus}
+                            salesman={submitted.salesman}
+                            team={submitted.team}
+                            pickupDate={submitted.pickupDate}
+                            checkers={submitted.checkers}
+                        />
+                    </div>
                     <div className="receipt-actions">
                         {/* a Customer Report has a concern, which Customer order no longer takes */}
                         {!submitted.concern && (
@@ -245,58 +290,83 @@ function OrderDesk({ saved, viewing, onNew }) {
     }
 
     return (
-        <form className="admin-panel sale-form" onSubmit={handleSubmit} noValidate>
-            <div className="sale-fields">
-                <SaleText id="sale-name" label="Customer name" maxLength={MAX_NAME}
-                    value={fields.name} onChange={set("name")} error={errors.name} />
-                {/* someone the customer sent to collect the items for them; the loading crews hand them over to this person */}
-                
-                <CheckPicker id="sale-types" label="Type of order" placeholder="Choose one or more"
-                    names={purpose.map((p) => p.name)}
-                    value={fields.types} onChange={setTypes} error={errors.types} />
-                <InvoiceFields invoices={fields.invoices} types={fields.types} errors={errors.invoices}
-                    maxLength={MAX_INVOICE} max={MAX_INVOICES}
-                    onChange={set("invoices")} onAdd={addInvoice} onRemove={removeInvoice} />
-                <SaleText id="sale-salesman" label="Salesman name" narrow maxLength={MAX_SALESMAN}
-                    value={fields.salesman} onChange={set("salesman")} error={errors.salesman} />
-                <SaleText id="sale-runner" label="Runner name" optional maxLength={MAX_RUNNER}
-                    placeholder="Input the name"
-                    value={fields.runner} onChange={set("runner")} />
-                <SaleText id="sale-receiver" label="Receiver name" optional maxLength={MAX_RECEIVER}
-                    value={fields.receiver} onChange={set("receiver")} />
-                <SaleSelect id="sale-payment" label="Payment status" narrow placeholder="Choose..."
-                    options={paymentStatus.map((p) => p.type)}
-                    value={fields.paymentStatus} onChange={set("paymentStatus")} error={errors.paymentStatus} />
-                {/* when the customer came in to sales and when they left it */}
-                <SaleTime id="sale-time-in" label="Time in (sales)" optional narrow
-                    value={fields.salesTimeIn} onChange={set("salesTimeIn")} />
-                <SaleTime id="sale-time-out" label="Time out (sales)" optional narrow
-                    value={fields.salesTimeOut} onChange={set("salesTimeOut")} />
-                {/* the loading crews that call the customer, one at a time, on the Loading page */}
-                <CheckPicker id="sale-teams" label="Team name" optional placeholder="No team"
-                    names={teams.map((t) => t.name)}
-                    value={fields.teams} onChange={set("teams")} />
-                <ReturningField
-                    returning={fields.returning}
-                    pickupDate={fields.pickupDate}
-                    onReturning={set("returning")}
-                    onPickupDate={set("pickupDate")}
-                    error={errors.pickupDate}
-                />
-            </div>
+        <div className="sale-card">
+            <SaleTabs label="Customer order" tabs={DESK_TABS} current={tab} onChange={setTab} />
+            <form className="admin-panel sale-form" onSubmit={handleSubmit} noValidate>
+                <div id="sale-tab-order-panel" className="sale-fields" role="tabpanel" aria-labelledby="sale-tab-order"
+                    hidden={tab !== "sale-tab-order"}>
+                    <SaleText id="sale-name" label="Customer name" maxLength={MAX_NAME}
+                        value={fields.name} onChange={set("name")} error={errors.name} />
+                    <CheckPicker id="sale-types" label="Type of order" placeholder="Choose one or more"
+                        names={purpose.map((p) => p.name)}
+                        value={fields.types} onChange={setTypes} error={errors.types} />
+                    <InvoiceFields invoices={fields.invoices} types={fields.types} errors={errors.invoices}
+                        maxLength={MAX_INVOICE} max={MAX_INVOICES}
+                        onChange={set("invoices")} onAdd={addInvoice} onRemove={removeInvoice} />
+                    <SaleText id="sale-salesman" label="Salesman name" narrow maxLength={MAX_SALESMAN}
+                        value={fields.salesman} onChange={set("salesman")} error={errors.salesman} />
+                    {/* someone the customer sent to collect the items for them; the loading crews hand them over to this person */}
+                    <SaleText id="sale-runner" label="Runner name" optional maxLength={MAX_RUNNER}
+                        placeholder="Input the name"
+                        value={fields.runner} onChange={set("runner")} />
+                    <SaleText id="sale-receiver" label="Receiver name" optional maxLength={MAX_RECEIVER}
+                        value={fields.receiver} onChange={set("receiver")} />
+                    <SaleSelect id="sale-payment" label="Payment status" narrow placeholder="Choose..."
+                        options={paymentStatus.map((p) => p.type)}
+                        value={fields.paymentStatus} onChange={set("paymentStatus")} error={errors.paymentStatus} />
+                    {/* when the customer came in to sales and when they left it */}
+                    <SaleTime id="sale-time-in" label="Time in (sales)" optional narrow
+                        value={fields.salesTimeIn} onChange={set("salesTimeIn")} />
+                    <SaleTime id="sale-time-out" label="Time out (sales)" optional narrow
+                        value={fields.salesTimeOut} onChange={set("salesTimeOut")} />
+                    {/* the loading crews that call the customer, one at a time, on the Loading page */}
+                    <CheckPicker id="sale-teams" label="Team name" optional placeholder="No team"
+                        names={teams.map((t) => t.name)}
+                        value={fields.teams} onChange={set("teams")} />
+                    <ReturningField
+                        returning={fields.returning}
+                        pickupDate={fields.pickupDate}
+                        onReturning={set("returning")}
+                        onPickupDate={set("pickupDate")}
+                        error={errors.pickupDate}
+                    />
+                </div>
 
-            <OrderSummary fields={fields} ticket={editing ? submitted : null} />
+                <div id="sale-tab-checker-panel" role="tabpanel" aria-labelledby="sale-tab-checker"
+                    hidden={tab !== "sale-tab-checker"}>
+                    <CheckerSection value={fields.checkers} onChange={set("checkers")} maxLength={MAX_CHECKER} />
+                </div>
 
-            <div className="sale-actions">
-                {submitError && <p className="field-error" role="alert">{submitError}</p>}
-                {/* while editing, sending again updates the same ticket */}
-                <button type="submit" className="submit-btn" disabled={submitting}>
-                    {submitting ? "Sending..." : editing ? "Update" : "Serve"}
-                </button>
-                <p className="submit-hint">
-                    The ticket shows once it's {editing ? "updated" : "served"}; print it from there.
-                </p>
-            </div>
-        </form>
+                {/* the ticket on its paper, as it will print, filled in from the other two tabs */}
+                <div id="sale-tab-preview-panel" className="ticket-preview" role="tabpanel"
+                    aria-labelledby="sale-tab-preview" hidden={tab !== "sale-tab-preview"}>
+                    {tab === "sale-tab-preview" && (
+                        <>
+                            <p className="tab-hint">
+                                The ticket as it prints, on its 90 × 148 mm page.
+                                {!submitted && " It gets its queue number when you press Serve."}
+                            </p>
+                            <div className="ticket-sheet">
+                                <Receipt paper {...previewOf(fields, submitted)} />
+                            </div>
+                        </>
+                    )}
+                </div>
+
+                {/* the preview already shows it all, on the ticket itself */}
+                {tab !== "sale-tab-preview" && <OrderSummary fields={fields} ticket={editing ? submitted : null} />}
+
+                <div className="sale-actions">
+                    {submitError && <p className="field-error" role="alert">{submitError}</p>}
+                    {/* while editing, sending again updates the same ticket */}
+                    <button type="submit" className="submit-btn" disabled={submitting}>
+                        {submitting ? "Sending..." : editing ? "Update" : "Serve"}
+                    </button>
+                    <p className="submit-hint">
+                        The ticket shows once it's {editing ? "updated" : "served"}; print it from there.
+                    </p>
+                </div>
+            </form>
+        </div>
     );
 }

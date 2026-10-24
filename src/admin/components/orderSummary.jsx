@@ -1,5 +1,6 @@
 import formatQueueNum from '../../data/queueNum.js';
 import { formatPickup } from '../../data/pickupDate.js';
+import { checkerSummary } from '../../data/checkers.js';
 
 // one line of the summary, with a dash until it's filled in
 function SummaryRow({ label, value }) {
@@ -21,6 +22,8 @@ export default function OrderSummary({ fields, ticket }) {
         ["Payment status", fields.paymentStatus],
         ["Team", fields.teams.join(", ")],
         ["Pick-up", pickup],
+        // from the Checker tab; a dash while they're all blank, to be written in by hand
+        ["Checkers", checkerSummary(fields.checkers)],
     ];
 
     return (

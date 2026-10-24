@@ -72,7 +72,7 @@ test("rebuilding orders and users keeps every ticket, its items, its point and s
 });
 
 // 008 adds the sales details from Customer order, 009 the loading teams, 010 handing over to loading, 012 the runner,
-// 013 the receiver and sales times
+// 013 the receiver and sales times, 014 the checkers
 test("older tickets keep their items and get empty sales details and loading teams", () => {
     const old = databaseBefore("008");
     old.exec(`
@@ -102,6 +102,8 @@ test("older tickets keep their items and get empty sales details and loading tea
         // no receiver or sales times on a ticket taken before they were asked for
         const staffOnly = db.prepare("SELECT receiver, sales_time_in, sales_time_out FROM orders WHERE id = 5").get();
         assert.deepEqual({ ...staffOnly }, { receiver: "", sales_time_in: "", sales_time_out: "" });
+        // no checkers yet: the ticket has blank lines for them
+        assert.equal(db.prepare("SELECT checkers FROM orders WHERE id = 5").get().checkers, "");
     } finally {
         db.close();
     }

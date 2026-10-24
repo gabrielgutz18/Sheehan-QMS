@@ -1,5 +1,6 @@
 import { colorLabel } from '../data/roofingColors.js';
 import { formatPickup } from '../data/pickupDate.js';
+import checkerColumns, { CHECKER_ROUNDS } from '../data/checkers.js';
 
 // ESC/POS: the command language almost every thermal receipt printer understands
 const ESC = 0x1b;
@@ -39,13 +40,16 @@ const formatIssued = (issuedAt) => {
 };
 
 // ticket: { queueNumber, name, purpose, orders: [{ qty, item, color? }], concern?, invoices: [{ invoiceNo, type }],
-//   paymentStatus?, salesman?, team?, pickupDate?, issuedAt }
+//   paymentStatus?, salesman?, team?, pickupDate?, checkers?: { Roofing: ["Pedro", ""] }, issuedAt }
 // the sales details from Customer order are printed once they're set, except the runner, receiver and sales times,
 // which are for staff only; orders are the items on a ticket taken before invoices, and concern a Customer Report's
-// concern, printed in place of them
+// concern, printed in place of them; the checkers are always printed, a line to write each one left out on
 // columns: characters per line, 32 for 58mm paper and 48 for 80mm
 export function buildReceipt(
-    { queueNumber, name, purpose, orders = [], concern, invoices = [], paymentStatus, salesman, team, pickupDate, issuedAt },
+    {
+        queueNumber, name, purpose, orders = [], concern, invoices = [], paymentStatus, salesman, team, pickupDate,
+        checkers = {}, issuedAt,
+    },
     { columns = 48 } = {},
 ) {
     const bytes = [];
@@ -121,6 +125,24 @@ export function buildReceipt(
         for (const o of orders) {
             const color = o.color ? ` (${colorLabel(o.color)})` : "";
             wrap(`${o.qty}x ${o.item}${color}`, columns).forEach(line);
+        }
+        rule();
+    }
+
+    // each column's 1st and 2nd checker, one under the other since three columns don't fit on 58mm paper; a Customer
+    // Report's ticket isn't checked out
+    if (!concern) {
+        line("CHECKERS");
+        for (const { name: column } of checkerColumns) {
+            bold(true);
+            wrap(column.toUpperCase(), columns).forEach(line);
+            bold(false);
+            CHECKER_ROUNDS.forEach(({ short }, i) => {
+                const label = `${short.toUpperCase()}: `;
+                const checker = checkers[column]?.[i];
+                if (checker) wrap(`${label}${checker}`, columns).forEach(line);
+                else line(label + "_".repeat(columns - label.length));
+            });
         }
         rule();
     }

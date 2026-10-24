@@ -28,6 +28,7 @@ const sale = (overrides = {}) => ({
     receiver: "",
     salesTimeIn: "",
     salesTimeOut: "",
+    checkers: {},
     paymentStatus: "Vale",
     team: "Roofings",
     pickupDate: null,
@@ -116,6 +117,58 @@ describe("sales order", () => {
         app.assertDatabaseHas("orders", { queue_num: 1, runner: "", receiver: "", sales_time_in: "", sales_time_out: "" });
     });
 
+    test("the checkers are kept with only the names filled in, and can be filled in later with Edit", async () => {
+        const saved = await takeOrder({
+            checkers: { Roofing: [" Pedro ", ""], Construction: ["", ""], "Hardware/TBA/Chassis": ["", "Ana"] },
+        });
+
+        assert.deepEqual(saved.checkers, { Roofing: ["Pedro", ""], "Hardware/TBA/Chassis": ["", "Ana"] });
+        app.assertDatabaseHas("orders", {
+            queue_num: 1, checkers: JSON.stringify({ Roofing: ["Pedro", ""], "Hardware/TBA/Chassis": ["", "Ana"] }),
+        });
+
+        // sales fill in the rest later, and staff see them on the order
+        const later = { Roofing: ["Pedro", "Ben"], Construction: ["Carlo", ""], "Hardware/TBA/Chassis": ["", "Ana"] };
+        const edited = (await app.client().put("/orders/1", sale({ checkers: later }))).assertStatus(200).body;
+        assert.deepEqual(edited.checkers, later);
+        const [listed] = (await (await app.actingAsSales()).get("/admin/orders")).assertStatus(200).body;
+        assert.deepEqual(listed.checkers, later);
+
+        // all left blank again: to be written in by hand
+        const cleared = (await app.client().put("/orders/1", sale())).assertStatus(200).body;
+        assert.equal(cleared.checkers, undefined);
+        app.assertDatabaseHas("orders", { queue_num: 1, checkers: "" });
+    });
+
+    test("the checkers are optional", async () => {
+        const saved = await takeOrder({ checkers: undefined });
+
+        assert.equal(saved.checkers, undefined);
+        app.assertDatabaseHas("orders", { queue_num: 1, checkers: "" });
+    });
+
+    test("the ticket always has the checkers, with a line to write each one left blank on", async () => {
+        const saved = await takeOrder({ checkers: { Roofing: ["Pedro", ""] } });
+        const issuedAt = new Date("2026-10-24T15:20:00");
+
+        const printed = new TextDecoder().decode(
+            buildReceipt({ ...saved, queueNumber: "RS 01", issuedAt }, { columns: 32 }));
+
+        // each of these in turn, on 58mm paper: 32 characters a line
+        const blank = (round) => `${round}: ${"_".repeat(27)}\n`;
+        let from = printed.indexOf("CHECKERS");
+        assert.ok(from > 0, "the ticket has the checkers");
+        for (const text of [
+            "ROOFING", "1ST: Pedro\n", blank("2ND"),
+            "CONSTRUCTION", blank("1ST"), blank("2ND"),
+            "HARDWARE/TBA/CHASSIS", blank("1ST"), blank("2ND"),
+        ]) {
+            const at = printed.indexOf(text, from);
+            assert.ok(at >= from, `the checkers go on with ${text.trim()}`);
+            from = at + text.length;
+        }
+    });
+
     test("the ticket never shows the runner, receiver or sales times", async () => {
         const saved = await takeOrder({
             runner: "Boy Reyes", receiver: "Ana Cruz", salesTimeIn: "09:05", salesTimeOut: "13:40",
@@ -183,6 +236,12 @@ describe("sales order", () => {
         (await desk.post("/orders", sale({ runner: "x".repeat(61) }))).assertStatus(400);
         (await desk.post("/orders", sale({ runner: 5 }))).assertStatus(400);
         (await desk.post("/orders", sale({ receiver: "x".repeat(61) }))).assertStatus(400);
+        (await desk.post("/orders", sale({ checkers: { Tires: ["Pedro", ""] } }))).assertStatus(400);
+        (await desk.post("/orders", sale({ checkers: { Roofing: "Pedro" } }))).assertStatus(400);
+        (await desk.post("/orders", sale({ checkers: { Roofing: ["Pedro", "Ana", "Ben"] } }))).assertStatus(400);
+        (await desk.post("/orders", sale({ checkers: { Roofing: ["x".repeat(61), ""] } }))).assertStatus(400);
+        (await desk.post("/orders", sale({ checkers: { Roofing: [5, ""] } }))).assertStatus(400);
+        (await desk.post("/orders", sale({ checkers: [["Pedro"]] }))).assertStatus(400);
         for (const time of ["9:05", "24:00", "12:60", "noon", "09:05:30", 905]) {
             (await desk.post("/orders", sale({ salesTimeIn: time }))).assertStatus(400);
             (await desk.post("/orders", sale({ salesTimeOut: time }))).assertStatus(400);
