@@ -611,9 +611,10 @@
   flex-wrap: wrap;
 }
 
+/* a long customer name in the list doesn't widen it past the screen */
 .ticket-picker select {
   min-width: 0;
-  max-width: min(280px, 100%);
+  max-width: min(280px, calc(100vw - 48px));
 }
 
 .admin-filter select,
@@ -825,6 +826,287 @@
   grid-template-columns: minmax(0, 1fr) 380px;
   gap: 20px;
   align-items: start;
+}
+
+/* the Queue ticket half while the Order sheet shows; display: grid would otherwise outrank the hidden attribute */
+.desk-layout[hidden] {
+  display: none;
+}
+
+/* Queue ticket / Order sheet, in the page's heading */
+.desk-views {
+  margin: 0 auto 0 8px;
+}
+
+.desk-views .video-tab {
+  flex: none;
+  padding: 8px 18px;
+}
+
+/* the Order sheet: like a spreadsheet, thin grid lines and short rows, the heading row and the ticket column staying
+   in view while the rest scrolls; the four columns staff fill in have a cream heading, and their cells are typed or
+   picked into right where they are */
+.order-sheet-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 20px;
+  margin-bottom: 14px;
+}
+
+.order-sheet-head h2 {
+  margin: 0 0 4px;
+}
+
+.order-sheet-head .tab-hint {
+  max-width: 640px;
+  margin: 0;
+}
+
+.order-sheet-status {
+  min-height: 1.4em;
+  margin: 0 0 0 auto;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* the Order sheet uses the whole width of the screen, with narrower margins */
+.admin-main:has(.order-sheet) {
+  max-width: none;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+.order-sheet.admin-panel {
+  padding: 16px 12px;
+}
+
+/* the Order sheet, laid out like the loading schedule in Google Sheets: a black heading row that stays in view under
+   the top bar, thin grid lines and short rows; the columns have fixed widths that add up to the page's width, so
+   nothing scrolls sideways and long text wraps inside its cell; the cells staff fill in (team, terms, runner,
+   receiver) have a cream tint */
+.sheet-frame {
+  min-width: 0;
+}
+
+.sheet-table {
+  /* the size of the numbers (dates, times, invoice numbers) and of the headings, which shrink with the screen like the
+     columns do, so a date, a time or an 8-digit invoice number always fits its column on one line */
+  --sheet-num: clamp(9px, calc((100vw - 300px) * 0.0103), 12px);
+  --sheet-head: clamp(8.5px, calc((100vw - 300px) * 0.0089), 10px);
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--sheet-num);
+  line-height: 1.3;
+  border-left: 1px solid #d4d4d0;
+}
+
+/* each column's share of the width, left to right as on the schedule; together they make 100%, each wide enough for
+   its longest number or heading word at the sizes above */
+.sheet-table .c-date { width: 6.25%; }
+.sheet-table .c-que { width: 4%; }
+.sheet-table .c-team { width: 6%; }
+/* the salesman is one typed surname that can't wrap, CORONACION; the others wrap between names or are typed into */
+.sheet-table .c-salesman { width: 7.5%; }
+.sheet-table .c-person { width: 5.5%; }
+.sheet-table .c-customer { width: 8.8%; }
+.sheet-table .c-invoice { width: 6.15%; }
+.sheet-table .c-construction { width: 6.5%; }
+.sheet-table .c-others { width: 5.75%; }
+.sheet-table .c-terms { width: 6%; }
+.sheet-table .c-time { width: 4.25%; }
+.sheet-table .c-status { width: 5.75%; }
+
+.sheet-table th,
+.sheet-table td {
+  padding: 5px 3px;
+  text-align: left;
+  vertical-align: middle;
+  overflow-wrap: break-word;
+  background: #ffffff;
+  border-right: 1px solid #d4d4d0;
+  border-bottom: 1px solid #d4d4d0;
+}
+
+.sheet-table thead th {
+  position: sticky;
+  top: var(--bar-h);
+  z-index: 2;
+  padding: 8px 2px;
+  font-size: var(--sheet-head);
+  font-weight: 800;
+  line-height: 1.2;
+  text-transform: uppercase;
+  /* a heading too long for a narrow screen breaks with a hyphen, SALES-MAN, rather than anywhere */
+  hyphens: auto;
+  vertical-align: bottom;
+  color: #ffffff;
+  background: #1d1d1b;
+  border-right-color: #3d3d3a;
+}
+
+.sheet-table thead th small {
+  display: block;
+  font-size: var(--sheet-head);
+  font-weight: 600;
+  text-transform: none;
+  opacity: 0.8;
+}
+
+/* the sales times' headings are yellow, as on the schedule */
+.sheet-table thead th.is-time {
+  color: #ffd54a;
+}
+
+/* a cream line under the headings of the cells staff fill in */
+.sheet-table thead th.is-editable {
+  box-shadow: inset 0 -3px 0 var(--cream-border);
+}
+
+.sheet-table tbody th {
+  font-weight: 400;
+}
+
+.sheet-table tbody tr:hover > * {
+  background: #fdfaf1;
+}
+
+.sheet-table td.is-editable {
+  padding: 0;
+  background: #fffcf3;
+}
+
+/* staff names are written in capitals, as on the schedule, a little smaller so a long surname fits on one line */
+.sheet-caps {
+  text-transform: uppercase;
+}
+
+.sheet-table td.sheet-caps {
+  font-size: calc(var(--sheet-num) * 0.95);
+}
+
+/* dates, times and invoice numbers never break: half a number on the next line would read as another one */
+.sheet-date {
+  font-size: calc(var(--sheet-num) * 0.92);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.sheet-que-btn {
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  color: var(--brand-red);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+/* a ticket's invoice numbers under their department, one above the other */
+.sheet-invoices {
+  font-size: var(--sheet-num);
+  font-variant-numeric: tabular-nums;
+}
+
+.sheet-invoices span {
+  display: block;
+  white-space: nowrap;
+}
+
+.sheet-time {
+  font-size: var(--sheet-num);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.sheet-note {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+/* the cells typed or picked into right where they are, edge to edge in their cell */
+.sheet-input,
+.sheet-select {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  font: inherit;
+  font-size: var(--sheet-num);
+  color: inherit;
+  background-color: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+.sheet-input {
+  padding: 0 3px;
+}
+
+/* a small caret instead of the browser's wide one, so the choice still fits a narrow column */
+.sheet-select {
+  appearance: none;
+  padding: 0 11px 0 3px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0h8L4 5z' fill='%236f6f6f'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 3px center;
+  background-size: 8px 5px;
+}
+
+.sheet-input:hover,
+.sheet-select:hover {
+  background-color: var(--field-bg);
+}
+
+/* the cell being typed in, outlined like a spreadsheet's */
+.sheet-input:focus,
+.sheet-select:focus-visible {
+  outline: 2px solid var(--brand-red);
+  outline-offset: -2px;
+  background-color: #ffffff;
+}
+
+/* the runners' names are red, as on the schedule */
+.sheet-runner {
+  font-weight: 600;
+  color: var(--brand-red);
+}
+
+.sheet-status .stage-badge {
+  padding: 2px 5px;
+  font-size: calc(var(--sheet-num) * 0.92);
+}
+
+.sheet-edit {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* on a phone the sheet can't fit: there it scrolls sideways inside its frame instead */
+@media (max-width: 760px) {
+  .sheet-frame {
+    overflow-x: auto;
+  }
+
+  .sheet-table {
+    min-width: 960px;
+  }
+
+  .sheet-table thead th {
+    top: 0;
+  }
 }
 
 /* the form lays itself out by its own width, which the board takes from */

@@ -24,6 +24,7 @@ import checkerColumns, { CHECKER_ROUNDS } from '../../data/checkers.js';
 import { createOrder } from '../../api/orderController.js';
 import { getOrder, updateOrder } from '../api/adminOrderController.js';
 import EditedBy from '../components/editedBy.jsx';
+import OrderSheet from '../components/orderSheet.jsx';
 import PrintFunc from '../../printing/printFunc.jsx';
 
 // must match the backend (server/api.js)
@@ -31,9 +32,14 @@ const MAX_NAME = 100;
 const MAX_INVOICE = 30;
 const MAX_INVOICES = 20;
 const MAX_SALESMAN = 60;
-const MAX_RUNNER = 60;
-const MAX_RECEIVER = 60;
 const MAX_CHECKER = 60;
+
+// the two halves of the page: taking a customer's order for their queue ticket, and the Order sheet with every order
+// today, which every sales staff member works on together
+const VIEWS = [
+    { value: "ticket", label: "Queue ticket" },
+    { value: "sheet", label: "Order sheet" },
+];
 
 // the tabs along the top of the form: the order itself, the checkers printed on the ticket, and the ticket as it
 // will print
@@ -55,8 +61,6 @@ const fieldsFor = (saved, salesman) => ({
         ? saved.invoices.map((invoice) => invoiceRow(invoice.invoiceNo, invoice.type))
         : [invoiceRow()],
     salesman: saved ? saved.salesman ?? "" : salesman,
-    runner: saved?.runner ?? "",
-    receiver: saved?.receiver ?? "",
     salesTimeIn: saved?.salesTimeIn ?? "",
     salesTimeOut: saved?.salesTimeOut ?? "",
     // every column's 1st and 2nd checker, "" until it's filled in
@@ -70,6 +74,7 @@ const fieldsFor = (saved, salesman) => ({
 });
 
 // what Serve sends: the form as it is now; submitted is the ticket being edited, if any
+// the runner and receiver are left out: they're filled in on the Order sheet, and Update keeps them as they are
 const orderFrom = (fields, submitted) => ({
     name: fields.name.trim(),
     purpose: joinList(fields.types),
@@ -77,8 +82,6 @@ const orderFrom = (fields, submitted) => ({
     orders: submitted?.orders ?? [],
     invoices: fields.invoices.map(({ invoiceNo, type }) => ({ invoiceNo: invoiceNo.trim(), type })),
     salesman: fields.salesman.trim(),
-    runner: fields.runner.trim(),
-    receiver: fields.receiver.trim(),
     salesTimeIn: fields.salesTimeIn,
     salesTimeOut: fields.salesTimeOut,
     checkers: Object.fromEntries(Object.entries(fields.checkers).map(([column, names]) =>
@@ -100,15 +103,17 @@ const previewOf = (fields, submitted) => {
     };
 };
 
-// staff (admin or sales) take a customer's order: their name, the runner they sent to collect the items and the
-// receiver (if any), the types of order, the invoices (each with the type of order it's for), the salesman, how
-// it's paid, the times the customer came in to sales and left it (if typed in), the sales team that served them (it
+// staff (admin or sales) take a customer's order: their name, the types of order, the invoices (each with the type of
+// order it's for), the salesman, how it's paid, the times the customer came in to sales and left it (if typed in), the sales team that served them (it
 // stays theirs after the hand-over to loading), and for a customer coming back for the items on a later day, that
 // day; the Checker tab takes the
 // checkers, which the ticket always has, blank to be written in by hand, and Ticket preview shows the ticket exactly
 // as it will print; Serve gives the ticket its queue number and shows it, and Print ticket opens the print preview to
 // pick the printer
-// the runner, receiver and sales times are kept for staff only: they're never on the ticket
+// the sales times are kept for staff only: they're never on the ticket
+// the Order sheet beside Queue ticket lists every order today with all its details, like a shared spreadsheet: any
+// sales staff member fills in the runner the customer sent to collect the items and the receiver there (never on the
+// ticket either), and can change the payment status and sales team, each cell saved and kept as an edit on its own
 // ?ticket=5 opens today's ticket 5 to edit it (Edit on Orders); ?ticket=5&view=1 shows its ticket to print it again
 // (View queue ticket here, or View ticket on Orders)
 // beside it all on the right, the Order status board: where every customer today is (in a narrower window, the top
@@ -121,6 +126,8 @@ export default function CustomerOrderPage() {
     const [opened, setOpened] = useState(null);
     // New order starts the form over
     const [round, setRound] = useState(0);
+    // the Order sheet keeps the form as it is underneath, so switching back finds it as it was left
+    const [view, setView] = useState("ticket");
     const boardDocks = useMediaQuery(BOARD_DOCKS);
 
     useEffect(() => {
@@ -137,16 +144,33 @@ export default function CustomerOrderPage() {
         setRound((prev) => prev + 1);
     };
 
+    // a ticket from View queue ticket or the sheet's Open, on the Queue ticket tab
+    const openTicket = (queueNum, params) => {
+        setParams({ ticket: String(queueNum), ...params });
+        setView("ticket");
+    };
+
     const loaded = ticket && opened?.ticket === ticket ? opened : null;
 
     return (
         <section className="admin-page">
             <div className="admin-page-head">
                 <h1 className="admin-title">Customer order</h1>
-                <TicketPicker current={ticket} onView={(queueNum) => setParams({ ticket: String(queueNum), view: "1" })} />
+                <div className="video-tabs desk-views" role="radiogroup" aria-label="Show">
+                    {VIEWS.map(({ value, label }) => (
+                        <button key={value} type="button" role="radio" aria-checked={view === value} className="video-tab"
+                            onClick={() => setView(value)}>
+                            {label}
+                        </button>
+                    ))}
+                </div>
+                <TicketPicker current={ticket} onView={(queueNum) => openTicket(queueNum, { view: "1" })} />
             </div>
 
-            <div className={`desk-layout${boardDocks ? " has-status" : ""}`}>
+            {view === "sheet" && <OrderSheet onOpen={(queueNum) => openTicket(queueNum)} />}
+
+            {/* hidden, not taken away, while the sheet shows: a half-filled form is still there to come back to */}
+            <div className={`desk-layout${boardDocks ? " has-status" : ""}`} hidden={view !== "ticket"}>
                 <div className="desk-main">
                     {ticket && !loaded ? (
                         <p className="admin-status">Opening the ticket...</p>
@@ -330,12 +354,6 @@ function OrderDesk({ saved, viewing, onNew }) {
                         onChange={set("invoices")} onAdd={addInvoice} onRemove={removeInvoice} />
                     <SaleText id="sale-salesman" label="Salesman name" narrow maxLength={MAX_SALESMAN}
                         value={fields.salesman} onChange={set("salesman")} error={errors.salesman} />
-                    {/* someone the customer sent to collect the items for them; the loading crews hand them over to this person */}
-                    <SaleText id="sale-runner" label="Runner name" optional maxLength={MAX_RUNNER}
-                        placeholder="Input the name"
-                        value={fields.runner} onChange={set("runner")} />
-                    <SaleText id="sale-receiver" label="Receiver name" optional maxLength={MAX_RECEIVER}
-                        value={fields.receiver} onChange={set("receiver")} />
                     <SaleSelect id="sale-payment" label="Payment status" narrow placeholder="Choose..."
                         options={paymentStatus.map((p) => p.type)}
                         value={fields.paymentStatus} onChange={set("paymentStatus")} error={errors.paymentStatus} />

@@ -17,6 +17,11 @@ export const getOrder = (queueNum, options) => http.get(`/admin/orders/${encodeU
 // team?, changes: ["runner", ...], at }], newest first
 export const updateOrder = (queueNum, order) => http.put(`/admin/orders/${encodeURIComponent(queueNum)}`, order);
 
+// saves cells of the Order sheet on Customer order, only the ones given: { runner?, receiver?, paymentStatus?, team? }
+// → the order; a save that changes something is kept as an edit, like updateOrder
+export const updateOrderSheet = (queueNum, cells) =>
+    http.patch(`/admin/orders/${encodeURIComponent(queueNum)}/sheet`, cells);
+
 export const updateOrderStatus = (queueNum, status) =>
     http.patch(`/admin/orders/${encodeURIComponent(queueNum)}`, { status });
 

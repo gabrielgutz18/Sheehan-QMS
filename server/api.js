@@ -81,6 +81,8 @@ const ROLE_ROUTES = {
         // one of today's tickets, opened on Customer order to edit it, and saved again (kept as an edit, with who saved it)
         ["GET", /^\/admin\/orders\/[^/]+$/],
         ["PUT", /^\/admin\/orders\/[^/]+$/],
+        // the Order sheet on Customer order: one cell at a time (runner, receiver, payment status, sales team)
+        ["PATCH", /^\/admin\/orders\/[^/]+\/sheet$/],
         ["POST", /^\/admin\/orders\/[^/]+\/call$/],
         ["POST", /^\/admin\/orders\/[^/]+\/handover$/],
         ["PATCH", /^\/admin\/orders\/[^/]+$/],
@@ -430,6 +432,18 @@ const EDITABLE_COLUMNS = {
     salesTimeIn: "sales_time_in", salesTimeOut: "sales_time_out", checkers: "checkers", paymentStatus: "payment_status",
     team: "team", pickupDate: "pickup_date",
 };
+// the Order sheet on Customer order: the details any sales staff member fills in after the ticket, each cell saved on
+// its own, with whether a value is one it takes; the payment status can be changed but not cleared
+const SHEET_CELLS = {
+    runner: (value) => typeof value === "string" && value.trim().length <= MAX_RUNNER,
+    receiver: (value) => typeof value === "string" && value.trim().length <= MAX_RECEIVER,
+    paymentStatus: (value) => PAYMENT_STATUSES.includes(value),
+    team: (value) => value === "" || TEAMS.includes(value),
+};
+// a save from the sheet: one or more of its cells, nothing else
+const validSheet = (body) =>
+    typeof body === "object" && body !== null && !Array.isArray(body) && Object.keys(body).length > 0 &&
+    Object.entries(body).every(([key, value]) => Object.hasOwn(SHEET_CELLS, key) && SHEET_CELLS[key](value));
 const itemsOf = (rows) => rows.map(({ item, qty, color }) => ({ item, qty, ...(color && { color }) }));
 const invoicesOf = (rows) => rows.map(({ invoice_no, type }) => ({ invoiceNo: invoice_no, type }));
 
@@ -570,6 +584,10 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
                 salesman = :salesman, runner = :runner, receiver = :receiver, sales_time_in = :salesTimeIn,
                 sales_time_out = :salesTimeOut, checkers = :checkers, payment_status = :paymentStatus, team = :team,
                 pickup_date = :pickupDate
+            WHERE id = :id`),
+        // the Order sheet's cells; the ones a save leaves out keep what's stored
+        updateSheet: db.prepare(`
+            UPDATE orders SET runner = :runner, receiver = :receiver, payment_status = :paymentStatus, team = :team
             WHERE id = :id`),
         setStatus: db.prepare(`
             UPDATE orders SET status = :status, called_at = :calledAt, remarks = :remarks, served_by = :servedBy,
@@ -1209,6 +1227,31 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             return send(res, 200, loadOrder(findToday(order.queue_num)));
         }
 
+        // the Order sheet on Customer order, shared by every sales staff member: each cell is saved on its own, so two
+        // people working on the same order at once don't overwrite each other's cells; a save that changes something
+        // is kept as an edit, the same as a save on Customer order
+        const sheetMatch = path.match(/^\/admin\/orders\/([^/]+)\/sheet$/);
+        if (method === "PATCH" && sheetMatch) {
+            const order = findToday(Number(decodeURIComponent(sheetMatch[1])));
+            if (!order) return send(res, 404, { message: "Order not found." });
+            const body = await readBody(req);
+            if (!validSheet(body)) return send(res, 400, { message: "Invalid order sheet change." });
+            const cells = {
+                runner: (body.runner ?? order.runner).trim(),
+                receiver: (body.receiver ?? order.receiver).trim(),
+                paymentStatus: body.paymentStatus ?? order.payment_status,
+                team: body.team ?? order.team,
+            };
+            const changes = Object.keys(body).filter((key) => cells[key] !== order[EDITABLE_COLUMNS[key]]);
+            transaction(db, () => {
+                sql.updateSheet.run({ ...cells, id: order.id });
+                if (changes.length) {
+                    sql.insertEdit.run(order.id, me.id, me.team, JSON.stringify(changes), new Date().toISOString());
+                }
+            });
+            return send(res, 200, loadOrder(findToday(order.queue_num)));
+        }
+
         const adminMatch = path.match(/^\/admin\/orders\/([^/]+)$/);
         if (adminMatch) {
             const order = findToday(Number(decodeURIComponent(adminMatch[1])));
@@ -1217,10 +1260,11 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             if (method === "GET") return send(res, 200, loadOrder(order));
             // Customer order saves the whole order again (admins and sales staff only); a save that changes something
             // is kept as an edit with who saved it, their sales team and when; one that changes nothing isn't
+            // the runner and receiver are filled in on the Order sheet, so a save without them keeps what's stored
             if (method === "PUT") {
                 const body = await readBody(req);
                 if (!validOrder(body)) return send(res, 400, { message: "Invalid order." });
-                const saved = pickOrder(body);
+                const saved = pickOrder({ runner: order.runner, receiver: order.receiver, ...body });
                 const { orders: items, invoices, ...fields } = saved;
                 transaction(db, () => {
                     const changes = changedDetails(order, sql.orderItems.all(order.id), sql.orderInvoices.all(order.id), saved);
