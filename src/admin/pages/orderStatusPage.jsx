@@ -1,4 +1,4 @@
-import LifeCycleTable from '../../components/lifeCycleStatus/lifecyle.jsx';
+import LifeCycleTable from '../components/orderStatus/lifeCycleTable.jsx';
 
 // the loading crews' Order status page: every order today and where its customer is, the same board sales and admins
 // have on Customer order

@@ -2,16 +2,16 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import '../../style/customerOrder.css';
 
-import Receipt from '../../components/receipt.jsx';
+import Receipt from '../printing/receipt.jsx';
 import {
     CheckPicker, InvoiceFields, ReturningField, SaleSelect, SaleTabs, SaleText, SaleTime,
-} from '../components/saleFields.jsx';
-import CheckerSection from './checkerSection.jsx';
-import LifeCycleTable from '../../components/lifeCycleStatus/lifecyle.jsx';
-import { BOARD_DOCKS } from '../components/orderStatusDrawer.jsx';
+} from '../components/customerOrder/saleFields.jsx';
+import CheckerSection from '../components/customerOrder/checkerSection.jsx';
+import LifeCycleTable from '../components/orderStatus/lifeCycleTable.jsx';
+import { BOARD_DOCKS } from '../components/orderStatus/orderStatusDrawer.jsx';
 import useMediaQuery from '../hooks/useMediaQuery.js';
-import OrderSummary from '../components/orderSummary.jsx';
-import TicketPicker from '../components/ticketPicker.jsx';
+import OrderSummary from '../components/customerOrder/orderSummary.jsx';
+import TicketPicker from '../components/customerOrder/ticketPicker.jsx';
 import { useAuth } from '../auth/authContext.js';
 import formatQueueNum from '../../data/queueNum.js';
 import { joinList, splitList } from '../../data/list.js';
@@ -23,9 +23,9 @@ const teamNames = teams.map((t) => t.name);
 import checkerColumns, { CHECKER_ROUNDS } from '../../data/checkers.js';
 import { createOrder } from '../../api/orderController.js';
 import { getOrder, updateOrder } from '../api/adminOrderController.js';
-import EditedBy from '../components/editedBy.jsx';
-import OrderSheet from '../components/orderSheet.jsx';
-import PrintFunc from '../../printing/printFunc.jsx';
+import EditedBy from '../components/orders/editedBy.jsx';
+import OrderSheet from '../components/customerOrder/orderSheet.jsx';
+import PrintFunc from '../printing/printFunc.jsx';
 
 // must match the backend (server/api.js)
 const MAX_NAME = 100;

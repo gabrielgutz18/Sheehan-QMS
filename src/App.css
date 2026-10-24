@@ -1,4 +1,4 @@
-/* app-level styles — page styles live in src/style/ */
+/* app-level styles — shared styles live in src/style/, the display's and admin's in their own style/ folders */
 
 .not-found-link {
   display: inline-flex;

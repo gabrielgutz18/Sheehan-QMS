@@ -1,10 +1,10 @@
 import useOrders from '../hooks/useOrders.js';
 import { useAuth } from '../auth/authContext.js';
-import Greetings from '../components/greetings.jsx';
-import TotalViewer from '../components/totalViewer.jsx';
-import ServingCompo from '../components/servingCompo.jsx';
-import NextNumComp from '../components/nextNumComp.jsx';
-import Statistics from '../components/statistics.jsx';
+import Greetings from '../components/common/greetings.jsx';
+import TotalViewer from '../components/dashboard/totalViewer.jsx';
+import ServingCompo from '../components/dashboard/servingCompo.jsx';
+import NextNumComp from '../components/dashboard/nextNumComp.jsx';
+import Statistics from '../components/dashboard/statistics.jsx';
 
 export default function DashboardPage() {
     const { user } = useAuth();

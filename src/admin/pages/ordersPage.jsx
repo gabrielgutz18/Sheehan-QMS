@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import useOrders from '../hooks/useOrders.js';
 import orderStatus from '../data/orderStatus.js';
-import QueueTable from '../components/queueTable.jsx';
+import QueueTable from '../components/orders/queueTable.jsx';
 
 export default function OrdersPage() {
     const { orders, setOrders, loading, error } = useOrders();

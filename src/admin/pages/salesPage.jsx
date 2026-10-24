@@ -3,17 +3,17 @@ import { useState } from 'react';
 import useOrders from '../hooks/useOrders.js';
 import { useAuth } from '../auth/authContext.js';
 import { callOrder, handOverOrder, updateOrderStatus } from '../api/adminOrderController.js';
-import CallDialog from '../components/callDialog.jsx';
-import HandOverDialog from '../components/handOverDialog.jsx';
-import MyStats from '../components/myStats.jsx';
-import AnnouncerVolume from '../components/announcerVolume.jsx';
+import CallDialog from '../components/orders/callDialog.jsx';
+import HandOverDialog from '../components/counter/handOverDialog.jsx';
+import MyStats from '../components/counter/myStats.jsx';
+import AnnouncerVolume from '../components/counter/announcerVolume.jsx';
 import { readLastRemarks, saveLastRemarks } from '../data/lastRemarks.js';
 import { inLine } from '../data/orderStatus.js';
 import formatQueueNum from '../../data/queueNum.js';
-import Greetings from '../components/greetings.jsx';
-import ServedBy from '../components/servedBy.jsx';
-import OrderDetails from '../components/orderDetails.jsx';
-import TicketDialog from '../components/ticketDialog.jsx';
+import Greetings from '../components/common/greetings.jsx';
+import ServedBy from '../components/orders/servedBy.jsx';
+import OrderDetails from '../components/orders/orderDetails.jsx';
+import TicketDialog from '../components/orders/ticketDialog.jsx';
 
 // a sales staff member's counter: serve the next customer, recall them, mark them done (one point each)
 // or send them back to waiting, put a served customer who comes back in line as returning,

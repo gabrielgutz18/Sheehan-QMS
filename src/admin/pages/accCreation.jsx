@@ -3,8 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { createUser, listUsers, updateUser } from '../api/adminUserController.js';
 import { useAuth } from '../auth/authContext.js';
 import { ROLE_LABELS } from '../auth/roles.js';
-import Avatar from '../components/avatar.jsx';
-import EmployeeGrid from '../components/employeeGrid.jsx';
+import Avatar from '../components/common/avatar.jsx';
+import EmployeeGrid from '../components/accounts/employeeGrid.jsx';
 import teams from '../../data/teams.js';
 
 // staff accounts, admins only: create accounts (usually sales staff), set each person's sales team, reset passwords,

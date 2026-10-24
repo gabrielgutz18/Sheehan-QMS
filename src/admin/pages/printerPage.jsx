@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { buildReceipt } from '../../printing/escpos.js';
-import { PAPER_SIZES, getPaperColumns, setPaperColumns } from '../../printing/printReceipt.js';
-import { checkPrintService, printWithService } from '../../printing/printService.js';
+import { buildReceipt } from '../printing/escpos.js';
+import { PAPER_SIZES, getPaperColumns, setPaperColumns } from '../printing/printReceipt.js';
+import { checkPrintService, printWithService } from '../printing/printService.js';
 import {
     describeUsbError,
     forgetPrinter,
@@ -12,7 +12,7 @@ import {
     printerName,
     searchPrinter,
     sendToPrinter,
-} from '../../printing/usbPrinter.js';
+} from '../printing/usbPrinter.js';
 
 const SAMPLE_TICKET = {
     queueNumber: "TEST 00",
@@ -139,7 +139,7 @@ export default function PrinterPage() {
                 ) : !service.running ? (
                     <p className="admin-empty">
                         Not running on this computer. Start it with{" "}
-                        <code>python src/printing/script/printService.py</code> and leave it open.
+                        <code>python tools/print-service/printService.py</code> and leave it open.
                     </p>
                 ) : !service.printer ? (
                     <p className="admin-empty">
@@ -260,7 +260,7 @@ export default function PrinterPage() {
                     <li>Use a printer that supports ESC/POS (most thermal receipt printers do).</li>
                     <li>
                         Set up the print service once with{" "}
-                        <code>pip install -r src/printing/script/requirements.txt</code>. To start it with Windows, put
+                        <code>pip install -r tools/print-service/requirements.txt</code>. To start it with Windows, put
                         a shortcut that runs it with <code>pythonw</code> (no console window) in the Startup folder
                         (Win+R, <code>shell:startup</code>).
                     </li>

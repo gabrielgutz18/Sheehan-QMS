@@ -3,7 +3,7 @@ import './style/admin.css';
 
 import AuthProvider from './auth/authProvider.jsx';
 import ProtectedRoute from './auth/protectedRoute.jsx';
-import AdminLayout from './components/adminLayout.jsx';
+import AdminLayout from './components/layout/adminLayout.jsx';
 import LoginPage from './pages/loginPage.jsx';
 import DashboardPage from './pages/dashboardPage.jsx';
 import OrdersPage from './pages/ordersPage.jsx';

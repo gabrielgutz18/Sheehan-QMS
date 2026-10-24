@@ -6,7 +6,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, test } from 'node:test';
 
-import { buildReceipt } from '../../src/printing/escpos.js';
+import { buildReceipt } from '../../src/admin/printing/escpos.js';
 import { bootApp, localDay } from '../support/testApp.js';
 
 let app;
