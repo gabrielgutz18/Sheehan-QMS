@@ -22,6 +22,9 @@ const sessionCookieName = (req) => {
     const tab = req.headers["x-tab-id"];
     return typeof tab === "string" && TAB_ID.test(tab) ? `${SESSION_COOKIE}_${tab}` : SESSION_COOKIE;
 };
+// over HTTPS (nginx with deploy/nginx-https.conf says so in X-Forwarded-Proto) the cookie is also Secure, so the
+// browser never sends it over plain http; without HTTPS it can't be, or no one could sign in
+const cookieFlags = (req) => `HttpOnly; SameSite=Strict; Path=/${req.headers["x-forwarded-proto"] === "https" ? "; Secure" : ""}`;
 const readCookies = (req) => Object.fromEntries(
     (req.headers.cookie ?? "").split(/;\s*/).filter((c) => c.includes("=")).map((c) => [c.slice(0, c.indexOf("=")), c.slice(c.indexOf("=") + 1)]));
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
@@ -910,7 +913,7 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             return send(res, 200, user, {
                 // no Max-Age: the browser forgets it when it closes, so the next person on a shared PC signs in
                 // themselves; the server still ends it after SESSION_TTL_MS
-                "Set-Cookie": `${sessionCookieName(req)}=${sid}; HttpOnly; SameSite=Strict; Path=/`,
+                "Set-Cookie": `${sessionCookieName(req)}=${sid}; ${cookieFlags(req)}`,
             });
         }
 
@@ -991,7 +994,7 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
 
         if (method === "POST" && path === "/auth/logout") {
             sql.deleteSession.run(session.sidHash);
-            return send(res, 204, undefined, { "Set-Cookie": `${sessionCookieName(req)}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0` });
+            return send(res, 204, undefined, { "Set-Cookie": `${sessionCookieName(req)}=; ${cookieFlags(req)}; Max-Age=0` });
         }
 
         if (method === "PUT" && path === "/admin/video") {

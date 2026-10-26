@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, test } from 'node:test';
 import { setTimeout as sleep } from 'node:timers/promises';
 
-import { bootApp, localDay, ticket } from '../support/testApp.js';
+import { ADMIN, bootApp, localDay, ticket } from '../support/testApp.js';
 
 let app;
 
@@ -337,6 +337,31 @@ describe("who can do what", () => {
         const res = await fetch(app.url("/admin/orders/1/call"), { method: "POST" });
 
         assert.equal(res.status, 403);
+    });
+
+    test("over HTTPS the sign-in cookie is Secure, so it's never sent over plain http", async () => {
+        // the X-Forwarded-Proto nginx sends: https with deploy/nginx-https.conf, http with deploy/nginx.conf
+        const signIn = (proto) => fetch(app.url("/auth/login"), {
+            method: "POST",
+            headers: { "X-Requested-With": "XMLHttpRequest", "Content-Type": "application/json", "X-Forwarded-Proto": proto },
+            body: JSON.stringify(ADMIN),
+        });
+
+        const secure = await signIn("https");
+        const plain = await signIn("http");
+
+        assert.equal(secure.status, 200);
+        assert.match(secure.headers.get("set-cookie"), /; Secure$/);
+        assert.equal(plain.status, 200);
+        assert.doesNotMatch(plain.headers.get("set-cookie"), /Secure/);
+        // signing out over HTTPS clears the Secure cookie
+        const cookie = secure.headers.get("set-cookie").split(";")[0];
+        const signOut = await fetch(app.url("/auth/logout"), {
+            method: "POST",
+            headers: { "X-Requested-With": "XMLHttpRequest", "X-Forwarded-Proto": "https", Cookie: cookie },
+        });
+        assert.equal(signOut.status, 204);
+        assert.match(signOut.headers.get("set-cookie"), /; Secure; Max-Age=0$/);
     });
 
     test("sales staff can serve tickets but not delete them", async () => {
