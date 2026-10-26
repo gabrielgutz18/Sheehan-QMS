@@ -1,0 +1,135 @@
+<!doctype html>
+<!-- the setup page for a device that doesn't trust the shop's certificate authority yet: http://<server>/install
+     (deploy/nginx-https.conf serves it over plain http, since https shows a warning until the device is set up)
+     on Windows it starts downloading deploy/install-certificate.cmd by itself; on a phone it shows that phone's steps;
+     a browser can't install a certificate from a page, so there are still a few clicks to approve -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Set up this device</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --text: #1d2330; --muted: #5d6676; --line: #dfe3ea;
+    --accent: #b3261e; --accent-text: #fff; --ok: #1e7b45; --ok-bg: #e5f4ea; --wait: #8a5a00; --wait-bg: #fdf1d8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171c; --card: #1c2027; --text: #e6e9ef; --muted: #9aa3b2; --line: #2e343e;
+      --accent: #e0574e; --accent-text: #fff; --ok: #6fd39b; --ok-bg: #173325; --wait: #f2c46d; --wait-bg: #3a2e14;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 640px; margin: 0 auto; padding: 32px 16px 48px; }
+  h1 { font-size: 1.6rem; line-height: 1.25; margin: 0 0 6px; }
+  .lead { color: var(--muted); margin: 0 0 20px; }
+  .status { border-radius: 10px; padding: 14px 16px; margin-bottom: 20px; font-weight: 600; }
+  .status.is-ok { background: var(--ok-bg); color: var(--ok); }
+  .status.is-wait { background: var(--wait-bg); color: var(--wait); }
+  .status a { color: inherit; }
+  details { background: var(--card); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 12px; }
+  summary { cursor: pointer; padding: 14px 16px; font-weight: 600; font-size: 1.05rem; }
+  .steps { padding: 0 16px 16px; }
+  ol { margin: 0 0 4px; padding-left: 22px; }
+  li { margin: 6px 0; }
+  .btn {
+    display: inline-block; margin: 4px 0 12px; padding: 10px 18px; border-radius: 8px;
+    background: var(--accent); color: var(--accent-text); font-weight: 600; text-decoration: none;
+  }
+  code { font-family: ui-monospace, Consolas, monospace; font-size: .92em; background: var(--bg); padding: 1px 5px; border-radius: 4px; }
+  .note { color: var(--muted); font-size: .92rem; }
+  button.link { background: none; border: 0; padding: 0; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Set up this device for the Sheehan queue</h1>
+  <p class="lead">Once per device: after this, the queue opens securely with no warning.</p>
+
+  <p id="status" class="status is-wait" role="status">Checking this device...</p>
+
+  <details id="windows">
+    <summary>Windows PC</summary>
+    <div class="steps">
+      <a class="btn" href="/install-certificate.cmd" download>Download the installer</a>
+      <ol>
+        <li>If the browser warns about the file, choose <strong>Keep</strong>.</li>
+        <li>Open <code>install-certificate.cmd</code> from your downloads. If Windows says
+          <em>Windows protected your PC</em>, click <strong>More info</strong>, then <strong>Run anyway</strong>.</li>
+        <li>Click <strong>Yes</strong> on the administrator prompt, and wait until it says <strong>Done</strong>.</li>
+        <li>Restart the browser: type <code>edge://restart</code> in Edge, or <code>chrome://restart</code> in Chrome,
+          and press Enter.</li>
+        <li>Open this page again: it should say the device is set up.</li>
+      </ol>
+    </div>
+  </details>
+
+  <details id="android">
+    <summary>Android phone or tablet</summary>
+    <div class="steps">
+      <a class="btn" href="/sheehan-ca.crt" download>Download the certificate</a>
+      <ol>
+        <li>Open <strong>Settings</strong> and search for <strong>CA certificate</strong>, or go to
+          Security, then <em>Encryption &amp; credentials</em>, then <em>Install a certificate</em>.</li>
+        <li>Choose <strong>CA certificate</strong>, tap <strong>Install anyway</strong>, and pick
+          <code>sheehan-ca.crt</code> from your downloads.</li>
+        <li>Close Chrome completely and open this page again.</li>
+      </ol>
+    </div>
+  </details>
+
+  <details id="iphone">
+    <summary>iPhone or iPad</summary>
+    <div class="steps">
+      <a class="btn" href="/sheehan-ca.crt">Download the certificate</a>
+      <ol>
+        <li>Open this page in <strong>Safari</strong>, tap the button above, then <strong>Allow</strong>.</li>
+        <li>Open <strong>Settings</strong>, tap <strong>Profile Downloaded</strong>, then <strong>Install</strong>.</li>
+        <li>Go to Settings, then General, then About, then <em>Certificate Trust Settings</em>, and turn on
+          <strong>Sheehan QMS local certificate authority</strong>.</li>
+        <li>Open this page again.</li>
+      </ol>
+    </div>
+  </details>
+
+  <p class="note">This only makes the device trust the shop's own queue server. Nothing else is changed.</p>
+</main>
+<script>
+  // the queue over https on the address this page was opened by, e.g. https://sheehanqms.local/
+  const QUEUE = `https://${location.hostname}/`;
+  const ua = navigator.userAgent;
+  const device = /Android/i.test(ua) ? "android"
+    : /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) ? "iphone"
+    : /Windows/i.test(ua) ? "windows" : null;
+  const status = document.getElementById("status");
+  let downloaded = false;
+
+  // this device's own steps open; on another kind, all of them
+  for (const section of document.querySelectorAll("details")) section.open = !device || section.id === device;
+
+  // a request to the queue over https only goes through when the device trusts its certificate
+  async function check() {
+    status.className = "status is-wait";
+    status.textContent = "Checking this device...";
+    try {
+      await fetch(QUEUE, { mode: "no-cors", cache: "no-store", signal: AbortSignal.timeout(6000) });
+      status.className = "status is-ok";
+      status.innerHTML = `This device is set up. <a href="${QUEUE}">Open the queue</a>`;
+    } catch {
+      status.innerHTML = 'This device isn\'t set up yet: follow the steps below. <button type="button" class="link">Check again</button>';
+      status.querySelector("button").addEventListener("click", check);
+      // on Windows the installer starts downloading by itself, once
+      if (device === "windows" && !downloaded) {
+        downloaded = true;
+        location.href = "/install-certificate.cmd";
+      }
+    }
+  }
+  check();
+</script>
+</body>
+</html>

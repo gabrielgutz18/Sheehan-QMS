@@ -226,7 +226,7 @@ sudo ufw allow from 192.168.1.0/24 to any port 443 proto tcp
 
 The app is now at `https://sheehanqms.local`. Port 80 stays open: it hands out the certificate authority at `http://sheehanqms.local/sheehan-ca.crt` and sends every other `http://` address on to `https://`, so old bookmarks and `deploy\display-screen.cmd` keep working. Over HTTPS the sign-in cookie is also marked `Secure`.
 
-**Then, once on every device that opens the app** (until then it shows *Your connection isn't private*). Open `http://sheehanqms.local/sheehan-ca.crt` on it to download `sheehan-ca.crt`, then:
+**Then, once on every device that opens the app** (until then it shows *Your connection isn't private*): open **`http://sheehanqms.local/install`** on it. That page ([`deploy/install.html`](../deploy/install.html)) says whether the device is set up yet, shows its own steps, and on Windows starts downloading the installer by itself; a browser can't install a certificate from a page, so the person still approves it (Keep, *Run anyway*, Yes). After changing `deploy/nginx-https.conf` (it serves the page), copy it into `/etc/nginx/sites-available/sheehan-queue` again and reload nginx. The same steps by hand, with `sheehan-ca.crt` from `http://sheehanqms.local/sheehan-ca.crt`:
 
 | Device | Install the certificate authority |
 |---|---|
