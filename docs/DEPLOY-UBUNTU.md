@@ -230,7 +230,7 @@ The app is now at `https://sheehanqms.local`. Port 80 stays open: it hands out t
 
 | Device | Install the certificate authority |
 |---|---|
-| Windows (staff PCs, the display PC) | Open the downloaded file → **Install Certificate** → *Local Machine* → *Place all certificates in the following store* → **Browse** → *Trusted Root Certification Authorities* → Next → Finish. Or, in a Command Prompt opened as administrator: `certutil -addstore -f Root sheehan-ca.crt`. Then close every Edge and Chrome window and open them again. |
+| Windows (staff PCs, the display PC) | Easiest: copy [`deploy/install-certificate.cmd`](../deploy/install-certificate.cmd) to the PC (USB or a shared folder), double-click it and allow the administrator prompt; it downloads the authority, installs it only if its fingerprint is the shop's (`FINGERPRINT` at its top: `openssl x509 -in /etc/ssl/sheehan-queue/ca.crt -noout -fingerprint -sha256` on the server, without the colons), and says when it's done. By hand: open the downloaded file → **Install Certificate** → *Local Machine* → *Place all certificates in the following store* → **Browse** → *Trusted Root Certification Authorities* → Next → Finish. Or, in a Command Prompt opened as administrator: `certutil -addstore -f Root sheehan-ca.crt`. Then close every Edge and Chrome window and open them again. |
 | Android | Settings → Security → *Encryption & credentials* → *Install a certificate* → *CA certificate* → pick `sheehan-ca.crt` (the menu names vary by phone) |
 | iPhone / iPad | Open the link in Safari → Allow → Settings → *Profile Downloaded* → Install; then Settings → General → About → *Certificate Trust Settings* → turn on *Sheehan QMS local certificate authority* |
 

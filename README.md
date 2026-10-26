@@ -68,7 +68,7 @@ tests/
   feature/                 API tests, e.g. ticketLifecycle.test.js (npm test)
   support/testApp.js       starts the API on a fresh, throwaway database for each test
 docs/                      DATABASE.md (every table and the code behind it), DEPLOY-UBUNTU.md, notes.md
-deploy/                    the Ubuntu server's service, nginx (http or https, with make-certs.sh), sudoers and update script, and the display PC's launcher
+deploy/                    the Ubuntu server's service, nginx (http or https, with make-certs.sh), sudoers and update script, and the display PC's launcher and every PC's certificate installer
 tools/
   print-service/           the Python print service for the PC with the receipt printer (see Admin → Printer)
   google-apps-script/      Google Apps Script files (salesTemp.gs, empty for now)
