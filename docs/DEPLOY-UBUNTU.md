@@ -8,7 +8,7 @@ How to run the app on an Ubuntu 22.04 LTS server, pulled from GitHub, so every k
 | Database, display video, staff photos (`DATA_DIR`) | `/var/lib/sheehan-queue/data` |
 | Daily backups (`BACKUP_DIR`) | `/var/backups/sheehan-queue` |
 | Runs as | the `sheehan-queue` systemd service, user `sheehan` |
-| Address | `http://<server-ip>:3000` (or `http://<server-ip>` with nginx, step 8) |
+| Address | `http://<server-ip>:3000` (or `http://<server-ip>` with nginx, step 8; `https://sheehanqms.local` with HTTPS, after it) |
 
 Code and data are in separate folders, so `git pull` never touches the database.
 
@@ -209,6 +209,40 @@ sudo ufw delete allow from 192.168.1.0/24 to any port 3000 proto tcp
 ```
 
 `deploy/nginx.conf` already allows the 200 MB display-video upload.
+
+### Optional: HTTPS (free, with the shop's own certificate)
+
+Needs nginx (above). No certificate authority, paid or free, issues certificates for a `.local` name like `sheehanqms.local` or a private IP, so the server makes its own: [`deploy/make-certs.sh`](../deploy/make-certs.sh) makes a certificate authority for the shop (the first time only) and the server's certificate signed by it, and each device trusts the app once that authority is installed on it.
+
+```bash
+cd /opt/sheehan-queue
+# for <hostname>.local and the server's IPs; or name them: sudo bash deploy/make-certs.sh sheehanqms.local 192.168.1.208
+sudo bash deploy/make-certs.sh
+sudo cp deploy/nginx-https.conf /etc/nginx/sites-available/sheehan-queue
+sudo nginx -t && sudo systemctl reload nginx
+
+sudo ufw allow from 192.168.1.0/24 to any port 443 proto tcp
+```
+
+The app is now at `https://sheehanqms.local`. Port 80 stays open: it hands out the certificate authority at `http://sheehanqms.local/sheehan-ca.crt` and sends every other `http://` address on to `https://`, so old bookmarks and `deploy\display-screen.cmd` keep working. Over HTTPS the sign-in cookie is also marked `Secure`.
+
+**Then, once on every device that opens the app** (until then it shows *Your connection isn't private*). Open `http://sheehanqms.local/sheehan-ca.crt` on it to download `sheehan-ca.crt`, then:
+
+| Device | Install the certificate authority |
+|---|---|
+| Windows (staff PCs, the display PC) | Open the downloaded file → **Install Certificate** → *Local Machine* → *Place all certificates in the following store* → **Browse** → *Trusted Root Certification Authorities* → Next → Finish. Or, in a Command Prompt opened as administrator: `certutil -addstore -f Root sheehan-ca.crt`. Then close every Edge and Chrome window and open them again. |
+| Android | Settings → Security → *Encryption & credentials* → *Install a certificate* → *CA certificate* → pick `sheehan-ca.crt` (the menu names vary by phone) |
+| iPhone / iPad | Open the link in Safari → Allow → Settings → *Profile Downloaded* → Install; then Settings → General → About → *Certificate Trust Settings* → turn on *Sheehan QMS local certificate authority* |
+
+Staff sign in again on the `https://` address, and each PC starts over with what the browser remembered for the old one (the last call remarks and the receipt's columns).
+
+The certificate lasts about 2 years (`make-certs.sh` prints the date). Run `sudo bash deploy/make-certs.sh` again before then, with the same names if you gave any: it keeps the certificate authority, so no device needs anything new. To never forget, renew it every January 1 from root's crontab (`sudo crontab -e`):
+
+```
+0 3 1 1 * bash /opt/sheehan-queue/deploy/make-certs.sh >> /var/log/sheehan-certs.log 2>&1
+```
+
+Keep `/etc/ssl/sheehan-queue/ca.key` on the server only: whoever has it can make certificates every device here trusts. HSTS is left off on purpose, so if the certificate ever runs out, staff can still click past the warning while you renew it.
 
 ## 9. Daily backups
 

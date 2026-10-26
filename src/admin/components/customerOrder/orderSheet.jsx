@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 
 import useOrders from '../../hooks/useOrders.js';
-import { updateOrderSheet } from '../../api/adminOrderController.js';
+import { listOrderSheet, updateOrderSheet } from '../../api/adminOrderController.js';
 import { STAGES, stageOf, whereNow } from '../../data/orderStage.js';
 import { changedDetails, editTime } from '../../data/orderEdits.js';
 import { INVOICE_COLUMNS, assistedBy, invoicesByColumn, sheetDate, sheetTime } from '../../data/sheetColumns.js';
@@ -23,12 +23,12 @@ const CELL_LABELS = { runner: "runner", receiver: "receiver", paymentStatus: "pa
 const ticketOf = (o) => formatQueueNum(o.queueNum, o.purpose);
 const stageLabel = (order) => STAGES.find((s) => s.value === stageOf(order)).label;
 
-// "Juan", "RT 03" or "3" finds the order
+// "Juan", "RT 03" or "3" finds the order, and "Oct-24" every order that day
 const matches = (order, search) => {
     const text = search.trim().toLowerCase();
     if (!text) return true;
     return order.name.toLowerCase().includes(text) || ticketOf(order).toLowerCase().includes(text) ||
-        String(order.queueNum) === text;
+        String(order.queueNum) === text || sheetDate(order.createdAt).toLowerCase().includes(text);
 };
 
 // a dropdown's choices, with the order's own value first if the list no longer has it, so it still shows
@@ -85,16 +85,17 @@ function StatusCell({ order }) {
     );
 }
 
-// the Order sheet on Customer order: every order today, one row each with all its details, laid out like the loading
-// schedule sales keeps in Google Sheets (date, queue number, team, salesman, who assisted, the customer, the invoice
-// numbers under their department, terms, time in and out at sales, runner and receiver) and as wide as the page, with
-// no scrolling sideways; every sales staff member works on it together: they pick the team and terms and type the
+// the Order sheet on Customer order: every order from every day (no Customer Reports: they're concerns, not orders),
+// newest day first, one row each with all its details, laid out like the loading schedule sales keeps in Google Sheets (date, queue number, team, salesman, who assisted,
+// the customer, the invoice numbers under their department, terms, time in and out at sales, runner and receiver) and
+// as wide as the page, with no scrolling sideways; every sales staff member works on it together: they pick the team and terms and type the
 // runner and receiver right in the row, each cell saved as soon as they leave it (kept as an edit with who saved it;
 // the last column shows the latest and where the customer is now), and the others' changes show within a few seconds
-// the rest is filled in on the ticket itself: the queue number opens the row's ticket on the Queue ticket tab
+// the rest is filled in on the ticket itself: today's queue numbers open the row's ticket on the Queue ticket tab (an
+// earlier day's can't be opened there, but its cells here can still be filled in)
 // onOpen(queueNum): opens that ticket
 export default function OrderSheet({ onOpen }) {
-    const { orders, setOrders, loading, error, changed } = useOrders({ refreshMs: REFRESH_MS });
+    const { orders, setOrders, loading, error, changed } = useOrders({ refreshMs: REFRESH_MS, list: listOrderSheet });
     const [search, setSearch] = useState("");
     // saves still on their way, and whether one has gone through yet
     const [saving, setSaving] = useState(0);
@@ -102,7 +103,8 @@ export default function OrderSheet({ onOpen }) {
     const [saveError, setSaveError] = useState("");
 
     const visible = orders.filter((o) => matches(o, search));
-    const put = (queueNum, change) => setOrders((prev) => prev.map((o) => (o.queueNum === queueNum ? change(o) : o)));
+    // by id, since queue numbers repeat every day
+    const put = (id, change) => setOrders((prev) => prev.map((o) => (o.id === id ? change(o) : o)));
 
     // shows the new value straight away, and puts the old one back if it doesn't save
     const save = async (order, key, value) => {
@@ -111,13 +113,13 @@ export default function OrderSheet({ onOpen }) {
         setSaveError("");
         setSaving((n) => n + 1);
         changed();
-        put(order.queueNum, (o) => ({ ...o, [key]: value }));
+        put(order.id, (o) => ({ ...o, [key]: value }));
         try {
-            const saved = await updateOrderSheet(order.queueNum, { [key]: value });
-            put(order.queueNum, () => saved);
+            const saved = await updateOrderSheet(order.id, { [key]: value });
+            put(order.id, () => saved);
             setSavedOnce(true);
         } catch (err) {
-            put(order.queueNum, (o) => ({ ...o, [key]: before }));
+            put(order.id, (o) => ({ ...o, [key]: before }));
             setSaveError(`Couldn't save the ${CELL_LABELS[key]} for ${ticketOf(order)}: ${err.message}`);
         } finally {
             changed();
@@ -131,9 +133,9 @@ export default function OrderSheet({ onOpen }) {
                 <div>
                     <h2 id="order-sheet-title">Order sheet</h2>
                     <p className="tab-hint">
-                        Today's orders, shared by everyone in sales. Pick the team and terms, type the runner and
-                        receiver; each saves when you leave the cell, and the others see it within a few seconds.
-                        Click a queue number to open its ticket.
+                        Every day's orders, newest first, shared by everyone in sales. Pick the team and terms, type the
+                        runner and receiver; each saves when you leave the cell, and the others see it within a few
+                        seconds. Click one of today's queue numbers to open its ticket.
                     </p>
                 </div>
                 <p className="order-sheet-status" role="status">
@@ -142,8 +144,8 @@ export default function OrderSheet({ onOpen }) {
                 <input
                     type="search"
                     className="order-status-search"
-                    placeholder="Search name or number"
-                    aria-label="Search the sheet by customer name or ticket number"
+                    placeholder="Search name, number or date"
+                    aria-label="Search the sheet by customer name, ticket number or date"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                 />
@@ -154,7 +156,7 @@ export default function OrderSheet({ onOpen }) {
             {loading ? (
                 <p className="admin-status">Loading the sheet...</p>
             ) : visible.length === 0 ? (
-                <p className="admin-empty">{orders.length === 0 ? "No orders yet today." : "No orders match."}</p>
+                <p className="admin-empty">{orders.length === 0 ? "No orders yet." : "No orders match."}</p>
             ) : (
                 <div className="sheet-frame">
                     {/* fixed column widths (see .sheet-table col), so the sheet fills the page and never scrolls sideways;
@@ -197,11 +199,11 @@ export default function OrderSheet({ onOpen }) {
                                 const ticket = ticketOf(o);
                                 const invoices = invoicesByColumn(o);
                                 return (
-                                    <tr key={o.queueNum}>
+                                    <tr key={o.id}>
                                         <td className="sheet-date">{sheetDate(o.createdAt)}</td>
                                         <th scope="row" className="sheet-que">
-                                            {/* a Customer Report has a concern, which Customer order no longer takes */}
-                                            {o.concern ? ticket : (
+                                            {/* Customer order only opens today's tickets */}
+                                            {!o.isToday ? ticket : (
                                                 <button type="button" className="sheet-que-btn" title={`Open ${ticket} on Queue ticket`}
                                                     onClick={() => onOpen(o.queueNum)}>
                                                     {ticket}
@@ -218,10 +220,7 @@ export default function OrderSheet({ onOpen }) {
                                         </td>
                                         <td className="sheet-caps">{o.salesman}</td>
                                         <td className="sheet-caps">{assistedBy(o)}</td>
-                                        <td>
-                                            {o.name}
-                                            {o.concern && <span className="sheet-note">Report: {o.concern}</span>}
-                                        </td>
+                                        <td>{o.name}</td>
                                         {INVOICE_COLUMNS.map((column) => (
                                             <td key={column.key} className="sheet-invoices">
                                                 {invoices[column.key].map((invoiceNo) => <span key={invoiceNo}>{invoiceNo}</span>)}

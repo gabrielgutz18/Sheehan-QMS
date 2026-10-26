@@ -6,9 +6,10 @@ import { listOrders } from '../api/adminOrderController.js';
 const REFRESH_MS = 10000;
 
 // refreshMs: how often to fetch again; the Order sheet, which several people work on at once, asks for it sooner
+// list: what to fetch, today's orders unless given; the Order sheet fetches every day's (listOrderSheet)
 // changed(): call it when a save starts and when it ends; a refresh asked for before then is dropped, since it would
 // show the change undone until the next one
-export default function useOrders({ refreshMs = REFRESH_MS } = {}) {
+export default function useOrders({ refreshMs = REFRESH_MS, list = listOrders } = {}) {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -23,7 +24,7 @@ export default function useOrders({ refreshMs = REFRESH_MS } = {}) {
 
         const load = () => {
             const asked = saves.current;
-            return listOrders({ signal })
+            return list({ signal })
                 .then((data) => {
                     if (saves.current !== asked) return;
                     setOrders(data ?? []);
@@ -43,7 +44,7 @@ export default function useOrders({ refreshMs = REFRESH_MS } = {}) {
             clearInterval(id);
             controller.abort();
         };
-    }, [refreshMs]);
+    }, [refreshMs, list]);
 
     return { orders, setOrders, loading, error, changed };
 }

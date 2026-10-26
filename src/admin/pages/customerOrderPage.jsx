@@ -34,8 +34,8 @@ const MAX_INVOICES = 20;
 const MAX_SALESMAN = 60;
 const MAX_CHECKER = 60;
 
-// the two halves of the page: taking a customer's order for their queue ticket, and the Order sheet with every order
-// today, which every sales staff member works on together
+// the two halves of the page: taking a customer's order for their queue ticket, and the Order sheet with every day's
+// orders, which every sales staff member works on together
 const VIEWS = [
     { value: "ticket", label: "Queue ticket" },
     { value: "sheet", label: "Order sheet" },
@@ -111,7 +111,7 @@ const previewOf = (fields, submitted) => {
 // as it will print; Serve gives the ticket its queue number and shows it, and Print ticket opens the print preview to
 // pick the printer
 // the sales times are kept for staff only: they're never on the ticket
-// the Order sheet beside Queue ticket lists every order today with all its details, like a shared spreadsheet: any
+// the Order sheet beside Queue ticket lists every day's orders with all their details, like a shared spreadsheet: any
 // sales staff member fills in the runner the customer sent to collect the items and the receiver there (never on the
 // ticket either), and can change the payment status and sales team, each cell saved and kept as an edit on its own
 // ?ticket=5 opens today's ticket 5 to edit it (Edit on Orders); ?ticket=5&view=1 shows its ticket to print it again
