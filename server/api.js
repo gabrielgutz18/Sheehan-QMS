@@ -81,8 +81,10 @@ const ROLE_ROUTES = {
         // one of today's tickets, opened on Customer order to edit it, and saved again (kept as an edit, with who saved it)
         ["GET", /^\/admin\/orders\/[^/]+$/],
         ["PUT", /^\/admin\/orders\/[^/]+$/],
-        // the Order sheet on Customer order: one cell at a time (runner, receiver, payment status, sales team)
-        ["PATCH", /^\/admin\/orders\/[^/]+\/sheet$/],
+        // the Order sheet on Customer order: every day's orders, saved one cell at a time (runner, receiver, payment
+        // status, sales team)
+        ["GET", /^\/admin\/order-sheet$/],
+        ["PATCH", /^\/admin\/order-sheet\/\d+$/],
         ["POST", /^\/admin\/orders\/[^/]+\/call$/],
         ["POST", /^\/admin\/orders\/[^/]+\/handover$/],
         ["PATCH", /^\/admin\/orders\/[^/]+$/],
@@ -533,7 +535,7 @@ const toStatus = (row) => ({
     ...(row.pickup_date && { pickupDate: row.pickup_date }),
 });
 
-// a ticket from any day for the History page; id picks it out, since numbers repeat every day
+// a ticket from any day for the History page and the Order sheet; id picks it out, since numbers repeat every day
 const toHistory = (row, items, invoices, edits, todayDate) => ({
     id: row.id,
     date: row.queue_date,
@@ -609,6 +611,11 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         findOrder: db.prepare(`SELECT ${ORDER_ROW} WHERE o.queue_date = ? AND o.queue_num = ? AND o.deleted_at IS NULL`),
         findById: db.prepare(`SELECT ${ORDER_ROW} WHERE o.id = ?`),
         dayOrders: db.prepare(`SELECT ${ORDER_ROW} WHERE o.queue_date = ? AND o.deleted_at IS NULL ORDER BY o.queue_num`),
+        // the Order sheet: every day's orders, newest day first and in number order within a day; Customer Reports are
+        // concerns, not orders, so they're left out
+        sheetOrders: db.prepare(`
+            SELECT ${ORDER_ROW} WHERE o.deleted_at IS NULL AND o.purpose != ?
+            ORDER BY o.queue_date DESC, o.queue_num`),
         // a customer one loading crew has finished with while another still has to call them stays on the display as
         // "Please wait" (no remarks) until that crew calls them, instead of going back in line
         serving: db.prepare(`
@@ -804,6 +811,16 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
     // today's ticket with this number, as a database row
     const findToday = (queueNum) => sql.findOrder.get(today(), queueNum);
     const loadOrder = (row) => toOrder(row, sql.orderItems.all(row.id), sql.orderInvoices.all(row.id), sql.orderEdits.all(row.id));
+    // tickets from any day, as database rows, in toHistory's shape, their items, invoices and edits fetched together
+    const loadAnyDay = (rows) => {
+        const ids = JSON.stringify(rows.map((r) => r.id));
+        const itemsByOrder = Map.groupBy(sql.itemsFor.all(ids), (i) => i.order_id);
+        const invoicesByOrder = Map.groupBy(sql.invoicesFor.all(ids), (i) => i.order_id);
+        const editsByOrder = Map.groupBy(sql.editsFor.all(ids), (e) => e.order_id);
+        const date = today();
+        return rows.map((row) => toHistory(row, itemsByOrder.get(row.id) ?? [],
+            invoicesByOrder.get(row.id) ?? [], editsByOrder.get(row.id) ?? [], date));
+    };
 
     const saveItems = (orderId, items) => {
         sql.deleteItems.run(orderId);
@@ -1227,13 +1244,22 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             return send(res, 200, loadOrder(findToday(order.queue_num)));
         }
 
-        // the Order sheet on Customer order, shared by every sales staff member: each cell is saved on its own, so two
-        // people working on the same order at once don't overwrite each other's cells; a save that changes something
-        // is kept as an edit, the same as a save on Customer order
-        const sheetMatch = path.match(/^\/admin\/orders\/([^/]+)\/sheet$/);
+        // the Order sheet on Customer order: every order from every day, not just today's (deleted ones and Customer
+        // Reports left out)
+        if (method === "GET" && path === "/admin/order-sheet") {
+            return send(res, 200, loadAnyDay(sql.sheetOrders.all(REPORT_PURPOSE)));
+        }
+
+        // the Order sheet's cells, shared by every sales staff member: each cell is saved on its own, so two people
+        // working on the same order at once don't overwrite each other's cells; a save that changes something is kept
+        // as an edit, the same as a save on Customer order; by id, since an earlier day's order can be filled in too
+        const sheetMatch = path.match(/^\/admin\/order-sheet\/(\d+)$/);
         if (method === "PATCH" && sheetMatch) {
-            const order = findToday(Number(decodeURIComponent(sheetMatch[1])));
-            if (!order) return send(res, 404, { message: "Order not found." });
+            const order = sql.findById.get(Number(sheetMatch[1]));
+            // only an order the sheet lists
+            if (!order || order.deleted_at !== null || order.purpose === REPORT_PURPOSE) {
+                return send(res, 404, { message: "Order not found." });
+            }
             const body = await readBody(req);
             if (!validSheet(body)) return send(res, 400, { message: "Invalid order sheet change." });
             const cells = {
@@ -1249,7 +1275,7 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
                     sql.insertEdit.run(order.id, me.id, me.team, JSON.stringify(changes), new Date().toISOString());
                 }
             });
-            return send(res, 200, loadOrder(findToday(order.queue_num)));
+            return send(res, 200, loadAnyDay([sql.findById.get(order.id)])[0]);
         }
 
         const adminMatch = path.match(/^\/admin\/orders\/([^/]+)$/);
@@ -1363,13 +1389,7 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
                 num,
                 limit: HISTORY_LIMIT,
             });
-            const ids = JSON.stringify(rows.map((r) => r.id));
-            const itemsByOrder = Map.groupBy(sql.itemsFor.all(ids), (i) => i.order_id);
-            const invoicesByOrder = Map.groupBy(sql.invoicesFor.all(ids), (i) => i.order_id);
-            const editsByOrder = Map.groupBy(sql.editsFor.all(ids), (e) => e.order_id);
-            const date = today();
-            return send(res, 200, rows.map((row) => toHistory(row, itemsByOrder.get(row.id) ?? [],
-                invoicesByOrder.get(row.id) ?? [], editsByOrder.get(row.id) ?? [], date)));
+            return send(res, 200, loadAnyDay(rows));
         }
 
         // back in today's queue as waiting, whether it was deleted or is from an earlier day

@@ -17,10 +17,15 @@ export const getOrder = (queueNum, options) => http.get(`/admin/orders/${encodeU
 // team?, changes: ["runner", ...], at }], newest first
 export const updateOrder = (queueNum, order) => http.put(`/admin/orders/${encodeURIComponent(queueNum)}`, order);
 
-// saves cells of the Order sheet on Customer order, only the ones given: { runner?, receiver?, paymentStatus?, team? }
-// → the order; a save that changes something is kept as an edit, like updateOrder
-export const updateOrderSheet = (queueNum, cells) =>
-    http.patch(`/admin/orders/${encodeURIComponent(queueNum)}/sheet`, cells);
+// the Order sheet on Customer order: every order from every day (deleted ones and Customer Reports left out), newest
+// day first and in number order within a day → [{ id, date, isToday, ...the order }]; id picks one out, since numbers
+// repeat every day
+export const listOrderSheet = (options) => http.get("/admin/order-sheet", options);
+
+// saves cells of one of the Order sheet's orders, from any day, only the ones given: { runner?, receiver?,
+// paymentStatus?, team? } → the order, as listOrderSheet has it; a save that changes something is kept as an edit,
+// like updateOrder
+export const updateOrderSheet = (id, cells) => http.patch(`/admin/order-sheet/${encodeURIComponent(id)}`, cells);
 
 export const updateOrderStatus = (queueNum, status) =>
     http.patch(`/admin/orders/${encodeURIComponent(queueNum)}`, { status });

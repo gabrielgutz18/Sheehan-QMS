@@ -1024,13 +1024,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.sheet-note {
-  display: block;
-  margin-top: 2px;
-  font-size: 11.5px;
-  color: var(--text-muted);
-}
-
 /* the cells typed or picked into right where they are, edge to edge in their cell */
 .sheet-input,
 .sheet-select {
