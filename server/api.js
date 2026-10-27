@@ -64,8 +64,10 @@ const VIDEO_EXTENSIONS = {
 const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 const HISTORY_LIMIT = 200;
 const ANNOUNCER_REPEATS = [1, 2];
-// loading: the loading crew, one shared line for every department (Roofings, Steel, ...)
-const ROLES = ["admin", "sales", "loading"];
+// loading: the loading crew, one shared line for every department (Roofings, Steel, ...); security: the guards at the
+// gate, the last stage, who check what each customer leaves with
+const ROLES = ["admin", "sales", "loading", "security"];
+const NO_SUCH_ROLE = "Pick admin, sales, loading or security.";
 const NO_SUCH_TEAM = `Pick a sales team from the list (${TEAMS.join(", ")}), or none.`;
 const USERNAME = /^[a-z0-9._-]{3,32}$/i;
 const MIN_PASSWORD = 8;
@@ -103,6 +105,14 @@ const ROLE_ROUTES = {
         // the Order status board: every order, not just the ones handed over, with none of the sales details
         ["GET", /^\/admin\/order-status$/],
         ["POST", /^\/admin\/loading\/[^/]+\/(call|done|back)$/],
+        ...ACCOUNT_ROUTES,
+    ],
+    // the Security page: where every customer is and what they bought, to check the products and quantities they
+    // leave with; looking only, nothing they can call, change or save but their own account
+    security: [
+        ["GET", /^\/admin\/security$/],
+        // the Order status board the top bar opens on My account
+        ["GET", /^\/admin\/order-status$/],
         ...ACCOUNT_ROUTES,
     ],
 };
@@ -538,6 +548,20 @@ const toStatus = (row) => ({
     ...(row.pickup_date && { pickupDate: row.pickup_date }),
 });
 
+// an order on the Security page: the Order status board's, plus what the customer bought, so the guards can check
+// the products and quantities they leave with: the invoices (each with its type of order), the items on a ticket
+// taken before invoices, who finished loading it and when, and when it was marked Done; still no payment, salesman,
+// runner, receiver or other sales details
+const toSecurity = (row, items, invoices) => ({
+    ...toStatus(row),
+    orders: itemsOf(items),
+    invoices: invoicesOf(invoices),
+    ...(row.loaded_by !== null && {
+        loaded: { by: { name: row.loaded_by_name }, ...(row.loaded_at && { at: row.loaded_at }) },
+    }),
+    ...(row.status === "done" && row.served_at && { servedAt: row.served_at }),
+});
+
 // a ticket from any day for the History page and the Order sheet; id picks it out, since numbers repeat every day
 const toHistory = (row, items, invoices, edits, todayDate) => ({
     id: row.id,
@@ -959,7 +983,7 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             return sendVideoFile(req, res, join(videosDir, video.file), video.type);
         }
 
-        // everything below needs a signed-in account; sales and loading staff only get their routes in ROLE_ROUTES
+        // everything below needs a signed-in account; sales, loading and security staff only get their routes in ROLE_ROUTES
         const session = getSession(req);
         if (path.startsWith("/auth/") || path.startsWith("/admin/")) {
             if (!session) return send(res, 401, { message: "Please sign in." });
@@ -1056,7 +1080,7 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             }
             if (!validName(name)) return send(res, 400, { message: "Enter the staff member's name." });
             if (!validPassword(password)) return send(res, 400, { message: `Passwords need at least ${MIN_PASSWORD} characters.` });
-            if (!ROLES.includes(role)) return send(res, 400, { message: "Pick admin, sales or loading." });
+            if (!ROLES.includes(role)) return send(res, 400, { message: NO_SUCH_ROLE });
             if (!optionalPick(team, TEAMS)) return send(res, 400, { message: NO_SUCH_TEAM });
             if (sql.findUser.get(username.trim())) return send(res, 409, { message: "That username is taken." });
             // they can add a middle name, employee ID and department themselves on My account
@@ -1093,7 +1117,7 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             }
             const lockedOut = isBuiltIn(account) || account.id === me.id;
             if (body.role !== undefined && body.role !== account.role) {
-                if (!ROLES.includes(body.role)) return send(res, 400, { message: "Pick admin, sales or loading." });
+                if (!ROLES.includes(body.role)) return send(res, 400, { message: NO_SUCH_ROLE });
                 if (lockedOut) return send(res, 400, { message: "You can't change the role of this account." });
                 changes.role = body.role;
             }
@@ -1213,6 +1237,17 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         // can see where a customer is
         if (method === "GET" && path === "/admin/order-status") {
             return send(res, 200, sql.dayOrders.all(today()).map(toStatus));
+        }
+
+        // the Security page (security guards and admins): today's orders, where each customer is and what they bought;
+        // Customer Reports are concerns, with nothing to take out, so they're left out
+        if (method === "GET" && path === "/admin/security") {
+            const date = today();
+            const itemsByOrder = Map.groupBy(sql.dayItems.all(date), (item) => item.order_id);
+            const invoicesByOrder = Map.groupBy(sql.dayInvoices.all(date), (invoice) => invoice.order_id);
+            const rows = sql.dayOrders.all(date).filter((row) => row.purpose !== REPORT_PURPOSE);
+            return send(res, 200, rows.map((row) =>
+                toSecurity(row, itemsByOrder.get(row.id) ?? [], invoicesByOrder.get(row.id) ?? [])));
         }
 
         // call (or call again) a ticket: it becomes the headline on the display with the admin's remarks

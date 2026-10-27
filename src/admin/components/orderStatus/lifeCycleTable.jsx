@@ -15,6 +15,9 @@ import teams from '../../../data/teams.js';
 // heading: "h1" where it's the page itself, "h2" where it's a section of one
 // compact: a card for each order instead of the table, for the narrow column beside Customer order and the drawer
 // action: something more for the corner across from the heading, e.g. the drawer's close button
+// list, title, details and startWith are for the Security page: what to fetch (see useOrderStatus), the heading, a
+// component showing more of each order (what the customer bought) in its own column or under the card, and the
+// filter it opens on
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
 const clockFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit", second: "2-digit" });
@@ -29,12 +32,13 @@ const FILTERS = [
 const STEP_MARKS = { done: "✓", now: "●", waiting: "" };
 const STEP_STATES = { done: "done", now: "now", waiting: "not yet" };
 
-// "Juan", "RT 03" or "3" finds the order
+// "Juan", "RT 03" or "3" finds the order, and so does an invoice number where the board has them (Security)
 const matches = (order, search) => {
     const text = search.trim().toLowerCase();
     if (!text) return true;
     const ticket = formatQueueNum(order.queueNum, order.purpose).toLowerCase();
-    return order.name.toLowerCase().includes(text) || ticket.includes(text) || String(order.queueNum) === text;
+    return order.name.toLowerCase().includes(text) || ticket.includes(text) || String(order.queueNum) === text ||
+        (order.invoices ?? []).some(({ invoiceNo }) => invoiceNo.toLowerCase().includes(text));
 };
 
 // the order's steps in turn: the sales counter, loading (once they're handed over), then done
@@ -58,9 +62,12 @@ function Steps({ order }) {
 const Pickup = ({ order }) =>
     order.pickupDate && <span className="order-status-pickup">Picks up {formatPickup(order.pickupDate)}</span>;
 
-export default function LifeCycleTable({ heading = "h2", compact = false, action = null }) {
-    const { orders, loading, error, updatedAt } = useOrderStatus();
-    const [filter, setFilter] = useState("active");
+export default function LifeCycleTable({
+    heading = "h2", compact = false, action = null, list, title = "Order status", details: Details = null,
+    startWith = "active",
+}) {
+    const { orders, loading, error, updatedAt } = useOrderStatus({ list });
+    const [filter, setFilter] = useState(startWith);
     const [search, setSearch] = useState("");
     const [team, setTeam] = useState("");
     const titleId = useId();
@@ -76,7 +83,7 @@ export default function LifeCycleTable({ heading = "h2", compact = false, action
         <section className={`order-status${compact ? " is-compact" : ""}`} aria-labelledby={titleId}>
             <div className="order-status-head">
                 <Heading id={titleId} className={heading === "h1" ? "admin-title" : "order-status-title"}>
-                    Order status
+                    {title}
                 </Heading>
                 {updatedAt && (
                     <p className={`order-status-live${error ? " is-stale" : ""}`}>
@@ -96,8 +103,11 @@ export default function LifeCycleTable({ heading = "h2", compact = false, action
                         </button>
                     ))}
                 </div>
-                <input type="search" className="order-status-search" placeholder="Search name or number"
-                    aria-label="Search by customer name or ticket number" value={search}
+                <input type="search" className="order-status-search"
+                    placeholder={Details ? "Name, number or invoice" : "Search name or number"}
+                    aria-label={Details ? "Search by customer name, ticket number or invoice number"
+                        : "Search by customer name or ticket number"}
+                    value={search}
                     onChange={(e) => setSearch(e.target.value)} />
                 <select className="order-status-team" aria-label="Sales team" value={team}
                     onChange={(e) => setTeam(e.target.value)}>
@@ -134,6 +144,7 @@ export default function LifeCycleTable({ heading = "h2", compact = false, action
                             <Pickup order={order} />
                             <span className={`stage-badge is-${stage}`}>{whereNow(order)}</span>
                             <Steps order={order} />
+                            {Details && <Details order={order} />}
                         </li>
                     ))}
                 </ul>
@@ -146,6 +157,7 @@ export default function LifeCycleTable({ heading = "h2", compact = false, action
                                 <th scope="col">Customer</th>
                                 <th scope="col">Where now</th>
                                 <th scope="col">Progress</th>
+                                {Details && <th scope="col">Products</th>}
                             </tr>
                         </thead>
                         <tbody>
@@ -168,6 +180,7 @@ export default function LifeCycleTable({ heading = "h2", compact = false, action
                                     <td>
                                         <Steps order={order} />
                                     </td>
+                                    {Details && <td><Details order={order} /></td>}
                                 </tr>
                             ))}
                         </tbody>

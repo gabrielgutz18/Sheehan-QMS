@@ -17,6 +17,7 @@ import AccCreation from './pages/accCreation.jsx';
 import AccountPage from './pages/accountPage.jsx';
 import LoadingPage from './pages/loadingPage.jsx';
 import OrderStatusPage from './pages/orderStatusPage.jsx';
+import SecurityPage from './pages/securityPage.jsx';
 
 // mounted at /admin/* — paths below are relative to it
 export default function AdminApp() {
@@ -30,7 +31,7 @@ export default function AdminApp() {
                 <Route path="login" element={<LoginPage />} />
 
                 {/* every kind of staff account shares the layout; the pages inside are split by role */}
-                <Route element={<ProtectedRoute roles={["admin", "sales", "loading"]} />}>
+                <Route element={<ProtectedRoute roles={["admin", "sales", "loading", "security"]} />}>
                     <Route element={<AdminLayout />}>
                         <Route path="account" element={<AccountPage />} />
 
@@ -47,6 +48,12 @@ export default function AdminApp() {
                             <Route path="loading" element={<LoadingPage />} />
                             {/* where every customer is; admins and sales have the same board on Customer order */}
                             <Route path="order-status" element={<OrderStatusPage />} />
+                        </Route>
+
+                        {/* the security guards at the gate, the last stage: looking only, no admin rights beyond this
+                            page and My account */}
+                        <Route element={<ProtectedRoute roles={["admin", "security"]} />}>
+                            <Route path="security" element={<SecurityPage />} />
                         </Route>
 
                         <Route element={<ProtectedRoute roles={["admin"]} />}>

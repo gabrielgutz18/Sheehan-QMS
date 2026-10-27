@@ -229,3 +229,47 @@ test("accounts start with no sales team and orders with no edits, and an order's
         db.close();
     }
 });
+
+// 018 rebuilds users (security guards): every account keeps its details, sign-ins, points, edits and orders
+test("rebuilding users for security accounts keeps every account, sign-in, point and edit", () => {
+    const old = databaseBefore("018");
+    old.exec(`
+        INSERT INTO users (id, username, name, role, password_hash, created_at, employee_id, department, photo, sales_team)
+            VALUES (1, 'maria', 'Maria Santos', 'sales', 'x', '2026-10-20T08:00:00.000Z', 'E-1', 'Sales', 'user-1.jpg', 'GIGA'),
+                   (2, 'pedro', 'Pedro Garcia', 'loading', 'x', '2026-10-20T08:00:00.000Z', NULL, 'Roofings', NULL, '');
+        INSERT INTO orders (id, queue_date, queue_num, name, purpose, status, served_by, handed_over_by, loaded_by, created_at)
+            VALUES (1, '2026-10-24', 1, 'Juan Dela Cruz', 'Roofings', 'done', 1, 1, 2, '2026-10-24T09:00:00.000Z');
+        INSERT INTO serves (order_id, user_id, queue_date, served_at) VALUES (1, 1, '2026-10-24', '2026-10-24T09:30:00.000Z');
+        INSERT INTO order_edits (order_id, user_id, sales_team, changes, edited_at)
+            VALUES (1, 1, 'GIGA', '["runner"]', '2026-10-24T09:20:00.000Z');
+        INSERT INTO sessions (sid_hash, user_id, expires) VALUES ('abc', 1, 4102444800000);
+    `);
+    old.close();
+
+    const quiet = mock.method(console, "log", () => {});
+    const db = openDatabase(dataDir);
+    quiet.mock.restore();
+
+    try {
+        const users = db.prepare("SELECT id, role, employee_id, department, photo, sales_team FROM users ORDER BY id").all();
+        assert.deepEqual(users.map((row) => ({ ...row })), [
+            { id: 1, role: "sales", employee_id: "E-1", department: "Sales", photo: "user-1.jpg", sales_team: "GIGA" },
+            { id: 2, role: "loading", employee_id: null, department: "Roofings", photo: null, sales_team: "" },
+        ]);
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sessions WHERE user_id = 1").get().n, 1);
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM serves WHERE user_id = 1").get().n, 1);
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM order_edits WHERE user_id = 1").get().n, 1);
+        assert.deepEqual({ ...db.prepare("SELECT served_by, loaded_by FROM orders WHERE id = 1").get() }, { served_by: 1, loaded_by: 2 });
+
+        db.prepare(`INSERT INTO users (username, name, role, password_hash, created_at)
+            VALUES ('jose', 'Jose Bantay', 'security', 'x', '2026-10-27T08:00:00.000Z')`).run();
+        assert.throws(() => db.prepare(`INSERT INTO users (username, name, role, password_hash, created_at)
+            VALUES ('guard', 'Someone', 'guard', 'x', '2026-10-27T08:00:00.000Z')`).run(), /CHECK constraint/);
+        // still one employee ID per person, and one account per username
+        assert.throws(() => db.prepare("UPDATE users SET employee_id = 'e-1' WHERE id = 2").run(), /UNIQUE/);
+        assert.throws(() => db.prepare(`INSERT INTO users (username, name, role, password_hash, created_at)
+            VALUES ('MARIA', 'Maria Again', 'sales', 'x', '2026-10-27T08:00:00.000Z')`).run(), /UNIQUE/);
+    } finally {
+        db.close();
+    }
+});

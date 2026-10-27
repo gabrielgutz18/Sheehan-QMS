@@ -7,7 +7,9 @@ const REFRESH_MS = 5000;
 
 // today's orders for the Order status board, kept fresh while it's open; updatedAt is when they last came in, so a
 // board that can't reach the server shows how old its news is
-export default function useOrderStatus() {
+// list: what to fetch, the board's own orders unless given; the Security page fetches them with what each customer
+// bought (listSecurityOrders)
+export default function useOrderStatus({ list = listOrderStatus } = {}) {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -18,7 +20,7 @@ export default function useOrderStatus() {
         const { signal } = controller;
 
         const load = () =>
-            listOrderStatus({ signal })
+            list({ signal })
                 .then((data) => {
                     setOrders(data ?? []);
                     setError("");
@@ -37,7 +39,7 @@ export default function useOrderStatus() {
             clearInterval(id);
             controller.abort();
         };
-    }, []);
+    }, [list]);
 
     return { orders, loading, error, updatedAt };
 }
