@@ -9,7 +9,6 @@ import { createServer } from 'node:http';
 import { createApi } from './api.js';
 import purposes from '../src/data/purpose.js';
 import { joinList } from '../src/data/list.js';
-import paymentStatus from '../src/data/paymentStatus.js';
 import teams from '../src/data/teams.js';
 import formatQueueNum from '../src/data/queueNum.js';
 
@@ -54,8 +53,8 @@ const daysFromNow = (n) => {
 };
 
 // a customer as Customer order sends them: one or two types of order (in the list's order), an invoice for each,
-// now and then a runner, the salesman, how they're paying, the sales team serving them, and now and then a day
-// they'll come back for the items
+// now and then a runner, the salesman, the sales team serving them, and now and then a day they'll come back for the
+// items; no payment status: the cashier sets that
 const fakeCustomer = (name) => {
     const types = shuffled(purposes).slice(0, between(1, 2));
     const purpose = purposes.filter((p) => types.includes(p)).map((p) => p.name);
@@ -66,7 +65,6 @@ const fakeCustomer = (name) => {
         invoices: purpose.map((type) => ({ invoiceNo: String(between(10000000, 99999999)), type })),
         salesman: pick(SALESMEN),
         runner: Math.random() < RUNNER_SHARE ? pick(RUNNERS) : "",
-        paymentStatus: pick(paymentStatus).type,
         team: pick(teams).name,
         pickupDate: Math.random() < RETURNING_SHARE ? daysFromNow(between(1, 5)) : null,
     };
@@ -90,7 +88,6 @@ try {
         const details = [
             order.purpose,
             order.invoices.map(({ invoiceNo, type }) => `invoice ${invoiceNo} (${type})`).join(", "),
-            order.paymentStatus,
             order.runner && `runner: ${order.runner}`,
             order.team && `${order.team} team`,
             order.pickupDate && `picks up ${order.pickupDate}`,

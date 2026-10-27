@@ -35,7 +35,6 @@ const sale = (overrides = {}) => ({
     salesTimeIn: "09:05",
     salesTimeOut: "13:30",
     checkers: { Roofing: ["Pedro", "Rico"] },
-    paymentStatus: "Paid",
     team: "GIGA",
     pickupDate: null,
     ...overrides,
@@ -48,7 +47,7 @@ describe("order export", () => {
         await takeOrder();
         await takeOrder({
             name: "Ana Reyes", purpose: "Tire", invoices: [{ invoiceNo: "7788", type: "Tire" }],
-            runner: "", receiver: "", salesTimeIn: "", salesTimeOut: "", checkers: {}, paymentStatus: "Vale",
+            runner: "", receiver: "", salesTimeIn: "", salesTimeOut: "", checkers: {},
             team: "", pickupDate: localDay(-1),
         });
         await takeOrder({ name: "Deleted Customer", purpose: "Steel", invoices: [{ invoiceNo: "1", type: "Steel" }] });
@@ -59,6 +58,8 @@ describe("order export", () => {
         (await maria.post("/admin/orders/1/handover")).assertStatus(200);
         const pedro = await app.actingAsLoading("Pedro Garcia");
         (await pedro.post("/admin/loading/1/call")).assertStatus(200);
+        // the cashier marks Juan's as paid; Ana's isn't set yet
+        (await (await app.actingAsCashier()).patch("/admin/payments/1", { paymentStatus: "Paid" })).assertStatus(200);
         const admin = await app.actingAsAdmin();
         (await admin.delete("/admin/orders/3")).assertStatus(204);
 
@@ -90,6 +91,7 @@ describe("order export", () => {
         assert.equal(rows[1].servedBy, "");
         assert.equal(rows[1].team, "");
         assert.equal(rows[1].runner, "");
+        assert.equal(rows[1].paymentStatus, "");
         assert.equal(rows[1].salesTimeIn, null);
         assert.deepEqual(rows[1].pickupDate, excelDate(localDay(-1)));
         assert.equal(rows[1].status, "Waiting");

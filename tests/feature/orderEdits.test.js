@@ -97,10 +97,10 @@ describe("edited by", () => {
 
         // she moves to another team, then edits again
         (await (await app.actingAsAdmin()).patch(`/admin/users/${maria.account.id}`, { team: "MEGA" })).assertStatus(200);
-        const saved = (await maria.put("/admin/orders/1", ticket({ runner: "Boy Reyes", paymentStatus: "Paid" })))
+        const saved = (await maria.put("/admin/orders/1", ticket({ runner: "Boy Reyes", salesman: "Maria Santos" })))
             .assertStatus(200).body;
 
-        assert.deepEqual(saved.edits.map((e) => [e.team, e.changes]), [["MEGA", ["paymentStatus"]], ["GIGA", ["runner"]]]);
+        assert.deepEqual(saved.edits.map((e) => [e.team, e.changes]), [["MEGA", ["salesman"]], ["GIGA", ["runner"]]]);
     });
 });
 

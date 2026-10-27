@@ -40,8 +40,8 @@ const ROOFING_COLORS = ["red", "blue", "green"];
 // longer takes them, but older tickets are reports
 const REPORT_PURPOSE = "Customer Report";
 const MAX_CONCERN = 300;
-// what sales staff fill in on Customer order; the payment statuses and teams are the lists in src/data, so a new one
-// is added in one place
+// the payment statuses the cashier picks from on the Cashier page (sales can't set them), and the teams sales pick on
+// Customer order; both are the lists in src/data, so a new one is added in one place
 const PAYMENT_STATUSES = paymentStatus.map((p) => p.type);
 const NO_SUCH_PAYMENT = `Pick a payment status from the list (${PAYMENT_STATUSES.join(", ")}).`;
 const TEAMS = teams.map((t) => t.name);
@@ -92,8 +92,8 @@ const ROLE_ROUTES = {
         // one of today's tickets, opened on Customer order to edit it, and saved again (kept as an edit, with who saved it)
         ["GET", /^\/admin\/orders\/[^/]+$/],
         ["PUT", /^\/admin\/orders\/[^/]+$/],
-        // the Order sheet on Customer order: every day's orders, saved one cell at a time (runner, receiver, payment
-        // status, sales team)
+        // the Order sheet on Customer order: every day's orders, saved one cell at a time (runner, receiver, sales
+        // team); the payment status shows there but only the cashier changes it
         ["GET", /^\/admin\/order-sheet$/],
         ["PATCH", /^\/admin\/order-sheet\/\d+$/],
         ["POST", /^\/admin\/orders\/[^/]+\/call$/],
@@ -360,14 +360,14 @@ const storedCheckers = (value = {}) => {
 };
 
 // the sales details from Customer order, each optional: salesman, runner, receiver, the times the customer came in to
-// sales and left it, payment status, the sales team that served them, and for a returning customer, the day they come
-// back for the items (null when they're taking them now)
+// sales and left it, the sales team that served them, and for a returning customer, the day they come back for the
+// items (null when they're taking them now); a payment status sent with them is left out: only the cashier sets it
 const validSale = ({
-    salesman, runner, receiver, salesTimeIn, salesTimeOut, checkers: checkerNames, paymentStatus: payment, team, pickupDate,
+    salesman, runner, receiver, salesTimeIn, salesTimeOut, checkers: checkerNames, team, pickupDate,
 }) =>
     optionalText(salesman, MAX_SALESMAN) && optionalText(runner, MAX_RUNNER) && optionalText(receiver, MAX_RECEIVER) &&
     optionalTime(salesTimeIn) && optionalTime(salesTimeOut) && validCheckers(checkerNames) &&
-    optionalPick(payment, PAYMENT_STATUSES) && optionalPick(team, TEAMS) &&
+    optionalPick(team, TEAMS) &&
     (pickupDate === undefined || pickupDate === null || validDay(pickupDate));
 
 const validReport = ({ concern, orders }) =>
@@ -436,10 +436,11 @@ const toMe = (row) => ({
 });
 
 // a report keeps only its concern and an order only its items, so switching purpose on Edit drops the other
-// the keys besides orders and invoices are the insertOrder / updateOrder parameters
+// the keys besides orders and invoices are the insertOrder / updateOrder parameters; the payment status isn't one of
+// them: a new order has none until the cashier sets it, and saving it again on Customer order keeps what's stored
 const pickOrder = ({
     name, purpose, orders: items = [], invoices = [], concern, salesman, runner, receiver, salesTimeIn, salesTimeOut,
-    checkers: checkerNames, paymentStatus: payment, team, pickupDate,
+    checkers: checkerNames, team, pickupDate,
 }) => {
     const isReport = purpose === REPORT_PURPOSE;
     return {
@@ -454,25 +455,24 @@ const pickOrder = ({
         salesTimeIn: salesTimeIn ?? "",
         salesTimeOut: salesTimeOut ?? "",
         checkers: storedCheckers(checkerNames),
-        paymentStatus: payment ?? "",
         team: team ?? "",
         pickupDate: pickupDate ?? null,
     };
 };
 
 // the details a save on Customer order can change, each with its column in orders; items and invoices are compared
-// on their own
+// on their own (the payment status is the cashier's, so it isn't one)
 const EDITABLE_COLUMNS = {
     name: "name", purpose: "purpose", concern: "concern", salesman: "salesman", runner: "runner", receiver: "receiver",
-    salesTimeIn: "sales_time_in", salesTimeOut: "sales_time_out", checkers: "checkers", paymentStatus: "payment_status",
-    team: "team", pickupDate: "pickup_date",
+    salesTimeIn: "sales_time_in", salesTimeOut: "sales_time_out", checkers: "checkers", team: "team",
+    pickupDate: "pickup_date",
 };
 // the Order sheet on Customer order: the details any sales staff member fills in after the ticket, each cell saved on
-// its own, with whether a value is one it takes; the payment status can be changed but not cleared
+// its own, with whether a value is one it takes; the payment status shows on the sheet but isn't one: only the cashier
+// changes it
 const SHEET_CELLS = {
     runner: (value) => typeof value === "string" && value.trim().length <= MAX_RUNNER,
     receiver: (value) => typeof value === "string" && value.trim().length <= MAX_RECEIVER,
-    paymentStatus: (value) => PAYMENT_STATUSES.includes(value),
     team: (value) => value === "" || TEAMS.includes(value),
 };
 // a save from the sheet: one or more of its cells, nothing else
@@ -686,20 +686,20 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             INSERT INTO queue_counters (queue_date, last_num) VALUES (?, 1)
             ON CONFLICT (queue_date) DO UPDATE SET last_num = last_num + 1
             RETURNING last_num`),
+        // payment_status is left to its '' (none yet) and to setPayment, the cashier's
         insertOrder: db.prepare(`
             INSERT INTO orders (queue_date, queue_num, name, purpose, concern, salesman, runner, receiver,
-                sales_time_in, sales_time_out, checkers, payment_status, team, pickup_date, created_at)
+                sales_time_in, sales_time_out, checkers, team, pickup_date, created_at)
             VALUES (:date, :queueNum, :name, :purpose, :concern, :salesman, :runner, :receiver,
-                :salesTimeIn, :salesTimeOut, :checkers, :paymentStatus, :team, :pickupDate, :createdAt)`),
+                :salesTimeIn, :salesTimeOut, :checkers, :team, :pickupDate, :createdAt)`),
         updateOrder: db.prepare(`
             UPDATE orders SET name = :name, purpose = :purpose, concern = :concern,
                 salesman = :salesman, runner = :runner, receiver = :receiver, sales_time_in = :salesTimeIn,
-                sales_time_out = :salesTimeOut, checkers = :checkers, payment_status = :paymentStatus, team = :team,
-                pickup_date = :pickupDate
+                sales_time_out = :salesTimeOut, checkers = :checkers, team = :team, pickup_date = :pickupDate
             WHERE id = :id`),
         // the Order sheet's cells; the ones a save leaves out keep what's stored
         updateSheet: db.prepare(`
-            UPDATE orders SET runner = :runner, receiver = :receiver, payment_status = :paymentStatus, team = :team
+            UPDATE orders SET runner = :runner, receiver = :receiver, team = :team
             WHERE id = :id`),
         // the cashier's one change
         setPayment: db.prepare("UPDATE orders SET payment_status = ? WHERE id = ?"),
@@ -1419,7 +1419,6 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             const cells = {
                 runner: (body.runner ?? order.runner).trim(),
                 receiver: (body.receiver ?? order.receiver).trim(),
-                paymentStatus: body.paymentStatus ?? order.payment_status,
                 team: body.team ?? order.team,
             };
             const changes = Object.keys(body).filter((key) => cells[key] !== order[EDITABLE_COLUMNS[key]]);

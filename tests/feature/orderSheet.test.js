@@ -1,6 +1,7 @@
 // the Order sheet on Customer order: every order from every day with all its details, shared by every sales staff member
-// like a spreadsheet; the runner and receiver are filled in there (no longer on the Order tab), and the payment status and
-// sales team can be changed there too, one cell at a time, each change kept as an edit with who saved it
+// like a spreadsheet; the runner and receiver are filled in there (no longer on the Order tab), and the sales team can be
+// changed there too, one cell at a time, each change kept as an edit with who saved it; the payment status shows there,
+// but only the cashier changes it
 // run: npm test -- --test-name-pattern="order sheet"
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, test } from 'node:test';
@@ -22,7 +23,6 @@ const sale = (overrides = {}) => ({
     orders: [],
     invoices: [{ invoiceNo: "2223", type: "Roofings" }],
     salesman: "Maria Santos",
-    paymentStatus: "Vale",
     team: "GIGA",
     pickupDate: null,
     ...overrides,
@@ -65,26 +65,23 @@ describe("order sheet", () => {
         // everyone in sales sees the same sheet
         const [listed] = (await ana.get("/admin/order-sheet")).assertStatus(200).body;
         assert.equal(listed.receiver, "Liza Cruz");
-        app.assertDatabaseHas("orders", { queue_num: 1, runner: "Boy Reyes", receiver: "Liza Cruz", payment_status: "Vale" });
+        app.assertDatabaseHas("orders", { queue_num: 1, runner: "Boy Reyes", receiver: "Liza Cruz" });
     });
 
-    test("the payment status and sales team are picked from their lists; the team can be taken off", async () => {
+    test("the sales team is picked from its list and can be taken off; the payment status is the cashier's", async () => {
         const id = await takeOrder();
         const maria = await app.actingAsSales();
 
-        const paid = (await sheet(maria, id, { paymentStatus: "Paid", team: "MEGA" })).assertStatus(200).body;
-        assert.equal(paid.paymentStatus, "Paid");
-        assert.equal(paid.team, "MEGA");
-        assert.deepEqual(paid.edits[0].changes, ["paymentStatus", "team"]);
+        const mega = (await sheet(maria, id, { team: "MEGA" })).assertStatus(200).body;
+        assert.equal(mega.team, "MEGA");
+        assert.deepEqual(mega.edits[0].changes, ["team"]);
 
         const noTeam = (await sheet(maria, id, { team: "" })).assertStatus(200).body;
         assert.equal(noTeam.team, undefined);
 
-        (await sheet(maria, id, { paymentStatus: "Cash on hand" })).assertStatus(400);
-        // it can be changed, not cleared
-        (await sheet(maria, id, { paymentStatus: "" })).assertStatus(400);
         (await sheet(maria, id, { team: "Roofings" })).assertStatus(400);
-        app.assertDatabaseHas("orders", { queue_num: 1, payment_status: "Paid", team: "" });
+        for (const paymentStatus of ["Paid", "Cash on hand", ""]) (await sheet(maria, id, { paymentStatus })).assertStatus(400);
+        app.assertDatabaseHas("orders", { queue_num: 1, payment_status: "", team: "" });
     });
 
     test("one cell is saved at a time, so two people on the same order don't overwrite each other", async () => {
@@ -92,9 +89,9 @@ describe("order sheet", () => {
         const maria = await app.actingAsSales("Maria Santos");
         const ana = await app.actingAsSales("Ana Reyes");
 
-        await Promise.all([sheet(maria, id, { runner: "Boy Reyes" }), sheet(ana, id, { paymentStatus: "Terms" })]);
+        await Promise.all([sheet(maria, id, { runner: "Boy Reyes" }), sheet(ana, id, { team: "MEGA" })]);
 
-        app.assertDatabaseHas("orders", { queue_num: 1, runner: "Boy Reyes", payment_status: "Terms", team: "GIGA" });
+        app.assertDatabaseHas("orders", { queue_num: 1, runner: "Boy Reyes", team: "MEGA" });
         app.assertDatabaseCount("order_edits", 2);
     });
 
@@ -102,7 +99,7 @@ describe("order sheet", () => {
         const id = await takeOrder();
         const maria = await app.actingAsSales();
 
-        const same = (await sheet(maria, id, { paymentStatus: "Vale", runner: "" })).assertStatus(200).body;
+        const same = (await sheet(maria, id, { team: "GIGA", runner: "" })).assertStatus(200).body;
 
         assert.equal(same.edits, undefined);
         app.assertDatabaseCount("order_edits", 0);
@@ -146,12 +143,12 @@ describe("order sheet", () => {
         const todays = await takeOrder();
         const maria = await app.actingAsSales();
 
-        const saved = (await sheet(maria, yesterday, { runner: "Boy Reyes", paymentStatus: "Paid" })).assertStatus(200).body;
+        const saved = (await sheet(maria, yesterday, { runner: "Boy Reyes", team: "MEGA" })).assertStatus(200).body;
 
         assert.deepEqual([saved.id, saved.date, saved.isToday, saved.runner], [yesterday, localDay(1), false, "Boy Reyes"]);
-        assert.deepEqual(saved.edits.map((e) => [e.by.name, e.changes]), [["Maria Santos", ["runner", "paymentStatus"]]]);
-        app.assertDatabaseHas("orders", { id: yesterday, runner: "Boy Reyes", payment_status: "Paid" });
-        app.assertDatabaseHas("orders", { id: todays, runner: "", payment_status: "Vale" });
+        assert.deepEqual(saved.edits.map((e) => [e.by.name, e.changes]), [["Maria Santos", ["runner", "team"]]]);
+        app.assertDatabaseHas("orders", { id: yesterday, runner: "Boy Reyes", team: "MEGA", payment_status: "Vale" });
+        app.assertDatabaseHas("orders", { id: todays, runner: "", team: "GIGA" });
     });
 
     test("a deleted order is left off the sheet and can't be filled in", async () => {

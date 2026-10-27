@@ -742,6 +742,13 @@
   border-radius: 8px;
 }
 
+/* one that's someone else's to pick, e.g. the payment status, which only the cashier sets */
+.admin-field select:disabled {
+  color: var(--text-muted);
+  background: var(--field-bg);
+  cursor: not-allowed;
+}
+
 /* ---------- dashboard ---------- */
 
 /* the Dashboard runs edge to edge, its side panel (the profile and the live queue) against the window's right edge */
