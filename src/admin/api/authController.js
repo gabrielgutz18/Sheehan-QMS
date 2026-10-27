@@ -1,7 +1,7 @@
 import http from '../../api/http.js';
 
 // the backend sets/clears an httpOnly session cookie; these calls only return the user
-// user shape: { id, username, name, role: "admin" | "sales" | "loading", firstName, middleName, surname, employeeId, department, photo }
+// user shape: { id, username, name, role: "admin" | "sales" | "loading" | "security", firstName, middleName, surname, employeeId, department, photo }
 
 export const login = ({ username, password }) => http.post("/auth/login", { username, password });
 

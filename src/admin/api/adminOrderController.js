@@ -10,6 +10,12 @@ export const listOrders = (options) => http.get("/admin/orders", options);
 //      pickupDate? }]
 export const listOrderStatus = (options) => http.get("/admin/order-status", options);
 
+// the Security page, for the guards at the gate (and admins): today's orders as on the Order status board, plus what
+// each customer bought, to check what they leave with; no Customer Reports, and no payment or other sales details
+// → [{ ...as listOrderStatus, orders: [{ item, qty, color? }], invoices: [{ invoiceNo, type }],
+//      loaded?: { by: { name }, at? }, servedAt? }]
+export const listSecurityOrders = (options) => http.get("/admin/security", options);
+
 export const getOrder = (queueNum, options) => http.get(`/admin/orders/${encodeURIComponent(queueNum)}`, options);
 
 // saves one of today's orders again from Customer order (admins and sales staff only), in the shape createOrder

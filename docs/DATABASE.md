@@ -200,6 +200,7 @@ On every start, any `.sql` file not yet listed in `schema_migrations` runs, in n
 | [`015_shared_loading.sql`](../server/migrations/015_shared_loading.sql) | one shared loading line (Roofings and Steel are departments, not teams): adds `at_loading` to `orders` (1 while the loading crew is serving the customer), drops `orders.serving_team`, `orders.teams_done` and `users.team`, and takes Roofings and Steel off `orders.team`, which is now the sales team that served the customer |
 | [`016_loaded_by.sql`](../server/migrations/016_loaded_by.sql) | adds `loaded_by`, `loaded_at` to `orders`: loading isn't serving, so Done at loading means the crew has finished loading the order; the loading staff member who pressed Done is kept here and `served_by` stays the sales staff member who handed it over (orders loading had already finished are moved over the same way) |
 | [`017_order_edits.sql`](../server/migrations/017_order_edits.sql) | Edited by: adds `sales_team` to `users` (each staff member's own sales team, set by an admin on Accounts; `''` for none) and the `order_edits` table: every save on Customer order that changes something, with who saved it, their sales team at the time, which details changed and when |
+| [`018_security_staff.sql`](../server/migrations/018_security_staff.sql) | rebuilds `users` to allow the `security` role (the guards at the gate, the last stage: looking only) |
 
 **Changing the tables later:** never edit a file that has already run anywhere. Add the next number instead, for example `server/migrations/006_add_counter_number.sql`:
 
@@ -288,7 +289,7 @@ erDiagram
         INTEGER id PK
         TEXT username "unique, any case"
         TEXT name
-        TEXT role "admin | sales | loading"
+        TEXT role "admin | sales | loading | security"
         TEXT password_hash "scrypt"
         TEXT created_at
         TEXT disabled_at
@@ -594,7 +595,7 @@ findSession: db.prepare(`
 The account's `role` then decides what it may do. [`server/api.js:642-649`](../server/api.js#L642-L649), with the sales list at [`server/api.js:33-43`](../server/api.js#L33-L43)
 
 ```js
-// everything below needs a signed-in account; sales and loading staff only get their routes in ROLE_ROUTES
+// everything below needs a signed-in account; sales, loading and security staff only get their routes in ROLE_ROUTES
 const session = getSession(req);
 if (path.startsWith("/auth/") || path.startsWith("/admin/")) {
     if (!session) return send(res, 401, { message: "Please sign in." });
