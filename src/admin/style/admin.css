@@ -1,4 +1,28 @@
-/* admin area — reuses the color tokens from index.css */
+/* admin area — reuses the color tokens from index.css, in Sheehan's red, white and black: white cards with thin gray
+   borders on a white page, black text, and the brand red for the main buttons, the page you're on, the picked tab and
+   the queue numbers */
+
+.admin-shell,
+.login-page {
+  --text-dark: #18181b;
+  --text-muted: #71717a;
+  --cream: #f4f4f5;
+  --cream-hover: #e4e4e7;
+  --cream-border: #e4e4e7;
+  --focus-ring: rgba(200, 32, 42, 0.3);
+  --field-bg: #f4f4f5;
+  --field-border: #e4e4e7;
+  /* the admin's own: the sidebar's and table headings' tint, the main button, the red's pale tint for what's picked,
+     and the cards' faint shadow */
+  --surface-muted: #fafafa;
+  --primary: var(--brand-red);
+  --primary-hover: #a91a23;
+  --brand-tint: #fef2f2;
+  --brand-tint-border: #fecaca;
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  font-size: 15px;
+  color: var(--text-dark);
+}
 
 .admin-status {
   margin: 64px auto;
@@ -9,15 +33,15 @@
 /* ---------- layout ---------- */
 
 .admin-shell {
-  --sidebar-w: 240px;
+  --sidebar-w: 248px;
   /* the sidebar brand and the top bar share this height so they read as one header */
-  --bar-h: 72px;
+  --bar-h: 56px;
   min-height: 100vh;
   /* index.css centers text for the customer kiosk; the admin reads left-aligned */
   text-align: left;
   display: grid;
   grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
-  background: #f7f7f5;
+  background: #ffffff;
 }
 
 .admin-sidebar {
@@ -26,7 +50,7 @@
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #ffffff;
+  background: var(--surface-muted);
   border-right: 1px solid var(--field-border);
 }
 
@@ -36,103 +60,149 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 20px;
-  border-bottom: 3px solid var(--brand-red);
-}
-
-.admin-sidebar-brand > div {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--field-border);
 }
 
 .admin-logo {
-  width: 44px;
-  height: 44px;
+  width: 30px;
+  height: 30px;
   object-fit: contain;
 }
 
 .admin-compname {
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 700;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.2px;
   white-space: nowrap;
-}
-
-.admin-badge {
-  padding: 2px 10px;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: #ffffff;
-  background: var(--brand-red);
-  border-radius: 999px;
 }
 
 .admin-nav {
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 20px 14px;
+  gap: 18px;
+  padding: 16px 10px;
+}
+
+/* Overview, My work, Display, Account: a small gray heading over each group's links */
+.admin-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.admin-nav-heading {
+  margin: 0 0 4px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
 }
 
 .admin-nav-link {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  font-weight: 600;
-  color: var(--text-dark);
+  gap: 10px;
+  padding: 7px 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #3f3f46;
   text-decoration: none;
-  border-radius: 8px;
+  border-radius: 6px;
 }
 
 .admin-nav-icon {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
   fill: none;
   stroke: currentColor;
-  stroke-width: 2;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* an Icon anywhere else; the box it sits in sets its size */
+.line-icon {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
 .admin-nav-link:hover {
-  background: var(--cream);
+  color: var(--text-dark);
+  background: #f4f4f5;
 }
 
 .admin-nav-link.active {
+  font-weight: 600;
   color: var(--brand-red);
-  background: var(--cream);
-  box-shadow: inset 3px 0 0 var(--brand-red);
+  background: var(--brand-tint);
+}
+
+/* a folder of links (Department): a button that looks like a link, with its links indented under it on a thin line */
+.admin-nav-folder-btn {
+  width: 100%;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  line-height: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-nav-chevron {
+  width: 14px;
+  height: 14px;
+  margin-left: auto;
+  transition: transform 0.15s ease;
+}
+
+.admin-nav-folder-btn[aria-expanded="true"] .admin-nav-chevron {
+  transform: rotate(90deg);
+}
+
+/* shut while the page on screen is inside it: in the red, so it's clear where that page went */
+.admin-nav-folder-btn.holds-current {
+  color: var(--brand-red);
+}
+
+.admin-nav-folder-links {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  /* the line runs under the folder icon's middle */
+  margin: 2px 0 0 19px;
+  padding-left: 8px;
+  border-left: 1px solid var(--cream-border);
+}
+
+.admin-nav-folder-links[hidden] {
+  display: none;
 }
 
 .admin-sidebar-foot {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 16px 20px 20px;
+  gap: 2px;
+  padding: 10px;
   border-top: 1px solid var(--field-border);
 }
 
-.admin-user-name {
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* the signed-in person at the foot of the sidebar; opens My account */
+/* the signed-in person at the foot of the sidebar, their name over their role; opens My account */
 .admin-user {
   display: flex;
   align-items: center;
   gap: 10px;
   min-width: 0;
-  padding: 4px;
-  margin: -4px;
+  padding: 6px;
   color: inherit;
   text-decoration: none;
   border-radius: 8px;
@@ -140,12 +210,59 @@
 
 .admin-user:hover,
 .admin-user.active {
-  background: var(--cream);
+  background: #f0f0f1;
 }
 
-.admin-user:focus-visible {
+.admin-user:focus-visible,
+.admin-signout:focus-visible {
   outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
+}
+
+.admin-user-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.admin-user-name {
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-user-role {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.admin-signout {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  color: var(--text-muted);
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.admin-signout:hover:not(:disabled) {
+  color: var(--brand-red);
+  background: #fdf2f2;
+}
+
+.admin-signout:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* a profile photo, or initials when there's none */
@@ -155,10 +272,10 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-dark);
-  background: var(--cream);
-  border: 1px solid var(--cream-border);
+  background: #f4f4f5;
+  border: 1px solid var(--field-border);
   border-radius: 50%;
 }
 
@@ -174,30 +291,80 @@
   min-width: 0;
 }
 
+/* the sidebar button, the page's name, and the clock and Order status at the right */
 .admin-topbar {
   position: sticky;
   top: 0;
   z-index: 10;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   gap: 12px;
   height: var(--bar-h);
-  padding: 0 24px;
-  background: #ffffff;
-  border-bottom: 3px solid var(--brand-red);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+  padding: 0 20px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--field-border);
 }
 
 .admin-menu-btn {
-  display: none;
-  margin-right: auto;
-  padding: 8px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
   color: var(--text-dark);
   background: none;
-  border: 1px solid var(--field-border);
-  border-radius: 8px;
+  border: 0;
+  border-radius: 6px;
   cursor: pointer;
+}
+
+.admin-menu-btn:hover {
+  background: #f4f4f5;
+}
+
+.admin-topbar-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding-left: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  border-left: 1px solid var(--field-border);
+}
+
+.admin-topbar-title span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-topbar-title .admin-nav-icon {
+  color: var(--text-muted);
+}
+
+.admin-topbar-end {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-left: auto;
+}
+
+/* src/components/clock.jsx, a little quieter in the top bar */
+.admin-topbar .clock-time {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.admin-topbar .clock-date {
+  font-size: 12px;
+  color: var(--text-muted);
+  opacity: 1;
 }
 
 .admin-scrim {
@@ -209,18 +376,21 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  height: 34px;
+  padding: 0 12px;
   font: inherit;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
   color: var(--text-dark);
   background: #ffffff;
   border: 1px solid var(--field-border);
   border-radius: 8px;
+  box-shadow: var(--shadow-xs);
   cursor: pointer;
 }
 
 .status-drawer-btn:hover {
-  background: var(--cream);
+  background: #f4f4f5;
 }
 
 .status-drawer-btn:focus-visible,
@@ -230,11 +400,11 @@
 }
 
 .status-drawer-btn svg {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 2;
+  stroke-width: 1.75;
   stroke-linecap: round;
 }
 
@@ -247,9 +417,10 @@
   margin: 0 0 0 auto;
   padding: 0;
   text-align: left;
-  background: #f7f7f5;
+  background: var(--surface-muted);
   border: none;
-  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.18);
+  border-left: 1px solid var(--field-border);
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.12);
 }
 
 .status-drawer[open] {
@@ -272,9 +443,9 @@
 }
 
 .status-drawer-close {
-  width: 36px;
-  height: 36px;
-  font-size: 24px;
+  width: 32px;
+  height: 32px;
+  font-size: 22px;
   line-height: 1;
   color: var(--text-dark);
   background: #ffffff;
@@ -284,7 +455,7 @@
 }
 
 .status-drawer-close:hover {
-  background: var(--cream);
+  background: #f4f4f5;
 }
 
 .admin-main {
@@ -292,7 +463,7 @@
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 32px 24px 64px;
+  padding: 28px 24px 64px;
 }
 
 /* ---------- shared bits ---------- */
@@ -313,29 +484,39 @@
 
 .admin-title {
   margin: 0;
-  font-size: 26px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
 }
 
 .admin-btn {
-  padding: 8px 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 7px 14px;
   font: inherit;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: center;
   color: var(--text-dark);
-  background: var(--cream);
-  border: 1px solid var(--cream-border);
-  border-radius: 6px;
+  background: #ffffff;
+  border: 1px solid var(--field-border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-xs);
   /* also on links that look like buttons (Edit on Orders) */
   text-decoration: none;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.15s, border-color 0.15s;
 }
 
 .admin-btn:hover:not(:disabled) {
-  background: var(--cream-hover);
+  background: #f4f4f5;
 }
 
 .admin-btn:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
@@ -343,30 +524,31 @@
   width: 100%;
   height: 44px;
   color: #ffffff;
-  background: var(--brand-red);
-  border-color: var(--brand-red);
+  background: var(--primary);
+  border-color: var(--primary);
 }
 
 .admin-btn-primary:hover:not(:disabled) {
-  background: #a91a23;
+  background: var(--primary-hover);
 }
 
 /* in a row of buttons the primary one is only as wide and tall as the others */
 .row-actions .admin-btn-primary,
 .account-form-actions .admin-btn-primary,
-.admin-dialog-actions .admin-btn-primary {
+.admin-dialog-actions .admin-btn-primary,
+.security-actions .admin-btn-primary {
   width: auto;
   height: auto;
 }
 
 .admin-btn-danger {
-  color: var(--brand-red);
+  color: #b91c1c;
   background: #ffffff;
-  border-color: #f0c4c6;
+  border-color: #fecaca;
 }
 
 .admin-btn-danger:hover:not(:disabled) {
-  background: #fdeeee;
+  background: #fef2f2;
 }
 
 .admin-btn:focus-visible,
@@ -382,16 +564,32 @@
   outline-offset: 2px;
 }
 
+/* Customer order's Print ticket and Save buttons (src/style/customerOrder.css), in the admin's red */
+.admin-shell .submit-btn {
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+  background: var(--primary);
+  border-color: var(--primary);
+  border-radius: 8px;
+}
+
+.admin-shell .submit-btn:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
 .admin-panel {
   padding: 20px 24px;
   background: #ffffff;
   border: 1px solid var(--field-border);
-  border-radius: 10px;
+  border-radius: 12px;
+  box-shadow: var(--shadow-xs);
 }
 
 .admin-panel h2 {
   margin: 0 0 12px;
-  font-size: 18px;
+  font-size: 16px;
+  font-weight: 600;
 }
 
 .admin-empty {
@@ -409,8 +607,10 @@
 .admin-link {
   display: inline-block;
   margin-top: 12px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
   color: var(--brand-red);
+  text-underline-offset: 3px;
 }
 
 /* looks like a link, works as a button: View opens a dialog instead of going to another page */
@@ -418,7 +618,8 @@
   flex: none;
   padding: 8px 4px;
   font: inherit;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
   color: var(--brand-red);
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -435,15 +636,6 @@
   outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
   border-radius: 2px;
-}
-
-/* Next up on the dashboard: the ticket on the left, View on the right */
-.queue-list li.next-up-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 4px 0;
 }
 
 /* the ticket dialog: purpose and time, then the order or concern */
@@ -491,7 +683,7 @@
   display: grid;
   place-items: center;
   padding: 24px 16px;
-  background: #f7f7f5;
+  background: var(--surface-muted);
 }
 
 .login-card {
@@ -503,9 +695,9 @@
   gap: 18px;
   padding: 32px 28px;
   background: #ffffff;
-  border-top: 4px solid var(--brand-red);
-  border-radius: 10px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--field-border);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 12px 32px rgba(0, 0, 0, 0.05);
 }
 
 .login-brand {
@@ -516,64 +708,747 @@
 
 .login-brand h1 {
   margin: 0;
-  font-size: 22px;
+  font-size: 20px;
+  font-weight: 700;
 }
 
 .admin-field {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .admin-field input {
   height: 44px;
   padding: 0 12px;
   font: inherit;
+  font-size: 15px;
   font-weight: 400;
-  background: var(--field-bg);
+  background: #ffffff;
   border: 1px solid var(--field-border);
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 .admin-field select {
   height: 44px;
   padding: 0 8px;
   font: inherit;
+  font-size: 15px;
   font-weight: 400;
-  background: var(--field-bg);
+  background: #ffffff;
   border: 1px solid var(--field-border);
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 /* ---------- dashboard ---------- */
 
-.stat-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 16px;
+/* the Dashboard runs edge to edge, its side panel (the profile and the live queue) against the window's right edge */
+.admin-main:has(.overview) {
+  max-width: none;
+  padding: 0;
 }
 
-.stat-card {
+.overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  min-height: calc(100vh - var(--bar-h));
+}
+
+.overview-main {
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 28px 24px 64px;
+}
+
+/* Overview, Queue status, Your pages: a heading over a row of cards */
+.overview-section {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 18px 20px;
+  gap: 12px;
+}
+
+.overview-heading {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+/* stays in view while the page scrolls, and scrolls on its own when it's the longer of the two */
+.overview-rail {
+  position: sticky;
+  top: var(--bar-h);
+  height: calc(100vh - var(--bar-h));
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background: #ffffff;
-  border: 1px solid var(--field-border);
-  border-left: 4px solid var(--brand-red);
+  border-left: 1px solid var(--field-border);
+}
+
+/* the profile: the photo half on a banner, then the name and the details */
+.profile-summary {
+  border-bottom: 1px solid var(--field-border);
+}
+
+.profile-summary-cover {
+  position: relative;
+  height: 112px;
+  background:
+    radial-gradient(110% 150% at 100% 0%, rgba(200, 32, 42, 0.75), transparent 60%),
+    radial-gradient(80% 120% at 0% 100%, rgba(255, 255, 255, 0.1), transparent 60%),
+    linear-gradient(135deg, #27272a, #111111 60%, #0a0a0a);
+}
+
+.profile-summary-edit {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 7px;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+}
+
+.profile-summary-edit:hover {
+  background: rgba(255, 255, 255, 0.26);
+}
+
+.profile-summary-edit:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.profile-summary-body {
+  padding: 0 20px 22px;
+}
+
+/* positioned, so it's drawn over the banner it overlaps rather than under it */
+.profile-summary-body > .avatar {
+  position: relative;
+  margin-top: -32px;
+  border: 3px solid #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.14);
+}
+
+.profile-summary-name {
+  margin: 12px 0 0;
+  font-size: 17px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.profile-summary-username {
+  margin: 2px 0 0;
+  font-size: 14px;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.profile-summary-facts {
+  display: grid;
+  gap: 12px;
+  margin: 20px 0 0;
+  font-size: 14px;
+}
+
+.profile-summary-facts div {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.profile-summary-facts dt {
+  color: var(--text-muted);
+}
+
+.profile-summary-facts dd {
+  margin: 0;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+/* the live queue under the profile: a small copy of the queue display (src/display), in its red and white and its
+   type: Now serving in a card under a red bar, then the line in a table */
+.live-queue {
+  --mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  --red-dark: #9e1820;
+  --red-line: #f3c2c4;
+  --line: #f1e1e2;
+  --stripe: #fdf7f7;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 16px 24px;
+}
+
+.mini-serving,
+.mini-line {
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid var(--red-line);
   border-radius: 10px;
 }
 
+.mini-serving-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--brand-red);
+}
+
+.mini-serving-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ffffff;
+}
+
+.mini-serving-title .line-icon {
+  width: 15px;
+  height: 15px;
+}
+
+.mini-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+}
+
+.mini-live-dot {
+  width: 6px;
+  height: 6px;
+  background: currentColor;
+  border-radius: 50%;
+}
+
+.mini-live.is-off {
+  color: var(--red-dark);
+  background: #ffffff;
+}
+
+/* the newest call: its number large, the name, a dashed line, then what the display reads out */
+.mini-serving-call {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 18px 14px 14px;
+  text-align: center;
+}
+
+.mini-serving-num {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 40px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--brand-red);
+}
+
+.mini-serving-name {
+  margin: 8px 0 0;
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1.15;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.mini-serving-note {
+  align-self: stretch;
+  margin: 10px 0 0;
+  padding-top: 10px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--red-dark);
+  border-top: 1px dashed var(--red-line);
+}
+
+.mini-serving-call .served-by {
+  align-self: center;
+  margin-top: 10px;
+}
+
+/* everyone else at a counter, on the display's pink stripe */
+.mini-serving-others {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--stripe);
+}
+
+.mini-serving-other {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--line);
+}
+
+/* a ticket number, a name and a tag, the display's small sizes */
+.mini-num {
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--brand-red);
+}
+
+.mini-name {
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.mini-pill {
+  display: inline-block;
+  max-width: 110px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.3;
+  letter-spacing: 0.02em;
+  text-align: center;
+  text-transform: uppercase;
+  color: var(--red-dark);
+  background: #ffffff;
+  border: 1px solid var(--red-line);
+  border-radius: 5px;
+}
+
+.mini-more {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  border-top: 1px solid var(--line);
+}
+
+.mini-empty {
+  margin: 0;
+  padding: 20px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+/* the line: its heading and how many are in it, then the table */
+.mini-line-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.mini-line-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--brand-red);
+}
+
+.mini-line-count {
+  padding: 2px 8px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--red-dark);
+  background: var(--brand-tint);
+  border-radius: 999px;
+}
+
+.mini-line-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.mini-line-table th {
+  padding: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+  color: var(--red-dark);
+  background: var(--brand-tint);
+  border-bottom: 2px solid var(--brand-red);
+}
+
+.mini-line-table td {
+  padding: 8px 6px;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--line);
+}
+
+.mini-line-table th:first-child,
+.mini-line-table td:first-child {
+  padding-left: 12px;
+}
+
+.mini-line-table th:last-child,
+.mini-line-table td:last-child {
+  padding-right: 12px;
+}
+
+.mini-line-table tbody tr:nth-child(even) td {
+  background: var(--stripe);
+}
+
+.mini-line-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.mini-returning {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 5px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+  color: #4b2a9e;
+  background: #f3ecfd;
+  border: 1px solid #c4aef0;
+  border-radius: 4px;
+}
+
+/* an admin opens the ticket from its number */
+.mini-line-view {
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.mini-line-view:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.mini-line .mini-line-manage {
+  display: block;
+  margin: 0;
+  padding: 10px 12px;
+  border-top: 1px solid var(--line);
+}
+
+.live-queue-display {
+  width: 100%;
+}
+
+/* the Dashboard's links to a role's own pages, a card each */
+.quick-links {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.quick-links > li {
+  display: flex;
+  min-width: 0;
+}
+
+.quick-link {
+  flex: 1;
+  color: inherit;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.quick-link:hover {
+  background: var(--brand-tint);
+  border-color: var(--brand-tint-border);
+}
+
+.quick-link:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.quick-link-label {
+  font-weight: 600;
+}
+
+.quick-link .stat-label {
+  font-size: 13px;
+}
+
+/* the Dashboard's In charge list: each customer in progress, where they are, who is with them (their photo and name)
+   and their types of order, a line between the columns; its heading row stays in view while the list scrolls */
+.charge-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+}
+
+.charge-wrap {
+  max-height: 440px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.charge-table {
+  min-width: 640px;
+}
+
+/* .charge-wrap too, to outweigh .admin-table's padding and top alignment further down */
+.charge-wrap .charge-table th,
+.charge-wrap .charge-table td {
+  padding: 10px 14px;
+  vertical-align: middle;
+}
+
+.charge-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.charge-table thead th:not(:last-child),
+.charge-table tbody > tr > :not(:last-child) {
+  border-right: 1px solid var(--field-border);
+}
+
+/* the customer heads its row, but reads like the other cells rather than like the column headings */
+.charge-table tbody th {
+  font-size: inherit;
+  font-weight: 400;
+  color: inherit;
+  background: #ffffff;
+}
+
+.charge-table tbody td {
+  background: #ffffff;
+}
+
+.charge-table tbody tr:hover > * {
+  background: var(--surface-muted);
+}
+
+/* the signed-in staff member's own customers */
+.charge-table tbody tr.is-mine > * {
+  background: var(--brand-tint);
+}
+
+.charge-ticket {
+  display: block;
+  font-family: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--brand-red);
+}
+
+.charge-name {
+  display: block;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* where they are, after a gray flag, in the stage's color as on the Order status board */
+.charge-stage {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.charge-stage .line-icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--text-muted);
+}
+
+.charge-stage.is-line {
+  color: #52525b;
+}
+
+.charge-stage.is-sales {
+  color: #b45309;
+}
+
+.charge-stage.is-loading {
+  color: #1d5f9e;
+}
+
+.charge-stage.is-security {
+  color: #5b3a8c;
+}
+
+.charge-person {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 500;
+}
+
+.charge-you,
+.charge-nobody {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.charge-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.charge-tags li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  font-size: 13px;
+  white-space: nowrap;
+  color: #52525b;
+  background: #ffffff;
+  border: 1px solid var(--field-border);
+  border-radius: 6px;
+}
+
+.charge-tags .line-icon {
+  width: 13px;
+  height: 13px;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+/* cards with an icon need more room before the label wraps: on a phone they go one under another */
+.stat-grid:has(> .has-icon) {
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+/* the number at the foot, so a row of cards lines its numbers up even when a label wraps */
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 16px 18px;
+  background: #ffffff;
+  border: 1px solid var(--field-border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-xs);
+}
+
+/* an icon in a little gray box on the left, the label and the number beside it */
+.stat-card.has-icon {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 2px 14px;
+  padding: 18px;
+}
+
+.stat-icon {
+  grid-row: 1 / span 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 11px;
+  color: var(--brand-red);
+  background: var(--brand-tint);
+  border: 1px solid var(--brand-tint-border);
+  border-radius: 8px;
+}
+
 .stat-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 14px;
   color: var(--text-muted);
 }
 
 .stat-value {
-  font-size: 30px;
-  font-weight: 700;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
   font-variant-numeric: tabular-nums;
+}
+
+/* a little square in the status's color, before its name on Queue status */
+.stat-dot {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: #71717a;
+}
+
+.stat-dot.is-pending {
+  background: #f59e0b;
+}
+
+.stat-dot.is-serving {
+  background: #3b82f6;
+}
+
+.stat-dot.is-done {
+  background: #10b981;
+}
+
+.stat-dot.is-returning {
+  background: #a855f7;
 }
 
 .queue-columns {
@@ -582,19 +1457,17 @@
   gap: 16px;
 }
 
-.queue-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.queue-list li {
-  padding: 10px 0;
-  border-bottom: 1px solid var(--field-border);
-}
-
-.queue-list li:last-child {
-  border-bottom: none;
+/* a narrower window has no room for the side panel beside the page: it goes under it */
+@media (max-width: 1279px) {
+  .overview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .overview-rail {
+    position: static;
+    height: auto;
+    border-left: 0;
+    border-top: 1px solid var(--field-border);
+  }
 }
 
 /* ---------- orders table ---------- */
@@ -622,16 +1495,18 @@
   height: 36px;
   padding: 0 8px;
   font: inherit;
+  font-size: 14px;
   background: #ffffff;
   border: 1px solid var(--field-border);
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 .admin-table-wrap {
   overflow-x: auto;
   background: #ffffff;
   border: 1px solid var(--field-border);
-  border-radius: 10px;
+  border-radius: 12px;
+  box-shadow: var(--shadow-xs);
 }
 
 .admin-table {
@@ -649,10 +1524,9 @@
 
 .admin-table th {
   font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  color: var(--text-muted);
-  background: #fafaf8;
+  font-weight: 600;
+  color: #3f3f46;
+  background: var(--surface-muted);
 }
 
 .admin-table tbody tr:last-child td {
@@ -746,6 +1620,16 @@
 .sale-pickup {
   font-weight: 600;
   color: #5b3aa8;
+}
+
+/* the security check at the gate: waiting or verified, or a guard's report in red */
+.sale-security {
+  font-weight: 600;
+  color: #5b3a8c;
+}
+
+.sale-security.is-reported {
+  color: #8f1d1d;
 }
 
 .sale-facts + .item-list {
@@ -962,7 +1846,7 @@
 
 /* a cream line under the headings of the cells staff fill in */
 .sheet-table thead th.is-editable {
-  box-shadow: inset 0 -3px 0 var(--cream-border);
+  box-shadow: inset 0 -3px 0 #d9c8a0;
 }
 
 .sheet-table tbody th {
@@ -1126,78 +2010,50 @@
   }
 }
 
-/* Customer order's tabs, like a browser's: the picked tab is the card's white and opens into it, with the little
-   outward curve at its foot on each side; the others sit behind it in gray */
+/* Customer order's tabs: a row of names over a thin line, the picked one black and underlined in red */
 .sale-card {
   display: flex;
   flex-direction: column;
 }
 
 .sale-tabs {
-  position: relative;
-  z-index: 1;
   display: flex;
   align-items: flex-end;
   gap: 4px;
-  padding: 0 18px;
-  /* the picked tab sits over the card's top border */
-  margin-bottom: -1px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--field-border);
 }
 
 .sale-tab {
-  --tab-curve: 10px;
-  position: relative;
-  min-width: 132px;
-  padding: 10px 24px 11px;
+  min-width: 0;
+  /* the underline sits on the row's line */
+  margin-bottom: -1px;
+  padding: 10px 14px;
   font: inherit;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
   color: var(--text-muted);
-  background: #ebebe8;
-  border: 1px solid var(--field-border);
-  border-radius: 10px 10px 0 0;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: color 0.15s, border-color 0.15s;
 }
 
 .sale-tab:hover {
   color: var(--text-dark);
-  background: #f2f2ef;
 }
 
 .sale-tab:focus-visible {
   outline: 3px solid var(--focus-ring);
   outline-offset: -3px;
+  border-radius: 6px 6px 0 0;
 }
 
 .sale-tab[aria-selected="true"] {
-  z-index: 1;
-  color: var(--brand-red);
-  background: #ffffff;
-  border-bottom-color: #ffffff;
-  box-shadow: inset 0 3px 0 var(--brand-red);
-}
-
-/* the feet: a quarter circle cut out of a white square each side, its rim in the border color */
-.sale-tab[aria-selected="true"]::before,
-.sale-tab[aria-selected="true"]::after {
-  content: "";
-  position: absolute;
-  bottom: -1px;
-  width: var(--tab-curve);
-  height: var(--tab-curve);
-  pointer-events: none;
-}
-
-.sale-tab[aria-selected="true"]::before {
-  left: calc(-1 * var(--tab-curve));
-  background: radial-gradient(circle at 0 0, transparent calc(var(--tab-curve) - 1px),
-    var(--field-border) calc(var(--tab-curve) - 1px), var(--field-border) var(--tab-curve), #ffffff var(--tab-curve));
-}
-
-.sale-tab[aria-selected="true"]::after {
-  right: calc(-1 * var(--tab-curve));
-  background: radial-gradient(circle at 100% 0, transparent calc(var(--tab-curve) - 1px),
-    var(--field-border) calc(var(--tab-curve) - 1px), var(--field-border) var(--tab-curve), #ffffff var(--tab-curve));
+  font-weight: 600;
+  color: var(--text-dark);
+  border-bottom-color: var(--brand-red);
 }
 
 /* the tab that isn't picked; display: flex on .sale-fields would otherwise outrank the hidden attribute */
@@ -1244,7 +2100,7 @@
   margin: 0;
   padding: 12px 14px 14px;
   border: 1px solid var(--field-border);
-  border-radius: 8px;
+  border-radius: 10px;
 }
 
 .checker-column legend {
@@ -1257,9 +2113,9 @@
   height: 44px;
   padding: 0 12px;
   font: inherit;
-  background: var(--field-bg);
+  background: #ffffff;
   border: 1px solid var(--field-border);
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 .checker-column input:focus-visible {
@@ -1284,9 +2140,9 @@
   font-weight: 400;
   text-align: left;
   color: var(--text-dark);
-  background: var(--field-bg);
+  background: #ffffff;
   border: 1px solid var(--field-border);
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
 }
 
@@ -1421,9 +2277,9 @@
   height: 44px;
   font: inherit;
   font-weight: 400;
-  background: var(--field-bg);
+  background: #ffffff;
   border: 1px solid var(--field-border);
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 .invoice-row input {
@@ -1448,7 +2304,7 @@
   color: var(--text-muted);
   background: none;
   border: 1px solid var(--field-border);
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
 }
 
@@ -1505,9 +2361,9 @@
   flex: 1;
   min-height: 360px;
   padding: 18px 20px;
-  background: var(--field-bg);
+  background: var(--surface-muted);
   border: 1px solid var(--field-border);
-  border-radius: 6px;
+  border-radius: 10px;
 }
 
 .sale-summary-ticket {
@@ -1757,7 +2613,7 @@
   max-width: 100%;
   padding: 2px 10px 2px 2px;
   font-size: 13px;
-  color: #6b4e10;
+  color: #3f3f46;
   background: var(--cream);
   border: 1px solid var(--cream-border);
   border-radius: 999px;
@@ -1971,9 +2827,9 @@
   gap: 4px;
   padding: 20px 14px 16px;
   text-align: center;
-  background: #fbfbf9;
+  background: var(--surface-muted);
   border: 1px solid var(--field-border);
-  border-radius: 10px;
+  border-radius: 12px;
 }
 
 .profile-card .avatar {
@@ -2089,7 +2945,8 @@
 
 .stats-title {
   margin: 0;
-  font-size: 20px;
+  font-size: 17px;
+  font-weight: 600;
 }
 
 /* period, product and export in one row above the graph */
@@ -2135,6 +2992,7 @@
 .stats-grid {
   stroke: var(--field-border);
   stroke-width: 1;
+  stroke-dasharray: 4 4;
   shape-rendering: crispEdges;
 }
 
@@ -2229,10 +3087,11 @@
   height: 36px;
   padding: 0 10px;
   font: inherit;
+  font-size: 14px;
   font-weight: 400;
   background: #ffffff;
   border: 1px solid var(--field-border);
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 .history-field input[type="search"] {
@@ -2298,10 +3157,10 @@
   width: min(480px, calc(100vw - 32px));
   padding: 0;
   text-align: left;
-  border: none;
-  border-top: 4px solid var(--brand-red);
-  border-radius: 10px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
+  color: var(--text-dark);
+  border: 1px solid var(--field-border);
+  border-radius: 12px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.16);
 }
 
 .admin-dialog::backdrop {
@@ -2317,7 +3176,7 @@
 
 .admin-dialog-title {
   margin: 0;
-  font-size: 22px;
+  font-size: 19px;
   font-weight: 600;
 }
 
@@ -2362,7 +3221,7 @@
 }
 
 .remark-chip.is-selected {
-  background: var(--cream);
+  background: var(--brand-tint);
   border-color: var(--brand-red);
 }
 
@@ -2494,30 +3353,48 @@
 
 .video-tabs {
   display: flex;
-  gap: 4px;
   margin-bottom: 16px;
-  padding: 4px;
-  background: var(--field-bg);
+  background: #ffffff;
+  border: 1px solid var(--field-border);
   border-radius: 8px;
+  box-shadow: var(--shadow-xs);
 }
 
 .video-tab {
   flex: 1;
-  padding: 8px 12px;
+  padding: 7px 14px;
   font: inherit;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
   color: var(--text-muted);
   background: none;
   border: 0;
-  border-radius: 6px;
+  border-radius: 0;
   cursor: pointer;
+}
+
+.video-tab:first-child {
+  border-radius: 7px 0 0 7px;
+}
+
+.video-tab:last-child {
+  border-radius: 0 7px 7px 0;
+}
+
+.video-tab + .video-tab {
+  border-left: 1px solid var(--field-border);
+}
+
+.video-tab:hover {
+  color: var(--text-dark);
+  background: var(--surface-muted);
 }
 
 .video-tab[aria-selected="true"],
 .video-tab[aria-checked="true"] {
-  color: var(--text-dark);
-  background: #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  font-weight: 600;
+  color: #ffffff;
+  background: var(--text-dark);
 }
 
 .video-form {
@@ -2579,9 +3456,9 @@
   gap: 6px;
   padding: 32px 16px;
   text-align: center;
-  background: #fafaf8;
-  border: 2px dashed var(--cream-border);
-  border-radius: 10px;
+  background: var(--surface-muted);
+  border: 2px dashed #d4d4d8;
+  border-radius: 12px;
   cursor: pointer;
   overflow-wrap: anywhere;
 }
@@ -2614,13 +3491,21 @@
     z-index: 30;
     background: rgba(0, 0, 0, 0.35);
   }
-  .admin-menu-btn {
-    display: inline-flex;
+}
+
+/* wide screens: the top bar's sidebar button tucks the sidebar away, and the page takes the whole width */
+@media (min-width: 901px) {
+  .admin-shell.is-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .admin-shell.is-collapsed .admin-sidebar {
+    display: none;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .admin-sidebar {
+  .admin-sidebar,
+  .admin-nav-chevron {
     transition: none;
   }
   .status-drawer[open] {
@@ -2630,11 +3515,25 @@
 
 @media (max-width: 640px) {
   .admin-topbar,
-  .admin-main {
+  .admin-main,
+  .overview-main {
     padding-left: 16px;
     padding-right: 16px;
   }
   .video-columns {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* a phone: the page's own heading names it, so the top bar keeps its room for the clock and Order status */
+@media (max-width: 520px) {
+  .admin-topbar {
+    gap: 8px;
+  }
+  .admin-topbar-title {
+    display: none;
+  }
+  .admin-topbar-end {
+    gap: 10px;
   }
 }

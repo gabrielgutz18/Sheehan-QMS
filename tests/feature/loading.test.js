@@ -63,12 +63,13 @@ describe("loading", () => {
     });
 
     test("anyone on the loading crew can call again, finish or send back a customer the crew is serving", async () => {
-        await takeOrder();
+        // loaded in one area, so Done finishes it
+        await takeOrder({ purpose: "Roofings", invoices: [{ invoiceNo: "2223", type: "Roofings" }] });
         const { maria, pedro, rico } = await staff();
         await handOver(maria, 1);
         (await pedro.post("/admin/loading/1/call")).assertStatus(200);
 
-        const again = (await rico.post("/admin/loading/1/call", { remarks: "Please proceed to Steel" })).assertStatus(200).body;
+        const again = (await rico.post("/admin/loading/1/call", { remarks: "Please proceed to Roofings" })).assertStatus(200).body;
         assert.equal(again.servedBy.name, "Rico Steel");
 
         const finished = (await pedro.post("/admin/loading/1/done")).assertStatus(200).body;
@@ -87,7 +88,7 @@ describe("loading", () => {
     });
 
     test("loading isn't serving: Done means the order is loaded, and it stays served by the sales counter", async () => {
-        await takeOrder();
+        await takeOrder({ purpose: "Roofings", invoices: [{ invoiceNo: "2223", type: "Roofings" }] });
         const { maria, pedro } = await staff();
         const handed = await handOver(maria, 1);
         (await pedro.post("/admin/loading/1/call")).assertStatus(200);
@@ -184,18 +185,109 @@ describe("loading", () => {
         await takeOrder();
         const { maria, pedro } = await staff();
         await handOver(maria, 1);
-        await pedro.post("/admin/loading/1/call");
-        await pedro.post("/admin/loading/1/done");
+        // Roofings, then Steel
+        for (let i = 0; i < 2; i++) {
+            (await pedro.post("/admin/loading/1/call")).assertStatus(200);
+            (await pedro.post("/admin/loading/1/done")).assertStatus(200);
+        }
 
         const reopened = (await maria.patch("/admin/orders/1", { status: "returning" })).assertStatus(200).body;
 
         assert.equal(reopened.handedOver.by.id, maria.account.id);
-        // it isn't loaded any more
+        // it isn't loaded any more, in either area
         assert.equal(reopened.loaded, undefined);
+        assert.deepEqual(reopened.areas, [{ name: "Roofings" }, { name: "Steel" }]);
         app.assertDatabaseHas("orders", { queue_num: 1, loaded_by: null, loaded_at: null });
+        app.assertDatabaseCount("order_loads", 0);
         (await pedro.post("/admin/loading/1/call")).assertStatus(200);
         // the sales counter keeps the point from the handover
         app.assertDatabaseHas("serves", { user_id: maria.account.id });
+    });
+});
+
+// a ticket for several types of order is loaded in each of their areas in turn (src/data/loadingAreas.js): Done
+// finishes the area the crew called the customer to, and only the last one finishes loading
+describe("loading area by area", () => {
+    test("an order for Roofings and Steel is loaded at Roofings, then Steel, then it's done", async () => {
+        await takeOrder();
+        const { maria, pedro, rico } = await staff();
+        await handOver(maria, 1);
+
+        const atRoofings = (await pedro.post("/admin/loading/1/call", { remarks: "Please proceed to Roofings" }))
+            .assertStatus(200).body;
+        assert.equal(atRoofings.loadingArea, "Roofings");
+        const roofingsDone = (await pedro.post("/admin/loading/1/done")).assertStatus(200).body;
+
+        // back in line for loading, waiting for Steel
+        assert.equal(roofingsDone.status, "pending");
+        assert.equal(roofingsDone.handedOver.by.id, maria.account.id);
+        assert.equal(roofingsDone.loadingArea, undefined);
+        assert.equal(roofingsDone.loaded, undefined);
+        assert.deepEqual(roofingsDone.areas.map(({ name, loaded }) => [name, loaded?.by.name]), [
+            ["Roofings", "Pedro Garcia"],
+            ["Steel", undefined],
+        ]);
+        assert.deepEqual((await pedro.get("/admin/orders")).assertStatus(200).body.map((o) => o.queueNum), [1]);
+
+        // the next call is to Steel, by anyone on the crew, and Done there finishes loading
+        const atSteel = (await rico.post("/admin/loading/1/call", { remarks: "Please proceed to Steel" })).assertStatus(200).body;
+        assert.equal(atSteel.loadingArea, "Steel");
+        const finished = (await rico.post("/admin/loading/1/done")).assertStatus(200).body;
+
+        assert.equal(finished.status, "done");
+        assert.equal(finished.loaded.by.name, "Rico Steel");
+        assert.deepEqual(finished.areas.map(({ name, loaded }) => [name, loaded?.by.name]), [
+            ["Roofings", "Pedro Garcia"],
+            ["Steel", "Rico Steel"],
+        ]);
+        app.assertDatabaseCount("order_loads", 2, { order_id: 1 });
+        // the point is still the sales counter's, from the handover
+        app.assertDatabaseCount("serves", 1);
+    });
+
+    test("the crew can call them to another of their areas first, but not to one that's done or not theirs", async () => {
+        await takeOrder();
+        const { maria, pedro } = await staff();
+        await handOver(maria, 1);
+
+        const atSteel = (await pedro.post("/admin/loading/1/call", { area: "Steel" })).assertStatus(200).body;
+        assert.equal(atSteel.loadingArea, "Steel");
+        (await pedro.post("/admin/loading/1/done")).assertStatus(200);
+
+        const steelAgain = (await pedro.post("/admin/loading/1/call", { area: "Steel" })).assertStatus(400).body;
+        assert.equal(steelAgain.message, "Call them to an area this order still needs: Roofings.");
+        (await pedro.post("/admin/loading/1/call", { area: "TBA" })).assertStatus(400);
+        // with no area, the call is to the one left
+        assert.equal((await pedro.post("/admin/loading/1/call")).assertStatus(200).body.loadingArea, "Roofings");
+    });
+
+    test("back to waiting keeps the areas already loaded", async () => {
+        await takeOrder();
+        const { maria, pedro } = await staff();
+        await handOver(maria, 1);
+        await pedro.post("/admin/loading/1/call");
+        await pedro.post("/admin/loading/1/done");
+        await pedro.post("/admin/loading/1/call");
+
+        const back = (await pedro.post("/admin/loading/1/back")).assertStatus(200).body;
+
+        assert.equal(back.status, "pending");
+        assert.equal(back.loadingArea, undefined);
+        assert.deepEqual(back.areas.map(({ name, loaded }) => [name, Boolean(loaded)]), [["Roofings", true], ["Steel", false]]);
+    });
+
+    test("Tire and Chassis are both loaded at TBA, in one go", async () => {
+        await takeOrder({
+            purpose: "Tire, Chassis", invoices: [{ invoiceNo: "601", type: "Tire" }, { invoiceNo: "602", type: "Chassis" }],
+        });
+        const { maria, pedro } = await staff();
+        await handOver(maria, 1);
+
+        assert.equal((await pedro.post("/admin/loading/1/call")).assertStatus(200).body.loadingArea, "TBA");
+        const done = (await pedro.post("/admin/loading/1/done")).assertStatus(200).body;
+
+        assert.equal(done.status, "done");
+        assert.deepEqual(done.areas.map(({ name }) => name), ["TBA"]);
     });
 });
 

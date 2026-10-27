@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { listOrderStatus } from '../api/adminOrderController.js';
 
@@ -9,8 +9,11 @@ const REFRESH_MS = 5000;
 // board that can't reach the server shows how old its news is
 // list: what to fetch, the board's own orders unless given; the Security page fetches them with what each customer
 // bought (listSecurityOrders)
+// refresh(): fetch them again now, e.g. once the guard has checked an order
 export default function useOrderStatus({ list = listOrderStatus } = {}) {
     const [orders, setOrders] = useState([]);
+    const [asked, setAsked] = useState(0);
+    const refresh = useCallback(() => setAsked((n) => n + 1), []);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [updatedAt, setUpdatedAt] = useState(null);
@@ -39,7 +42,7 @@ export default function useOrderStatus({ list = listOrderStatus } = {}) {
             clearInterval(id);
             controller.abort();
         };
-    }, [list]);
+    }, [list, asked]);
 
-    return { orders, loading, error, updatedAt };
+    return { orders, loading, error, updatedAt, refresh };
 }

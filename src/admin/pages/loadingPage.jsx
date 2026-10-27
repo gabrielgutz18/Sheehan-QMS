@@ -7,19 +7,38 @@ import CallDialog from '../components/orders/callDialog.jsx';
 import Greetings from '../components/common/greetings.jsx';
 import OrderDetails from '../components/orders/orderDetails.jsx';
 import ServedBy from '../components/orders/servedBy.jsx';
-import { defaultLoadingRemarks, quickLoadingRemarks } from '../data/loadingAreas.js';
+import { areasLeft, defaultLoadingRemarks, proceedTo, quickLoadingRemarks } from '../data/loadingAreas.js';
 import { inLine } from '../data/orderStatus.js';
 import formatQueueNum from '../../data/queueNum.js';
 
 // the loading crew's counter, one shared line for every loading account: today's customers once a sales counter has
-// served them and pressed Hand over to loading on My counter, in queue order; call one (the display shows "Please
-// proceed to Roofings", which can be changed before calling), mark them done, or send them back to waiting
+// served them and pressed Hand over to loading on My counter, in queue order; call one to one of their areas (the
+// display shows "Please proceed to Roofings", which can be changed before calling), mark that area done, or send them
+// back to waiting
+// an order is loaded in each of its areas in turn (Roofings, Steel, TBA; src/data/loadingAreas.js): Done at one area
+// puts the customer back in line for the next, and Done at the last finishes loading and sends them on to the
+// security check at the gate
 // loading isn't serving: Done means the crew has finished loading the order (the truck, for roofing), so the ticket
 // says "Loaded by" whoever pressed it, and stays served by the sales staff member who handed it over
 // a customer is in one place at a time: while a sales counter has called them back, their Call button is grayed out
 // here with "Please wait until Maria Santos finishes." (the backend refuses the call too)
 
 const ticketOf = (o) => formatQueueNum(o.queueNum, o.purpose);
+
+// how far loading has got, e.g. "Roofings ✓ · Steel next", or "Roofings ✓ · Steel now" while the crew has them
+// there; "" for an order from before the areas
+const areaProgress = (order) => {
+    const now = order.status === "serving" && order.atLoading ? order.loadingArea : null;
+    const [next] = areasLeft(order);
+    return (order.areas ?? [])
+        .map(({ name, loaded }) => (loaded ? `${name} ✓` : name === now ? `${name} now` : !now && name === next ? `${name} next` : name))
+        .join(" · ");
+};
+// the one-tap areas in the call dialog: the order's areas still to load, each calling them there
+const areaChoices = (order) => {
+    const left = areasLeft(order);
+    return left.length ? left.map((name) => ({ label: name, text: proceedTo(name), area: name })) : quickLoadingRemarks;
+};
 // Done here lists this many of the latest; the rest are counted under it
 const DONE_SHOWN = 8;
 
@@ -60,12 +79,12 @@ export default function LoadingPage() {
     };
 
     // errors stay inside the dialog, e.g. when a sales counter called them back first
-    const call = async (remarks) => {
+    const call = async (remarks, area) => {
         const { queueNum } = calling;
         setBusy(queueNum);
         setCallError("");
         try {
-            replace(await callAtLoading(queueNum, remarks));
+            replace(await callAtLoading(queueNum, remarks, area));
             setCalling(null);
         } catch (err) {
             setCallError(err.message);
@@ -108,7 +127,10 @@ export default function LoadingPage() {
                                     <div className="counter-ticket-main">
                                         <strong className="counter-number">{ticketOf(o)}</strong>
                                         <span className="counter-name">{o.name}</span>
-                                        <span className="counter-meta">{o.purpose}{o.remarks && ` · “${o.remarks}”`}</span>
+                                        <span className="counter-meta">
+                                            {o.loadingArea && `At ${o.loadingArea} · `}{o.purpose}{o.remarks && ` · “${o.remarks}”`}
+                                        </span>
+                                        {areaProgress(o) && <span className="counter-meta">{areaProgress(o)}</span>}
                                         <OrderDetails order={o} />
                                         <ServedBy order={o} />
                                     </div>
@@ -119,7 +141,7 @@ export default function LoadingPage() {
                                             disabled={busy === o.queueNum}
                                             onClick={() => run(o, () => finishAtLoading(o.queueNum))}
                                         >
-                                            Done
+                                            {o.loadingArea ? `Done at ${o.loadingArea}` : "Done"}
                                         </button>
                                         <button type="button" className="admin-btn" disabled={busy === o.queueNum} onClick={() => openCall(o)}>
                                             Call again
@@ -161,6 +183,7 @@ export default function LoadingPage() {
                                                 {o.status === "returning" && <span className="history-badge status-returning returning-tag">Returning</span>}
                                             </span>
                                             <span className="counter-meta">{o.purpose}</span>
+                                            {areaProgress(o) && <span className="counter-meta">{areaProgress(o)}</span>}
                                             <OrderDetails order={o} />
                                         </div>
                                         <div className="row-actions loading-call">
@@ -216,7 +239,8 @@ export default function LoadingPage() {
                 <CallDialog
                     order={calling}
                     defaultRemarks={defaultLoadingRemarks(calling)}
-                    quickRemarks={quickLoadingRemarks}
+                    quickRemarks={areaChoices(calling)}
+                    defaultArea={calling.loadingArea ?? areasLeft(calling)[0]}
                     busy={busy === calling.queueNum}
                     error={callError}
                     onCall={call}

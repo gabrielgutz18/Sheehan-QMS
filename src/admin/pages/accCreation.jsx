@@ -221,6 +221,7 @@ export default function AccCreation() {
                             <option value="sales">Sales: serves customers from My counter</option>
                             <option value="loading">Loading: calls customers sales hands over, their own page only</option>
                             <option value="security">Security: checks what customers leave with, looking only</option>
+                            <option value="cashier">Cashier: changes the payment status, nothing else</option>
                             <option value="admin">Admin: everything, including accounts</option>
                         </select>
                     </label>
@@ -287,6 +288,7 @@ export default function AccCreation() {
                                                 <option value="sales">Sales</option>
                                                 <option value="loading">Loading</option>
                                                 <option value="security">Security</option>
+                                                <option value="cashier">Cashier</option>
                                                 <option value="admin">Admin</option>
                                             </select>
                                         )}

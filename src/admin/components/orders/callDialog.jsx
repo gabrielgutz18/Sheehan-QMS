@@ -13,11 +13,16 @@ const QUICK_REMARKS = [
 ];
 
 // modal for calling a ticket; the remarks show under the number on the display screen
-// quickRemarks: the one-tap messages under the box (the Loading page offers the loading areas instead)
-export default function CallDialog({ order, defaultRemarks = "", quickRemarks = QUICK_REMARKS, busy, error, onCall, onClose }) {
+// quickRemarks: the one-tap messages under the box (the Loading page offers the order's loading areas instead, each
+// with its area: picking one is where the customer is called to); defaultArea: the area picked to begin with
+// onCall(remarks, area)
+export default function CallDialog({
+    order, defaultRemarks = "", quickRemarks = QUICK_REMARKS, defaultArea, busy, error, onCall, onClose,
+}) {
     const dialogRef = useRef(null);
     const inputRef = useRef(null);
     const [remarks, setRemarks] = useState(order.remarks || defaultRemarks);
+    const [area, setArea] = useState(defaultArea);
 
     useEffect(() => {
         const dialog = dialogRef.current;
@@ -30,7 +35,7 @@ export default function CallDialog({ order, defaultRemarks = "", quickRemarks = 
 
     const submit = (e) => {
         e.preventDefault();
-        onCall(remarks.trim());
+        onCall(remarks.trim(), area);
     };
 
     return (
@@ -60,14 +65,16 @@ export default function CallDialog({ order, defaultRemarks = "", quickRemarks = 
                     />
                 </label>
 
-                <div className="remark-chips" role="group" aria-label="Quick remarks">
-                    {quickRemarks.map(({ label, text }) => (
+                <div className="remark-chips" role="group" aria-label={area ? "Loading area" : "Quick remarks"}>
+                    {quickRemarks.map(({ label, text, area: chipArea }) => (
                         <button
                             key={text}
                             type="button"
-                            className={`remark-chip${remarks === text ? " is-selected" : ""}`}
+                            className={`remark-chip${(chipArea ? area === chipArea : remarks === text) ? " is-selected" : ""}`}
+                            aria-pressed={chipArea ? area === chipArea : undefined}
                             onClick={() => {
                                 setRemarks(text);
+                                if (chipArea) setArea(chipArea);
                                 inputRef.current.focus();
                             }}
                         >

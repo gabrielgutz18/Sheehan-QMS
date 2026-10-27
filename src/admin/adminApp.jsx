@@ -18,6 +18,7 @@ import AccountPage from './pages/accountPage.jsx';
 import LoadingPage from './pages/loadingPage.jsx';
 import OrderStatusPage from './pages/orderStatusPage.jsx';
 import SecurityPage from './pages/securityPage.jsx';
+import CashierPage from './pages/cashierPage.jsx';
 
 // mounted at /admin/* — paths below are relative to it
 export default function AdminApp() {
@@ -31,8 +32,11 @@ export default function AdminApp() {
                 <Route path="login" element={<LoginPage />} />
 
                 {/* every kind of staff account shares the layout; the pages inside are split by role */}
-                <Route element={<ProtectedRoute roles={["admin", "sales", "loading", "security"]} />}>
+                <Route element={<ProtectedRoute roles={["admin", "sales", "loading", "security", "cashier"]} />}>
                     <Route element={<AdminLayout />}>
+                        {/* the live queue and their own profile, for everyone; admins' has the day's counts and sales
+                            graph too */}
+                        <Route index element={<DashboardPage />} />
                         <Route path="account" element={<AccountPage />} />
 
                         <Route element={<ProtectedRoute roles={["admin", "sales"]} />}>
@@ -56,8 +60,12 @@ export default function AdminApp() {
                             <Route path="security" element={<SecurityPage />} />
                         </Route>
 
+                        {/* the cashier: changing how each order is paid, no admin rights beyond this page and My account */}
+                        <Route element={<ProtectedRoute roles={["admin", "cashier"]} />}>
+                            <Route path="cashier" element={<CashierPage />} />
+                        </Route>
+
                         <Route element={<ProtectedRoute roles={["admin"]} />}>
-                            <Route index element={<DashboardPage />} />
                             <Route path="video" element={<VideoPage />} />
                             <Route path="printer" element={<PrinterPage />} />
                             <Route path="announcer" element={<AnnouncerPage />} />

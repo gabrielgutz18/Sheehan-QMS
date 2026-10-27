@@ -108,6 +108,8 @@ export async function bootApp() {
     const actingAsLoading = (name = "Pedro Garcia") => actingAsStaff("loading", name);
     // a security guard at the gate
     const actingAsSecurity = (name = "Jose Bantay") => actingAsStaff("security", name);
+    // the cashier, who changes how each order is paid
+    const actingAsCashier = (name = "Rosa Bayad") => actingAsStaff("cashier", name);
 
     const countRows = (table, conditions = {}) =>
         db.prepare(`SELECT COUNT(*) AS n FROM ${table}${whereClause(conditions)}`).get(...Object.values(conditions)).n;
@@ -123,6 +125,7 @@ export async function bootApp() {
         actingAsSales,
         actingAsLoading,
         actingAsSecurity,
+        actingAsCashier,
 
         assertDatabaseHas(table, conditions) {
             assert.ok(countRows(table, conditions) > 0, `no row in ${table} matches ${JSON.stringify(conditions)}`);
