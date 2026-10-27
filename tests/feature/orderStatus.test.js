@@ -58,12 +58,14 @@ describe("order status", () => {
 
         const [listed] = await board(await app.actingAsLoading());
 
-        assert.deepEqual(Object.keys(listed).sort(), ["createdAt", "name", "purpose", "queueNum", "status", "team"]);
+        assert.deepEqual(Object.keys(listed).sort(), ["areas", "createdAt", "name", "purpose", "queueNum", "status", "team"]);
         assert.equal(listed.status, "pending");
         assert.equal(listed.team, "GIGA");
+        // the areas loading will load it in, in turn
+        assert.deepEqual(listed.areas, [{ name: "Roofings" }, { name: "Steel" }]);
     });
 
-    test("it follows the customer from the sales counter through loading to done", async () => {
+    test("it follows the customer from the sales counter through each loading area to the security check", async () => {
         await takeOrder();
         const maria = await app.actingAsSales();
         const pedro = await app.actingAsLoading("Pedro Garcia");
@@ -72,7 +74,7 @@ describe("order status", () => {
         // at the sales counter
         (await maria.post("/admin/orders/1/call")).assertStatus(200);
         assert.equal((await now()).status, "serving");
-        assert.deepEqual((await now()).servedBy, { name: "Maria Santos" });
+        assert.deepEqual((await now()).servedBy, { id: maria.account.id, name: "Maria Santos", photo: null });
         assert.equal((await now()).handedOver, undefined);
 
         // handed over to loading, waiting for the loading crew
@@ -81,15 +83,41 @@ describe("order status", () => {
         assert.equal((await now()).status, "pending");
         assert.equal((await now()).servedBy, undefined);
 
-        // at loading, then done; the sales team stays
+        // at loading in Roofings, then waiting for Steel
         (await pedro.post("/admin/loading/1/call")).assertStatus(200);
         assert.equal((await now()).atLoading, true);
-        assert.deepEqual((await now()).servedBy, { name: "Pedro Garcia" });
+        assert.equal((await now()).loadingArea, "Roofings");
+        assert.deepEqual((await now()).servedBy, { id: pedro.account.id, name: "Pedro Garcia", photo: null });
+        (await pedro.post("/admin/loading/1/done")).assertStatus(200);
+        assert.equal((await now()).status, "pending");
+        assert.equal((await now()).loadingArea, undefined);
+        assert.deepEqual((await now()).areas.map(({ name, loaded }) => [name, loaded?.by.name]), [
+            ["Roofings", "Pedro Garcia"],
+            ["Steel", undefined],
+        ]);
+
+        // at loading in Steel, then done there, and waiting for the security check; the sales team stays
+        (await pedro.post("/admin/loading/1/call")).assertStatus(200);
+        assert.equal((await now()).loadingArea, "Steel");
         (await pedro.post("/admin/loading/1/done")).assertStatus(200);
         assert.equal((await now()).status, "done");
         assert.equal((await now()).atLoading, undefined);
+        assert.equal((await now()).security, "waiting");
         assert.equal((await now()).team, "GIGA");
         // loading only loaded it: the sales counter served them
-        assert.deepEqual((await now()).servedBy, { name: "Maria Santos" });
+        assert.deepEqual((await now()).servedBy, { id: maria.account.id, name: "Maria Santos", photo: null });
+    });
+
+    test("it shows the photo of whoever is serving the customer, for the Dashboard's In charge list", async () => {
+        await takeOrder();
+        const maria = await app.actingAsSales();
+        app.db.prepare("UPDATE users SET photo = ? WHERE id = ?").run(`user-${maria.account.id}.jpg`, maria.account.id);
+        (await maria.post("/admin/orders/1/call")).assertStatus(200);
+
+        // every role sees who has the customer, the guards and the cashier too
+        for (const staff of [await app.actingAsLoading(), await app.actingAsSecurity(), await app.actingAsCashier()]) {
+            const [listed] = await board(staff);
+            assert.deepEqual(listed.servedBy, { id: maria.account.id, name: "Maria Santos", photo: `user-${maria.account.id}.jpg` });
+        }
     });
 });

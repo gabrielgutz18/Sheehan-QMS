@@ -173,18 +173,21 @@ export default function Statistics() {
                     emptyText="No orders in this period yet."
                 />
 
-                {/* the same numbers as a table, for screen readers */}
-                <table className="visually-hidden">
-                    <caption>Orders, {productLabel}</caption>
-                    <thead>
-                        <tr><th scope="col">{periodInfo(stats?.period ?? period).column}</th><th scope="col">Orders</th></tr>
-                    </thead>
-                    <tbody>
-                        {points.map((p) => (
-                            <tr key={p.key}><th scope="row">{p.long}</th><td>{p.value ?? "–"}</td></tr>
-                        ))}
-                    </tbody>
-                </table>
+                {/* the same numbers as a table, for screen readers; hidden by a div around it, since a table grows past
+                    a 1px height and would leave the page scrolling into blank space under it */}
+                <div className="visually-hidden">
+                    <table>
+                        <caption>Orders, {productLabel}</caption>
+                        <thead>
+                            <tr><th scope="col">{periodInfo(stats?.period ?? period).column}</th><th scope="col">Orders</th></tr>
+                        </thead>
+                        <tbody>
+                            {points.map((p) => (
+                                <tr key={p.key}><th scope="row">{p.long}</th><td>{p.value ?? "–"}</td></tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </section>
     );

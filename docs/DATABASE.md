@@ -201,6 +201,8 @@ On every start, any `.sql` file not yet listed in `schema_migrations` runs, in n
 | [`016_loaded_by.sql`](../server/migrations/016_loaded_by.sql) | adds `loaded_by`, `loaded_at` to `orders`: loading isn't serving, so Done at loading means the crew has finished loading the order; the loading staff member who pressed Done is kept here and `served_by` stays the sales staff member who handed it over (orders loading had already finished are moved over the same way) |
 | [`017_order_edits.sql`](../server/migrations/017_order_edits.sql) | Edited by: adds `sales_team` to `users` (each staff member's own sales team, set by an admin on Accounts; `''` for none) and the `order_edits` table: every save on Customer order that changes something, with who saved it, their sales team at the time, which details changed and when |
 | [`018_security_staff.sql`](../server/migrations/018_security_staff.sql) | rebuilds `users` to allow the `security` role (the guards at the gate, the last stage: looking only) |
+| [`019_area_loading_security_check.sql`](../server/migrations/019_area_loading_security_check.sql) | loading area by area, and the security check: adds `loading_area`, `security_pending`, `security_check_id` to `orders`, and the `order_loads` (each area loaded this visit, by whom and when) and `security_checks` (every guard's check: verified, or a report of something missing, over the quantity or stolen, with a note; kept even if the order is reopened) tables; orders already done stay done, with nothing to check |
+| [`020_cashier_staff.sql`](../server/migrations/020_cashier_staff.sql) | rebuilds `users` to allow the `cashier` role (changes how each order is paid, nothing else) |
 
 **Changing the tables later:** never edit a file that has already run anywhere. Add the next number instead, for example `server/migrations/006_add_counter_number.sql`:
 
@@ -225,6 +227,11 @@ erDiagram
     orders ||--|{ order_items : "has lines"
     orders ||--o{ order_invoices : "has invoices"
     orders ||--o{ serves : "one point per visit"
+    orders ||--o{ order_loads : "loaded area by area"
+    users ||--o{ order_loads : "loaded an area"
+    orders ||--o{ security_checks : "checked at the gate"
+    users ||--o{ security_checks : "checked an order"
+    security_checks |o--o| orders : "this visit's check (security_check_id)"
     queue_counters ||..o{ orders : "gives queue_num for that queue_date"
 
     orders {
@@ -281,6 +288,21 @@ erDiagram
         TEXT changes "JSON list of what changed, e.g. runner, invoices"
         TEXT edited_at
     }
+    order_loads {
+        INTEGER id PK
+        INTEGER order_id FK "orders.id, cascade"
+        TEXT area "Roofings, Steel or TBA; once per order"
+        INTEGER loaded_by FK "users.id; who pressed Done there"
+        TEXT loaded_at
+    }
+    security_checks {
+        INTEGER id PK
+        INTEGER order_id FK "orders.id, cascade"
+        INTEGER user_id FK "users.id; the guard"
+        TEXT result "verified | missing | over | stolen"
+        TEXT note "what the guard saw, for a report"
+        TEXT checked_at
+    }
     queue_counters {
         TEXT queue_date PK
         INTEGER last_num
@@ -289,7 +311,7 @@ erDiagram
         INTEGER id PK
         TEXT username "unique, any case"
         TEXT name
-        TEXT role "admin | sales | loading | security"
+        TEXT role "admin | sales | loading | security | cashier"
         TEXT password_hash "scrypt"
         TEXT created_at
         TEXT disabled_at
@@ -595,7 +617,7 @@ findSession: db.prepare(`
 The account's `role` then decides what it may do. [`server/api.js:642-649`](../server/api.js#L642-L649), with the sales list at [`server/api.js:33-43`](../server/api.js#L33-L43)
 
 ```js
-// everything below needs a signed-in account; sales, loading and security staff only get their routes in ROLE_ROUTES
+// everything below needs a signed-in account; sales, loading, security and cashier staff only get their routes in ROLE_ROUTES
 const session = getSession(req);
 if (path.startsWith("/auth/") || path.startsWith("/admin/")) {
     if (!session) return send(res, 401, { message: "Please sign in." });

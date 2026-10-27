@@ -97,18 +97,21 @@ export default function MyStats({ version }) {
                     dimmed={loading && !!stats}
                     emptyText="No customers served in this period yet."
                 />
-                {/* the same numbers as a table, for screen readers */}
-                <table className="visually-hidden">
-                    <caption>Customers you served</caption>
-                    <thead>
-                        <tr><th scope="col">When</th><th scope="col">Served</th></tr>
-                    </thead>
-                    <tbody>
-                        {points.map((p) => (
-                            <tr key={p.key}><th scope="row">{p.long}</th><td>{p.value ?? "–"}</td></tr>
-                        ))}
-                    </tbody>
-                </table>
+                {/* the same numbers as a table, for screen readers; hidden by a div around it, since a table grows past
+                    a 1px height and would leave the page scrolling into blank space under it */}
+                <div className="visually-hidden">
+                    <table>
+                        <caption>Customers you served</caption>
+                        <thead>
+                            <tr><th scope="col">When</th><th scope="col">Served</th></tr>
+                        </thead>
+                        <tbody>
+                            {points.map((p) => (
+                                <tr key={p.key}><th scope="row">{p.long}</th><td>{p.value ?? "–"}</td></tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </section>
     );

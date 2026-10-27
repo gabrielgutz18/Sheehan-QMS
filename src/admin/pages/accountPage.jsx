@@ -3,7 +3,7 @@ import { ROLE_LABELS } from '../auth/roles.js';
 import ProfilePhoto from '../components/accounts/profilePhoto.jsx';
 import AccountForm from '../components/accounts/accountForm.jsx';
 
-// My account: every staff member (admin, sales, loading or security) keeps their own photo, name, employee ID and department here
+// My account: every staff member (admin, sales, loading, security or cashier) keeps their own photo, name, employee ID and department here
 // the name shown around the app, e.g. "Served by Maria Santos", is the first name and surname
 export default function AccountPage() {
     const { user, setUser } = useAuth();

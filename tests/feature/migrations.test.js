@@ -273,3 +273,83 @@ test("rebuilding users for security accounts keeps every account, sign-in, point
         db.close();
     }
 });
+
+// 019: loading area by area, and the security check; orders already done stay done, with nothing to check
+test("orders finished before the security check stay done, and the new tables follow their orders", () => {
+    const old = databaseBefore("019");
+    old.exec(`
+        INSERT INTO users (id, username, name, role, password_hash, created_at)
+            VALUES (1, 'pedro', 'Pedro Garcia', 'loading', 'x', '2026-10-20T08:00:00.000Z');
+        INSERT INTO orders (id, queue_date, queue_num, name, purpose, status, handed_over_by, loaded_by, created_at)
+            VALUES (1, '2026-10-24', 1, 'Juan Dela Cruz', 'Roofings, Steel', 'done', 1, 1, '2026-10-24T09:00:00.000Z');
+    `);
+    old.close();
+
+    const quiet = mock.method(console, "log", () => {});
+    const db = openDatabase(dataDir);
+    quiet.mock.restore();
+
+    try {
+        const order = db.prepare("SELECT status, loading_area, security_pending, security_check_id FROM orders WHERE id = 1").get();
+        assert.deepEqual({ ...order }, { status: "done", loading_area: "", security_pending: 0, security_check_id: null });
+        db.prepare("INSERT INTO order_loads (order_id, area, loaded_by, loaded_at) VALUES (1, 'Roofings', 1, '2026-10-24T09:30:00.000Z')").run();
+        assert.throws(() => db.prepare("INSERT INTO order_loads (order_id, area, loaded_by, loaded_at) VALUES (1, 'Roofings', 1, 'x')").run(), /UNIQUE/);
+        db.prepare("INSERT INTO security_checks (order_id, user_id, result, note, checked_at) VALUES (1, 1, 'missing', 'One sheet short', 'x')").run();
+        assert.throws(() => db.prepare("INSERT INTO security_checks (order_id, user_id, result, checked_at) VALUES (1, 1, 'lost', 'x')").run(), /CHECK/);
+        db.prepare("DELETE FROM orders WHERE id = 1").run();
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM order_loads").get().n, 0);
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM security_checks").get().n, 0);
+    } finally {
+        db.close();
+    }
+});
+
+// 020 rebuilds users again (cashiers): every account keeps its details and everything that points at it, the loaded
+// areas and security checks from 019 included
+test("rebuilding users for cashier accounts keeps every account, sign-in, edit, loaded area and security check", () => {
+    const old = databaseBefore("020");
+    old.exec(`
+        INSERT INTO users (id, username, name, role, password_hash, created_at, employee_id, department, photo, sales_team)
+            VALUES (1, 'maria', 'Maria Santos', 'sales', 'x', '2026-10-20T08:00:00.000Z', 'E-1', 'Sales', 'user-1.jpg', 'GIGA'),
+                   (2, 'pedro', 'Pedro Garcia', 'loading', 'x', '2026-10-20T08:00:00.000Z', NULL, 'Roofings', NULL, ''),
+                   (3, 'jose', 'Jose Bantay', 'security', 'x', '2026-10-20T08:00:00.000Z', NULL, '', NULL, '');
+        INSERT INTO orders (id, queue_date, queue_num, name, purpose, status, served_by, handed_over_by, loaded_by, created_at)
+            VALUES (1, '2026-10-24', 1, 'Juan Dela Cruz', 'Roofings', 'done', 1, 1, 2, '2026-10-24T09:00:00.000Z');
+        INSERT INTO order_edits (order_id, user_id, sales_team, changes, edited_at)
+            VALUES (1, 1, 'GIGA', '["paymentStatus"]', '2026-10-24T09:20:00.000Z');
+        INSERT INTO order_loads (order_id, area, loaded_by, loaded_at) VALUES (1, 'Roofings', 2, '2026-10-24T09:30:00.000Z');
+        INSERT INTO security_checks (id, order_id, user_id, result, note, checked_at)
+            VALUES (1, 1, 3, 'verified', '', '2026-10-24T09:40:00.000Z');
+        UPDATE orders SET security_check_id = 1 WHERE id = 1;
+        INSERT INTO sessions (sid_hash, user_id, expires) VALUES ('abc', 3, 4102444800000);
+    `);
+    old.close();
+
+    const quiet = mock.method(console, "log", () => {});
+    const db = openDatabase(dataDir);
+    quiet.mock.restore();
+
+    try {
+        const users = db.prepare("SELECT id, role, employee_id, sales_team FROM users ORDER BY id").all();
+        assert.deepEqual(users.map((row) => ({ ...row })), [
+            { id: 1, role: "sales", employee_id: "E-1", sales_team: "GIGA" },
+            { id: 2, role: "loading", employee_id: null, sales_team: "" },
+            { id: 3, role: "security", employee_id: null, sales_team: "" },
+        ]);
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sessions WHERE user_id = 3").get().n, 1);
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM order_edits WHERE user_id = 1").get().n, 1);
+        assert.equal(db.prepare("SELECT loaded_by FROM order_loads WHERE order_id = 1").get().loaded_by, 2);
+        assert.equal(db.prepare("SELECT user_id FROM security_checks WHERE id = 1").get().user_id, 3);
+        assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(), []);
+
+        db.prepare(`INSERT INTO users (username, name, role, password_hash, created_at)
+            VALUES ('rosa', 'Rosa Bayad', 'cashier', 'x', '2026-10-27T08:00:00.000Z')`).run();
+        assert.throws(() => db.prepare(`INSERT INTO users (username, name, role, password_hash, created_at)
+            VALUES ('teller', 'Someone', 'teller', 'x', '2026-10-27T08:00:00.000Z')`).run(), /CHECK constraint/);
+        assert.throws(() => db.prepare("UPDATE users SET employee_id = 'e-1' WHERE id = 2").run(), /UNIQUE/);
+        // a staff member who loaded an area or checked an order can't be removed out from under it
+        assert.throws(() => db.prepare("DELETE FROM users WHERE id = 3").run(), /FOREIGN KEY/);
+    } finally {
+        db.close();
+    }
+});

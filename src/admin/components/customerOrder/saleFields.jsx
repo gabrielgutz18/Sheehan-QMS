@@ -40,7 +40,7 @@ export function SaleText({ id, label, value, onChange, error, optional, narrow, 
     );
 }
 
-// the tabs along the top of Customer order's card, like a browser's: the one picked joins the card below it
+// the tabs along the top of Customer order's card: the one picked is underlined
 // tabs: [{ id, label }]; each tab's panel is `${id}-panel` (see the tabpanels in customerOrderPage.jsx)
 // the arrow keys, Home and End move between them, as in any tab list
 export function SaleTabs({ label, tabs, current, onChange }) {

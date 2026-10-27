@@ -1,7 +1,7 @@
 // the backend API, shared by the Vite dev server (npm run dev) and server/server.js (npm start)
 // orders, settings, staff accounts and sign-ins are saved in a SQLite database in the data folder
 // (see server/db.js), and an uploaded display video next to it in videos/, so nothing is lost on restart
-// three roles: admins can do everything; sales and loading staff only what ROLE_ROUTES lists for them
+// five roles: admins can do everything; sales, loading, security and cashier staff only what ROLE_ROUTES lists for them
 import { createHash, randomBytes, scrypt, scryptSync, timingSafeEqual } from 'node:crypto';
 import { createReadStream, createWriteStream, mkdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { extname, join } from 'node:path';
@@ -13,6 +13,7 @@ import paymentStatus from '../src/data/paymentStatus.js';
 import teams from '../src/data/teams.js';
 import checkers, { CHECKER_ROUNDS } from '../src/data/checkers.js';
 import { splitList } from '../src/data/list.js';
+import { areasFor } from '../src/data/loadingAreas.js';
 
 const SESSION_COOKIE = "sid";
 // each browser tab signs in on its own: the page sends its tab's id (X-Tab-Id) and the session cookie is named
@@ -42,6 +43,7 @@ const MAX_CONCERN = 300;
 // what sales staff fill in on Customer order; the payment statuses and teams are the lists in src/data, so a new one
 // is added in one place
 const PAYMENT_STATUSES = paymentStatus.map((p) => p.type);
+const NO_SUCH_PAYMENT = `Pick a payment status from the list (${PAYMENT_STATUSES.join(", ")}).`;
 const TEAMS = teams.map((t) => t.name);
 const CHECKER_COLUMNS = checkers.map((c) => c.name);
 // an order can have several invoices, each with its number and the type of order it's for
@@ -65,9 +67,13 @@ const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 const HISTORY_LIMIT = 200;
 const ANNOUNCER_REPEATS = [1, 2];
 // loading: the loading crew, one shared line for every department (Roofings, Steel, ...); security: the guards at the
-// gate, the last stage, who check what each customer leaves with
-const ROLES = ["admin", "sales", "loading", "security"];
-const NO_SUCH_ROLE = "Pick admin, sales, loading or security.";
+// gate, the last stage, who check what each customer leaves with; cashier: who changes how each order is paid
+const ROLES = ["admin", "sales", "loading", "security", "cashier"];
+const NO_SUCH_ROLE = "Pick admin, sales, loading, security or cashier.";
+// what a guard's security check can find: all as it should be, or something missing, more than the order's quantity,
+// or stolen (the last three are reports, with a note saying what)
+const SECURITY_RESULTS = ["verified", "missing", "over", "stolen"];
+const MAX_SECURITY_NOTE = 300;
 const NO_SUCH_TEAM = `Pick a sales team from the list (${TEAMS.join(", ")}), or none.`;
 const USERNAME = /^[a-z0-9._-]{3,32}$/i;
 const MIN_PASSWORD = 8;
@@ -108,10 +114,22 @@ const ROLE_ROUTES = {
         ...ACCOUNT_ROUTES,
     ],
     // the Security page: where every customer is and what they bought, to check the products and quantities they
-    // leave with; looking only, nothing they can call, change or save but their own account
+    // leave with, and the check itself at the gate, the last stage; nothing else they can call, change or save but
+    // their own account
     security: [
         ["GET", /^\/admin\/security$/],
+        // the security check: verified, or a report of something missing, over the quantity or stolen
+        ["POST", /^\/admin\/security\/[^/]+\/check$/],
         // the Order status board the top bar opens on My account
+        ["GET", /^\/admin\/order-status$/],
+        ...ACCOUNT_ROUTES,
+    ],
+    // the Cashier page: every day's orders with how each is paid, and changing its payment status (Vale to Paid, ...);
+    // nothing else they can call, change or save but their own account
+    cashier: [
+        ["GET", /^\/admin\/payments$/],
+        ["PATCH", /^\/admin\/payments\/\d+$/],
+        // the Order status board the top bar opens
         ["GET", /^\/admin\/order-status$/],
         ...ACCOUNT_ROUTES,
     ],
@@ -413,6 +431,8 @@ const toMe = (row) => ({
     team: row.sales_team,
     // the photo's file name doubles as a version for its URL, or null
     photo: row.photo,
+    // when the account was made: "Joined on" on the Dashboard's profile
+    createdAt: row.created_at,
 });
 
 // a report keeps only its concern and an order only its items, so switching purpose on Edit drops the other
@@ -481,6 +501,39 @@ const toEdit = (row) => ({
     at: row.edited_at,
 });
 
+// the areas an order is loaded in, in turn (src/data/loadingAreas.js), each with who finished loading it there and
+// when, once they have: [{ name: "Roofings", loaded: { by: { name }, at } }, { name: "Steel" }]; [] for a Customer
+// Report
+const areasOf = (row) => {
+    const loads = JSON.parse(row.loads_json ?? "[]");
+    return areasFor(row.purpose).map((name) => {
+        const load = loads.find(({ area }) => area === name);
+        return { name, ...(load && { loaded: { by: { name: load.by }, at: load.at } }) };
+    });
+};
+// where a finished order is with the security check at the gate: "waiting" for a guard, then "verified", or
+// "reported" (something missing, over the quantity or stolen); left out for one that doesn't need it (yet)
+const securityOf = (row) =>
+    row.security_check_id !== null ? (row.check_result === "verified" ? "verified" : "reported")
+    : row.security_pending === 1 ? "waiting"
+    : undefined;
+// how the order is getting on with loading and the security check, for every page that shows it; loadingArea is the
+// area the loading crew has the customer at right now
+const progressOf = (row) => ({
+    areas: areasOf(row),
+    ...(row.at_loading === 1 && row.loading_area && { loadingArea: row.loading_area }),
+    ...(securityOf(row) && { security: securityOf(row) }),
+});
+// this visit's security check: the result, the guard's note (for a report), who checked it and when (ISO 8601)
+const checkOf = (row) => row.security_check_id !== null && {
+    securityCheck: {
+        result: row.check_result,
+        ...(row.check_note && { note: row.check_note }),
+        by: { name: row.checked_by_name },
+        at: row.checked_at,
+    },
+};
+
 // a stored order in the shape the front end expects
 const toOrder = (row, items, invoices, edits = []) => ({
     queueNum: row.queue_num,
@@ -530,11 +583,14 @@ const toOrder = (row, items, invoices, edits = []) => ({
     }),
     // every save on Customer order that changed something, newest first (see toEdit); left out until the first one
     ...(edits.length > 0 && { edits: edits.map(toEdit) }),
+    ...progressOf(row),
+    ...checkOf(row),
 });
 
 // an order on the Order status board, which every staff member sees: where the customer is, from the line to a sales
 // counter to loading, and nothing else (no invoices, payment or other sales details); servedBy is whoever is serving
-// them or last did, atLoading that it's the loading crew, team the sales team that served them
+// them or last did (photo is for their avatar, as on toOrder), atLoading that it's the loading crew, team the sales
+// team that served them
 const toStatus = (row) => ({
     queueNum: row.queue_num,
     name: row.name,
@@ -544,14 +600,15 @@ const toStatus = (row) => ({
     ...(row.team && { team: row.team }),
     ...(row.at_loading === 1 && { atLoading: true }),
     ...(row.handed_over_by !== null && { handedOver: true }),
-    ...(row.served_by !== null && { servedBy: { name: row.served_by_name } }),
+    ...(row.served_by !== null && { servedBy: { id: row.served_by, name: row.served_by_name, photo: row.served_by_photo } }),
     ...(row.pickup_date && { pickupDate: row.pickup_date }),
+    ...progressOf(row),
 });
 
 // an order on the Security page: the Order status board's, plus what the customer bought, so the guards can check
 // the products and quantities they leave with: the invoices (each with its type of order), the items on a ticket
-// taken before invoices, who finished loading it and when, and when it was marked Done; still no payment, salesman,
-// runner, receiver or other sales details
+// taken before invoices, who finished loading it and when, when it was marked Done, and this visit's security check
+// (with the guard's note on a report); still no payment, salesman, runner, receiver or other sales details
 const toSecurity = (row, items, invoices) => ({
     ...toStatus(row),
     orders: itemsOf(items),
@@ -560,7 +617,26 @@ const toSecurity = (row, items, invoices) => ({
         loaded: { by: { name: row.loaded_by_name }, ...(row.loaded_at && { at: row.loaded_at }) },
     }),
     ...(row.status === "done" && row.served_at && { servedAt: row.served_at }),
+    ...checkOf(row),
 });
+
+// an order on the Cashier page, from any day: the Order status board's, plus what the cashier goes by to take the
+// payment: the invoices (each with its type of order), the salesman, the payment status and who last changed it and
+// when (ISO 8601; left out until someone has); id picks it out, since numbers repeat every day; no items, runner,
+// receiver, checkers or other sales details
+const toPayment = (row, invoices, edits, todayDate) => {
+    const change = edits.find((edit) => JSON.parse(edit.changes).includes("paymentStatus"));
+    return {
+        id: row.id,
+        date: row.queue_date,
+        isToday: row.queue_date === todayDate,
+        ...toStatus(row),
+        invoices: invoicesOf(invoices),
+        ...(row.salesman && { salesman: row.salesman }),
+        ...(row.payment_status && { paymentStatus: row.payment_status }),
+        ...(change && { paymentChange: { by: { name: change.name }, at: change.edited_at } }),
+    };
+};
 
 // a ticket from any day for the History page and the Order sheet; id picks it out, since numbers repeat every day
 const toHistory = (row, items, invoices, edits, todayDate) => ({
@@ -576,13 +652,20 @@ const toHistory = (row, items, invoices, edits, todayDate) => ({
 // order rows with the staff member serving them (o. prefixes keep "name" unambiguous), who handed them over to
 // loading, who finished loading them, and, once it's done, when they marked it Done: this visit's point, if the point
 // is theirs (at most one per order and day)
+// the areas loading has finished so far, as JSON ([{ area, by, at }], see areasOf), and this visit's security check
+// with the guard who did it
 const ORDER_ROW = `o.*, u.name AS served_by_name, u.photo AS served_by_photo, h.name AS handed_over_by_name,
-    l.name AS loaded_by_name, l.photo AS loaded_by_photo, s.served_at
+    l.name AS loaded_by_name, l.photo AS loaded_by_photo, s.served_at,
+    (SELECT json_group_array(json_object('area', ol.area, 'by', lu.name, 'at', ol.loaded_at))
+        FROM order_loads ol JOIN users lu ON lu.id = ol.loaded_by WHERE ol.order_id = o.id) AS loads_json,
+    sc.result AS check_result, sc.note AS check_note, sc.checked_at, su.name AS checked_by_name
     FROM orders o
     LEFT JOIN users u ON u.id = o.served_by
     LEFT JOIN users h ON h.id = o.handed_over_by
     LEFT JOIN users l ON l.id = o.loaded_by
-    LEFT JOIN serves s ON s.order_id = o.id AND s.queue_date = o.queue_date AND s.user_id = o.served_by`;
+    LEFT JOIN serves s ON s.order_id = o.id AND s.queue_date = o.queue_date AND s.user_id = o.served_by
+    LEFT JOIN security_checks sc ON sc.id = o.security_check_id
+    LEFT JOIN users su ON su.id = sc.user_id`;
 
 // "%" and "_" mean "anything" in LIKE, so a search for them is escaped
 const likePattern = (text) => `%${text.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
@@ -618,10 +701,22 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         updateSheet: db.prepare(`
             UPDATE orders SET runner = :runner, receiver = :receiver, payment_status = :paymentStatus, team = :team
             WHERE id = :id`),
+        // the cashier's one change
+        setPayment: db.prepare("UPDATE orders SET payment_status = ? WHERE id = ?"),
         setStatus: db.prepare(`
             UPDATE orders SET status = :status, called_at = :calledAt, remarks = :remarks, served_by = :servedBy,
-                at_loading = :atLoading, loaded_by = :loadedBy, loaded_at = :loadedAt
+                at_loading = :atLoading, loaded_by = :loadedBy, loaded_at = :loadedAt, loading_area = :loadingArea,
+                security_pending = :securityPending, security_check_id = :securityCheckId
             WHERE id = :id`),
+        // loading finishes one area of the order; a visit loads each area once
+        addLoad: db.prepare(`
+            INSERT INTO order_loads (order_id, area, loaded_by, loaded_at) VALUES (?, ?, ?, ?)
+            ON CONFLICT (order_id, area) DO NOTHING`),
+        clearLoads: db.prepare("DELETE FROM order_loads WHERE order_id = ?"),
+        // the guard's check at the gate: kept for good, and this visit's until the order is reopened
+        insertCheck: db.prepare(`
+            INSERT INTO security_checks (order_id, user_id, result, note, checked_at) VALUES (?, ?, ?, ?, ?)`),
+        setCheck: db.prepare("UPDATE orders SET security_pending = 0, security_check_id = ? WHERE id = ?"),
         // sales hands the customer over to loading: back in line, for the loading crew now, with the counter's
         // remarks cleared so they don't follow the customer; the order keeps its sales team
         handOver: db.prepare(`
@@ -688,14 +783,15 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         restoreSameDay: db.prepare(`
             UPDATE orders SET deleted_at = NULL, restored_at = ?, status = 'pending', called_at = NULL, remarks = '',
                 served_by = NULL, at_loading = 0, handed_over_by = NULL, handed_over_at = NULL, loaded_by = NULL,
-                loaded_at = NULL
+                loaded_at = NULL, loading_area = '', security_pending = 0, security_check_id = NULL
             WHERE id = ?`),
         restoreToToday: db.prepare(`
             UPDATE orders SET
                 original_date = COALESCE(original_date, queue_date), original_num = COALESCE(original_num, queue_num),
                 queue_date = ?, queue_num = ?,
                 deleted_at = NULL, restored_at = ?, status = 'pending', called_at = NULL, remarks = '', served_by = NULL,
-                at_loading = 0, handed_over_by = NULL, handed_over_at = NULL, loaded_by = NULL, loaded_at = NULL
+                at_loading = 0, handed_over_by = NULL, handed_over_at = NULL, loaded_by = NULL, loaded_at = NULL,
+                loading_area = '', security_pending = 0, security_check_id = NULL
             WHERE id = ?`),
         insertItem: db.prepare("INSERT INTO order_items (order_id, position, item, qty, color) VALUES (?, ?, ?, ?, ?)"),
         deleteItems: db.prepare("DELETE FROM order_items WHERE order_id = ?"),
@@ -731,7 +827,7 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         // a disabled account's sign-ins stop working at once
         findSession: db.prepare(`
             SELECT s.expires, u.id, u.username, u.name, u.role, u.first_name, u.middle_name, u.surname,
-                u.employee_id, u.department, u.sales_team, u.photo
+                u.employee_id, u.department, u.sales_team, u.photo, u.created_at
             FROM sessions s JOIN users u ON u.id = s.user_id
             WHERE s.sid_hash = ? AND u.disabled_at IS NULL`),
         deleteSession: db.prepare("DELETE FROM sessions WHERE sid_hash = ?"),
@@ -795,7 +891,6 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
 
     const toUser = (row) => ({
         ...toMe(row),
-        createdAt: row.created_at,
         disabled: row.disabled_at !== null,
         // its password and role come from .env
         builtIn: isBuiltIn(row),
@@ -813,7 +908,10 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
     // loading isn't serving, it's loading the order (the truck, for roofing): a handed-over order that's done is still
     // served by the sales staff member who handed it over, and loadedBy is who finished loading it (the loading staff
     // member serving it, unless the Loading page says who pressed Done); leaving done clears it
-    const changeStatus = (order, status, user, { calledAt = order.called_at, remarks = order.remarks, servedBy, atLoading, loadedBy } = {}) =>
+    // loadingArea: the area the loading crew calls them to; finishedArea: the area loading has just finished
+    const changeStatus = (order, status, user, {
+        calledAt = order.called_at, remarks = order.remarks, servedBy, atLoading, loadedBy, loadingArea, finishedArea,
+    } = {}) =>
         transaction(db, () => {
             const handedOver = order.handed_over_by !== null;
             const server = servedBy !== undefined ? servedBy
@@ -827,9 +925,19 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
                 : status !== "done" || !handedOver ? null
                 : loadedBy ?? (order.at_loading === 1 ? order.served_by : null);
             const loadedAt = stillDone ? order.loaded_at : loader === null ? null : new Date().toISOString();
+            // the area loading called them to, while they're there
+            const area = loading === 1 ? loadingArea ?? order.loading_area : "";
+            // a finished order waits for the security check once a visit; a Customer Report has nothing to check
+            const securityPending = stillDone ? order.security_pending
+                : status === "done" && order.purpose !== REPORT_PURPOSE ? 1 : 0;
             sql.setStatus.run({
-                status, calledAt, remarks, servedBy: server, atLoading: loading, loadedBy: loader, loadedAt, id: order.id,
+                status, calledAt, remarks, servedBy: server, atLoading: loading, loadedBy: loader, loadedAt,
+                loadingArea: area, securityPending, securityCheckId: stillDone ? order.security_check_id : null,
+                id: order.id,
             });
+            if (finishedArea) sql.addLoad.run(order.id, finishedArea, user.id, new Date().toISOString());
+            // reopening a finished order starts the visit over: every area loaded again, and a new security check
+            if (order.status === "done" && status !== "done") sql.clearLoads.run(order.id);
             if (handedOver) return;
             if (order.status === "done" && status !== "done") sql.removePoint.run(order.id, order.queue_date);
             if (status === "done") sql.addPoint.run(order.id, server, order.queue_date, new Date().toISOString());
@@ -847,6 +955,14 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         const date = today();
         return rows.map((row) => toHistory(row, itemsByOrder.get(row.id) ?? [],
             invoicesByOrder.get(row.id) ?? [], editsByOrder.get(row.id) ?? [], date));
+    };
+    // the same, in toPayment's shape, for the Cashier page
+    const loadPayments = (rows) => {
+        const ids = JSON.stringify(rows.map((r) => r.id));
+        const invoicesByOrder = Map.groupBy(sql.invoicesFor.all(ids), (i) => i.order_id);
+        const editsByOrder = Map.groupBy(sql.editsFor.all(ids), (e) => e.order_id);
+        const date = today();
+        return rows.map((row) => toPayment(row, invoicesByOrder.get(row.id) ?? [], editsByOrder.get(row.id) ?? [], date));
     };
 
     const saveItems = (orderId, items) => {
@@ -1316,6 +1432,32 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             return send(res, 200, loadAnyDay([sql.findById.get(order.id)])[0]);
         }
 
+        // the Cashier page (cashiers and admins): the Order sheet's orders, every one from every day (deleted ones and
+        // Customer Reports left out), with how each is paid
+        if (method === "GET" && path === "/admin/payments") {
+            return send(res, 200, loadPayments(sql.sheetOrders.all(REPORT_PURPOSE)));
+        }
+
+        // the cashier changes how an order is paid, e.g. Vale to Paid once the customer has settled it; from any day, by
+        // id; it can be changed but not cleared, and a change is kept as an edit with who made it, like one on the Order
+        // sheet, so sales see it on the ticket
+        const paymentMatch = path.match(/^\/admin\/payments\/(\d+)$/);
+        if (method === "PATCH" && paymentMatch) {
+            const order = sql.findById.get(Number(paymentMatch[1]));
+            if (!order || order.deleted_at !== null || order.purpose === REPORT_PURPOSE) {
+                return send(res, 404, { message: "Order not found." });
+            }
+            const body = await readBody(req);
+            if (!PAYMENT_STATUSES.includes(body?.paymentStatus)) return send(res, 400, { message: NO_SUCH_PAYMENT });
+            if (body.paymentStatus !== order.payment_status) {
+                transaction(db, () => {
+                    sql.setPayment.run(body.paymentStatus, order.id);
+                    sql.insertEdit.run(order.id, me.id, me.team, JSON.stringify(["paymentStatus"]), new Date().toISOString());
+                });
+            }
+            return send(res, 200, loadPayments([sql.findById.get(order.id)])[0]);
+        }
+
         const adminMatch = path.match(/^\/admin\/orders\/([^/]+)$/);
         if (adminMatch) {
             const order = findToday(Number(decodeURIComponent(adminMatch[1])));
@@ -1370,23 +1512,66 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             const body = await readBody(req);
             if (order.handed_over_by === null) return send(res, 409, { message: "Sales hasn't handed this customer over yet." });
             const servingHere = order.status === "serving" && order.at_loading === 1;
+            // the order is loaded in each of its areas in turn (src/data/loadingAreas.js); these are the ones left
+            const loaded = JSON.parse(order.loads_json).map(({ area }) => area);
+            const areasLeft = areasFor(order.purpose).filter((area) => !loaded.includes(area));
 
             if (loadingMatch[2] === "call") {
                 if (order.status === "done") return send(res, 409, { message: "Loading has already finished this order." });
                 if (order.status === "serving" && !servingHere) {
                     return send(res, 409, { message: `Please wait until ${order.served_by_name ?? "the other counter"} finishes.` });
                 }
-                const { remarks = "" } = body;
+                // the area they're called to: the next one the order needs unless the crew picks another of them
+                const { remarks = "", area = areasLeft[0] ?? "" } = body;
                 if (typeof remarks !== "string" || remarks.trim().length > MAX_REMARKS) {
                     return send(res, 400, { message: `Remarks must be ${MAX_REMARKS} characters or fewer.` });
                 }
-                changeStatus(order, "serving", me, { calledAt: Date.now(), remarks: remarks.trim(), servedBy: me.id, atLoading: 1 });
+                if (areasLeft.length > 0 && !areasLeft.includes(area)) {
+                    return send(res, 400, { message: `Call them to an area this order still needs: ${areasLeft.join(", ")}.` });
+                }
+                changeStatus(order, "serving", me, {
+                    calledAt: Date.now(), remarks: remarks.trim(), servedBy: me.id, atLoading: 1, loadingArea: area,
+                });
             } else {
                 if (!servingHere) return send(res, 409, { message: "Loading isn't serving this customer." });
                 if (loadingMatch[2] === "back") changeStatus(order, "pending", me);
-                else changeStatus(order, "done", me, { loadedBy: me.id });
+                else {
+                    // Done finishes the area they were called to: the order waits for its next area, or, once every
+                    // area is loaded, it's done at loading and goes on to the security check
+                    const area = order.loading_area || areasLeft[0];
+                    const next = areasLeft.filter((name) => name !== area);
+                    if (next.length > 0) changeStatus(order, "pending", me, { remarks: "", finishedArea: area });
+                    else changeStatus(order, "done", me, { loadedBy: me.id, finishedArea: area });
+                }
             }
             return send(res, 200, loadOrder(findToday(order.queue_num)));
+        }
+
+        // the security check at the gate (security guards and admins): every finished order waits for it, and the guard
+        // verifies what the customer leaves with, or reports something missing, over the order's quantity or stolen,
+        // saying what they saw; either way the order is then done, and the check is kept with it
+        const checkMatch = path.match(/^\/admin\/security\/([^/]+)\/check$/);
+        if (method === "POST" && checkMatch) {
+            const order = findToday(Number(decodeURIComponent(checkMatch[1])));
+            if (!order) return send(res, 404, { message: "Order not found." });
+            if (order.security_check_id !== null) {
+                return send(res, 409, { message: `${order.checked_by_name} has already checked this order.` });
+            }
+            if (order.security_pending !== 1) return send(res, 409, { message: "This order isn't at the security check yet." });
+            const { result, note = "" } = await readBody(req);
+            if (!SECURITY_RESULTS.includes(result)) return send(res, 400, { message: "Pick verified, missing, over or stolen." });
+            if (typeof note !== "string" || note.trim().length > MAX_SECURITY_NOTE) {
+                return send(res, 400, { message: `Notes must be ${MAX_SECURITY_NOTE} characters or fewer.` });
+            }
+            if (result !== "verified" && !note.trim()) {
+                return send(res, 400, { message: "Say what's wrong, e.g. which item and how many." });
+            }
+            transaction(db, () => {
+                const { lastInsertRowid } = sql.insertCheck.run(order.id, me.id, result, note.trim(), new Date().toISOString());
+                sql.setCheck.run(lastInsertRowid, order.id);
+            });
+            const row = findToday(order.queue_num);
+            return send(res, 200, toSecurity(row, sql.orderItems.all(row.id), sql.orderInvoices.all(row.id)));
         }
 
         // ?period=day|week|month|year → { period, from, to, buckets: [{ key, orders: { type: n }, total }], servedToday }
@@ -1441,6 +1626,7 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             }
             const restored = transaction(db, () => {
                 const now = new Date().toISOString();
+                sql.clearLoads.run(row.id);
                 if (row.queue_date === date) {
                     sql.restoreSameDay.run(now, row.id);
                 } else {

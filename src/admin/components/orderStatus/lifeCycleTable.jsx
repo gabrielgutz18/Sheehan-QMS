@@ -16,8 +16,8 @@ import teams from '../../../data/teams.js';
 // compact: a card for each order instead of the table, for the narrow column beside Customer order and the drawer
 // action: something more for the corner across from the heading, e.g. the drawer's close button
 // list, title, details and startWith are for the Security page: what to fetch (see useOrderStatus), the heading, a
-// component showing more of each order (what the customer bought) in its own column or under the card, and the
-// filter it opens on
+// component showing more of each order (what the customer bought, and the guard's check) in its own column or under
+// the card, given the order and refresh() to fetch them all again, and the filter it opens on
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
 const clockFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit", second: "2-digit" });
@@ -66,7 +66,7 @@ export default function LifeCycleTable({
     heading = "h2", compact = false, action = null, list, title = "Order status", details: Details = null,
     startWith = "active",
 }) {
-    const { orders, loading, error, updatedAt } = useOrderStatus({ list });
+    const { orders, loading, error, updatedAt, refresh } = useOrderStatus({ list });
     const [filter, setFilter] = useState(startWith);
     const [search, setSearch] = useState("");
     const [team, setTeam] = useState("");
@@ -144,7 +144,7 @@ export default function LifeCycleTable({
                             <Pickup order={order} />
                             <span className={`stage-badge is-${stage}`}>{whereNow(order)}</span>
                             <Steps order={order} />
-                            {Details && <Details order={order} />}
+                            {Details && <Details order={order} refresh={refresh} />}
                         </li>
                     ))}
                 </ul>
@@ -180,7 +180,7 @@ export default function LifeCycleTable({
                                     <td>
                                         <Steps order={order} />
                                     </td>
-                                    {Details && <td><Details order={order} /></td>}
+                                    {Details && <td><Details order={order} refresh={refresh} /></td>}
                                 </tr>
                             ))}
                         </tbody>
