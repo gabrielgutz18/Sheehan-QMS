@@ -86,11 +86,12 @@ export function SaleTime({ id, label, value, onChange, optional, narrow }) {
     );
 }
 
-// options: the choices; the empty first one reads `placeholder`
-export function SaleSelect({ id, label, value, onChange, options, placeholder, error, optional, narrow }) {
+// options: the choices; the empty first one reads `placeholder`; disabled: grayed out, shown but not picked here
+export function SaleSelect({ id, label, value, onChange, options, placeholder, error, optional, narrow, disabled }) {
     return (
         <Field id={id} label={label} optional={optional} narrow={narrow} error={error}>
-            <select id={id} value={value} onChange={(e) => onChange(e.target.value)} {...errorProps(id, error)}>
+            <select id={id} value={value} disabled={disabled} onChange={(e) => onChange?.(e.target.value)}
+                {...errorProps(id, error)}>
                 <option value="">{placeholder}</option>
                 {options.map((option) => (
                     <option key={option} value={option}>{option}</option>

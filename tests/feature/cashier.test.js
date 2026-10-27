@@ -23,16 +23,18 @@ const sale = (overrides = {}) => ({
     invoices: [{ invoiceNo: "449765", type: "Roofings" }, { invoiceNo: "2231", type: "Steel" }],
     salesman: "Maria Santos",
     runner: "",
-    paymentStatus: "Vale",
     team: "GIGA",
     pickupDate: null,
     ...overrides,
 });
 
-// takes the order and gives its id, which the cashier changes it by, since queue numbers repeat every day
+// takes the order and gives its id, which the cashier changes it by, since queue numbers repeat every day; it comes
+// with no payment status (sales can't set one), so it goes straight in as Vale, as if the cashier had marked it before
 const takeOrder = async (overrides) => {
     const { queueNum } = (await app.client().post("/orders", sale(overrides))).assertStatus(201).body;
-    return app.db.prepare("SELECT id FROM orders WHERE queue_date = ? AND queue_num = ?").get(localDay(), queueNum).id;
+    const { id } = app.db.prepare("SELECT id FROM orders WHERE queue_date = ? AND queue_num = ?").get(localDay(), queueNum);
+    app.db.prepare("UPDATE orders SET payment_status = 'Vale' WHERE id = ?").run(id);
+    return id;
 };
 
 const pay = (staff, id, paymentStatus) => staff.patch(`/admin/payments/${id}`, { paymentStatus });
@@ -108,9 +110,10 @@ describe("cashier", () => {
         const [order] = (await cashier.get("/admin/payments")).assertStatus(200).body;
 
         assert.equal(order.paymentChange.by.name, "Rosa Bayad");
-        (await maria.patch(`/admin/order-sheet/${id}`, { paymentStatus: "COD" })).assertStatus(200);
+        // sales can't change it on the sheet
+        (await maria.patch(`/admin/order-sheet/${id}`, { paymentStatus: "COD" })).assertStatus(400);
         const [again] = (await cashier.get("/admin/payments")).assertStatus(200).body;
-        assert.deepEqual([again.paymentStatus, again.paymentChange.by.name], ["COD", "Maria Santos"]);
+        assert.deepEqual([again.paymentStatus, again.paymentChange.by.name], ["Paid", "Rosa Bayad"]);
     });
 
     test("an earlier day's order is changed by its id, not today's order with the same number", async () => {
@@ -165,7 +168,7 @@ describe("cashier", () => {
         const refused = [
             ["get", "/admin/orders"],
             ["get", "/admin/orders/1"],
-            ["put", "/admin/orders/1", sale({ paymentStatus: "Paid" })],
+            ["put", "/admin/orders/1", sale()],
             ["patch", "/admin/orders/1", { status: "done" }],
             ["post", "/admin/orders/1/call"],
             ["post", "/admin/orders/1/handover"],
@@ -181,6 +184,29 @@ describe("cashier", () => {
         ];
         for (const [method, path, body] of refused) (await cashier[method](path, body)).assertStatus(403);
         app.assertDatabaseHas("orders", { id, status: "pending", payment_status: "Vale" });
+    });
+
+    test("only the cashier sets the payment status: sales can't on the ticket or the sheet", async () => {
+        // a new order has none, whatever is sent with it
+        const { queueNum } = (await app.client().post("/orders", sale({ paymentStatus: "Paid" }))).assertStatus(201).body;
+        const { id } = app.db.prepare("SELECT id FROM orders WHERE queue_num = ?").get(queueNum);
+        app.assertDatabaseHas("orders", { id, payment_status: "" });
+        const cashier = await app.actingAsCashier();
+        await pay(cashier, id, "Vale");
+        const maria = await app.actingAsSales("Maria Santos");
+
+        // saving the ticket again keeps the cashier's, and doesn't count it as a change
+        const saved = (await maria.put(`/admin/orders/${queueNum}`, sale({ name: "Juan D. Cruz", paymentStatus: "Paid" })))
+            .assertStatus(200).body;
+        assert.equal(saved.paymentStatus, "Vale");
+        assert.deepEqual(saved.edits.map((e) => [e.by.name, e.changes]), [["Maria Santos", ["name"]], ["Rosa Bayad", ["paymentStatus"]]]);
+        // and the sheet won't take it
+        (await maria.patch(`/admin/order-sheet/${id}`, { paymentStatus: "Paid" })).assertStatus(400);
+        (await maria.patch(`/admin/order-sheet/${id}`, { runner: "Boy Reyes", paymentStatus: "Paid" })).assertStatus(400);
+
+        app.assertDatabaseHas("orders", { id, payment_status: "Vale", runner: "" });
+        const [listed] = (await cashier.get("/admin/payments")).assertStatus(200).body;
+        assert.deepEqual([listed.paymentStatus, listed.paymentChange.by.name], ["Vale", "Rosa Bayad"]);
     });
 
     test("only cashiers and admins have the Cashier page", async () => {

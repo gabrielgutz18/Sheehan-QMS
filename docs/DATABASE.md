@@ -395,7 +395,7 @@ Staff send the order from Admin → Customer order. [`src/admin/pages/customerOr
 export const createOrder = (order) => http.post("/orders", order);
 ```
 
-The server takes the next number for today, saves the order (with its salesman, runner, receiver, sales times, checkers, payment status, team and pick-up day), then its lines and its invoices, all in one transaction. Orders from Customer order have no lines (the invoice lists the items), so `saveItems` writes none for them. [`server/api.js`](../server/api.js)
+The server takes the next number for today, saves the order (with its salesman, runner, receiver, sales times, checkers, team and pick-up day; no payment status, which only the cashier sets), then its lines and its invoices, all in one transaction. Orders from Customer order have no lines (the invoice lists the items), so `saveItems` writes none for them. [`server/api.js`](../server/api.js)
 
 ```js
 if (method === "POST" && path === "/orders") {

@@ -6,7 +6,6 @@ import { STAGES, stageOf, whereNow } from '../../data/orderStage.js';
 import { changedDetails, editTime } from '../../data/orderEdits.js';
 import { INVOICE_COLUMNS, assistedBy, invoicesByColumn, sheetDate, sheetTime } from '../../data/sheetColumns.js';
 import formatQueueNum from '../../../data/queueNum.js';
-import paymentStatus from '../../../data/paymentStatus.js';
 import teams from '../../../data/teams.js';
 
 // must match the backend (server/api.js)
@@ -15,10 +14,9 @@ const MAX_RECEIVER = 60;
 // several people work on the sheet at once, so it fetches again sooner than the other pages
 const REFRESH_MS = 5000;
 
-const PAYMENTS = paymentStatus.map((p) => p.type);
 const TEAMS = teams.map((t) => t.name);
 // what each cell is called in a message
-const CELL_LABELS = { runner: "runner", receiver: "receiver", paymentStatus: "payment status", team: "sales team" };
+const CELL_LABELS = { runner: "runner", receiver: "receiver", team: "sales team" };
 
 const ticketOf = (o) => formatQueueNum(o.queueNum, o.purpose);
 const stageLabel = (order) => STAGES.find((s) => s.value === stageOf(order)).label;
@@ -88,9 +86,10 @@ function StatusCell({ order }) {
 // the Order sheet on Customer order: every order from every day (no Customer Reports: they're concerns, not orders),
 // newest day first, one row each with all its details, laid out like the loading schedule sales keeps in Google Sheets (date, queue number, team, salesman, who assisted,
 // the customer, the invoice numbers under their department, terms, time in and out at sales, runner and receiver) and
-// as wide as the page, with no scrolling sideways; every sales staff member works on it together: they pick the team and terms and type the
+// as wide as the page, with no scrolling sideways; every sales staff member works on it together: they pick the team and type the
 // runner and receiver right in the row, each cell saved as soon as they leave it (kept as an edit with who saved it;
-// the last column shows the latest and where the customer is now), and the others' changes show within a few seconds
+// the last column shows the latest and where the customer is now), and the others' changes show within a few seconds;
+// the terms (payment status) only show here: the cashier sets them, on the Cashier page
 // the rest is filled in on the ticket itself: today's queue numbers open the row's ticket on the Queue ticket tab (an
 // earlier day's can't be opened there, but its cells here can still be filled in)
 // onOpen(queueNum): opens that ticket
@@ -133,9 +132,9 @@ export default function OrderSheet({ onOpen }) {
                 <div>
                     <h2 id="order-sheet-title">Order sheet</h2>
                     <p className="tab-hint">
-                        Every day's orders, newest first, shared by everyone in sales. Pick the team and terms, type the
-                        runner and receiver; each saves when you leave the cell, and the others see it within a few
-                        seconds. Click one of today's queue numbers to open its ticket.
+                        Every day's orders, newest first, shared by everyone in sales. Pick the team, type the runner
+                        and receiver; each saves when you leave the cell, and the others see it within a few seconds.
+                        The terms are set by the cashier. Click one of today's queue numbers to open its ticket.
                     </p>
                 </div>
                 <p className="order-sheet-status" role="status">
@@ -186,7 +185,7 @@ export default function OrderSheet({ onOpen }) {
                                 <th scope="col">Assisted by</th>
                                 <th scope="col">Customer's name</th>
                                 {INVOICE_COLUMNS.map((column) => <th key={column.key} scope="col">{column.header}</th>)}
-                                <th scope="col" className="is-editable">Terms</th>
+                                <th scope="col">Terms</th>
                                 <th scope="col" className="is-time">Time in <small>(sales)</small></th>
                                 <th scope="col" className="is-time">Time out <small>(sales)</small></th>
                                 <th scope="col" className="is-editable">Runner <small>(sales)</small></th>
@@ -226,15 +225,8 @@ export default function OrderSheet({ onOpen }) {
                                                 {invoices[column.key].map((invoiceNo) => <span key={invoiceNo}>{invoiceNo}</span>)}
                                             </td>
                                         ))}
-                                        <td className="is-editable">
-                                            <select className="sheet-select sheet-caps" aria-label={`Terms (payment status) for ${ticket}`}
-                                                value={o.paymentStatus ?? ""}
-                                                onChange={(e) => save(o, "paymentStatus", e.target.value)}>
-                                                {/* it can be picked, but not taken off again */}
-                                                {!o.paymentStatus && <option value="" disabled>—</option>}
-                                                {choicesWith(PAYMENTS, o.paymentStatus).map((p) => <option key={p} value={p}>{p}</option>)}
-                                            </select>
-                                        </td>
+                                        {/* the cashier's: shown, not picked here */}
+                                        <td className="sheet-caps">{o.paymentStatus}</td>
                                         <td className="sheet-time">{sheetTime(o.salesTimeIn)}</td>
                                         <td className="sheet-time">{sheetTime(o.salesTimeOut)}</td>
                                         <td className="is-editable">

@@ -23,7 +23,6 @@ const order = (overrides = {}) => ({
     orders: [],
     invoices: [{ invoiceNo: "449765", type: "Roofings" }, { invoiceNo: "2231", type: "Steel" }],
     salesman: "Maria Santos",
-    paymentStatus: "Vale",
     team: "GIGA",
     pickupDate: null,
     ...overrides,
@@ -67,6 +66,8 @@ describe("security", () => {
         await loadAndFinish(maria, pedro, 1);
         // a ticket taken before invoices lists its items instead
         app.db.prepare("INSERT INTO order_items (order_id, position, item, qty, color) VALUES (2, 0, 'Tire 185/65', 4, NULL)").run();
+        // the cashier's, which the guard still doesn't see
+        app.db.prepare("UPDATE orders SET payment_status = 'Vale' WHERE id = 1").run();
         const guard = await app.actingAsSecurity();
 
         const [juan, ana] = (await guard.get("/admin/security")).assertStatus(200).body;

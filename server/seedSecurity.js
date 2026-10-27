@@ -27,7 +27,7 @@ const LOADING = { username: "demo.loading", name: "Pedro Garcia", role: "loading
 // a customer as Customer order sends them; invoices list what they bought, under their type of order
 const sale = (name, purpose, invoices, team = "GIGA") => ({
     name, purpose, orders: [], invoices: invoices.map(([invoiceNo, type]) => ({ invoiceNo, type })),
-    salesman: SALES.name, runner: "", paymentStatus: "Paid", team, pickupDate: null,
+    salesman: SALES.name, runner: "", team, pickupDate: null,
 });
 
 // the sales counter serves the customer; handing them over sends them on to loading

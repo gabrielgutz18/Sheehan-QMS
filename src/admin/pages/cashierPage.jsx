@@ -11,7 +11,7 @@ import { INVOICE_COLUMNS, invoicesByColumn, sheetDate } from '../data/sheetColum
 import formatQueueNum from '../../data/queueNum.js';
 import paymentStatus from '../../data/paymentStatus.js';
 
-// sales can change the payment status on the Order sheet too, so it fetches again as often as the sheet does
+// sales take new orders all day, so it fetches again as often as the Order sheet does
 const REFRESH_MS = 5000;
 
 const PAYMENTS = paymentStatus.map((p) => p.type);

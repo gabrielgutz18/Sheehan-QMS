@@ -22,7 +22,6 @@ const order = (overrides = {}) => ({
     orders: [],
     invoices: [{ invoiceNo: "2223", type: "Roofings" }],
     salesman: "Maria Santos",
-    paymentStatus: "Paid",
     team: "GIGA",
     pickupDate: null,
     ...overrides,
