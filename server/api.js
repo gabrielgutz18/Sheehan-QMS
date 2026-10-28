@@ -1,7 +1,8 @@
 // the backend API, shared by the Vite dev server (npm run dev) and server/server.js (npm start)
 // orders, settings, staff accounts and sign-ins are saved in a SQLite database in the data folder
 // (see server/db.js), and an uploaded display video next to it in videos/, so nothing is lost on restart
-// five roles: admins can do everything; sales, loading, security and cashier staff only what ROLE_ROUTES lists for them
+// six roles: admins can do everything; sales, loading, hardware, security and cashier staff only what ROLE_ROUTES lists
+// for them
 import { createHash, randomBytes, scrypt, scryptSync, timingSafeEqual } from 'node:crypto';
 import { createReadStream, createWriteStream, mkdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { extname, join } from 'node:path';
@@ -9,11 +10,12 @@ import { pipeline } from 'node:stream/promises';
 import { promisify } from 'node:util';
 
 import { openDatabase, resolveDataDir, transaction } from './db.js';
+import { clientIp, createRateLimiter } from './rateLimit.js';
 import paymentStatus from '../src/data/paymentStatus.js';
 import teams from '../src/data/teams.js';
 import checkers, { CHECKER_ROUNDS } from '../src/data/checkers.js';
 import { splitList } from '../src/data/list.js';
-import { areasFor } from '../src/data/loadingAreas.js';
+import { DEPARTMENTS, areasFor, departmentHas, departmentOf } from '../src/data/loadingAreas.js';
 
 const SESSION_COOKIE = "sid";
 // each browser tab signs in on its own: the page sends its tab's id (X-Tab-Id) and the session cookie is named
@@ -66,10 +68,11 @@ const VIDEO_EXTENSIONS = {
 const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 const HISTORY_LIMIT = 200;
 const ANNOUNCER_REPEATS = [1, 2];
-// loading: the loading crew, one shared line for every department (Roofings, Steel, ...); security: the guards at the
-// gate, the last stage, who check what each customer leaves with; cashier: who changes how each order is paid
-const ROLES = ["admin", "sales", "loading", "security", "cashier"];
-const NO_SUCH_ROLE = "Pick admin, sales, loading, security or cashier.";
+// loading: the loading crew, one shared line for its areas (Roofings, Steel, TBA); hardware: the Hardware department,
+// the same as loading but for its own area (src/data/loadingAreas.js); security: the guards at the gate, the last
+// stage, who check what each customer leaves with; cashier: who changes how each order is paid
+const ROLES = ["admin", "sales", "loading", "hardware", "security", "cashier"];
+const NO_SUCH_ROLE = "Pick admin, sales, loading, hardware, security or cashier.";
 // what a guard's security check can find: all as it should be, or something missing, more than the order's quantity,
 // or stolen (the last three are reports, with a note saying what)
 const SECURITY_RESULTS = ["verified", "missing", "over", "stolen"];
@@ -77,6 +80,21 @@ const MAX_SECURITY_NOTE = 300;
 const NO_SUCH_TEAM = `Pick a sales team from the list (${TEAMS.join(", ")}), or none.`;
 const USERNAME = /^[a-z0-9._-]{3,32}$/i;
 const MIN_PASSWORD = 8;
+
+// how much one computer (one IP address) may ask of the API before it's told 429 Too Many Requests and to wait;
+// a busy staff PC polls a few pages every 5-10 seconds, far under these
+const MINUTE_MS = 60 * 1000;
+const RATE_LIMITS = {
+    // every API request but the display video, which the player fetches in many small ranges
+    api: { limit: 300, windowMs: MINUTE_MS },
+    // new tickets from the kiosk and Customer order, which anyone on the network can send without signing in, so the
+    // queue can't be filled with junk
+    orders: { limit: 30, windowMs: MINUTE_MS },
+    // wrong passwords: after this many the computer waits before it may try again, so passwords can't be guessed
+    failedLogins: { limit: 10, windowMs: 15 * MINUTE_MS },
+};
+const TOO_MANY_REQUESTS = "Too many requests. Please wait a moment and try again.";
+const TOO_MANY_LOGINS = "Too many attempts. Please wait a moment and try again.";
 
 // My account: every staff member keeps their own name, details and photo
 const ACCOUNT_ROUTES = [
@@ -111,6 +129,13 @@ const ROLE_ROUTES = {
         // the Order status board: every order, not just the ones handed over, with none of the sales details
         ["GET", /^\/admin\/order-status$/],
         ["POST", /^\/admin\/loading\/[^/]+\/(call|done|back)$/],
+        ...ACCOUNT_ROUTES,
+    ],
+    // the Hardware page: the same as loading's, for the customers handed over with something from Hardware
+    hardware: [
+        ["GET", /^\/admin\/orders$/],
+        ["GET", /^\/admin\/order-status$/],
+        ["POST", /^\/admin\/hardware\/[^/]+\/(call|done|back)$/],
         ...ACCOUNT_ROUTES,
     ],
     // the Security page: where every customer is and what they bought, to check the products and quantities they
@@ -221,6 +246,10 @@ const send = (res, status, data, headers = {}) => {
     res.writeHead(status, { ...(data !== undefined && { "Content-Type": "application/json" }), ...headers });
     res.end(data !== undefined ? JSON.stringify(data) : undefined);
 };
+
+// Retry-After is in whole seconds
+const tooManyRequests = (res, waitMs, message = TOO_MANY_REQUESTS) =>
+    send(res, 429, { message }, { "Retry-After": String(Math.ceil(waitMs / 1000)) });
 
 const readBody = async (req) => {
     let raw = "";
@@ -681,6 +710,13 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
     mkdirSync(photosDir, { recursive: true });
     const db = openDatabase(dir);
 
+    // one set per API, so each test (and each restart) starts with a clean slate
+    const limiters = Object.fromEntries(Object.entries(RATE_LIMITS).map(([name, options]) => [name, createRateLimiter({
+        ...options,
+        // once per computer per window, so the log shows who is flooding the server without filling up with it
+        onLimit: (ip) => console.warn(`Rate limit (${name}): ${ip} went over ${options.limit} in ${options.windowMs / 1000}s`),
+    })]));
+
     const sql = {
         nextQueueNum: db.prepare(`
             INSERT INTO queue_counters (queue_date, last_num) VALUES (?, 1)
@@ -1033,6 +1069,12 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         const url = new URL(req.url, "http://localhost");
         const path = url.pathname.replace(/^\/api/, "");
         const { method } = req;
+        const ip = clientIp(req);
+
+        if (path !== "/video/file") {
+            const wait = limiters.api.hit(ip);
+            if (wait) return tooManyRequests(res, wait);
+        }
 
         // same CSRF guard the front end expects the real backend to enforce
         if (/^\/(admin|auth)\//.test(path) && req.headers["x-requested-with"] !== "XMLHttpRequest") {
@@ -1040,10 +1082,14 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         }
 
         if (method === "POST" && path === "/auth/login") {
+            // checked before the password, so a guesser can't keep the server busy hashing either
+            const wait = limiters.failedLogins.retryAfter(ip);
+            if (wait) return tooManyRequests(res, wait, TOO_MANY_LOGINS);
             const { username, password } = await readBody(req);
             const account = typeof username === "string" ? sql.findUser.get(username.trim()) : undefined;
             const passwordOk = await checkPassword(String(password ?? ""), account?.password_hash ?? NO_SUCH_USER);
             if (!account || !passwordOk || account.disabled_at !== null) {
+                limiters.failedLogins.hit(ip);
                 return send(res, 401, { message: "Incorrect username or password." });
             }
             const user = toMe(account);
@@ -1058,8 +1104,12 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         }
 
         if (method === "POST" && path === "/orders") {
+            const wait = limiters.orders.retryAfter(ip);
+            if (wait) return tooManyRequests(res, wait);
             const body = await readBody(req);
             if (!validOrder(body)) return send(res, 400, { message: "Invalid order." });
+            // only tickets that join the queue count; a refused one is already covered by the api limit
+            limiters.orders.hit(ip);
             const { orders: items, invoices, ...fields } = pickOrder(body);
             const order = transaction(db, () => {
                 const date = today();
@@ -1337,14 +1387,15 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             return send(res, 200, { period, from: range[0], to: range[1], totals, buckets });
         }
 
-        // a loading account only gets the orders sales has handed over: the one shared loading line
+        // a loading or hardware account only gets the orders sales has handed over that its department has a part in:
+        // the department's one shared line
         if (method === "GET" && path === "/admin/orders") {
             const date = today();
             const itemsByOrder = Map.groupBy(sql.dayItems.all(date), (item) => item.order_id);
             const invoicesByOrder = Map.groupBy(sql.dayInvoices.all(date), (invoice) => invoice.order_id);
             const editsByOrder = Map.groupBy(sql.dayEdits.all(date), (edit) => edit.order_id);
-            const rows = sql.dayOrders.all(date).filter((row) =>
-                me.role !== "loading" || row.handed_over_by !== null);
+            const rows = sql.dayOrders.all(date).filter((row) => !DEPARTMENTS[me.role] ||
+                (row.handed_over_by !== null && departmentHas(me.role, areasFor(row.purpose))));
             return send(res, 200, rows.map((row) => toOrder(row, itemsByOrder.get(row.id) ?? [],
                 invoicesByOrder.get(row.id) ?? [], editsByOrder.get(row.id) ?? [])));
         }
@@ -1498,46 +1549,56 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
             }
         }
 
-        // the Loading page: the loading crew calls a customer sales has handed over, marks them done, or sends them back
-        // to waiting; it's one shared line, so any loading account (or an admin) can call any of them, and finish or
-        // send back one the crew is serving; a customer is in one place at a time, so while a sales counter has them
-        // again, loading can't call them
-        // Done means the crew has finished loading the order: whoever pressed it loaded it, and the sales staff member
-        // who handed it over still served it
-        const loadingMatch = path.match(/^\/admin\/loading\/([^/]+)\/(call|done|back)$/);
+        // the Loading and Hardware pages: a department's crew calls a customer sales has handed over to one of its
+        // areas, marks them done, or sends them back to waiting; each is one shared line, so any of the department's
+        // accounts (or an admin) can call any of them, and finish or send back one the department is serving; a
+        // customer is in one place at a time, so while a sales counter or the other department has them, they can't
+        // be called
+        // Done means the crew has finished loading the order there: whoever pressed it loaded it, and the sales staff
+        // member who handed it over still served it
+        const loadingMatch = path.match(/^\/admin\/(loading|hardware)\/([^/]+)\/(call|done|back)$/);
         if (method === "POST" && loadingMatch) {
-            const order = findToday(Number(decodeURIComponent(loadingMatch[1])));
+            const [, department, queueNum, action] = loadingMatch;
+            const label = DEPARTMENTS[department];
+            const order = findToday(Number(decodeURIComponent(queueNum)));
             if (!order) return send(res, 404, { message: "Order not found." });
             const body = await readBody(req);
             if (order.handed_over_by === null) return send(res, 409, { message: "Sales hasn't handed this customer over yet." });
-            const servingHere = order.status === "serving" && order.at_loading === 1;
-            // the order is loaded in each of its areas in turn (src/data/loadingAreas.js); these are the ones left
+            const servingHere = order.status === "serving" && order.at_loading === 1 &&
+                departmentOf(order.loading_area) === department;
+            // the order is loaded in each of its areas in turn (src/data/loadingAreas.js); these are the ones left,
+            // and the ones of them this department works
             const loaded = JSON.parse(order.loads_json).map(({ area }) => area);
             const areasLeft = areasFor(order.purpose).filter((area) => !loaded.includes(area));
+            const leftHere = areasLeft.filter((area) => departmentOf(area) === department);
 
-            if (loadingMatch[2] === "call") {
-                if (order.status === "done") return send(res, 409, { message: "Loading has already finished this order." });
+            if (action === "call") {
+                if (order.status === "done") return send(res, 409, { message: `${label} has already finished this order.` });
                 if (order.status === "serving" && !servingHere) {
                     return send(res, 409, { message: `Please wait until ${order.served_by_name ?? "the other counter"} finishes.` });
                 }
-                // the area they're called to: the next one the order needs unless the crew picks another of them
-                const { remarks = "", area = areasLeft[0] ?? "" } = body;
+                // an order from before the areas has none left, and is the loading crew's
+                if (!departmentHas(department, areasLeft)) {
+                    return send(res, 409, { message: `There's nothing left for ${label} on this order.` });
+                }
+                // the area they're called to: the next one the order needs here unless the crew picks another of them
+                const { remarks = "", area = leftHere[0] ?? "" } = body;
                 if (typeof remarks !== "string" || remarks.trim().length > MAX_REMARKS) {
                     return send(res, 400, { message: `Remarks must be ${MAX_REMARKS} characters or fewer.` });
                 }
-                if (areasLeft.length > 0 && !areasLeft.includes(area)) {
-                    return send(res, 400, { message: `Call them to an area this order still needs: ${areasLeft.join(", ")}.` });
+                if (leftHere.length > 0 && !leftHere.includes(area)) {
+                    return send(res, 400, { message: `Call them to an area this order still needs: ${leftHere.join(", ")}.` });
                 }
                 changeStatus(order, "serving", me, {
                     calledAt: Date.now(), remarks: remarks.trim(), servedBy: me.id, atLoading: 1, loadingArea: area,
                 });
             } else {
-                if (!servingHere) return send(res, 409, { message: "Loading isn't serving this customer." });
-                if (loadingMatch[2] === "back") changeStatus(order, "pending", me);
+                if (!servingHere) return send(res, 409, { message: `${label} isn't serving this customer.` });
+                if (action === "back") changeStatus(order, "pending", me);
                 else {
-                    // Done finishes the area they were called to: the order waits for its next area, or, once every
-                    // area is loaded, it's done at loading and goes on to the security check
-                    const area = order.loading_area || areasLeft[0];
+                    // Done finishes the area they were called to: the order waits for its next area, here or at the
+                    // other department, or, once every area is loaded, it's done and goes on to the security check
+                    const area = order.loading_area || leftHere[0];
                     const next = areasLeft.filter((name) => name !== area);
                     if (next.length > 0) changeStatus(order, "pending", me, { remarks: "", finishedArea: area });
                     else changeStatus(order, "done", me, { loadedBy: me.id, finishedArea: area });

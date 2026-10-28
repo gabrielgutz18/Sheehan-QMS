@@ -1,5 +1,5 @@
 // every kind of staff account
-const STAFF = ["admin", "sales", "loading", "security", "cashier"];
+const STAFF = ["admin", "sales", "loading", "hardware", "security", "cashier"];
 
 // the sidebar's groups, in order; a group with none of the signed-in role's pages is left out
 export const NAV_GROUPS = ["Overview", "My work", "Display", "Account"];
@@ -18,8 +18,9 @@ const navItems = [
     { to: "/admin/counter", label: "My counter", group: "My work", roles: ["admin", "sales"], icon: "M3 10h18M5 10v10h14V10M8 10V6a4 4 0 0 1 8 0v4", blurb: "Serve the next customer in line" },
     { to: "/admin/orders", label: "Orders", group: "My work", roles: ["admin", "sales"], icon: "M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01", blurb: "Every ticket today, its status and calling it" },
     { to: "/admin/loading", label: "Loading", group: "My work", folder: "Department", roles: ["admin", "loading"], icon: "M3 6h11v10H3zM14 10h4l3 3v3h-7M5 18a2 2 0 1 0 4 0 2 2 0 1 0-4 0M15 18a2 2 0 1 0 4 0 2 2 0 1 0-4 0", blurb: "Call the customers handed over to loading" },
+    { to: "/admin/hardware", label: "Hardware", group: "My work", folder: "Department", roles: ["admin", "hardware"], icon: "M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z", blurb: "Call the customers handed over to Hardware" },
     // admins and sales have the same board on Customer order
-    { to: "/admin/order-status", label: "Order status", group: "My work", roles: ["loading"], icon: "M4 6h3M4 12h3M4 18h3M11 6h9M11 12h9M11 18h9M5.5 4.5v3M5.5 10.5v3M5.5 16.5v3", blurb: "Where every customer is today" },
+    { to: "/admin/order-status", label: "Order status", group: "My work", roles: ["loading", "hardware"], icon: "M4 6h3M4 12h3M4 18h3M11 6h9M11 12h9M11 18h9M5.5 4.5v3M5.5 10.5v3M5.5 16.5v3", blurb: "Where every customer is today" },
     { to: "/admin/security", label: "Security", group: "My work", folder: "Department", roles: ["admin", "security"], icon: "M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6zM8.5 12l2.5 2.5 4.5-5", blurb: "Check what each customer leaves with" },
     { to: "/admin/cashier", label: "Cashier", group: "My work", folder: "Department", roles: ["admin", "cashier"], icon: "M2 6h20v12H2zM12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 1 0 0-5M5.5 9v6M18.5 9v6", blurb: "Change how each order is paid" },
     { to: "/admin/history", label: "History", group: "My work", roles: ["admin", "sales"], icon: "M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2", blurb: "Earlier tickets, and restoring deleted ones" },

@@ -4,6 +4,7 @@
 import { createReadStream, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, normalize } from 'node:path';
+import { pipeline } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
 
 import { createApi } from './api.js';
@@ -66,7 +67,10 @@ function serveSite(req, res) {
         "Cache-Control": file.startsWith(ASSETS) ? "public, max-age=31536000, immutable" : "no-cache",
     });
     if (req.method === "HEAD") return res.end();
-    createReadStream(file).pipe(res);
+    // a stream error with no handler would crash the whole server; pipeline catches it and cuts this response off
+    pipeline(createReadStream(file), res).catch(() => {
+        // the file went away mid-send (a rebuild) or the browser left; nothing more to do
+    });
 }
 
 if (!ADMIN_USERNAME || !ADMIN_PASSWORD) {

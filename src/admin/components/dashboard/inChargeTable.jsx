@@ -3,6 +3,8 @@ import useOrderStatus from '../../hooks/useOrderStatus.js';
 import formatQueueNum from '../../../data/queueNum.js';
 import { splitList } from '../../../data/list.js';
 import { stageOf, whereNow } from '../../data/orderStage.js';
+import { areasLeft } from '../../data/loadingAreas.js';
+import { departmentOf } from '../../../data/loadingAreas.js';
 import Avatar from '../common/avatar.jsx';
 import Icon from '../common/icon.jsx';
 
@@ -15,6 +17,10 @@ const NOBODY = {
     loading: "Waiting for the loading crew",
     security: "Waiting for a guard",
 };
+// the department next to call a handed-over customer, Hardware's or the loading crew's
+const nobodyFor = (order, stage) =>
+    stage === "loading" && departmentOf(areasLeft(order)[0] ?? "") === "hardware" ? "Waiting for the Hardware crew"
+    : NOBODY[stage] ?? "No one yet";
 
 // the Dashboard's In charge list, for every staff member, from the Order status board: each customer still in progress
 // today, in queue order, with where they are, who is with them now (the sales staff member serving them or the loading
@@ -78,7 +84,7 @@ export default function InChargeTable() {
                                                     </span>
                                                 </span>
                                             ) : (
-                                                <span className="charge-nobody">{NOBODY[stage] ?? "No one yet"}</span>
+                                                <span className="charge-nobody">{nobodyFor(o, stage)}</span>
                                             )}
                                         </td>
                                         <td>

@@ -1,3 +1,5 @@
+import { departmentOf } from '../../data/loadingAreas.js';
+
 // where a customer is with their order, for the Order status board and the Security page:
 //   line      in line for a sales counter (waiting, or a returning customer)
 //   sales     at a sales counter
@@ -45,7 +47,8 @@ export const whereNow = (order, { named = true } = {}) => {
             }
             const [next] = areasLeft(order);
             const started = (order.areas ?? []).some((area) => area.loaded);
-            return started && next ? `Waiting for ${next.name}` : "Waiting for loading";
+            // Hardware is its own department, so it's named even before anything is loaded
+            return next && (started || departmentOf(next.name) !== "loading") ? `Waiting for ${next.name}` : "Waiting for loading";
         }
         default:
             return order.status === "returning" ? "Returning customer, in line" : "In line for sales";

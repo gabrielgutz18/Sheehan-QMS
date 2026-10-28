@@ -8,6 +8,7 @@ import HandOverDialog from '../components/counter/handOverDialog.jsx';
 import MyStats from '../components/counter/myStats.jsx';
 import AnnouncerVolume from '../components/counter/announcerVolume.jsx';
 import { readLastRemarks, saveLastRemarks } from '../data/lastRemarks.js';
+import { handOverTo } from '../data/loadingAreas.js';
 import { inLine } from '../data/orderStatus.js';
 import formatQueueNum from '../../data/queueNum.js';
 import Greetings from '../components/common/greetings.jsx';
@@ -172,7 +173,7 @@ export default function SalesPage() {
                                             aria-haspopup="dialog"
                                             onClick={() => openHandOver(o)}
                                         >
-                                            Hand over to loading
+                                            Hand over to {handOverTo(o.purpose)}
                                         </button>
                                         <button type="button" className="admin-btn" disabled={busy === o.queueNum} onClick={() => openCall(o)}>
                                             Recall
@@ -268,7 +269,7 @@ export default function SalesPage() {
                                     <span className="counter-name">{o.name}</span>
                                     {o.handedOver ? (
                                         <>
-                                            <span className="counter-meta">{o.purpose} · handed over to loading</span>
+                                            <span className="counter-meta">{o.purpose} · handed over to {handOverTo(o.purpose)}</span>
                                             <OrderDetails order={o} />
                                         </>
                                     ) : (

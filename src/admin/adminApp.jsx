@@ -16,6 +16,7 @@ import CustomerOrderPage from './pages/customerOrderPage.jsx';
 import AccCreation from './pages/accCreation.jsx';
 import AccountPage from './pages/accountPage.jsx';
 import LoadingPage from './pages/loadingPage.jsx';
+import HardwarePage from './pages/hardwarePage.jsx';
 import OrderStatusPage from './pages/orderStatusPage.jsx';
 import SecurityPage from './pages/securityPage.jsx';
 import CashierPage from './pages/cashierPage.jsx';
@@ -32,7 +33,7 @@ export default function AdminApp() {
                 <Route path="login" element={<LoginPage />} />
 
                 {/* every kind of staff account shares the layout; the pages inside are split by role */}
-                <Route element={<ProtectedRoute roles={["admin", "sales", "loading", "security", "cashier"]} />}>
+                <Route element={<ProtectedRoute roles={["admin", "sales", "loading", "hardware", "security", "cashier"]} />}>
                     <Route element={<AdminLayout />}>
                         {/* the live queue and their own profile, for everyone; admins' has the day's counts and sales
                             graph too */}
@@ -50,7 +51,16 @@ export default function AdminApp() {
                         {/* the loading crew; no admin rights beyond these pages and My account */}
                         <Route element={<ProtectedRoute roles={["admin", "loading"]} />}>
                             <Route path="loading" element={<LoadingPage />} />
-                            {/* where every customer is; admins and sales have the same board on Customer order */}
+                        </Route>
+
+                        {/* the Hardware department, the same as the loading crew for its own area */}
+                        <Route element={<ProtectedRoute roles={["admin", "hardware"]} />}>
+                            <Route path="hardware" element={<HardwarePage />} />
+                        </Route>
+
+                        {/* where every customer is, for both departments; admins and sales have the same board on
+                            Customer order */}
+                        <Route element={<ProtectedRoute roles={["admin", "loading", "hardware"]} />}>
                             <Route path="order-status" element={<OrderStatusPage />} />
                         </Route>
 
