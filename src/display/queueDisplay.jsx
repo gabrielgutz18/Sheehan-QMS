@@ -116,10 +116,6 @@ export default function QueueDisplay() {
                     <section className="serving-panel" aria-labelledby="serving-title">
                         <div className="serving-bar">
                             <h2 id="serving-title" className="serving-title">
-                                <svg className="serving-icon" viewBox="0 0 24 24" aria-hidden="true">
-                                    <path d="M9.94 15.5a2 2 0 0 0-1.44-1.44l-6.13-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.13a.5.5 0 0 1 .96 0l1.58 6.13a2 2 0 0 0 1.44 1.44l6.13 1.58a.5.5 0 0 1 0 .96l-6.13 1.58a2 2 0 0 0-1.44 1.44l-1.58 6.13a.5.5 0 0 1-.96 0z" />
-                                    <path d="M20 3v4M22 5h-4M4 17v2M5 18H3" />
-                                </svg>
                                 Now Serving
                             </h2>
                             {/* goes to Offline while the board can't reach the server, so a stale screen doesn't claim to be live */}

@@ -19,6 +19,7 @@ function devApi(env) {
         adminUsername: env.ADMIN_USERNAME,
         adminPassword: env.ADMIN_PASSWORD,
         dataDir: env.DATA_DIR,
+        googleSheet: env.GOOGLE_SHEET_URL && { url: env.GOOGLE_SHEET_URL, token: env.GOOGLE_SHEET_TOKEN },
       })
       server.middlewares.use('/api', api)
       // let go of the database when Vite restarts or stops

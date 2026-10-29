@@ -11,6 +11,7 @@ import { promisify } from 'node:util';
 
 import { openDatabase, resolveDataDir, transaction } from './db.js';
 import { clientIp, createRateLimiter } from './rateLimit.js';
+import { createSheetSync } from './googleSheet.js';
 import paymentStatus from '../src/data/paymentStatus.js';
 import teams from '../src/data/teams.js';
 import checkers, { CHECKER_ROUNDS } from '../src/data/checkers.js';
@@ -702,7 +703,9 @@ const likePattern = (text) => `%${text.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 // returns a (req, res) handler for every /api route, with close() to shut the database
 // dataDir: where queue.db and uploaded videos are kept (DATA_DIR in .env; data/ by default)
 // adminUsername / adminPassword: the built-in admin from .env, created or updated at every start
-export function createApi({ adminUsername, adminPassword, dataDir }) {
+// googleSheet: { url, token } of the Google Apps Script web app the Order sheet is copied to (see server/googleSheet.js);
+// left out, nothing is sent
+export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }) {
     const dir = resolveDataDir(dataDir);
     const videosDir = join(dir, "videos");
     const photosDir = join(dir, "photos");
@@ -1000,6 +1003,13 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         const date = today();
         return rows.map((row) => toPayment(row, invoicesByOrder.get(row.id) ?? [], editsByOrder.get(row.id) ?? [], date));
     };
+
+    // the Order sheet copied to Google Sheets: the same orders the sheet lists
+    const sheetSync = googleSheet?.url && createSheetSync({
+        ...googleSheet,
+        listOrders: () => loadAnyDay(sql.sheetOrders.all(REPORT_PURPOSE)),
+    });
+    if (sheetSync) sheetSync.start();
 
     const saveItems = (orderId, items) => {
         sql.deleteItems.run(orderId);
@@ -1712,6 +1722,9 @@ export function createApi({ adminUsername, adminPassword, dataDir }) {
         });
     };
     handler.dataDir = dir;
-    handler.close = () => db.close();
+    handler.close = () => {
+        if (sheetSync) sheetSync.stop();
+        db.close();
+    };
     return handler;
 }
