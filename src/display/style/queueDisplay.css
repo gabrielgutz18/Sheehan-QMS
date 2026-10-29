@@ -342,7 +342,7 @@
 
 .serving-note {
   max-width: 100%;
-  font-size: calc(var(--px) * 22);
+  font-size: calc(var(--px) * 44);
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
