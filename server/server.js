@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { createApi } from './api.js';
 
 const PORT = Number(process.env.PORT ?? 3000);
-const { ADMIN_USERNAME, ADMIN_PASSWORD, DATA_DIR } = process.env;
+const { ADMIN_USERNAME, ADMIN_PASSWORD, DATA_DIR, GOOGLE_SHEET_URL, GOOGLE_SHEET_TOKEN } = process.env;
 
 const DIST = fileURLToPath(new URL('../dist/', import.meta.url));
 const ASSETS = join(DIST, 'assets');
@@ -78,7 +78,12 @@ if (!ADMIN_USERNAME || !ADMIN_PASSWORD) {
     process.exit(1);
 }
 
-const api = createApi({ adminUsername: ADMIN_USERNAME, adminPassword: ADMIN_PASSWORD, dataDir: DATA_DIR });
+const api = createApi({
+    adminUsername: ADMIN_USERNAME,
+    adminPassword: ADMIN_PASSWORD,
+    dataDir: DATA_DIR,
+    googleSheet: GOOGLE_SHEET_URL && { url: GOOGLE_SHEET_URL, token: GOOGLE_SHEET_TOKEN },
+});
 
 const server = createServer((req, res) => {
     const { pathname } = new URL(req.url, "http://localhost");
@@ -89,6 +94,7 @@ const server = createServer((req, res) => {
 server.listen(PORT, () => {
     console.log(`Sheehan queue running on http://localhost:${PORT} (admin user: ${ADMIN_USERNAME})`);
     console.log(`Data folder: ${api.dataDir}`);
+    if (GOOGLE_SHEET_URL) console.log("Copying the Order sheet to Google Sheets");
 });
 
 // close the database cleanly when stopped (Ctrl+C, or the Windows service stopping)
