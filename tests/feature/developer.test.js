@@ -199,4 +199,54 @@ describe("developer", () => {
 
         app.assertDatabaseCount("messages", 0);
     });
+
+    // the start of a PNG file, which is all the server checks before keeping it
+    const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from("picture")]);
+
+    test("staff and developers send pictures, with or without a caption", async () => {
+        const sales = await app.actingAsSales();
+        const developer = await app.actingAsDeveloper();
+
+        const shot = (await sales.upload(`/admin/messages/image?body=${encodeURIComponent("  The screen says this  ")}`, png, "image/png"))
+            .assertStatus(201).body;
+        assert.equal(shot.image, true);
+        assert.equal(shot.body, "The screen says this");
+        assert.equal((await sales.post("/admin/messages", { body: "Help" })).assertStatus(201).body.image, false);
+
+        const [chat] = (await developer.get("/admin/chats")).body;
+        assert.equal(chat.last.image, false);
+        const answer = (await developer.upload(`/admin/chats/${sales.account.id}/image`, png, "image/png")).assertStatus(201).body;
+        assert.deepEqual([answer.image, answer.body, answer.fromStaff], [true, "", false]);
+        const { last } = (await developer.get("/admin/chats")).body[0];
+        assert.deepEqual([last.image, last.body], [true, ""]);
+
+        // the picture itself, for the staff member whose conversation it is and for the developers
+        const fromSales = (await sales.get(`/chat-images/${shot.id}`)).assertStatus(200).body;
+        assert.deepEqual(fromSales, png);
+        (await developer.get(`/chat-images/${answer.id}`)).assertStatus(200);
+    });
+
+    test("a picture is shown only in its own conversation, and must be a real picture", async () => {
+        const sales = await app.actingAsSales();
+        const cashier = await app.actingAsCashier();
+        const developer = await app.actingAsDeveloper();
+
+        const shot = (await sales.upload("/admin/messages/image", png, "image/png")).assertStatus(201).body;
+        (await cashier.get(`/chat-images/${shot.id}`)).assertStatus(404);
+        (await app.client().get(`/chat-images/${shot.id}`)).assertStatus(401);
+        // a text message has no picture
+        const text = (await sales.post("/admin/messages", { body: "Hi" })).body;
+        (await developer.get(`/chat-images/${text.id}`)).assertStatus(404);
+
+        (await sales.upload("/admin/messages/image", Buffer.from("not a picture"), "image/png")).assertStatus(400);
+        (await sales.upload("/admin/messages/image", png, "image/gif")).assertStatus(415);
+        (await sales.upload(`/admin/messages/image?body=${"x".repeat(1001)}`, png, "image/png")).assertStatus(400);
+        (await sales.upload("/admin/messages/image", Buffer.alloc(5 * 1024 * 1024 + 1), "image/png")).assertStatus(413);
+        // each side sends where it writes
+        (await developer.upload("/admin/messages/image", png, "image/png")).assertStatus(403);
+        (await sales.upload(`/admin/chats/${sales.account.id}/image`, png, "image/png")).assertStatus(403);
+        (await developer.upload(`/admin/chats/${developer.account.id}/image`, png, "image/png")).assertStatus(404);
+
+        app.assertDatabaseCount("messages", 2);
+    });
 });

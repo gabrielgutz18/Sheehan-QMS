@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import '../style/orderStatus.css';
 import '../style/chat.css';
 
-import { answerChat, listChat, listChats } from '../api/chatController.js';
+import { answerChat, answerChatImage, listChat, listChats } from '../api/chatController.js';
 import { ROLE_LABELS } from '../auth/roles.js';
 import { useAuth } from '../auth/authContext.js';
 import Avatar from '../components/common/avatar.jsx';
@@ -28,8 +28,8 @@ function Conversation({ staff, onSent }) {
                 loading={loading}
                 error={error}
                 mine={(m) => !m.fromStaff}
-                onSend={async (body) => {
-                    added(await answerChat(staff.id, body));
+                onSend={async (body, image) => {
+                    added(await (image ? answerChatImage(staff.id, image, body) : answerChat(staff.id, body)));
                     onSent();
                 }}
                 empty="No messages yet."
@@ -131,7 +131,7 @@ export default function ChatPage() {
                                             </span>
                                             <span className="chat-list-last">
                                                 {!last.fromStaff && `${last.from.id === user.id ? "You" : last.from.name}: `}
-                                                {last.body}
+                                                {last.image ? (last.body ? `Picture · ${last.body}` : "Picture") : last.body}
                                             </span>
                                         </span>
                                         <span className="chat-list-end">

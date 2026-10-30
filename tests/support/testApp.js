@@ -62,19 +62,26 @@ export async function bootApp() {
     // one browser: it keeps its own sign-in cookie, so several can be signed in as different people at once
     const client = () => {
         let cookie = "";
-        const send = async (method, path, body) => {
+        // bytes (a Buffer) go as they are, with contentType, as the pages send pictures; any other body goes as JSON
+        const send = async (method, path, body, contentType = "application/json") => {
+            const isBytes = body instanceof Uint8Array;
             const res = await fetch(`${base}/api${path}`, {
                 method,
                 headers: {
                     // the CSRF header the admin pages send
                     "X-Requested-With": "XMLHttpRequest",
-                    ...(body !== undefined && { "Content-Type": "application/json" }),
+                    ...(body !== undefined && { "Content-Type": contentType }),
                     ...(cookie && { Cookie: cookie }),
                 },
-                body: body === undefined ? undefined : JSON.stringify(body),
+                body: body === undefined || isBytes ? body : JSON.stringify(body),
             });
             const setCookie = res.headers.get("set-cookie");
             if (setCookie) cookie = setCookie.split(";")[0];
+            // a picture comes back as its bytes
+            if (!res.headers.get("content-type")?.includes("json")) {
+                const bytes = Buffer.from(await res.arrayBuffer());
+                return response(method, path, res.status, bytes.length ? bytes : null);
+            }
             const text = await res.text();
             return response(method, path, res.status, text ? JSON.parse(text) : null);
         };
@@ -84,6 +91,8 @@ export async function bootApp() {
             put: (path, body) => send("PUT", path, body),
             patch: (path, body) => send("PATCH", path, body),
             delete: (path) => send("DELETE", path),
+            // a file sent as its bytes, e.g. upload("/admin/messages/image", png, "image/png")
+            upload: (path, bytes, contentType) => send("POST", path, bytes, contentType),
         };
     };
 
