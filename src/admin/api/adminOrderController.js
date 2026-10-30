@@ -21,8 +21,9 @@ export const listSecurityOrders = (options) => http.get("/admin/security", optio
 // report, "missing", "over" (more than the order's quantity) or "stolen", with a note saying what (needed for a
 // report, up to 300 characters) → the order as listSecurityOrders has it, done, with securityCheck: { result, note?,
 // by: { name }, at }
-export const checkAtSecurity = (queueNum, result, note = "") =>
-    http.post(`/admin/security/${encodeURIComponent(queueNum)}/check`, { result, note });
+// returnTo: one of the order's areas to send it back to with a report (only that area loads it again); "" finishes it
+export const checkAtSecurity = (queueNum, result, note = "", returnTo = "") =>
+    http.post(`/admin/security/${encodeURIComponent(queueNum)}/check`, { result, note, returnTo });
 
 export const getOrder = (queueNum, options) => http.get(`/admin/orders/${encodeURIComponent(queueNum)}`, options);
 

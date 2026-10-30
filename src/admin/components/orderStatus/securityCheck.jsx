@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import OrderProducts from './orderProducts.jsx';
 import { checkAtSecurity } from '../../api/adminOrderController.js';
 import { stageOf } from '../../data/orderStage.js';
-import { REPORTS } from '../../data/securityCheck.js';
+import { REPORTS, resultLabel } from '../../data/securityCheck.js';
 import formatQueueNum from '../../../data/queueNum.js';
 
 // must match the backend (server/api.js)
@@ -12,6 +12,8 @@ const MAX_NOTE = 300;
 // an order on the Security page: what the customer bought, and, while they're at the security check, the guard's
 // two ways to finish it: Verified, when what they leave with is the order, or a report of something missing, over
 // the quantity or stolen, saying what; either way the order is then done, and the check is kept with it
+// a report can instead send the order back to the one area the problem is at (e.g. Roofings): only that area loads it
+// again, the others stay loaded, and then it comes back here for a new check
 // refresh(): fetches the page's orders again once the check is saved
 export default function SecurityDetails({ order, refresh }) {
     const [busy, setBusy] = useState(false);
@@ -36,6 +38,12 @@ export default function SecurityDetails({ order, refresh }) {
     return (
         <>
             <OrderProducts order={order} />
+            {order.returned && (
+                <p className="sent-back-note">
+                    Sent back to {order.returned.area} by {order.returned.by.name} · {resultLabel(order.returned.result)}
+                    {order.returned.note && ` · “${order.returned.note}”`}
+                </p>
+            )}
             {atCheck && (
                 <div className="security-actions">
                     <button type="button" className="admin-btn admin-btn-primary" disabled={busy} onClick={verify}
@@ -59,11 +67,15 @@ export default function SecurityDetails({ order, refresh }) {
     );
 }
 
-// what's wrong (missing, over the quantity or stolen) and what the guard saw; Report saves it and finishes the order
+// what's wrong (missing, over the quantity or stolen), what the guard saw, and whether to finish the order with the
+// report or send it back to one of its areas to be loaded there again
 function ReportDialog({ order, ticket, onClose, onReported }) {
     const dialogRef = useRef(null);
     const [result, setResult] = useState(REPORTS[0].value);
     const [note, setNote] = useState("");
+    const [returnTo, setReturnTo] = useState("");
+    // only an order sales handed over was loaded in its areas
+    const areas = order.handedOver ? (order.areas ?? []).map(({ name }) => name) : [];
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
 
@@ -81,7 +93,7 @@ function ReportDialog({ order, ticket, onClose, onReported }) {
         setBusy(true);
         setError("");
         try {
-            await checkAtSecurity(order.queueNum, result, note.trim());
+            await checkAtSecurity(order.queueNum, result, note.trim(), returnTo);
             onReported();
         } catch (err) {
             setError(err.message);
@@ -114,7 +126,28 @@ function ReportDialog({ order, ticket, onClose, onReported }) {
                         onChange={(e) => setNote(e.target.value)} />
                 </label>
 
-                <p className="admin-dialog-hint">The order is marked done with your report, which the admins can see.</p>
+                {areas.length > 0 && (
+                    <fieldset className="security-results">
+                        <legend>Then</legend>
+                        <label>
+                            <input type="radio" name="returnTo" value="" checked={returnTo === ""} onChange={() => setReturnTo("")} />
+                            <span><strong>Finish the order</strong> · it leaves with this report</span>
+                        </label>
+                        {areas.map((area) => (
+                            <label key={area}>
+                                <input type="radio" name="returnTo" value={area} checked={returnTo === area}
+                                    onChange={() => setReturnTo(area)} />
+                                <span><strong>Send back to {area}</strong> · only {area} loads it again</span>
+                            </label>
+                        ))}
+                    </fieldset>
+                )}
+
+                <p className="admin-dialog-hint">
+                    {returnTo
+                        ? `The customer goes back in line for ${returnTo}, with your report. The other areas stay done, and the order comes back here once ${returnTo} finishes.`
+                        : "The order is marked done with your report, which the admins can see."}
+                </p>
 
                 {error && <p className="field-error" role="alert">{error}</p>}
 
@@ -123,7 +156,7 @@ function ReportDialog({ order, ticket, onClose, onReported }) {
                         Cancel
                     </button>
                     <button type="submit" className="admin-btn admin-btn-call" disabled={busy}>
-                        {busy ? "Saving..." : "Report and finish"}
+                        {busy ? "Saving..." : returnTo ? `Report and send back to ${returnTo}` : "Report and finish"}
                     </button>
                 </div>
             </form>

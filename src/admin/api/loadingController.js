@@ -11,6 +11,10 @@ import http from '../../api/http.js';
 export const callAtLoading = (department, queueNum, remarks, area) =>
     http.post(`/admin/${department}/${encodeURIComponent(queueNum)}/call`, { remarks, area });
 
+// Loading: the truck is at the area they were called to; until that area is done no other area can take them, and
+// Done is refused before it (409)
+export const startLoading = (department, queueNum) => http.post(`/admin/${department}/${encodeURIComponent(queueNum)}/start`);
+
 export const finishAtLoading = (department, queueNum) => http.post(`/admin/${department}/${encodeURIComponent(queueNum)}/done`);
 
 export const sendBackFromLoading = (department, queueNum) =>

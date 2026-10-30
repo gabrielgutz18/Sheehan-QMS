@@ -70,6 +70,7 @@ describe("loading", () => {
         const again = (await rico.post("/admin/loading/1/call", { remarks: "Please proceed to Roofings" })).assertStatus(200).body;
         assert.equal(again.servedBy.name, "Rico Steel");
 
+        (await pedro.post("/admin/loading/1/start")).assertStatus(200);
         const finished = (await pedro.post("/admin/loading/1/done")).assertStatus(200).body;
         assert.equal(finished.status, "done");
         assert.equal(finished.atLoading, undefined);
@@ -91,6 +92,7 @@ describe("loading", () => {
         const handed = await handOver(maria, 1);
         (await pedro.post("/admin/loading/1/call")).assertStatus(200);
 
+        (await pedro.post("/admin/loading/1/start")).assertStatus(200);
         const loaded = (await pedro.post("/admin/loading/1/done")).assertStatus(200).body;
 
         assert.equal(loaded.status, "done");
@@ -177,6 +179,7 @@ describe("loading", () => {
         const called = (await admin.post("/admin/loading/1/call", {})).assertStatus(200).body;
         assert.equal(called.atLoading, true);
         (await maria.post("/admin/loading/1/done")).assertStatus(403);
+        (await admin.post("/admin/loading/1/start")).assertStatus(200);
         (await admin.post("/admin/loading/1/done")).assertStatus(200);
     });
 
@@ -187,6 +190,7 @@ describe("loading", () => {
         // Roofings, then Steel
         for (let i = 0; i < 2; i++) {
             (await pedro.post("/admin/loading/1/call")).assertStatus(200);
+            (await pedro.post("/admin/loading/1/start")).assertStatus(200);
             (await pedro.post("/admin/loading/1/done")).assertStatus(200);
         }
 
@@ -215,6 +219,7 @@ describe("loading area by area", () => {
         const atRoofings = (await pedro.post("/admin/loading/1/call", { remarks: "Please proceed to Roofings" }))
             .assertStatus(200).body;
         assert.equal(atRoofings.loadingArea, "Roofings");
+        (await pedro.post("/admin/loading/1/start")).assertStatus(200);
         const roofingsDone = (await pedro.post("/admin/loading/1/done")).assertStatus(200).body;
 
         // back in line for loading, waiting for Steel
@@ -231,6 +236,7 @@ describe("loading area by area", () => {
         // the next call is to Steel, by anyone on the crew, and Done there finishes loading
         const atSteel = (await rico.post("/admin/loading/1/call", { remarks: "Please proceed to Steel" })).assertStatus(200).body;
         assert.equal(atSteel.loadingArea, "Steel");
+        (await rico.post("/admin/loading/1/start")).assertStatus(200);
         const finished = (await rico.post("/admin/loading/1/done")).assertStatus(200).body;
 
         assert.equal(finished.status, "done");
@@ -251,6 +257,7 @@ describe("loading area by area", () => {
 
         const atSteel = (await pedro.post("/admin/loading/1/call", { area: "Steel" })).assertStatus(200).body;
         assert.equal(atSteel.loadingArea, "Steel");
+        (await pedro.post("/admin/loading/1/start")).assertStatus(200);
         (await pedro.post("/admin/loading/1/done")).assertStatus(200);
 
         const steelAgain = (await pedro.post("/admin/loading/1/call", { area: "Steel" })).assertStatus(400).body;
@@ -265,6 +272,7 @@ describe("loading area by area", () => {
         const { maria, pedro } = await staff();
         await handOver(maria, 1);
         await pedro.post("/admin/loading/1/call");
+        (await pedro.post("/admin/loading/1/start")).assertStatus(200);
         await pedro.post("/admin/loading/1/done");
         await pedro.post("/admin/loading/1/call");
 
@@ -283,10 +291,69 @@ describe("loading area by area", () => {
         await handOver(maria, 1);
 
         assert.equal((await pedro.post("/admin/loading/1/call")).assertStatus(200).body.loadingArea, "TBA");
+        (await pedro.post("/admin/loading/1/start")).assertStatus(200);
         const done = (await pedro.post("/admin/loading/1/done")).assertStatus(200).body;
 
         assert.equal(done.status, "done");
         assert.deepEqual(done.areas.map(({ name }) => name), ["TBA"]);
+    });
+});
+
+// a station loads one truck at a time: the crew calls the customer to an area, presses Loading once the truck is
+// there, and Done once it's loaded; while Roofings is loading, Steel waits
+describe("loading at a station", () => {
+    test("Done needs Loading first, and Loading is pressed once", async () => {
+        await takeOrder();
+        const { maria, pedro } = await staff();
+        await handOver(maria, 1);
+        const called = (await pedro.post("/admin/loading/1/call")).assertStatus(200).body;
+        assert.equal(called.loadingStartedAt, undefined);
+
+        const early = (await pedro.post("/admin/loading/1/done")).assertStatus(409).body;
+        assert.equal(early.message, "Press Loading once the truck is at Roofings, then Done when it's loaded.");
+        const started = (await pedro.post("/admin/loading/1/start")).assertStatus(200).body;
+        assert.ok(started.loadingStartedAt);
+        assert.equal(started.loadingArea, "Roofings");
+        const twice = (await pedro.post("/admin/loading/1/start")).assertStatus(409).body;
+        assert.equal(twice.message, "Roofings is already loading this truck.");
+        // the Order status board shows it too
+        const [onBoard] = (await pedro.get("/admin/order-status")).assertStatus(200).body;
+        assert.equal(onBoard.loadingStartedAt, started.loadingStartedAt);
+    });
+
+    test("once Roofings is loading, the customer can't be called to Steel until Roofings is done", async () => {
+        await takeOrder();
+        const { maria, pedro, rico } = await staff();
+        await handOver(maria, 1);
+        (await pedro.post("/admin/loading/1/call", { area: "Roofings" })).assertStatus(200);
+        (await pedro.post("/admin/loading/1/start")).assertStatus(200);
+
+        const steel = (await rico.post("/admin/loading/1/call", { area: "Steel" })).assertStatus(409).body;
+        assert.equal(steel.message, "Roofings is loading this truck. Please wait until it finishes.");
+        app.assertDatabaseHas("orders", { queue_num: 1, loading_area: "Roofings" });
+        // calling again to Roofings keeps it loading there
+        const again = (await pedro.post("/admin/loading/1/call", { area: "Roofings" })).assertStatus(200).body;
+        assert.ok(again.loadingStartedAt);
+
+        (await pedro.post("/admin/loading/1/done")).assertStatus(200);
+        const atSteel = (await rico.post("/admin/loading/1/call", { area: "Steel" })).assertStatus(200).body;
+        assert.equal(atSteel.loadingArea, "Steel");
+        // Steel has only called them; its truck isn't loading yet
+        assert.equal(atSteel.loadingStartedAt, undefined);
+    });
+
+    test("before Loading the crew can still send the truck to another area, and back to waiting stops loading", async () => {
+        await takeOrder();
+        const { maria, pedro } = await staff();
+        await handOver(maria, 1);
+        (await pedro.post("/admin/loading/1/call", { area: "Roofings" })).assertStatus(200);
+        assert.equal((await pedro.post("/admin/loading/1/call", { area: "Steel" })).assertStatus(200).body.loadingArea, "Steel");
+        (await pedro.post("/admin/loading/1/start")).assertStatus(200);
+
+        const back = (await pedro.post("/admin/loading/1/back")).assertStatus(200).body;
+        assert.equal(back.loadingStartedAt, undefined);
+        app.assertDatabaseHas("orders", { queue_num: 1, loading_started_at: null });
+        (await pedro.post("/admin/loading/1/call", { area: "Roofings" })).assertStatus(200);
     });
 });
 

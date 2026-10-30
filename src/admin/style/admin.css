@@ -1673,6 +1673,36 @@
   border-radius: 6px;
 }
 
+/* the Loading page's station: all of them, or Roofings, Steel or TBA (status-chip, from orderStatus.css) */
+.station-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+/* a customer at a station: only called, or loading since a time, in green */
+.loading-state {
+  font-size: 14px;
+  font-weight: 600;
+  color: #5c5c58;
+}
+
+.loading-state.is-loading {
+  color: #1d6b3a;
+}
+
+/* a guard's report that sent the order back to an area, in the report's red */
+.sent-back-note {
+  margin: 4px 0 0;
+  padding: 6px 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #8f1d1d;
+  background: #fdeeee;
+  border-radius: 6px;
+}
+
 /* ---------- customer order ---------- */
 
 /* the printed ticket (src/style/customerOrder.css), centered in the panel */
