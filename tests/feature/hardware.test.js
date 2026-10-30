@@ -55,6 +55,7 @@ describe("hardware", () => {
         assert.equal(called.servedBy.name, "Ben Martillo");
         assert.equal((await app.client().get("/queue")).assertStatus(200).body.serving[0].remarks, "Please proceed to Hardware");
 
+        (await ben.post("/admin/hardware/1/start")).assertStatus(200);
         const done = (await ben.post("/admin/hardware/1/done")).assertStatus(200).body;
 
         assert.equal(done.status, "done");
@@ -88,6 +89,7 @@ describe("hardware", () => {
         await handOver(maria, 1);
 
         assert.equal((await pedro.post("/admin/loading/1/call")).assertStatus(200).body.loadingArea, "Roofings");
+        (await pedro.post("/admin/loading/1/start")).assertStatus(200);
         const roofingsDone = (await pedro.post("/admin/loading/1/done")).assertStatus(200).body;
 
         // back in line, for Hardware now
@@ -97,6 +99,7 @@ describe("hardware", () => {
         (await pedro.post("/admin/loading/1/call")).assertStatus(409);
 
         assert.equal((await ben.post("/admin/hardware/1/call")).assertStatus(200).body.loadingArea, "Hardware");
+        (await ben.post("/admin/hardware/1/start")).assertStatus(200);
         const finished = (await ben.post("/admin/hardware/1/done")).assertStatus(200).body;
 
         assert.equal(finished.status, "done");
@@ -111,11 +114,13 @@ describe("hardware", () => {
         await handOver(maria, 1);
 
         (await ben.post("/admin/hardware/1/call")).assertStatus(200);
+        (await ben.post("/admin/hardware/1/start")).assertStatus(200);
         const hardwareDone = (await ben.post("/admin/hardware/1/done")).assertStatus(200).body;
         assert.equal(hardwareDone.status, "pending");
         assert.deepEqual(areasOf(hardwareDone), [["Roofings", undefined], ["Hardware", "Ben Martillo"]]);
 
         (await pedro.post("/admin/loading/1/call")).assertStatus(200);
+        (await pedro.post("/admin/loading/1/start")).assertStatus(200);
         const finished = (await pedro.post("/admin/loading/1/done")).assertStatus(200).body;
         assert.equal(finished.status, "done");
         assert.equal(finished.loaded.by.name, "Pedro Garcia");

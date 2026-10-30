@@ -36,6 +36,7 @@ const loadAndFinish = async (sales, loading, queueNum) => {
     (await sales.post(`/admin/orders/${queueNum}/handover`)).assertStatus(200);
     for (let status = ""; status !== "done";) {
         (await loading.post(`/admin/loading/${queueNum}/call`, { remarks: "" })).assertStatus(200);
+        (await loading.post(`/admin/loading/${queueNum}/start`)).assertStatus(200);
         ({ status } = (await loading.post(`/admin/loading/${queueNum}/done`)).assertStatus(200).body);
     }
 };
@@ -244,5 +245,60 @@ describe("security check", () => {
         app.assertDatabaseHas("security_checks", { order_id: 1, result: "missing", note: "One sheet short" });
         (await check(guard, 1, { result: "verified" })).assertStatus(200);
         app.assertDatabaseCount("security_checks", 2);
+    });
+
+    test("a report can send the order back to one area: only it loads again, then the order is back at the check", async () => {
+        await takeOrder();
+        const maria = await app.actingAsSales();
+        const pedro = await app.actingAsLoading("Pedro Garcia");
+        await loadAndFinish(maria, pedro, 1);
+        const guard = await app.actingAsSecurity();
+
+        const sent = (await check(guard, 1, { result: "missing", note: "One long span short", returnTo: "Roofings" }))
+            .assertStatus(200).body;
+
+        // waiting for Roofings only: Steel stays loaded
+        assert.equal(sent.status, "pending");
+        assert.equal(sent.security, undefined);
+        assert.deepEqual(sent.areas.map(({ name, loaded }) => [name, Boolean(loaded)]), [["Roofings", false], ["Steel", true]]);
+        assert.deepEqual({ ...sent.returned, at: undefined }, {
+            area: "Roofings", result: "missing", note: "One long span short", by: { name: "Jose Bantay" }, at: undefined,
+        });
+        app.assertDatabaseHas("security_checks", { order_id: 1, result: "missing", returned_to: "Roofings" });
+        // the loading crew sees why it's back
+        const [atLoading] = (await pedro.get("/admin/orders")).assertStatus(200).body;
+        assert.equal(atLoading.returned.area, "Roofings");
+
+        // the call goes to Roofings, and Done there finishes the order again
+        assert.equal((await pedro.post("/admin/loading/1/call")).assertStatus(200).body.loadingArea, "Roofings");
+        (await pedro.post("/admin/loading/1/start")).assertStatus(200);
+        const reloaded = (await pedro.post("/admin/loading/1/done")).assertStatus(200).body;
+        assert.equal(reloaded.status, "done");
+        assert.equal(reloaded.security, "waiting");
+
+        // a new check, which clears the send-back; both are kept
+        const verified = (await check(guard, 1, { result: "verified" })).assertStatus(200).body;
+        assert.equal(verified.security, "verified");
+        assert.equal(verified.returned, undefined);
+        app.assertDatabaseCount("security_checks", 2);
+        // the sales counter's point from the handover is untouched
+        app.assertDatabaseCount("serves", 1);
+    });
+
+    test("an order goes back only to one of its own areas, only with a report, and only once handed over", async () => {
+        await takeOrder();
+        await takeOrder({ purpose: "Roofings", invoices: [{ invoiceNo: "449766", type: "Roofings" }] });
+        const maria = await app.actingAsSales();
+        await loadAndFinish(maria, await app.actingAsLoading(), 1);
+        // finished at the sales counter, never handed over
+        (await maria.patch("/admin/orders/2", { status: "done" })).assertStatus(200);
+        const guard = await app.actingAsSecurity();
+
+        const elsewhere = (await check(guard, 1, { result: "missing", note: "Short", returnTo: "TBA" })).assertStatus(400).body;
+        assert.equal(elsewhere.message, "Send it back to one of its areas: Roofings, Steel.");
+        (await check(guard, 1, { result: "verified", returnTo: "Roofings" })).assertStatus(400);
+        const unloaded = (await check(guard, 2, { result: "missing", note: "Short", returnTo: "Roofings" })).assertStatus(400).body;
+        assert.equal(unloaded.message, "This order has no area to send it back to.");
+        app.assertDatabaseCount("security_checks", 0);
     });
 });

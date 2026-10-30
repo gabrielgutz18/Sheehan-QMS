@@ -86,6 +86,7 @@ describe("order status", () => {
         assert.equal((await now()).atLoading, true);
         assert.equal((await now()).loadingArea, "Roofings");
         assert.deepEqual((await now()).servedBy, { id: pedro.account.id, name: "Pedro Garcia", photo: null });
+        (await pedro.post("/admin/loading/1/start")).assertStatus(200);
         (await pedro.post("/admin/loading/1/done")).assertStatus(200);
         assert.equal((await now()).status, "pending");
         assert.equal((await now()).loadingArea, undefined);
@@ -97,6 +98,7 @@ describe("order status", () => {
         // at loading in Steel, then done there, and waiting for the security check; the sales team stays
         (await pedro.post("/admin/loading/1/call")).assertStatus(200);
         assert.equal((await now()).loadingArea, "Steel");
+        (await pedro.post("/admin/loading/1/start")).assertStatus(200);
         (await pedro.post("/admin/loading/1/done")).assertStatus(200);
         assert.equal((await now()).status, "done");
         assert.equal((await now()).atLoading, undefined);

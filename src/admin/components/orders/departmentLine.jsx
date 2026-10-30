@@ -1,8 +1,9 @@
 import { useState } from 'react';
 
+import '../../style/orderStatus.css';
 import useOrders from '../../hooks/useOrders.js';
 import { useAuth } from '../../auth/authContext.js';
-import { callAtLoading, finishAtLoading, sendBackFromLoading } from '../../api/loadingController.js';
+import { callAtLoading, finishAtLoading, sendBackFromLoading, startLoading } from '../../api/loadingController.js';
 import CallDialog from './callDialog.jsx';
 import Greetings from '../common/greetings.jsx';
 import OrderDetails from './orderDetails.jsx';
@@ -11,7 +12,9 @@ import {
     areasLeft, areasLeftIn, atDepartment, defaultLoadingRemarks, departmentHasOrder, departmentStillNeeds, proceedTo,
     quickRemarksFor,
 } from '../../data/loadingAreas.js';
-import { DEPARTMENTS } from '../../../data/loadingAreas.js';
+import { readStation, saveStation } from '../../data/loadingStation.js';
+import { resultLabel } from '../../data/securityCheck.js';
+import loadingAreas, { DEPARTMENTS } from '../../../data/loadingAreas.js';
 import formatQueueNum from '../../../data/queueNum.js';
 
 // a department's counter, the Loading page's and the Hardware page's (department: "loading" or "hardware",
@@ -26,6 +29,12 @@ import formatQueueNum from '../../../data/queueNum.js';
 // says "Loaded by" whoever pressed it, and stays served by the sales staff member who handed it over
 // a customer is in one place at a time: while a sales counter or the other department has them, their Call button is
 // grayed out here with "Please wait until Maria Santos finishes." (the backend refuses the call too)
+// a station loads one truck at a time: once the truck is at the area it was called to, the crew presses Start loading,
+// and only then Done; until that area is done no other area can take the customer (the backend refuses it)
+// the loading crew's page can show one station (Roofings, Steel or TBA, remembered on this computer) or all of them:
+// at one station, a customer called to or loading at another is grayed out with the reason, e.g. Steel's line shows
+// "Loading at Roofings. Please wait until it finishes."
+// an order a guard sent back from the security check to one area says so, with what the guard saw
 
 const ticketOf = (o) => formatQueueNum(o.queueNum, o.purpose);
 
@@ -40,6 +49,21 @@ const areaProgress = (order) => {
 };
 // Done here lists this many of the latest; the rest are counted under it
 const DONE_SHOWN = 8;
+const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
+
+// the guard's report that sent the order back, while the area it went back to still has to load it again
+const sentBack = (order) => (order.returned && areasLeft(order).includes(order.returned.area) ? order.returned : null);
+
+function SentBack({ order }) {
+    const returned = sentBack(order);
+    if (!returned) return null;
+    return (
+        <p className="sent-back-note">
+            Sent back to {returned.area} by security · {resultLabel(returned.result)}
+            {returned.note && ` · “${returned.note}”`} · {returned.by.name}
+        </p>
+    );
+}
 
 export default function DepartmentLine({ department }) {
     const { user } = useAuth();
@@ -49,7 +73,25 @@ export default function DepartmentLine({ department }) {
     const [calling, setCalling] = useState(null);
     const [callError, setCallError] = useState("");
     const label = DEPARTMENTS[department];
-    const here = label.toLowerCase();
+    // the department's stations; one with a single area (Hardware) has no picker
+    const stations = loadingAreas.filter((area) => area.department === department).map(({ name }) => name);
+    const [station, setStation] = useState(() => {
+        const saved = readStation(department);
+        return stations.length > 1 && stations.includes(saved) ? saved : "";
+    });
+    const here = station || label.toLowerCase();
+
+    const pickStation = (name) => {
+        setStation(name);
+        saveStation(department, name);
+    };
+
+    // the area a call from here goes to: this station when the order still needs it, else where they are now or the
+    // next one left here
+    const areaFor = (order) => {
+        const left = areasLeftIn(order, department);
+        return station && left.includes(station) ? station : order.loadingArea ?? left[0];
+    };
 
     // the one-tap areas in the call dialog: the order's areas still to load here, each calling them there
     const areaChoices = (order) => {
@@ -60,13 +102,28 @@ export default function DepartmentLine({ department }) {
     // a loading or hardware account only gets these from the backend; an admin gets every order, so the rest are
     // left out here
     const handedOver = orders.filter((o) => o.handedOver && departmentHasOrder(o, department));
-    const servingHere = handedOver.filter((o) => atDepartment(o, department));
-    // in line here: waiting or returning, or with a sales counter or the other department right now (their Call is
-    // grayed out)
-    const waiting = handedOver.filter((o) => departmentStillNeeds(o, department) && !atDepartment(o, department));
-    const next = waiting.find((o) => o.status !== "serving");
-    // the department's part is finished, latest first
-    const doneHere = handedOver.filter((o) => !departmentStillNeeds(o, department)).reverse();
+    // at one station: the orders that still need it (and any from before the areas, which have none)
+    const needsStation = (o) => !station || !o.areas?.length || areasLeftIn(o, department).includes(station);
+    const atStation = (o) => atDepartment(o, department) && (!station || !o.loadingArea || o.loadingArea === station);
+    const servingHere = handedOver.filter(atStation);
+    // in line here: waiting or returning, or with a sales counter, the other department or another station right now
+    // (their Call is grayed out)
+    const waiting = handedOver.filter((o) => departmentStillNeeds(o, department) && needsStation(o) && !atStation(o));
+    // why a customer in line can't be called from here, or null
+    const waitFor = (o) => {
+        if (o.status !== "serving") return null;
+        if (!atDepartment(o, department)) return `Please wait until ${o.servedBy?.name ?? "the other counter"} finishes.`;
+        return o.loadingStartedAt
+            ? `Loading at ${o.loadingArea}. Please wait until it finishes.`
+            : `Called to ${o.loadingArea}. Please wait until ${o.loadingArea} finishes.`;
+    };
+    const next = waiting.find((o) => !waitFor(o));
+    // the department's part (or this station's) is finished, latest first
+    const doneHere = handedOver
+        .filter((o) => (station && o.areas?.length
+            ? o.areas.some(({ name, loaded }) => name === station && loaded)
+            : !departmentStillNeeds(o, department)))
+        .reverse();
 
     const replace = (saved) => setOrders((prev) => prev.map((o) => (o.queueNum === saved.queueNum ? saved : o)));
 
@@ -109,6 +166,17 @@ export default function DepartmentLine({ department }) {
                 <Greetings name={user.firstName || user.name} role={user.role} />
             </div>
 
+            {stations.length > 1 && (
+                <div className="station-picker" role="group" aria-label="Station">
+                    {["", ...stations].map((name) => (
+                        <button key={name} type="button" className="status-chip" aria-pressed={station === name}
+                            onClick={() => pickStation(name)}>
+                            {name || "All stations"}
+                        </button>
+                    ))}
+                </div>
+            )}
+
             {(error || actionError) && <p className="field-error" role="alert">{actionError || error}</p>}
 
             <div className="queue-columns">
@@ -139,22 +207,41 @@ export default function DepartmentLine({ department }) {
                                         <span className="counter-meta">
                                             {o.loadingArea && `At ${o.loadingArea} · `}{o.purpose}{o.remarks && ` · “${o.remarks}”`}
                                         </span>
+                                        <span className={`loading-state${o.loadingStartedAt ? " is-loading" : ""}`}>
+                                            {o.loadingStartedAt
+                                                ? `Loading since ${timeFormat.format(new Date(o.loadingStartedAt))}`
+                                                : "Called · press Start loading once the truck is here"}
+                                        </span>
                                         {areaProgress(o) && <span className="counter-meta">{areaProgress(o)}</span>}
+                                        <SentBack order={o} />
                                         <OrderDetails order={o} />
                                         <ServedBy order={o} />
                                     </div>
                                     <div className="row-actions">
-                                        <button
-                                            type="button"
-                                            className="admin-btn admin-btn-primary"
-                                            disabled={busy === o.queueNum}
-                                            onClick={() => run(o, () => finishAtLoading(department, o.queueNum))}
-                                        >
-                                            {o.loadingArea ? `Done at ${o.loadingArea}` : "Done"}
-                                        </button>
-                                        <button type="button" className="admin-btn" disabled={busy === o.queueNum} onClick={() => openCall(o)}>
-                                            Call again
-                                        </button>
+                                        {o.loadingStartedAt ? (
+                                            <button
+                                                type="button"
+                                                className="admin-btn admin-btn-primary"
+                                                disabled={busy === o.queueNum}
+                                                onClick={() => run(o, () => finishAtLoading(department, o.queueNum))}
+                                            >
+                                                {o.loadingArea ? `Done at ${o.loadingArea}` : "Done"}
+                                            </button>
+                                        ) : (
+                                            <>
+                                                <button
+                                                    type="button"
+                                                    className="admin-btn admin-btn-primary"
+                                                    disabled={busy === o.queueNum}
+                                                    onClick={() => run(o, () => startLoading(department, o.queueNum))}
+                                                >
+                                                    Start loading
+                                                </button>
+                                                <button type="button" className="admin-btn" disabled={busy === o.queueNum} onClick={() => openCall(o)}>
+                                                    Call again
+                                                </button>
+                                            </>
+                                        )}
                                         <button
                                             type="button"
                                             className="admin-btn"
@@ -181,8 +268,9 @@ export default function DepartmentLine({ department }) {
                     ) : (
                         <ul className="counter-list">
                             {waiting.map((o) => {
-                                // a sales counter or the other department has the customer right now
-                                const elsewhere = o.status === "serving";
+                                // a sales counter, the other department or another station has the customer right now
+                                const wait = waitFor(o);
+                                const elsewhere = Boolean(wait);
                                 return (
                                     <li key={o.queueNum} className={`counter-ticket${elsewhere ? " is-elsewhere" : ""}`}>
                                         <div className="counter-ticket-main">
@@ -193,6 +281,7 @@ export default function DepartmentLine({ department }) {
                                             </span>
                                             <span className="counter-meta">{o.purpose}</span>
                                             {areaProgress(o) && <span className="counter-meta">{areaProgress(o)}</span>}
+                                            <SentBack order={o} />
                                             <OrderDetails order={o} />
                                         </div>
                                         <div className="row-actions loading-call">
@@ -207,9 +296,7 @@ export default function DepartmentLine({ department }) {
                                             </button>
                                         </div>
                                         {elsewhere && (
-                                            <p id={`wait-${o.queueNum}`} className="wait-hint">
-                                                Please wait until {o.servedBy?.name ?? "the other counter"} finishes.
-                                            </p>
+                                            <p id={`wait-${o.queueNum}`} className="wait-hint">{wait}</p>
                                         )}
                                     </li>
                                 );
@@ -248,10 +335,11 @@ export default function DepartmentLine({ department }) {
 
             {calling && (
                 <CallDialog
-                    order={calling}
-                    defaultRemarks={defaultLoadingRemarks(calling, department)}
+                    // a new call starts from this station's message, not the one they were last called with
+                    order={atDepartment(calling, department) ? calling : { ...calling, remarks: "" }}
+                    defaultRemarks={areaFor(calling) ? proceedTo(areaFor(calling)) : defaultLoadingRemarks(calling, department)}
                     quickRemarks={areaChoices(calling)}
-                    defaultArea={calling.loadingArea ?? areasLeftIn(calling, department)[0]}
+                    defaultArea={areaFor(calling)}
                     busy={busy === calling.queueNum}
                     error={callError}
                     onCall={call}

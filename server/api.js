@@ -148,12 +148,13 @@ const ROLE_ROUTES = {
         ...ACCOUNT_ROUTES,
         ...MESSAGE_ROUTES,
     ],
-    // the Loading page: the customers sales has handed over, and calling, finishing or sending them back to waiting
+    // the Loading page: the customers sales has handed over, and calling, starting to load (the truck is at the area),
+    // finishing or sending them back to waiting
     loading: [
         ["GET", /^\/admin\/orders$/],
         // the Order status board: every order, not just the ones handed over, with none of the sales details
         ["GET", /^\/admin\/order-status$/],
-        ["POST", /^\/admin\/loading\/[^/]+\/(call|done|back)$/],
+        ["POST", /^\/admin\/loading\/[^/]+\/(call|start|done|back)$/],
         ...ACCOUNT_ROUTES,
         ...MESSAGE_ROUTES,
     ],
@@ -161,7 +162,7 @@ const ROLE_ROUTES = {
     hardware: [
         ["GET", /^\/admin\/orders$/],
         ["GET", /^\/admin\/order-status$/],
-        ["POST", /^\/admin\/hardware\/[^/]+\/(call|done|back)$/],
+        ["POST", /^\/admin\/hardware\/[^/]+\/(call|start|done|back)$/],
         ...ACCOUNT_ROUTES,
         ...MESSAGE_ROUTES,
     ],
@@ -170,7 +171,8 @@ const ROLE_ROUTES = {
     // their own account
     security: [
         ["GET", /^\/admin\/security$/],
-        // the security check: verified, or a report of something missing, over the quantity or stolen
+        // the security check: verified, or a report of something missing, over the quantity or stolen, which can send
+        // the order back to one of its areas
         ["POST", /^\/admin\/security\/[^/]+\/check$/],
         // the Order status board the top bar opens on My account
         ["GET", /^\/admin\/order-status$/],
@@ -615,11 +617,24 @@ const securityOf = (row) =>
     : row.security_pending === 1 ? "waiting"
     : undefined;
 // how the order is getting on with loading and the security check, for every page that shows it; loadingArea is the
-// area the loading crew has the customer at right now
+// area the loading crew has the customer at right now, and loadingStartedAt when they pressed Loading there (ISO
+// 8601; left out while the customer is only called): until that area is done no other area can take them
+// returned: the report that sent the order back from the security check to one of its areas, with what the guard saw,
+// until the next check
 const progressOf = (row) => ({
     areas: areasOf(row),
     ...(row.at_loading === 1 && row.loading_area && { loadingArea: row.loading_area }),
+    ...(row.at_loading === 1 && row.loading_started_at && { loadingStartedAt: row.loading_started_at }),
     ...(securityOf(row) && { security: securityOf(row) }),
+    ...(row.return_check_id !== null && {
+        returned: {
+            area: row.return_area,
+            result: row.return_result,
+            ...(row.return_note && { note: row.return_note }),
+            by: { name: row.returned_by_name },
+            at: row.returned_at,
+        },
+    }),
 });
 // this visit's security check: the result, the guard's note (for a report), who checked it and when (ISO 8601)
 const checkOf = (row) => row.security_check_id !== null && {
@@ -749,20 +764,24 @@ const toHistory = (row, items, invoices, edits, todayDate) => ({
 // order rows with the staff member serving them (o. prefixes keep "name" unambiguous), who handed them over to
 // loading, who finished loading them, and, once it's done, when they marked it Done: this visit's point, if the point
 // is theirs (at most one per order and day)
-// the areas loading has finished so far, as JSON ([{ area, by, at }], see areasOf), and this visit's security check
-// with the guard who did it
+// the areas loading has finished so far, as JSON ([{ area, by, at }], see areasOf), this visit's security check
+// with the guard who did it, and the report that last sent it back to an area, with its guard
 const ORDER_ROW = `o.*, u.name AS served_by_name, u.photo AS served_by_photo, h.name AS handed_over_by_name,
     l.name AS loaded_by_name, l.photo AS loaded_by_photo, s.served_at,
     (SELECT json_group_array(json_object('area', ol.area, 'by', lu.name, 'at', ol.loaded_at))
         FROM order_loads ol JOIN users lu ON lu.id = ol.loaded_by WHERE ol.order_id = o.id) AS loads_json,
-    sc.result AS check_result, sc.note AS check_note, sc.checked_at, su.name AS checked_by_name
+    sc.result AS check_result, sc.note AS check_note, sc.checked_at, su.name AS checked_by_name,
+    rc.returned_to AS return_area, rc.result AS return_result, rc.note AS return_note, rc.checked_at AS returned_at,
+    ru.name AS returned_by_name
     FROM orders o
     LEFT JOIN users u ON u.id = o.served_by
     LEFT JOIN users h ON h.id = o.handed_over_by
     LEFT JOIN users l ON l.id = o.loaded_by
     LEFT JOIN serves s ON s.order_id = o.id AND s.queue_date = o.queue_date AND s.user_id = o.served_by
     LEFT JOIN security_checks sc ON sc.id = o.security_check_id
-    LEFT JOIN users su ON su.id = sc.user_id`;
+    LEFT JOIN users su ON su.id = sc.user_id
+    LEFT JOIN security_checks rc ON rc.id = o.return_check_id
+    LEFT JOIN users ru ON ru.id = rc.user_id`;
 
 // "%" and "_" mean "anything" in LIKE, so a search for them is escaped
 const likePattern = (text) => `%${text.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
@@ -812,8 +831,11 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
         setStatus: db.prepare(`
             UPDATE orders SET status = :status, called_at = :calledAt, remarks = :remarks, served_by = :servedBy,
                 at_loading = :atLoading, loaded_by = :loadedBy, loaded_at = :loadedAt, loading_area = :loadingArea,
-                security_pending = :securityPending, security_check_id = :securityCheckId
+                loading_started_at = :loadingStartedAt, security_pending = :securityPending,
+                security_check_id = :securityCheckId, return_check_id = :returnCheckId
             WHERE id = :id`),
+        // the crew presses Loading: the truck is at the area they called the customer to
+        startLoading: db.prepare("UPDATE orders SET loading_started_at = ? WHERE id = ?"),
         // loading finishes one area of the order; a visit loads each area once
         addLoad: db.prepare(`
             INSERT INTO order_loads (order_id, area, loaded_by, loaded_at) VALUES (?, ?, ?, ?)
@@ -821,8 +843,16 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
         clearLoads: db.prepare("DELETE FROM order_loads WHERE order_id = ?"),
         // the guard's check at the gate: kept for good, and this visit's until the order is reopened
         insertCheck: db.prepare(`
-            INSERT INTO security_checks (order_id, user_id, result, note, checked_at) VALUES (?, ?, ?, ?, ?)`),
-        setCheck: db.prepare("UPDATE orders SET security_pending = 0, security_check_id = ? WHERE id = ?"),
+            INSERT INTO security_checks (order_id, user_id, result, note, checked_at, returned_to) VALUES (?, ?, ?, ?, ?, ?)`),
+        setCheck: db.prepare("UPDATE orders SET security_pending = 0, security_check_id = ?, return_check_id = NULL WHERE id = ?"),
+        // a report sends the order back from the gate to one of its areas: back in line for that area, which loads
+        // it again (its load is taken off), with the other areas still loaded and the sales point left alone
+        returnToArea: db.prepare(`
+            UPDATE orders SET status = 'pending', remarks = '', served_by = NULL, at_loading = 0, loading_area = '',
+                loading_started_at = NULL, loaded_by = NULL, loaded_at = NULL, security_pending = 0,
+                security_check_id = NULL, return_check_id = :check
+            WHERE id = :id`),
+        clearLoad: db.prepare("DELETE FROM order_loads WHERE order_id = ? AND area = ?"),
         // sales hands the customer over to loading: back in line, for the loading crew now, with the counter's
         // remarks cleared so they don't follow the customer; the order keeps its sales team
         handOver: db.prepare(`
@@ -889,7 +919,8 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
         restoreSameDay: db.prepare(`
             UPDATE orders SET deleted_at = NULL, restored_at = ?, status = 'pending', called_at = NULL, remarks = '',
                 served_by = NULL, at_loading = 0, handed_over_by = NULL, handed_over_at = NULL, loaded_by = NULL,
-                loaded_at = NULL, loading_area = '', security_pending = 0, security_check_id = NULL
+                loaded_at = NULL, loading_area = '', loading_started_at = NULL, security_pending = 0,
+                security_check_id = NULL, return_check_id = NULL
             WHERE id = ?`),
         restoreToToday: db.prepare(`
             UPDATE orders SET
@@ -897,7 +928,8 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
                 queue_date = ?, queue_num = ?,
                 deleted_at = NULL, restored_at = ?, status = 'pending', called_at = NULL, remarks = '', served_by = NULL,
                 at_loading = 0, handed_over_by = NULL, handed_over_at = NULL, loaded_by = NULL, loaded_at = NULL,
-                loading_area = '', security_pending = 0, security_check_id = NULL
+                loading_area = '', loading_started_at = NULL, security_pending = 0, security_check_id = NULL,
+                return_check_id = NULL
             WHERE id = ?`),
         insertItem: db.prepare("INSERT INTO order_items (order_id, position, item, qty, color) VALUES (?, ?, ?, ?, ?)"),
         deleteItems: db.prepare("DELETE FROM order_items WHERE order_id = ?"),
@@ -1062,21 +1094,26 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
                 : status !== "done" || !handedOver ? null
                 : loadedBy ?? (order.at_loading === 1 ? order.served_by : null);
             const loadedAt = stillDone ? order.loaded_at : loader === null ? null : new Date().toISOString();
-            // the area loading called them to, while they're there
+            // the area loading called them to, while they're there, and when Loading was pressed there: kept while
+            // they stay at that area, cleared once they leave it or are called to another
             const area = loading === 1 ? loadingArea ?? order.loading_area : "";
+            const startedAt = loading === 1 && order.at_loading === 1 && area === order.loading_area
+                ? order.loading_started_at : null;
             // a finished order waits for the security check once a visit; a Customer Report has nothing to check
             const securityPending = stillDone ? order.security_pending
                 : status === "done" && order.purpose !== REPORT_PURPOSE ? 1 : 0;
+            const reopened = order.status === "done" && status !== "done";
             sql.setStatus.run({
                 status, calledAt, remarks, servedBy: server, atLoading: loading, loadedBy: loader, loadedAt,
-                loadingArea: area, securityPending, securityCheckId: stillDone ? order.security_check_id : null,
-                id: order.id,
+                loadingArea: area, loadingStartedAt: startedAt, securityPending,
+                securityCheckId: stillDone ? order.security_check_id : null,
+                returnCheckId: reopened ? null : order.return_check_id, id: order.id,
             });
             if (finishedArea) sql.addLoad.run(order.id, finishedArea, user.id, new Date().toISOString());
             // reopening a finished order starts the visit over: every area loaded again, and a new security check
-            if (order.status === "done" && status !== "done") sql.clearLoads.run(order.id);
+            if (reopened) sql.clearLoads.run(order.id);
             if (handedOver) return;
-            if (order.status === "done" && status !== "done") sql.removePoint.run(order.id, order.queue_date);
+            if (reopened) sql.removePoint.run(order.id, order.queue_date);
             if (status === "done") sql.addPoint.run(order.id, server, order.queue_date, new Date().toISOString());
         });
 
@@ -1773,7 +1810,10 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
         // be called
         // Done means the crew has finished loading the order there: whoever pressed it loaded it, and the sales staff
         // member who handed it over still served it
-        const loadingMatch = path.match(/^\/admin\/(loading|hardware)\/([^/]+)\/(call|done|back)$/);
+        // a station loads one truck at a time: once the truck is at the area they were called to, the crew presses
+        // Loading (start), and from then on the customer can't be called to another area until that one is done (or
+        // sends them back to waiting), e.g. Steel waits while Roofings is loading; Done needs Loading first
+        const loadingMatch = path.match(/^\/admin\/(loading|hardware)\/([^/]+)\/(call|start|done|back)$/);
         if (method === "POST" && loadingMatch) {
             const [, department, queueNum, action] = loadingMatch;
             const label = DEPARTMENTS[department];
@@ -1788,6 +1828,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             const loaded = JSON.parse(order.loads_json).map(({ area }) => area);
             const areasLeft = areasFor(order.purpose).filter((area) => !loaded.includes(area));
             const leftHere = areasLeft.filter((area) => departmentOf(area) === department);
+            const loadingAt = servingHere && order.loading_started_at ? order.loading_area || label : null;
 
             if (action === "call") {
                 if (order.status === "done") return send(res, 409, { message: `${label} has already finished this order.` });
@@ -1806,13 +1847,22 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
                 if (leftHere.length > 0 && !leftHere.includes(area)) {
                     return send(res, 400, { message: `Call them to an area this order still needs: ${leftHere.join(", ")}.` });
                 }
+                if (loadingAt && area !== order.loading_area) {
+                    return send(res, 409, { message: `${loadingAt} is loading this truck. Please wait until it finishes.` });
+                }
                 changeStatus(order, "serving", me, {
                     calledAt: Date.now(), remarks: remarks.trim(), servedBy: me.id, atLoading: 1, loadingArea: area,
                 });
             } else {
                 if (!servingHere) return send(res, 409, { message: `${label} isn't serving this customer.` });
-                if (action === "back") changeStatus(order, "pending", me);
-                else {
+                const at = order.loading_area || label;
+                if (action === "start") {
+                    if (loadingAt) return send(res, 409, { message: `${at} is already loading this truck.` });
+                    sql.startLoading.run(new Date().toISOString(), order.id);
+                } else if (action === "back") changeStatus(order, "pending", me);
+                else if (!loadingAt) {
+                    return send(res, 409, { message: `Press Loading once the truck is at ${at}, then Done when it's loaded.` });
+                } else {
                     // Done finishes the area they were called to: the order waits for its next area, here or at the
                     // other department, or, once every area is loaded, it's done and goes on to the security check
                     const area = order.loading_area || leftHere[0];
@@ -1827,6 +1877,8 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
         // the security check at the gate (security guards and admins): every finished order waits for it, and the guard
         // verifies what the customer leaves with, or reports something missing, over the order's quantity or stolen,
         // saying what they saw; either way the order is then done, and the check is kept with it
+        // a report can instead send the order back to one of its areas (returnTo: "Roofings"): only that area loads it
+        // again, the others stay loaded, and then it comes back here for a new check
         const checkMatch = path.match(/^\/admin\/security\/([^/]+)\/check$/);
         if (method === "POST" && checkMatch) {
             const order = findToday(Number(decodeURIComponent(checkMatch[1])));
@@ -1835,7 +1887,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
                 return send(res, 409, { message: `${order.checked_by_name} has already checked this order.` });
             }
             if (order.security_pending !== 1) return send(res, 409, { message: "This order isn't at the security check yet." });
-            const { result, note = "" } = await readBody(req);
+            const { result, note = "", returnTo = "" } = await readBody(req);
             if (!SECURITY_RESULTS.includes(result)) return send(res, 400, { message: "Pick verified, missing, over or stolen." });
             if (typeof note !== "string" || note.trim().length > MAX_SECURITY_NOTE) {
                 return send(res, 400, { message: `Notes must be ${MAX_SECURITY_NOTE} characters or fewer.` });
@@ -1843,9 +1895,19 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             if (result !== "verified" && !note.trim()) {
                 return send(res, 400, { message: "Say what's wrong, e.g. which item and how many." });
             }
+            // only an order sales handed over was loaded, so only its areas can load it again
+            const areas = order.handed_over_by === null ? [] : areasFor(order.purpose);
+            if (returnTo !== "" && (result === "verified" || !areas.includes(returnTo))) {
+                return send(res, 400, {
+                    message: areas.length ? `Send it back to one of its areas: ${areas.join(", ")}.` : "This order has no area to send it back to.",
+                });
+            }
             transaction(db, () => {
-                const { lastInsertRowid } = sql.insertCheck.run(order.id, me.id, result, note.trim(), new Date().toISOString());
-                sql.setCheck.run(lastInsertRowid, order.id);
+                const { lastInsertRowid } = sql.insertCheck.run(order.id, me.id, result, note.trim(),
+                    new Date().toISOString(), returnTo);
+                if (!returnTo) return sql.setCheck.run(lastInsertRowid, order.id);
+                sql.returnToArea.run({ check: lastInsertRowid, id: order.id });
+                sql.clearLoad.run(order.id, returnTo);
             });
             const row = findToday(order.queue_num);
             return send(res, 200, toSecurity(row, sql.orderItems.all(row.id), sql.orderInvoices.all(row.id)));

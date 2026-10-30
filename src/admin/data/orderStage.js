@@ -28,8 +28,8 @@ const by = (order) => (order.servedBy ? ` · ${order.servedBy.name}` : "");
 // the order's areas still to load, in turn
 const areasLeft = (order) => (order.areas ?? []).filter((area) => !area.loaded);
 
-// one line saying where they are now, e.g. "At sales · Maria Santos", "At Roofings · Pedro Garcia", "Waiting for
-// Steel" or "At the security check"
+// one line saying where they are now, e.g. "At sales · Maria Santos", "At Roofings · Pedro Garcia", "Loading at
+// Roofings · Pedro Garcia", "Waiting for Steel" or "At the security check"
 // named: false leaves out who has them ("At sales"), for a list that shows them beside it
 export const whereNow = (order, { named = true } = {}) => {
     const who = named ? by(order) : "";
@@ -42,8 +42,10 @@ export const whereNow = (order, { named = true } = {}) => {
             return `At sales${who}`;
         case "loading": {
             // a sales counter can call a customer back after handing them over
+            // "Loading at Roofings" once the truck is there and the crew has started loading it
             if (order.status === "serving") {
-                return `${order.atLoading ? `At ${order.loadingArea ?? "loading"}` : "Back at sales"}${who}`;
+                const at = `${order.loadingStartedAt ? "Loading at" : "At"} ${order.loadingArea ?? "loading"}`;
+                return `${order.atLoading ? at : "Back at sales"}${who}`;
             }
             const [next] = areasLeft(order);
             const started = (order.areas ?? []).some((area) => area.loaded);

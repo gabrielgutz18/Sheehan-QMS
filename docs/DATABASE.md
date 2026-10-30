@@ -232,6 +232,7 @@ erDiagram
     orders ||--o{ security_checks : "checked at the gate"
     users ||--o{ security_checks : "checked an order"
     security_checks |o--o| orders : "this visit's check (security_check_id)"
+    security_checks |o--o| orders : "sent it back to an area (return_check_id)"
     queue_counters ||..o{ orders : "gives queue_num for that queue_date"
 
     orders {
@@ -301,6 +302,7 @@ erDiagram
         INTEGER user_id FK "users.id; the guard"
         TEXT result "verified | missing | over | stolen"
         TEXT note "what the guard saw, for a report"
+        TEXT returned_to "the area a report sent it back to, or empty"
         TEXT checked_at
     }
     queue_counters {
