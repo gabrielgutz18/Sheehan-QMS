@@ -12,15 +12,18 @@ const MAX_NOTE = 300;
 // an order on the Security page: what the customer bought, and, while they're at the security check, the guard's
 // two ways to finish it: Verified, when what they leave with is the order, or a report of something missing, over
 // the quantity or stolen, saying what; either way the order is then done, and the check is kept with it
-// a report can instead send the order back to the one area the problem is at (e.g. Roofings): only that area loads it
-// again, the others stay loaded, and then it comes back here for a new check
+// a report can instead send the order back to the one area the problem is at: a button for each of the order's areas
+// (Roofings problem, Steel problem) sends it back there, where only that area loads it again, the others stay loaded,
+// and then it comes back here for a new check; Other problem finishes the order with the report
 // refresh(): fetches the page's orders again once the check is saved
 export default function SecurityDetails({ order, refresh }) {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
-    const [reporting, setReporting] = useState(false);
+    // the report being written: { returnTo } with the area it goes back to, or "" to finish the order; null when none
+    const [reporting, setReporting] = useState(null);
     const atCheck = stageOf(order) === "security";
     const ticket = formatQueueNum(order.queueNum, order.purpose);
+    const areas = areasOf(order);
 
     const verify = async () => {
         setBusy(true);
@@ -50,16 +53,24 @@ export default function SecurityDetails({ order, refresh }) {
                         aria-label={`Verified: ${ticket} leaves with what's on the order`}>
                         {busy ? "Saving..." : "✓ Verified"}
                     </button>
-                    <button type="button" className="admin-btn" disabled={busy} onClick={() => setReporting(true)}>
-                        Report a problem
+                    {areas.map((area) => (
+                        <button key={area} type="button" className="admin-btn security-area-problem" disabled={busy}
+                            aria-label={`${area} problem: send ${ticket} back to ${area}`}
+                            onClick={() => setReporting({ returnTo: area })}>
+                            ⚠ {area} problem
+                        </button>
+                    ))}
+                    <button type="button" className="admin-btn" disabled={busy} onClick={() => setReporting({ returnTo: "" })}>
+                        {areas.length ? "Other problem" : "Report a problem"}
                     </button>
                 </div>
             )}
             {error && <p className="field-error" role="alert">{error}</p>}
             {reporting && (
-                <ReportDialog order={order} ticket={ticket} onClose={() => setReporting(false)}
+                <ReportDialog order={order} ticket={ticket} areas={areas} sendBackTo={reporting.returnTo}
+                    onClose={() => setReporting(null)}
                     onReported={() => {
-                        setReporting(false);
+                        setReporting(null);
                         refresh();
                     }} />
             )}
@@ -67,15 +78,16 @@ export default function SecurityDetails({ order, refresh }) {
     );
 }
 
+// the areas a report can send the order back to; only an order sales handed over was loaded in its areas
+const areasOf = (order) => (order.handedOver ? (order.areas ?? []).map(({ name }) => name) : []);
+
 // what's wrong (missing, over the quantity or stolen), what the guard saw, and whether to finish the order with the
-// report or send it back to one of its areas to be loaded there again
-function ReportDialog({ order, ticket, onClose, onReported }) {
+// report or send it back to one of its areas to be loaded there again; sendBackTo: the area picked to begin with
+function ReportDialog({ order, ticket, areas, sendBackTo, onClose, onReported }) {
     const dialogRef = useRef(null);
     const [result, setResult] = useState(REPORTS[0].value);
     const [note, setNote] = useState("");
-    const [returnTo, setReturnTo] = useState("");
-    // only an order sales handed over was loaded in its areas
-    const areas = order.handedOver ? (order.areas ?? []).map(({ name }) => name) : [];
+    const [returnTo, setReturnTo] = useState(sendBackTo);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
 
@@ -105,7 +117,9 @@ function ReportDialog({ order, ticket, onClose, onReported }) {
         <dialog ref={dialogRef} className="admin-dialog" aria-labelledby="report-title" onClose={onClose}
             onCancel={(e) => busy && e.preventDefault()}>
             <form className="admin-dialog-body" onSubmit={submit}>
-                <h2 id="report-title" className="admin-dialog-title">Report a problem with <strong>{ticket}</strong></h2>
+                <h2 id="report-title" className="admin-dialog-title">
+                    {returnTo ? `${returnTo} problem` : "Report a problem"} with <strong>{ticket}</strong>
+                </h2>
                 <p className="admin-dialog-sub">{order.name} · {order.purpose}</p>
 
                 <fieldset className="security-results">

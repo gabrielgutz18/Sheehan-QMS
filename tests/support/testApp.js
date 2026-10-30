@@ -106,6 +106,8 @@ export async function bootApp() {
     const actingAsSales = (name = "Maria Santos") => actingAsStaff("sales", name);
     // someone on the loading crew
     const actingAsLoading = (name = "Pedro Garcia") => actingAsStaff("loading", name);
+    // someone in the TBA department (Tire, Battery, Chassis)
+    const actingAsTba = (name = "Tony Gulong") => actingAsStaff("tba", name);
     // someone in the Hardware department
     const actingAsHardware = (name = "Ben Martillo") => actingAsStaff("hardware", name);
     // a security guard at the gate
@@ -128,6 +130,7 @@ export async function bootApp() {
         actingAsAdmin,
         actingAsSales,
         actingAsLoading,
+        actingAsTba,
         actingAsHardware,
         actingAsSecurity,
         actingAsCashier,
