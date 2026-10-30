@@ -84,6 +84,8 @@ const NO_SUCH_ROLE = "Pick admin, sales, loading, TBA, hardware, security, cashi
 const ADMINS_ONLY = "Only an admin can make or change an admin account.";
 // one chat message, written to or by the developers
 const MAX_MESSAGE = 1000;
+// a picture pasted or attached in the chat; the page shrinks it first, so this is only a guard
+const MAX_CHAT_IMAGE_BYTES = 5 * 1024 * 1024;
 // a developer is online while signed in and using the app: every open page fetches far more often than this
 const ONLINE_MS = 2 * 60 * 1000;
 // how often an account's last_seen is written, at most, so a busy page doesn't write on every request
@@ -122,6 +124,7 @@ const ACCOUNT_ROUTES = [
 const MESSAGE_ROUTES = [
     ["GET", /^\/admin\/messages$/],
     ["POST", /^\/admin\/messages$/],
+    ["POST", /^\/admin\/messages\/image$/],
     ["GET", /^\/admin\/developers$/],
 ];
 // what each role other than admin may do; every other /admin route is for admins only, so a new route is safe by default
@@ -204,6 +207,7 @@ const ROLE_ROUTES = {
         ["GET", /^\/admin\/chats$/],
         ["GET", /^\/admin\/chats\/\d+$/],
         ["POST", /^\/admin\/chats\/\d+$/],
+        ["POST", /^\/admin\/chats\/\d+\/image$/],
         // their team, and which of them are online; and every other staff member, online or not, on the Chat page's
         // Staff list
         ["GET", /^\/admin\/developers$/],
@@ -501,12 +505,20 @@ const toMessage = (row) => ({
     fromStaff: row.sender_id === row.staff_id,
     from: { id: row.sender_id, name: row.name, role: row.role, photo: row.photo },
     read: row.read_at !== null,
+    // whether it carries a picture, shown from /chat-images/<id>
+    image: row.image !== null,
 });
 
 // a chat message's text, trimmed, or null when it's empty or too long
 const messageBody = ({ body }) => {
     const text = typeof body === "string" ? body.trim() : "";
     return text && text.length <= MAX_MESSAGE ? text : null;
+};
+
+// a picture's caption (?body=), trimmed: '' for none, or null when it's too long
+const imageCaption = (url) => {
+    const text = (url.searchParams.get("body") ?? "").trim();
+    return text.length <= MAX_MESSAGE ? text : null;
 };
 
 // profile photos: the accepted types, and how each file must start, so only real pictures are kept
@@ -804,8 +816,10 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
     const dir = resolveDataDir(dataDir);
     const videosDir = join(dir, "videos");
     const photosDir = join(dir, "photos");
+    const chatImagesDir = join(dir, "chat-images");
     mkdirSync(videosDir, { recursive: true });
     mkdirSync(photosDir, { recursive: true });
+    mkdirSync(chatImagesDir, { recursive: true });
     const db = openDatabase(dir);
 
     // one set per API, so each test (and each restart) starts with a clean slate
@@ -1012,12 +1026,15 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
 
         // Message developer and the Chat page: one staff member's conversation with the developers, oldest first
         threadMessages: db.prepare(`
-            SELECT m.id, m.staff_id, m.sender_id, m.body, m.sent_at, m.read_at, u.name, u.role, u.photo
+            SELECT m.id, m.staff_id, m.sender_id, m.body, m.image, m.sent_at, m.read_at, u.name, u.role, u.photo
             FROM messages m JOIN users u ON u.id = m.sender_id
             WHERE m.staff_id = ? ORDER BY m.id`),
-        insertMessage: db.prepare("INSERT INTO messages (staff_id, sender_id, body, sent_at) VALUES (?, ?, ?, ?)"),
+        // image: the picture's file name in chat-images/, or null for a text message
+        insertMessage: db.prepare("INSERT INTO messages (staff_id, sender_id, body, image, sent_at) VALUES (?, ?, ?, ?, ?)"),
+        // a picture sent in the chat, and whose conversation it's in, for /chat-images/<id>
+        findMessageImage: db.prepare("SELECT staff_id, image FROM messages WHERE id = ? AND image IS NOT NULL"),
         findMessage: db.prepare(`
-            SELECT m.id, m.staff_id, m.sender_id, m.body, m.sent_at, m.read_at, u.name, u.role, u.photo
+            SELECT m.id, m.staff_id, m.sender_id, m.body, m.image, m.sent_at, m.read_at, u.name, u.role, u.photo
             FROM messages m JOIN users u ON u.id = m.sender_id WHERE m.id = ?`),
         // opening the conversation reads what the other side wrote: the staff member the developers' answers, a
         // developer what the staff member wrote
@@ -1026,7 +1043,8 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
         // the Chat page's list: everyone who has a conversation, the newest message first, with how many of theirs
         // no developer has read yet
         listChats: db.prepare(`
-            SELECT u.id, u.name, u.role, u.photo, u.disabled_at, m.body AS last_body, m.sent_at AS last_at,
+            SELECT u.id, u.name, u.role, u.photo, u.disabled_at, m.body AS last_body, m.image IS NOT NULL AS last_image,
+                m.sent_at AS last_at,
                 m.sender_id = u.id AS last_from_staff, m.sender_id AS last_from_id,
                 (SELECT name FROM users WHERE id = m.sender_id) AS last_from_name,
                 (SELECT COUNT(*) FROM messages x WHERE x.staff_id = u.id AND x.sender_id = u.id AND x.read_at IS NULL) AS unread
@@ -1221,12 +1239,30 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
         sql.setLastSeen.run(now, userId);
     };
 
-    // any tab's sign-in in this browser: for <img> requests (profile photos), which can't send X-Tab-Id
-    const anySession = (req) =>
+    // every tab's sign-in in this browser: for <img> requests (profile photos, chat pictures), which can't send X-Tab-Id
+    const allSessions = (req) =>
         Object.entries(readCookies(req))
             .filter(([name]) => name === SESSION_COOKIE || name.startsWith(`${SESSION_COOKIE}_`))
             .map(([, sid]) => sessionFor(sid))
-            .find(Boolean) ?? null;
+            .filter(Boolean);
+    const anySession = (req) => allSessions(req)[0] ?? null;
+
+    // a picture sent in a chat, as the image itself (the page shrinks it first), with its caption in ?body=; saves
+    // it and gives { body, file }, or { status, message } to answer with when it isn't one
+    const saveChatImage = async (req, url, senderId) => {
+        const body = imageCaption(url);
+        if (body === null) return { status: 400, message: `Captions can be up to ${MAX_MESSAGE} characters.` };
+        const type = PHOTO_TYPES[req.headers["content-type"]];
+        if (!type) return { status: 415, message: "Attach a JPEG, PNG or WebP picture." };
+        if (Number(req.headers["content-length"]) > MAX_CHAT_IMAGE_BYTES) {
+            return { status: 413, message: "Pictures can be up to 5 MB." };
+        }
+        const bytes = await readBytes(req, MAX_CHAT_IMAGE_BYTES);
+        if (!type.isIt(bytes)) return { status: 400, message: "That file isn't a picture." };
+        const file = `chat-${senderId}-${Date.now()}-${randomBytes(4).toString("hex")}${type.ext}`;
+        writeFileSync(join(chatImagesDir, file), bytes);
+        return { body, file };
+    };
 
     async function handle(req, res) {
         const url = new URL(req.url, "http://localhost");
@@ -1346,6 +1382,29 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
                 "Content-Type": photoType(file),
                 "Content-Length": stats.size,
                 // the URL changes with every new photo, so the browser can keep this one
+                "Cache-Control": "private, max-age=31536000, immutable",
+                "X-Content-Type-Options": "nosniff",
+            });
+            return pipeline(createReadStream(file), res).catch(() => {
+                // the page went away part-way; nothing to do
+            });
+        }
+
+        // a picture sent in the chat, for whoever's conversation it's in and the developers; a plain GET from an
+        // <img>, like /photos
+        const chatImageMatch = path.match(/^\/chat-images\/(\d+)$/);
+        if (method === "GET" && chatImageMatch) {
+            const viewers = allSessions(req);
+            if (viewers.length === 0) return send(res, 401, { message: "Please sign in." });
+            const message = sql.findMessageImage.get(Number(chatImageMatch[1]));
+            const allowed = message && viewers.some(({ user }) => user.role === "developer" || user.id === message.staff_id);
+            const file = allowed ? join(chatImagesDir, message.image) : null;
+            const stats = file ? statSync(file, { throwIfNoEntry: false }) : undefined;
+            if (!stats) return send(res, 404, { message: "No picture." });
+            res.writeHead(200, {
+                "Content-Type": photoType(file),
+                "Content-Length": stats.size,
+                // a message's picture never changes
                 "Cache-Control": "private, max-age=31536000, immutable",
                 "X-Content-Type-Options": "nosniff",
             });
@@ -1493,7 +1552,16 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             if (me.role === "developer") return send(res, 403, { message: "Answer staff on the Chat page." });
             const body = messageBody(await readBody(req));
             if (!body) return send(res, 400, { message: `Write a message of up to ${MAX_MESSAGE} characters.` });
-            const { lastInsertRowid } = sql.insertMessage.run(me.id, me.id, body, new Date().toISOString());
+            const { lastInsertRowid } = sql.insertMessage.run(me.id, me.id, body, null, new Date().toISOString());
+            return send(res, 201, toMessage(sql.findMessage.get(lastInsertRowid)));
+        }
+
+        // a picture, sent as the image itself with its caption in ?body= → the message, from you to the developers
+        if (method === "POST" && path === "/admin/messages/image") {
+            if (me.role === "developer") return send(res, 403, { message: "Answer staff on the Chat page." });
+            const saved = await saveChatImage(req, url, me.id);
+            if (!saved.file) return send(res, saved.status, { message: saved.message });
+            const { lastInsertRowid } = sql.insertMessage.run(me.id, me.id, saved.body, saved.file, new Date().toISOString());
             return send(res, 201, toMessage(sql.findMessage.get(lastInsertRowid)));
         }
 
@@ -1533,6 +1601,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
                 staff: { id: row.id, name: row.name, role: row.role, photo: row.photo, disabled: row.disabled_at !== null },
                 last: {
                     body: row.last_body,
+                    image: Boolean(row.last_image),
                     sentAt: row.last_at,
                     fromStaff: Boolean(row.last_from_staff),
                     from: { id: row.last_from_id, name: row.last_from_name },
@@ -1553,7 +1622,19 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             }
             const body = messageBody(await readBody(req));
             if (!body) return send(res, 400, { message: `Write a message of up to ${MAX_MESSAGE} characters.` });
-            const { lastInsertRowid } = sql.insertMessage.run(staff.id, me.id, body, new Date().toISOString());
+            const { lastInsertRowid } = sql.insertMessage.run(staff.id, me.id, body, null, new Date().toISOString());
+            return send(res, 201, toMessage(sql.findMessage.get(lastInsertRowid)));
+        }
+
+        // a picture answering them, as POST /admin/messages/image has it
+        const chatImageSend = path.match(/^\/admin\/chats\/(\d+)\/image$/);
+        if (method === "POST" && chatImageSend) {
+            if (me.role !== "developer") return send(res, 403, { message: "Only a developer can do that." });
+            const staff = sql.findUserById.get(Number(chatImageSend[1]));
+            if (!staff || staff.role === "developer") return send(res, 404, { message: "Staff member not found." });
+            const saved = await saveChatImage(req, url, me.id);
+            if (!saved.file) return send(res, saved.status, { message: saved.message });
+            const { lastInsertRowid } = sql.insertMessage.run(staff.id, me.id, saved.body, saved.file, new Date().toISOString());
             return send(res, 201, toMessage(sql.findMessage.get(lastInsertRowid)));
         }
 

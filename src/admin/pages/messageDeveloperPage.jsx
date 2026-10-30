@@ -1,6 +1,6 @@
 import '../style/chat.css';
 
-import { listMyMessages, sendMyMessage } from '../api/chatController.js';
+import { listMyMessages, sendMyImage, sendMyMessage } from '../api/chatController.js';
 import DeveloperHeads from '../components/chat/developerHeads.jsx';
 import MessageThread from '../components/chat/messageThread.jsx';
 import useMessages from '../hooks/useMessages.js';
@@ -27,7 +27,7 @@ export default function MessageDeveloperPage() {
                     loading={loading}
                     error={error}
                     mine={(m) => m.fromStaff}
-                    onSend={async (body) => added(await sendMyMessage(body))}
+                    onSend={async (body, image) => added(await (image ? sendMyImage(image, body) : sendMyMessage(body)))}
                     empty="No messages yet. Write the first one below."
                     label="Message to the developers"
                 />
