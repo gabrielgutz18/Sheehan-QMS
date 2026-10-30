@@ -1,8 +1,8 @@
 // the backend API, shared by the Vite dev server (npm run dev) and server/server.js (npm start)
 // orders, settings, staff accounts and sign-ins are saved in a SQLite database in the data folder
 // (see server/db.js), and an uploaded display video next to it in videos/, so nothing is lost on restart
-// six roles: admins can do everything; sales, loading, hardware, security and cashier staff only what ROLE_ROUTES lists
-// for them
+// seven roles: admins can do everything; sales, loading, hardware, security, cashier and developer staff only what
+// ROLE_ROUTES lists for them
 import { createHash, randomBytes, scrypt, scryptSync, timingSafeEqual } from 'node:crypto';
 import { createReadStream, createWriteStream, mkdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { extname, join } from 'node:path';
@@ -75,9 +75,14 @@ const HISTORY_LIMIT = 200;
 const ANNOUNCER_REPEATS = [1, 2];
 // loading: the loading crew, one shared line for its areas (Roofings, Steel, TBA); hardware: the Hardware department,
 // the same as loading but for its own area (src/data/loadingAreas.js); security: the guards at the gate, the last
-// stage, who check what each customer leaves with; cashier: who changes how each order is paid
-const ROLES = ["admin", "sales", "loading", "hardware", "security", "cashier"];
-const NO_SUCH_ROLE = "Pick admin, sales, loading, hardware, security or cashier.";
+// stage, who check what each customer leaves with; cashier: who changes how each order is paid; developer: the team
+// that builds the app, who answer staff on the Chat page when something doesn't go well
+const ROLES = ["admin", "sales", "loading", "hardware", "security", "cashier", "developer"];
+const NO_SUCH_ROLE = "Pick admin, sales, loading, hardware, security, cashier or developer.";
+// a developer makes and changes accounts on Accounts too, but not admin ones, so they can't give themselves everything
+const ADMINS_ONLY = "Only an admin can make or change an admin account.";
+// one chat message, written to or by the developers
+const MAX_MESSAGE = 1000;
 // what a guard's security check can find: all as it should be, or something missing, more than the order's quantity,
 // or stolen (the last three are reports, with a note saying what)
 const SECURITY_RESULTS = ["verified", "missing", "over", "stolen"];
@@ -107,6 +112,11 @@ const ACCOUNT_ROUTES = [
     ["PUT", /^\/admin\/me\/photo$/],
     ["DELETE", /^\/admin\/me\/photo$/],
 ];
+// Message developer: every staff member but the developers writes to them there when something doesn't go well
+const MESSAGE_ROUTES = [
+    ["GET", /^\/admin\/messages$/],
+    ["POST", /^\/admin\/messages$/],
+];
 // what each role other than admin may do; every other /admin route is for admins only, so a new route is safe by default
 const ROLE_ROUTES = {
     sales: [
@@ -130,6 +140,7 @@ const ROLE_ROUTES = {
         ["GET", /^\/admin\/me\/stats$/],
         ["PUT", /^\/admin\/announcer\/volume$/],
         ...ACCOUNT_ROUTES,
+        ...MESSAGE_ROUTES,
     ],
     // the Loading page: the customers sales has handed over, and calling, finishing or sending them back to waiting
     loading: [
@@ -138,6 +149,7 @@ const ROLE_ROUTES = {
         ["GET", /^\/admin\/order-status$/],
         ["POST", /^\/admin\/loading\/[^/]+\/(call|done|back)$/],
         ...ACCOUNT_ROUTES,
+        ...MESSAGE_ROUTES,
     ],
     // the Hardware page: the same as loading's, for the customers handed over with something from Hardware
     hardware: [
@@ -145,6 +157,7 @@ const ROLE_ROUTES = {
         ["GET", /^\/admin\/order-status$/],
         ["POST", /^\/admin\/hardware\/[^/]+\/(call|done|back)$/],
         ...ACCOUNT_ROUTES,
+        ...MESSAGE_ROUTES,
     ],
     // the Security page: where every customer is and what they bought, to check the products and quantities they
     // leave with, and the check itself at the gate, the last stage; nothing else they can call, change or save but
@@ -156,6 +169,7 @@ const ROLE_ROUTES = {
         // the Order status board the top bar opens on My account
         ["GET", /^\/admin\/order-status$/],
         ...ACCOUNT_ROUTES,
+        ...MESSAGE_ROUTES,
     ],
     // the Cashier page: every day's orders with how each is paid, and changing its payment status (Vale to Paid, ...);
     // nothing else they can call, change or save but their own account
@@ -164,6 +178,19 @@ const ROLE_ROUTES = {
         ["PATCH", /^\/admin\/payments\/\d+$/],
         // the Order status board the top bar opens
         ["GET", /^\/admin\/order-status$/],
+        ...ACCOUNT_ROUTES,
+        ...MESSAGE_ROUTES,
+    ],
+    // the developers: the Chat page, answering what staff write from Message developer; the Order status board; and
+    // Accounts, to make and fix staff accounts (not admin ones); nothing in the queue they can call, change or save
+    developer: [
+        ["GET", /^\/admin\/chats$/],
+        ["GET", /^\/admin\/chats\/\d+$/],
+        ["POST", /^\/admin\/chats\/\d+$/],
+        ["GET", /^\/admin\/order-status$/],
+        ["GET", /^\/admin\/users$/],
+        ["POST", /^\/admin\/users$/],
+        ["PATCH", /^\/admin\/users\/\d+$/],
         ...ACCOUNT_ROUTES,
     ],
 };
@@ -442,6 +469,23 @@ const splitName = (name) => {
     const trimmed = name.trim();
     const space = trimmed.indexOf(" ");
     return space === -1 ? [trimmed, ""] : [trimmed.slice(0, space), trimmed.slice(space + 1).trim()];
+};
+
+// one chat message between a staff member and the developers; fromStaff: written by the staff member whose
+// conversation it is (a developer's answer otherwise); read: the other side has opened it
+const toMessage = (row) => ({
+    id: row.id,
+    body: row.body,
+    sentAt: row.sent_at,
+    fromStaff: row.sender_id === row.staff_id,
+    from: { id: row.sender_id, name: row.name, role: row.role, photo: row.photo },
+    read: row.read_at !== null,
+});
+
+// a chat message's text, trimmed, or null when it's empty or too long
+const messageBody = ({ body }) => {
+    const text = typeof body === "string" ? body.trim() : "";
+    return text && text.length <= MAX_MESSAGE ? text : null;
 };
 
 // profile photos: the accepted types, and how each file must start, so only real pictures are kept
@@ -915,6 +959,28 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             FROM users u
             ORDER BY u.disabled_at IS NOT NULL, u.role, u.name COLLATE NOCASE`),
 
+        // Message developer and the Chat page: one staff member's conversation with the developers, oldest first
+        threadMessages: db.prepare(`
+            SELECT m.id, m.staff_id, m.sender_id, m.body, m.sent_at, m.read_at, u.name, u.role, u.photo
+            FROM messages m JOIN users u ON u.id = m.sender_id
+            WHERE m.staff_id = ? ORDER BY m.id`),
+        insertMessage: db.prepare("INSERT INTO messages (staff_id, sender_id, body, sent_at) VALUES (?, ?, ?, ?)"),
+        findMessage: db.prepare(`
+            SELECT m.id, m.staff_id, m.sender_id, m.body, m.sent_at, m.read_at, u.name, u.role, u.photo
+            FROM messages m JOIN users u ON u.id = m.sender_id WHERE m.id = ?`),
+        // opening the conversation reads what the other side wrote: the staff member the developers' answers, a
+        // developer what the staff member wrote
+        readAnswers: db.prepare("UPDATE messages SET read_at = ? WHERE staff_id = ? AND sender_id != staff_id AND read_at IS NULL"),
+        readQuestions: db.prepare("UPDATE messages SET read_at = ? WHERE staff_id = ? AND sender_id = staff_id AND read_at IS NULL"),
+        // the Chat page's list: everyone who has a conversation, the newest message first, with how many of theirs
+        // no developer has read yet
+        listChats: db.prepare(`
+            SELECT u.id, u.name, u.role, u.photo, u.disabled_at, m.body AS last_body, m.sent_at AS last_at,
+                m.sender_id = u.id AS last_from_staff,
+                (SELECT COUNT(*) FROM messages x WHERE x.staff_id = u.id AND x.sender_id = u.id AND x.read_at IS NULL) AS unread
+            FROM users u JOIN messages m ON m.id = (SELECT MAX(id) FROM messages WHERE staff_id = u.id)
+            ORDER BY m.id DESC`),
+
         // one staff member's points, by served time
         myTotals: db.prepare(`
             SELECT COUNT(*) AS total,
@@ -1270,9 +1336,10 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
 
         if (method === "GET" && path === "/admin/users") return send(res, 200, sql.listUsers.all({ today: today(), now: Date.now() }).map(toUser));
 
-        // only admins get here (see ROLE_ROUTES); new accounts are usually sales staff
+        // admins and developers get here (see ROLE_ROUTES); new accounts are usually sales staff
         if (method === "POST" && path === "/admin/users") {
             const { username, name, password, role = "sales", team = "" } = await readBody(req);
+            if (me.role === "developer" && role === "admin") return send(res, 403, { message: ADMINS_ONLY });
             if (typeof username !== "string" || !USERNAME.test(username.trim())) {
                 return send(res, 400, { message: "Usernames are 3–32 letters, numbers, dots, dashes or underscores." });
             }
@@ -1294,6 +1361,9 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             const account = sql.findUserById.get(Number(userMatch[1]));
             if (!account) return send(res, 404, { message: "Account not found." });
             const body = await readBody(req);
+            if (me.role === "developer" && (account.role === "admin" || body.role === "admin")) {
+                return send(res, 403, { message: ADMINS_ONLY });
+            }
             const changes = {
                 name: account.name,
                 firstName: account.first_name,
@@ -1334,6 +1404,48 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
                 sql.deleteUserSessions.run(account.id, session.sidHash);
             }
             return send(res, 200, sql.listUsers.all({ today: today(), now: Date.now() }).map(toUser).find((u) => u.id === account.id));
+        }
+
+        // Message developer: your own conversation with the developers, oldest first; opening it reads their answers
+        if (method === "GET" && path === "/admin/messages") {
+            sql.readAnswers.run(new Date().toISOString(), me.id);
+            return send(res, 200, sql.threadMessages.all(me.id).map(toMessage));
+        }
+
+        // { body } → the message, from you to the developers; a developer answers on the Chat page instead
+        if (method === "POST" && path === "/admin/messages") {
+            if (me.role === "developer") return send(res, 403, { message: "Answer staff on the Chat page." });
+            const body = messageBody(await readBody(req));
+            if (!body) return send(res, 400, { message: `Write a message of up to ${MAX_MESSAGE} characters.` });
+            const { lastInsertRowid } = sql.insertMessage.run(me.id, me.id, body, new Date().toISOString());
+            return send(res, 201, toMessage(sql.findMessage.get(lastInsertRowid)));
+        }
+
+        // the Chat page, the developers' only (an admin writes to them from Message developer like everyone else):
+        // everyone who has written, newest first
+        if (method === "GET" && path === "/admin/chats") {
+            if (me.role !== "developer") return send(res, 403, { message: "Only a developer can do that." });
+            return send(res, 200, sql.listChats.all().map((row) => ({
+                staff: { id: row.id, name: row.name, role: row.role, photo: row.photo, disabled: row.disabled_at !== null },
+                last: { body: row.last_body, sentAt: row.last_at, fromStaff: Boolean(row.last_from_staff) },
+                unread: row.unread,
+            })));
+        }
+
+        // one staff member's conversation, which opening reads; POST { body } answers them
+        const chatMatch = path.match(/^\/admin\/chats\/(\d+)$/);
+        if (chatMatch && (method === "GET" || method === "POST")) {
+            if (me.role !== "developer") return send(res, 403, { message: "Only a developer can do that." });
+            const staff = sql.findUserById.get(Number(chatMatch[1]));
+            if (!staff || staff.role === "developer") return send(res, 404, { message: "Staff member not found." });
+            if (method === "GET") {
+                sql.readQuestions.run(new Date().toISOString(), staff.id);
+                return send(res, 200, sql.threadMessages.all(staff.id).map(toMessage));
+            }
+            const body = messageBody(await readBody(req));
+            if (!body) return send(res, 400, { message: `Write a message of up to ${MAX_MESSAGE} characters.` });
+            const { lastInsertRowid } = sql.insertMessage.run(staff.id, me.id, body, new Date().toISOString());
+            return send(res, 201, toMessage(sql.findMessage.get(lastInsertRowid)));
         }
 
         // My account: { firstName, middleName, surname, employeeId, department } → your account

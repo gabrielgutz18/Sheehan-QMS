@@ -22,6 +22,11 @@ import HardwarePage from './pages/hardwarePage.jsx';
 import OrderStatusPage from './pages/orderStatusPage.jsx';
 import SecurityPage from './pages/securityPage.jsx';
 import CashierPage from './pages/cashierPage.jsx';
+import ChatPage from './pages/chatPage.jsx';
+import MessageDeveloperPage from './pages/messageDeveloperPage.jsx';
+
+// every kind of staff account but the developers, who are written to from Message developer and have no Dashboard
+const NOT_DEVELOPER = ["admin", "sales", "loading", "hardware", "security", "cashier"];
 
 // the browser tab: "Sheehan Inc. — Staff" until someone signs in, then their role ("Sheehan Inc. — Sales")
 function StaffTitle() {
@@ -41,12 +46,23 @@ export default function AdminApp() {
                 <Route path="login" element={<LoginPage />} />
 
                 {/* every kind of staff account shares the layout; the pages inside are split by role */}
-                <Route element={<ProtectedRoute roles={["admin", "sales", "loading", "hardware", "security", "cashier"]} />}>
+                <Route element={<ProtectedRoute roles={[...NOT_DEVELOPER, "developer"]} />}>
                     <Route element={<AdminLayout />}>
-                        {/* the live queue and their own profile, for everyone; admins' has the day's counts and sales
-                            graph too */}
-                        <Route index element={<DashboardPage />} />
                         <Route path="account" element={<AccountPage />} />
+
+                        {/* the live queue and their own profile, for everyone but the developers (admins' has the
+                            day's counts and sales graph too), and writing to the developers when something doesn't go
+                            well */}
+                        <Route element={<ProtectedRoute roles={NOT_DEVELOPER} />}>
+                            <Route index element={<DashboardPage />} />
+                            <Route path="message-developer" element={<MessageDeveloperPage />} />
+                        </Route>
+
+                        {/* the developers: answering what staff write, with no rights in the queue beyond the Order
+                            status board, and Accounts (not admin accounts) */}
+                        <Route element={<ProtectedRoute roles={["developer"]} />}>
+                            <Route path="chat" element={<ChatPage />} />
+                        </Route>
 
                         <Route element={<ProtectedRoute roles={["admin", "sales"]} />}>
                             <Route path="customer-order" element={<CustomerOrderPage />} />
@@ -67,9 +83,9 @@ export default function AdminApp() {
                             <Route path="hardware" element={<HardwarePage />} />
                         </Route>
 
-                        {/* where every customer is, for both departments; admins and sales have the same board on
-                            Customer order */}
-                        <Route element={<ProtectedRoute roles={["admin", "loading", "hardware"]} />}>
+                        {/* where every customer is, for both departments and the developers; admins and sales have
+                            the same board on Customer order */}
+                        <Route element={<ProtectedRoute roles={["admin", "loading", "hardware", "developer"]} />}>
                             <Route path="order-status" element={<OrderStatusPage />} />
                         </Route>
 
@@ -89,6 +105,10 @@ export default function AdminApp() {
                             <Route path="video" element={<VideoPage />} />
                             <Route path="printer" element={<PrinterPage />} />
                             <Route path="announcer" element={<AnnouncerPage />} />
+                        </Route>
+
+                        {/* the developers make and fix staff accounts too, but not admin ones */}
+                        <Route element={<ProtectedRoute roles={["admin", "developer"]} />}>
                             <Route path="accounts" element={<AccCreation />} />
                         </Route>
                     </Route>
