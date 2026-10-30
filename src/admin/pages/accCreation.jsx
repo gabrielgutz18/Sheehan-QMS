@@ -7,10 +7,11 @@ import Avatar from '../components/common/avatar.jsx';
 import EmployeeGrid from '../components/accounts/employeeGrid.jsx';
 import teams from '../../data/teams.js';
 
-// staff accounts, admins only: create accounts (usually sales staff), set each person's sales team, reset passwords,
+// staff accounts, for admins and developers: create accounts (usually sales staff), set each person's sales team, reset passwords,
 // switch accounts off, and see how many customers each person has served
 // an account is switched off rather than deleted, so the customers it served stay on record
 // the sales team marks the edits they save on Customer order ("Edited by Maria Santos · GIGA")
+// a developer can't make an admin account or change one (the backend refuses it too)
 
 const MIN_PASSWORD = 8;
 // who's signed in and serving keeps changing, so the list refreshes while the page is open
@@ -18,6 +19,16 @@ const REFRESH_MS = 30000;
 const whole = new Intl.NumberFormat();
 const EMPTY_FORM = { name: "", username: "", password: "", role: "sales", team: "" };
 const teamNames = teams.map((t) => t.name);
+// the roles to pick from, with what each can do, as the create form describes them
+const ROLE_CHOICES = [
+    { value: "sales", hint: "takes orders and hands customers over, can change the payment status" },
+    { value: "loading", hint: "calls customers sales hands over, their own page only" },
+    { value: "hardware", hint: "the same as loading, for the Hardware department" },
+    { value: "security", hint: "checks what customers leave with, looking only" },
+    { value: "cashier", hint: "changes the payment status, nothing else" },
+    { value: "developer", hint: "answers staff on Chat, the Order status board and Accounts" },
+    { value: "admin", hint: "everything, including accounts" },
+];
 
 // a small dialog for typing someone's new password
 function PasswordDialog({ account, busy, error, onSave, onClose }) {
@@ -166,8 +177,12 @@ export default function AccCreation() {
         }
     };
 
+    const isDeveloper = me.role === "developer";
+    const roleChoices = isDeveloper ? ROLE_CHOICES.filter(({ value }) => value !== "admin") : ROLE_CHOICES;
+    // a developer changes nothing on an admin's account
+    const adminOnly = (account) => isDeveloper && account.role === "admin";
     // the built-in admin from .env, and your own account, can't be demoted or switched off
-    const locked = (account) => account.builtIn || account.id === me.id;
+    const locked = (account) => account.builtIn || account.id === me.id || adminOnly(account);
 
     return (
         <section className="admin-page">
@@ -218,12 +233,9 @@ export default function AccCreation() {
                     <label className="admin-field">
                         Role
                         <select {...field("role")}>
-                            <option value="sales">Sales: takes orders and hands customers over, can change the payment status</option>
-                            <option value="loading">Loading: calls customers sales hands over, their own page only</option>
-                            <option value="hardware">Hardware: the same as loading, for the Hardware department</option>
-                            <option value="security">Security: checks what customers leave with, looking only</option>
-                            <option value="cashier">Cashier: changes the payment status, nothing else</option>
-                            <option value="admin">Admin: everything, including accounts</option>
+                            {roleChoices.map(({ value, hint }) => (
+                                <option key={value} value={value}>{ROLE_LABELS[value]}: {hint}</option>
+                            ))}
                         </select>
                     </label>
                     <label className="admin-field">
@@ -286,12 +298,9 @@ export default function AccCreation() {
                                                 disabled={busy === a.id}
                                                 onChange={(e) => change(a, { role: e.target.value }, `${a.name} is now ${ROLE_LABELS[e.target.value]}.`)}
                                             >
-                                                <option value="sales">Sales</option>
-                                                <option value="loading">Loading</option>
-                                                <option value="hardware">Hardware</option>
-                                                <option value="security">Security</option>
-                                                <option value="cashier">Cashier</option>
-                                                <option value="admin">Admin</option>
+                                                {roleChoices.map(({ value }) => (
+                                                    <option key={value} value={value}>{ROLE_LABELS[value]}</option>
+                                                ))}
                                             </select>
                                         )}
                                         {/* their sales team, under the role: anyone's, yours and the built-in admin's
@@ -300,7 +309,7 @@ export default function AccCreation() {
                                             className="status-select account-team"
                                             aria-label={`Sales team for ${a.name}`}
                                             value={a.team}
-                                            disabled={busy === a.id}
+                                            disabled={busy === a.id || adminOnly(a)}
                                             onChange={(e) => change(a, { team: e.target.value }, e.target.value
                                                 ? `${a.name} is now on team ${e.target.value}.`
                                                 : `${a.name} has no sales team now.`)}
@@ -318,7 +327,7 @@ export default function AccCreation() {
                                     </td>
                                     <td>
                                         <div className="row-actions">
-                                            {!a.builtIn && (
+                                            {!a.builtIn && !adminOnly(a) && (
                                                 <button
                                                     type="button"
                                                     className="admin-btn"
