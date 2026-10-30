@@ -221,3 +221,140 @@
     max-width: 92%;
   }
 }
+
+/* the developer team's chat heads: a photo each, with a green dot on the ones online */
+.chat-heads {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chat-heads-summary {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.chat-heads-list {
+  display: flex;
+  gap: 14px;
+  margin: 0;
+  padding: 2px 2px 4px;
+  overflow-x: auto;
+  list-style: none;
+}
+
+.chat-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 64px;
+  flex: none;
+  text-align: center;
+}
+
+.chat-head-photo {
+  position: relative;
+  display: inline-flex;
+}
+
+.chat-head-photo:not(.is-online) .avatar {
+  filter: grayscale(1);
+  opacity: 0.6;
+}
+
+.chat-head-dot {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 12px;
+  height: 12px;
+  background: #a1a1aa;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+}
+
+.chat-head-photo.is-online .chat-head-dot {
+  background: #16a34a;
+}
+
+.chat-head-name {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.chat-head-status {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.chat-head.is-online .chat-head-status {
+  color: #15803d;
+}
+
+/* the Chat page's left column: Conversations or Staff */
+.chat-views {
+  margin: 4px 4px 10px;
+}
+
+/* the Staff list: every staff member by department, with who's online */
+.chat-staff {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chat-staff-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.chat-staff-group ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat-staff-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 6px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.chat-staff-heading span {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--text-muted);
+}
+
+.chat-staff-none {
+  margin: 0 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.chat-staff-status {
+  flex: none;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.chat-staff-status.is-online {
+  color: #15803d;
+}

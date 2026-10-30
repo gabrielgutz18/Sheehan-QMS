@@ -1,11 +1,12 @@
 import '../style/chat.css';
 
 import { listMyMessages, sendMyMessage } from '../api/chatController.js';
+import DeveloperHeads from '../components/chat/developerHeads.jsx';
 import MessageThread from '../components/chat/messageThread.jsx';
 import useMessages from '../hooks/useMessages.js';
 
 // Message developer, for every role but the developers: when something doesn't go well in the system, write to the
-// team that builds it, and their answers come back here
+// team that builds it, and their answers come back here; their chat heads show which of them are online
 export default function MessageDeveloperPage() {
     const { messages, loading, error, added } = useMessages(listMyMessages);
 
@@ -20,6 +21,7 @@ export default function MessageDeveloperPage() {
             </div>
 
             <div className="admin-panel chat-panel">
+                <DeveloperHeads />
                 <MessageThread
                     messages={messages}
                     loading={loading}
