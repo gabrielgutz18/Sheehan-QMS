@@ -137,6 +137,24 @@
   font-size: 13px;
 }
 
+/* several types of order step down with their length (typeSize in receipt.jsx), so they fit the box's four lines */
+.receipt .receipt-value--m {
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+.receipt .receipt-value--s {
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.receipt .receipt-value--xs {
+  margin-top: 2px;
+  font-size: 9px;
+  line-height: 1.2;
+}
+
 /* a Customer Report's concern: the customer's own words, under the type of order */
 .receipt .receipt-concern {
   margin-top: 4px;

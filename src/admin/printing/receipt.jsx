@@ -7,6 +7,14 @@ import checkerColumns, { CHECKER_ROUNDS, breakable } from '../../data/checkers.j
 // the invoice table's lines; more invoices than this add a line each
 const INVOICE_ROWS = 13;
 
+// the type of order steps down as it gets longer, so several types still fit their box and the ticket stays on one
+// page: "Roofings, Steel" prints large, "Roofings, Roofings Accessories, Steel, Hardwares" small (see receipt.css)
+const typeSize = (purpose = "") =>
+    purpose.length > 56 ? " receipt-value--xs"
+    : purpose.length > 32 ? " receipt-value--s"
+    : purpose.length > 16 ? " receipt-value--m"
+    : "";
+
 // the queue ticket and exit pass, a form filled in by hand at the gate and the warehouse: the date and time in and
 // out, trucking, plate number, runner, the pick-up question and each invoice's status are left blank to write in
 // purpose: the type or types of order, e.g. "Roofings, Steel"
@@ -53,7 +61,7 @@ export default function Receipt({ queueNumber, name, purpose, concern, invoices 
                         <td>Trucking</td>
                         <td className="receipt-type" rowSpan={4}>
                             <p className="receipt-label">Type of Order</p>
-                            <p className="receipt-value">{purpose}</p>
+                            <p className={`receipt-value${typeSize(purpose)}`}>{purpose}</p>
                             {concern && <p className="receipt-concern">{concern}</p>}
                         </td>
                     </tr>
