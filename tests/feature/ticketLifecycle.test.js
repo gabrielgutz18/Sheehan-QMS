@@ -1,5 +1,6 @@
 // the life of a queue ticket, through the same API the kiosk, the display and the counters use:
-// taken at the kiosk → waiting → called (serving) → done, and the ways back: reopen, send back, delete, restore
+// taken at the kiosk → waiting → called (serving) → done, and the ways back: reopen, send back, delete, restore;
+// sales don't call customers (they hand them over and loading calls them), so the calls here are an admin's
 // run: npm test            only some: npm test -- --test-name-pattern="restoring"
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, test } from 'node:test';
@@ -73,12 +74,12 @@ describe("taking a ticket", () => {
 describe("serving a ticket", () => {
     test("calling a ticket puts it on the display for the staff member who called it", async () => {
         await takeTicket();
-        const maria = await app.actingAsSales();
+        const admin = await app.actingAsAdmin();
 
-        const called = (await maria.post("/admin/orders/1/call", { remarks: "Counter 2" })).assertStatus(200).body;
+        const called = (await admin.post("/admin/orders/1/call", { remarks: "Counter 2" })).assertStatus(200).body;
 
         assert.equal(called.status, "serving");
-        assert.deepEqual(called.servedBy, { id: maria.account.id, name: "Maria Santos", photo: null });
+        assert.deepEqual(called.servedBy, { id: admin.account.id, name: admin.account.name, photo: null });
         assert.equal(called.servedAt, undefined);
         assert.equal(called.remarks, "Counter 2");
         assert.equal(typeof called.calledAt, "number");
@@ -87,22 +88,21 @@ describe("serving a ticket", () => {
         assert.deepEqual(serving.map((s) => [s.queueNum, s.remarks]), [[1, "Counter 2"]]);
         assert.deepEqual(upcoming, []);
 
-        const admin = await app.actingAsAdmin();
-        assert.equal((await accountIn(admin, maria.account.id)).servingNow, 1);
+        assert.equal((await accountIn(admin, admin.account.id)).servingNow, 1);
     });
 
     test("the latest call headlines the display, and a recall moves it back to the top", async () => {
         await takeTicket();
-        const maria = await app.actingAsSales();
+        const admin = await app.actingAsAdmin();
         await takeTicket({ name: "Ana Reyes" });
 
-        await maria.post("/admin/orders/1/call", { remarks: "Counter 2" });
+        (await admin.post("/admin/orders/1/call", { remarks: "Counter 2" })).assertStatus(200);
         await sleep(5);
-        await maria.post("/admin/orders/2/call", { remarks: "Counter 2" });
+        (await admin.post("/admin/orders/2/call", { remarks: "Counter 2" })).assertStatus(200);
         assert.deepEqual((await app.client().get("/queue")).body.serving.map((s) => s.queueNum), [2, 1]);
 
         await sleep(5);
-        (await maria.post("/admin/orders/1/call", { remarks: "Last call" })).assertStatus(200);
+        (await admin.post("/admin/orders/1/call", { remarks: "Last call" })).assertStatus(200);
         const { serving } = (await app.client().get("/queue")).body;
         assert.deepEqual(serving.map((s) => [s.queueNum, s.remarks]), [[1, "Last call"], [2, "Counter 2"]]);
     });
@@ -110,19 +110,21 @@ describe("serving a ticket", () => {
     test("whoever calls the ticket last is the one serving it", async () => {
         await takeTicket();
         const maria = await app.actingAsSales();
+        const pedro = await app.actingAsLoading();
         const admin = await app.actingAsAdmin();
+        (await maria.post("/admin/orders/1/handover")).assertStatus(200);
 
-        await maria.post("/admin/orders/1/call");
+        (await pedro.post("/admin/loading/1/call")).assertStatus(200);
         const taken = (await admin.post("/admin/orders/1/call")).assertStatus(200).body;
 
         assert.equal(taken.servedBy.id, admin.account.id);
-        assert.equal((await accountIn(admin, maria.account.id)).servingNow, 0);
+        assert.equal((await accountIn(admin, pedro.account.id)).servingNow, 0);
     });
 
     test("sending a customer back to waiting frees the counter", async () => {
         await takeTicket();
         const maria = await app.actingAsSales();
-        await maria.post("/admin/orders/1/call");
+        (await (await app.actingAsAdmin()).post("/admin/orders/1/call")).assertStatus(200);
 
         const waiting = (await maria.patch("/admin/orders/1", { status: "pending" })).assertStatus(200).body;
 
@@ -137,7 +139,6 @@ describe("finishing a ticket", () => {
     test("marking it done marks it served by that person, with the time, and gives them one point", async () => {
         await takeTicket();
         const maria = await app.actingAsSales();
-        await maria.post("/admin/orders/1/call");
 
         const done = (await maria.patch("/admin/orders/1", { status: "done" })).assertStatus(200).body;
 
@@ -161,7 +162,6 @@ describe("finishing a ticket", () => {
     test("marking it done twice still counts once", async () => {
         await takeTicket();
         const maria = await app.actingAsSales();
-        await maria.post("/admin/orders/1/call");
 
         (await maria.patch("/admin/orders/1", { status: "done" })).assertStatus(200);
         (await maria.patch("/admin/orders/1", { status: "done" })).assertStatus(200);
@@ -172,7 +172,6 @@ describe("finishing a ticket", () => {
     test("reopening a done ticket takes the point back", async () => {
         await takeTicket();
         const maria = await app.actingAsSales();
-        await maria.post("/admin/orders/1/call");
         await maria.patch("/admin/orders/1", { status: "done" });
 
         const reopened = (await maria.patch("/admin/orders/1", { status: "pending" })).assertStatus(200).body;
@@ -198,7 +197,6 @@ describe("finishing a ticket", () => {
         await takeTicket();
         const maria = await app.actingAsSales();
         const admin = await app.actingAsAdmin();
-        await maria.post("/admin/orders/1/call");
         await maria.patch("/admin/orders/1", { status: "done" });
 
         // e.g. from a page that hadn't refreshed yet
@@ -222,7 +220,6 @@ describe("a returning customer", () => {
         await takeTicket();
         await takeTicket({ name: "Ana Reyes" });
         const maria = await app.actingAsSales();
-        await maria.post("/admin/orders/1/call");
         await maria.patch("/admin/orders/1", { status: "done" });
 
         const returning = (await maria.patch("/admin/orders/1", { status: "returning" })).assertStatus(200).body;
@@ -242,7 +239,6 @@ describe("a returning customer", () => {
         await takeTicket();
         const maria = await app.actingAsSales();
         const admin = await app.actingAsAdmin();
-        await maria.post("/admin/orders/1/call");
         await maria.patch("/admin/orders/1", { status: "done" });
 
         await maria.patch("/admin/orders/1", { status: "returning" });
@@ -279,8 +275,8 @@ describe("deleting and restoring", () => {
     test("restoring today's ticket puts it back in line with the same number", async () => {
         await takeTicket();
         const maria = await app.actingAsSales();
-        await maria.post("/admin/orders/1/call");
         const admin = await app.actingAsAdmin();
+        (await admin.post("/admin/orders/1/call")).assertStatus(200);
         await admin.delete("/admin/orders/1");
         const [{ id }] = (await admin.get("/admin/history?deleted=1")).body;
 
@@ -364,22 +360,28 @@ describe("who can do what", () => {
         assert.match(signOut.headers.get("set-cookie"), /; Secure; Max-Age=0$/);
     });
 
-    test("sales staff can serve tickets but not delete them", async () => {
+    test("sales staff can't call or delete tickets: they hand customers over, and loading calls them", async () => {
         await takeTicket();
         const maria = await app.actingAsSales();
 
         (await maria.delete("/admin/orders/1")).assertStatus(403);
-        (await maria.post("/admin/orders/1/call")).assertStatus(200);
+        (await maria.post("/admin/orders/1/call")).assertStatus(403);
+        // Now serving would put them on the display, the same as calling them
+        const refused = (await maria.patch("/admin/orders/1", { status: "serving" })).assertStatus(403).body;
+        assert.equal(refused.message, "Sales don't call customers. Hand them over, and loading calls them.");
+        app.assertDatabaseHas("orders", { queue_num: 1, status: "pending", served_by: null, called_at: null });
+        assert.deepEqual((await app.client().get("/queue")).body.serving, []);
     });
 
-    test("sales staff can set any status, not just admins", async () => {
+    test("sales staff can set any status but Now serving, not just admins", async () => {
         await takeTicket();
         const maria = await app.actingAsSales();
 
-        for (const status of ["serving", "done", "returning", "pending"]) {
+        for (const status of ["done", "returning", "pending"]) {
             const saved = (await maria.patch("/admin/orders/1", { status })).assertStatus(200).body;
             assert.equal(saved.status, status);
         }
+        (await maria.patch("/admin/orders/1", { status: "serving" })).assertStatus(403);
         (await maria.get("/admin/orders")).assertStatus(200);
     });
 
@@ -420,17 +422,19 @@ describe("who can do what", () => {
 
         (await admin.patch(`/admin/users/${maria.account.id}`, { disabled: true })).assertStatus(200);
 
-        (await maria.post("/admin/orders/1/call")).assertStatus(401);
+        (await maria.patch("/admin/orders/1", { status: "done" })).assertStatus(401);
     });
 
     test("unknown tickets, statuses and over-long remarks are refused", async () => {
         await takeTicket();
         const maria = await app.actingAsSales();
 
+        const admin = await app.actingAsAdmin();
+
         (await maria.patch("/admin/orders/99", { status: "done" })).assertStatus(404);
-        (await maria.post("/admin/orders/99/call")).assertStatus(404);
+        (await admin.post("/admin/orders/99/call")).assertStatus(404);
         (await maria.patch("/admin/orders/1", { status: "lost" })).assertStatus(400);
-        (await maria.post("/admin/orders/1/call", { remarks: "x".repeat(121) })).assertStatus(400);
+        (await admin.post("/admin/orders/1/call", { remarks: "x".repeat(121) })).assertStatus(400);
         app.assertDatabaseHas("orders", { queue_num: 1, status: "pending", served_by: null });
     });
 });

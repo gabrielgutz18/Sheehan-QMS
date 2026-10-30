@@ -43,8 +43,7 @@ const officeDay = async () => {
     const kiosk = office.client();
     await kiosk.post("/orders", ticket());
     await kiosk.post("/orders", { name: "Ana Reyes", purpose: "Customer Report", orders: [], concern: "Leaking roof" });
-    await maria.post("/admin/orders/1/call");
-    await maria.patch("/admin/orders/1", { status: "done" });
+    (await maria.patch("/admin/orders/1", { status: "done" })).assertStatus(200);
     return maria;
 };
 

@@ -23,7 +23,7 @@ export default function LoginPage() {
 
     // only follow redirects back into the admin area; otherwise each role goes to its own home page
     const from = location.state?.from?.pathname;
-    const redirectFor = (account) => (from?.startsWith("/admin") ? from : homeFor(account));
+    const redirectFor = (account) => (from?.startsWith("/staff") ? from : homeFor(account));
 
     if (status === "authed") return <Navigate to={redirectFor(user)} replace />;
 

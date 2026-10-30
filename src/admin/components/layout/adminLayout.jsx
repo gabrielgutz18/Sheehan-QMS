@@ -71,8 +71,8 @@ export default function AdminLayout() {
     // the Order status board is already on the page: the loading crews' Order status page, the Security page (the
     // board with what each customer bought), or beside Customer order in a window wide enough for it; everywhere else
     // the top bar's drawer opens it
-    const boardOnPage = pathname === "/admin/order-status" || pathname === "/admin/security" ||
-        (pathname === "/admin/customer-order" && boardDocks);
+    const boardOnPage = pathname === "/staff/order-status" || pathname === "/staff/security" ||
+        (pathname === "/staff/customer-order" && boardDocks);
 
     const links = navFor(user?.role);
     // the page open now, named in the top bar
@@ -89,7 +89,7 @@ export default function AdminLayout() {
     const handleLogout = async () => {
         setSigningOut(true);
         await logout();
-        navigate("/admin/login", { replace: true });
+        navigate("/staff/login", { replace: true });
     };
 
     return (
@@ -117,7 +117,7 @@ export default function AdminLayout() {
                 </nav>
 
                 <div className="admin-sidebar-foot">
-                    <NavLink to="/admin/account" className="admin-user" onClick={() => setMenuOpen(false)}>
+                    <NavLink to="/staff/account" className="admin-user" onClick={() => setMenuOpen(false)}>
                         <Avatar account={user} size={36} />
                         <span className="admin-user-text">
                             <span className="admin-user-name">{user?.name}</span>

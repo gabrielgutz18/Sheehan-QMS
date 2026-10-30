@@ -54,7 +54,6 @@ describe("order export", () => {
 
         // Maria serves Juan at her counter and hands him over to loading, where Pedro takes him: he's still hers
         const maria = await app.actingAsSales("Maria Santos");
-        (await maria.post("/admin/orders/1/call")).assertStatus(200);
         (await maria.post("/admin/orders/1/handover")).assertStatus(200);
         const pedro = await app.actingAsLoading("Pedro Garcia");
         (await pedro.post("/admin/loading/1/call")).assertStatus(200);

@@ -15,7 +15,7 @@ export default function ProtectedRoute({ roles = ["admin"] }) {
 
     if (!user) {
         // remember where they were headed so login can send them back
-        return <Navigate to="/admin/login" replace state={{ from: location }} />;
+        return <Navigate to="/staff/login" replace state={{ from: location }} />;
     }
 
     if (!roles.includes(user.role)) return <Navigate to={homeFor(user)} replace />;

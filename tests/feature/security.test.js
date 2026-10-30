@@ -30,10 +30,9 @@ const order = (overrides = {}) => ({
 
 const takeOrder = async (overrides) => (await app.client().post("/orders", order(overrides))).assertStatus(201).body;
 
-// the sales counter serves the customer and hands them over; the loading crew calls them to each of the order's
+// the sales counter hands the customer over (sales don't call them); the loading crew calls them to each of the order's
 // areas in turn and finishes loading there, until it's done and at the security check
 const loadAndFinish = async (sales, loading, queueNum) => {
-    (await sales.post(`/admin/orders/${queueNum}/call`)).assertStatus(200);
     (await sales.post(`/admin/orders/${queueNum}/handover`)).assertStatus(200);
     for (let status = ""; status !== "done";) {
         (await loading.post(`/admin/loading/${queueNum}/call`, { remarks: "" })).assertStatus(200);
@@ -147,9 +146,7 @@ describe("security check", () => {
         });
         const maria = await app.actingAsSales();
         await loadAndFinish(maria, await app.actingAsLoading(), 1);
-        (await maria.post("/admin/orders/2/call")).assertStatus(200);
         (await maria.patch("/admin/orders/2", { status: "done" })).assertStatus(200);
-        (await maria.post("/admin/orders/3/call")).assertStatus(200);
         (await maria.patch("/admin/orders/3", { status: "done" })).assertStatus(200);
 
         const board = (await maria.get("/admin/order-status")).assertStatus(200).body;

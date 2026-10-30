@@ -38,7 +38,7 @@ const plain = (res, status, text) => {
     res.end(text);
 };
 
-// a file from dist/, or index.html for app pages like /admin/orders so the router takes over
+// a file from dist/, or index.html for app pages like /staff/orders so the router takes over
 function serveSite(req, res) {
     if (req.method !== "GET" && req.method !== "HEAD") return plain(res, 405, "Method not allowed");
 
