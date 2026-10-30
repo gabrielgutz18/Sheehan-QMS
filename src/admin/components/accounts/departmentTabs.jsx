@@ -1,7 +1,7 @@
 import { ROLE_LABELS } from '../../auth/roles.js';
 
 // the departments, in the order the sidebar has their pages; each is a kind of staff account
-export const DEPARTMENTS = ["admin", "sales", "loading", "tba", "hardware", "security", "cashier", "developer"];
+const DEPARTMENTS = ["admin", "sales", "loading", "tba", "hardware", "security", "cashier", "developer"];
 
 // folder-style tabs for the Accounts page: All, then one per department that has accounts, each with its head count
 // accounts: the list from listUsers(), or null while it loads; value: "all" or a role; onChange(value) picks a tab
