@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
+import '../style/orderStatus.css';
 import '../style/chat.css';
 
 import { answerChat, listChat, listChats } from '../api/chatController.js';
 import { ROLE_LABELS } from '../auth/roles.js';
+import { useAuth } from '../auth/authContext.js';
 import Avatar from '../components/common/avatar.jsx';
+import DeveloperHeads from '../components/chat/developerHeads.jsx';
 import MessageThread from '../components/chat/messageThread.jsx';
+import StaffList from '../components/chat/staffList.jsx';
 import useMessages from '../hooks/useMessages.js';
 
 // new messages should show up while a developer has the page open
@@ -36,11 +40,18 @@ function Conversation({ staff, onSent }) {
 }
 
 // the developers' Chat page: everyone who has written from Message developer, newest first, with how many of their
-// messages nobody has opened yet; picking one opens the conversation to answer it
+// messages nobody has opened yet; picking one opens the conversation to answer it; the team's chat heads on top show
+// which developers are online, since any of them may answer; the Staff list beside the conversations shows every staff
+// member by department and who's online, and picking one opens a conversation with them, even before they've written
 export default function ChatPage() {
+    const { user } = useAuth();
     const [chats, setChats] = useState(null);
     const [listError, setListError] = useState("");
-    const [openId, setOpenId] = useState(null);
+    // the left column: "chats" (the conversations) or "staff" (everyone, by department)
+    const [view, setView] = useState("chats");
+    // whose conversation is open: { id, name, role, photo }, or null
+    const [openStaff, setOpenStaff] = useState(null);
+    const openId = openStaff?.id ?? null;
     // bumped on every answer, so the list shows it as the last message straight away
     const [sent, setSent] = useState(0);
 
@@ -62,12 +73,12 @@ export default function ChatPage() {
         };
     }, [sent]);
 
-    const open = chats?.find(({ staff }) => staff.id === openId);
+    const unread = chats?.reduce((sum, c) => sum + c.unread, 0) ?? 0;
 
     // opening a conversation reads it, so its count goes as soon as it's picked
-    const pick = (staffId) => {
-        setOpenId(staffId);
-        setChats((prev) => prev.map((c) => (c.staff.id === staffId ? { ...c, unread: 0 } : c)));
+    const pick = (staff) => {
+        setOpenStaff(staff);
+        setChats((prev) => prev?.map((c) => (c.staff.id === staff.id ? { ...c, unread: 0 } : c)));
     };
 
     return (
@@ -77,11 +88,26 @@ export default function ChatPage() {
                 <p className="tab-hint">What staff write from Message developer when something doesn't go well. Pick one to answer.</p>
             </div>
 
+            <div className="admin-panel">
+                <DeveloperHeads meId={user.id} />
+            </div>
+
             {listError && <p className="field-error" role="alert">{listError}</p>}
 
             <div className="chat-layout">
-                <nav className="admin-panel chat-list" aria-label="Conversations">
-                    {!chats ? (
+                <nav className="admin-panel chat-list" aria-label={view === "chats" ? "Conversations" : "Staff"}>
+                    <div className="order-status-filters chat-views" role="group" aria-label="Show">
+                        <button type="button" className="status-chip" aria-pressed={view === "chats"} onClick={() => setView("chats")}>
+                            Conversations
+                            {unread > 0 && <span className="status-chip-count">{unread}</span>}
+                        </button>
+                        <button type="button" className="status-chip" aria-pressed={view === "staff"} onClick={() => setView("staff")}>
+                            Staff
+                        </button>
+                    </div>
+                    {view === "staff" ? (
+                        <StaffList openId={openId} onPick={pick} />
+                    ) : !chats ? (
                         <p className="admin-empty">Loading...</p>
                     ) : chats.length === 0 ? (
                         <p className="admin-empty">Nobody has written yet.</p>
@@ -93,7 +119,7 @@ export default function ChatPage() {
                                         type="button"
                                         className={`chat-list-item${staff.id === openId ? " is-open" : ""}`}
                                         aria-current={staff.id === openId ? "true" : undefined}
-                                        onClick={() => pick(staff.id)}
+                                        onClick={() => pick(staff)}
                                     >
                                         <Avatar account={staff} size={36} />
                                         <span className="chat-list-text">
@@ -103,7 +129,10 @@ export default function ChatPage() {
                                                     {ROLE_LABELS[staff.role] ?? staff.role}{staff.disabled && " · switched off"}
                                                 </span>
                                             </span>
-                                            <span className="chat-list-last">{last.fromStaff ? "" : "You: "}{last.body}</span>
+                                            <span className="chat-list-last">
+                                                {!last.fromStaff && `${last.from.id === user.id ? "You" : last.from.name}: `}
+                                                {last.body}
+                                            </span>
                                         </span>
                                         <span className="chat-list-end">
                                             <time dateTime={last.sentAt}>{lastTime.format(new Date(last.sentAt))}</time>
@@ -119,11 +148,11 @@ export default function ChatPage() {
                 </nav>
 
                 <div className="admin-panel chat-panel">
-                    {open ? (
+                    {openStaff ? (
                         // keyed by who it's with, so picking someone else starts their conversation afresh
-                        <Conversation key={open.staff.id} staff={open.staff} onSent={() => setSent((n) => n + 1)} />
+                        <Conversation key={openStaff.id} staff={openStaff} onSent={() => setSent((n) => n + 1)} />
                     ) : (
-                        <p className="admin-empty">Pick a conversation on the left.</p>
+                        <p className="admin-empty">Pick a conversation, or someone on the Staff list, on the left.</p>
                     )}
                 </div>
             </div>

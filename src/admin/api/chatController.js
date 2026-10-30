@@ -8,11 +8,20 @@ import http from '../../api/http.js';
 // Message developer (every role but developer): your own conversation, oldest first; opening it reads their answers
 export const listMyMessages = (options) => http.get("/admin/messages", options);
 
+// the developer team, online ones first: [{ id, name, firstName, surname, photo, online, lastSeen }]; lastSeen is
+// when they last used the app (ms), or null
+export const listDevelopers = (options) => http.get("/admin/developers", options);
+
+// the Chat page's Staff list (developers only): everyone else, online ones first, as listDevelopers has them plus
+// { role, department }
+export const listStaffPresence = (options) => http.get("/admin/staff-presence", options);
+
 // body: the text → the message
 export const sendMyMessage = (body) => http.post("/admin/messages", { body });
 
-// the Chat page (developers only): [{ staff: { id, name, role, photo, disabled }, last: { body, sentAt, fromStaff },
-// unread }], newest first; unread is how many of theirs no developer has opened yet
+// the Chat page (developers only): [{ staff: { id, name, role, photo, disabled },
+// last: { body, sentAt, fromStaff, from: { id, name } }, unread }], newest first; unread is how many of theirs no
+// developer has opened yet
 export const listChats = (options) => http.get("/admin/chats", options);
 
 // one staff member's conversation, oldest first; opening it reads what they wrote

@@ -83,6 +83,10 @@ const NO_SUCH_ROLE = "Pick admin, sales, loading, hardware, security, cashier or
 const ADMINS_ONLY = "Only an admin can make or change an admin account.";
 // one chat message, written to or by the developers
 const MAX_MESSAGE = 1000;
+// a developer is online while signed in and using the app: every open page fetches far more often than this
+const ONLINE_MS = 2 * 60 * 1000;
+// how often an account's last_seen is written, at most, so a busy page doesn't write on every request
+const SEEN_EVERY_MS = 30 * 1000;
 // what a guard's security check can find: all as it should be, or something missing, more than the order's quantity,
 // or stolen (the last three are reports, with a note saying what)
 const SECURITY_RESULTS = ["verified", "missing", "over", "stolen"];
@@ -112,10 +116,12 @@ const ACCOUNT_ROUTES = [
     ["PUT", /^\/admin\/me\/photo$/],
     ["DELETE", /^\/admin\/me\/photo$/],
 ];
-// Message developer: every staff member but the developers writes to them there when something doesn't go well
+// Message developer: every staff member but the developers writes to them there when something doesn't go well,
+// seeing which of them are online
 const MESSAGE_ROUTES = [
     ["GET", /^\/admin\/messages$/],
     ["POST", /^\/admin\/messages$/],
+    ["GET", /^\/admin\/developers$/],
 ];
 // what each role other than admin may do; every other /admin route is for admins only, so a new route is safe by default
 const ROLE_ROUTES = {
@@ -187,6 +193,10 @@ const ROLE_ROUTES = {
         ["GET", /^\/admin\/chats$/],
         ["GET", /^\/admin\/chats\/\d+$/],
         ["POST", /^\/admin\/chats\/\d+$/],
+        // their team, and which of them are online; and every other staff member, online or not, on the Chat page's
+        // Staff list
+        ["GET", /^\/admin\/developers$/],
+        ["GET", /^\/admin\/staff-presence$/],
         ["GET", /^\/admin\/order-status$/],
         ["GET", /^\/admin\/users$/],
         ["POST", /^\/admin\/users$/],
@@ -976,10 +986,19 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
         // no developer has read yet
         listChats: db.prepare(`
             SELECT u.id, u.name, u.role, u.photo, u.disabled_at, m.body AS last_body, m.sent_at AS last_at,
-                m.sender_id = u.id AS last_from_staff,
+                m.sender_id = u.id AS last_from_staff, m.sender_id AS last_from_id,
+                (SELECT name FROM users WHERE id = m.sender_id) AS last_from_name,
                 (SELECT COUNT(*) FROM messages x WHERE x.staff_id = u.id AND x.sender_id = u.id AND x.read_at IS NULL) AS unread
             FROM users u JOIN messages m ON m.id = (SELECT MAX(id) FROM messages WHERE staff_id = u.id)
             ORDER BY m.id DESC`),
+        setLastSeen: db.prepare("UPDATE users SET last_seen = ? WHERE id = ?"),
+        // every account but switched-off ones, with whether a sign-in of theirs is still open, for who's online
+        listPresence: db.prepare(`
+            SELECT u.id, u.name, u.first_name, u.surname, u.role, u.department, u.photo, u.last_seen,
+                EXISTS (SELECT 1 FROM sessions s WHERE s.user_id = u.id AND s.expires > :now) AS signed_in
+            FROM users u
+            WHERE u.disabled_at IS NULL
+            ORDER BY u.name COLLATE NOCASE`),
 
         // one staff member's points, by served time
         myTotals: db.prepare(`
@@ -1147,6 +1166,15 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
     // this tab's sign-in
     const getSession = (req) => sessionFor(readCookies(req)[sessionCookieName(req)]);
 
+    // notes that an account is using the app, for who's online; written at most every SEEN_EVERY_MS per account
+    const lastSeenWrites = new Map();
+    const seen = (userId) => {
+        const now = Date.now();
+        if (now - (lastSeenWrites.get(userId) ?? 0) < SEEN_EVERY_MS) return;
+        lastSeenWrites.set(userId, now);
+        sql.setLastSeen.run(now, userId);
+    };
+
     // any tab's sign-in in this browser: for <img> requests (profile photos), which can't send X-Tab-Id
     const anySession = (req) =>
         Object.entries(readCookies(req))
@@ -1185,6 +1213,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             const sid = randomBytes(32).toString("hex");
             sql.deleteExpiredSessions.run(Date.now());
             sql.insertSession.run(sha256(sid), account.id, Date.now() + SESSION_TTL_MS);
+            seen(account.id);
             return send(res, 200, user, {
                 // no Max-Age: the browser forgets it when it closes, so the next person on a shared PC signs in
                 // themselves; the server still ends it after SESSION_TTL_MS
@@ -1256,6 +1285,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             }
         }
         const me = session?.user;
+        if (me) seen(me.id);
 
         // a staff member's profile photo, for any signed-in account; a plain GET from an <img>, so it lives
         // outside /admin, where every request must carry the X-Requested-With header
@@ -1421,13 +1451,46 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             return send(res, 201, toMessage(sql.findMessage.get(lastInsertRowid)));
         }
 
+        // who's online: every account but switched-off ones, online ones first, then by name; online while signed in
+        // and seen in the last ONLINE_MS; lastSeen (ms) is when they last used the app, or null if they never have
+        const presence = () => {
+            const now = Date.now();
+            return sql.listPresence.all({ now }).map((row) => ({
+                id: row.id,
+                name: row.name,
+                firstName: row.first_name,
+                surname: row.surname,
+                role: row.role,
+                department: row.department,
+                photo: row.photo,
+                online: Boolean(row.signed_in) && row.last_seen !== null && now - row.last_seen < ONLINE_MS,
+                lastSeen: row.last_seen,
+            })).toSorted((a, b) => b.online - a.online);
+        };
+
+        // the developer team, for Message developer and the Chat page's chat heads
+        if (method === "GET" && path === "/admin/developers") {
+            return send(res, 200, presence().filter((account) => account.role === "developer"));
+        }
+
+        // the Chat page's Staff list, the developers' only: everyone else, for the page to group by department
+        if (method === "GET" && path === "/admin/staff-presence") {
+            if (me.role !== "developer") return send(res, 403, { message: "Only a developer can do that." });
+            return send(res, 200, presence().filter((account) => account.role !== "developer"));
+        }
+
         // the Chat page, the developers' only (an admin writes to them from Message developer like everyone else):
         // everyone who has written, newest first
         if (method === "GET" && path === "/admin/chats") {
             if (me.role !== "developer") return send(res, 403, { message: "Only a developer can do that." });
             return send(res, 200, sql.listChats.all().map((row) => ({
                 staff: { id: row.id, name: row.name, role: row.role, photo: row.photo, disabled: row.disabled_at !== null },
-                last: { body: row.last_body, sentAt: row.last_at, fromStaff: Boolean(row.last_from_staff) },
+                last: {
+                    body: row.last_body,
+                    sentAt: row.last_at,
+                    fromStaff: Boolean(row.last_from_staff),
+                    from: { id: row.last_from_id, name: row.last_from_name },
+                },
                 unread: row.unread,
             })));
         }

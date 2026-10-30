@@ -121,6 +121,69 @@ describe("developer", () => {
         (await admin.get(`/admin/chats/${admin.account.id}`)).assertStatus(403);
     });
 
+    test("staff see the developer team, online ones first, and who has gone offline", async () => {
+        const sales = await app.actingAsSales();
+        const ana = await app.actingAsDeveloper("Ana Dev");
+        const ben = await app.actingAsDeveloper("Ben Dev");
+        const cara = await app.actingAsDeveloper("Cara Dev");
+        const admin = await app.actingAsAdmin();
+
+        // Ana signed out, Ben last used the app ten minutes ago, Cara is using it now; a switched-off one isn't listed
+        (await ana.post("/auth/logout")).assertStatus(204);
+        const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
+        app.db.prepare("UPDATE users SET last_seen = ? WHERE id = ?").run(tenMinutesAgo, ben.account.id);
+        const dan = await app.actingAsDeveloper("Dan Dev");
+        (await admin.patch(`/admin/users/${dan.account.id}`, { disabled: true })).assertStatus(200);
+
+        const team = (await sales.get("/admin/developers")).assertStatus(200).body;
+
+        assert.deepEqual(team.map((d) => [d.name, d.online]), [
+            ["Cara Dev", true],
+            ["Ana Dev", false],
+            ["Ben Dev", false],
+        ]);
+        assert.equal(team.find((d) => d.name === "Ben Dev").lastSeen, tenMinutesAgo);
+        // the developers see their team too
+        assert.equal((await cara.get("/admin/developers")).assertStatus(200).body.length, 3);
+    });
+
+    test("a developer sees every other staff member with who's online, for the Staff list by department", async () => {
+        const sales = await app.actingAsSales();
+        const loading = await app.actingAsLoading();
+        const developer = await app.actingAsDeveloper();
+        await app.actingAsDeveloper("Other Dev");
+        (await loading.patch("/admin/me", { firstName: "Pedro", surname: "Garcia", department: "Roofings" })).assertStatus(200);
+        (await loading.post("/auth/logout")).assertStatus(204);
+
+        const staff = (await developer.get("/admin/staff-presence")).assertStatus(200).body;
+
+        // the built-in admin too, but no developers; online ones first
+        assert.deepEqual(staff.map((s) => [s.name, s.role, s.online]), [
+            ["admin", "admin", true],
+            ["Maria Santos", "sales", true],
+            ["Pedro Garcia", "loading", false],
+        ]);
+        assert.equal(staff.find((s) => s.role === "loading").department, "Roofings");
+
+        // only the developers have it
+        (await sales.get("/admin/staff-presence")).assertStatus(403);
+        (await (await app.actingAsAdmin()).get("/admin/staff-presence")).assertStatus(403);
+    });
+
+    test("a developer can write to someone first, and the list says which developer answered last", async () => {
+        const sales = await app.actingAsSales();
+        const ana = await app.actingAsDeveloper("Ana Dev");
+        const ben = await app.actingAsDeveloper("Ben Dev");
+
+        (await ana.post(`/admin/chats/${sales.account.id}`, { body: "Is the printer working again?" })).assertStatus(201);
+
+        const [chat] = (await ben.get("/admin/chats")).assertStatus(200).body;
+        assert.equal(chat.staff.id, sales.account.id);
+        assert.deepEqual(chat.last.from, { id: ana.account.id, name: "Ana Dev" });
+        assert.equal(chat.last.fromStaff, false);
+        assert.deepEqual((await sales.get("/admin/messages")).body.map((m) => m.from.name), ["Ana Dev"]);
+    });
+
     test("a message needs some text, up to 1000 characters, and goes only where it should", async () => {
         const sales = await app.actingAsSales();
         const developer = await app.actingAsDeveloper();
