@@ -8,7 +8,7 @@ import Avatar from '../common/avatar.jsx';
 // who's online changes as staff come and go, so it checks again now and then
 const REFRESH_MS = 15000;
 // the departments, in the order the sidebar has their pages; each is a kind of staff account
-const DEPARTMENTS = ["admin", "sales", "loading", "hardware", "security", "cashier"];
+const DEPARTMENTS = ["admin", "sales", "loading", "tba", "hardware", "security", "cashier"];
 
 // the Chat page's Staff list: every staff member by department, online ones first in each, with a green dot on the
 // ones online and when the others were last on; picking one opens a conversation with them

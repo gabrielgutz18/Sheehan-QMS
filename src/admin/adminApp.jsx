@@ -18,6 +18,7 @@ import CustomerOrderPage from './pages/customerOrderPage.jsx';
 import AccCreation from './pages/accCreation.jsx';
 import AccountPage from './pages/accountPage.jsx';
 import LoadingPage from './pages/loadingPage.jsx';
+import TbaPage from './pages/tbaPage.jsx';
 import HardwarePage from './pages/hardwarePage.jsx';
 import OrderStatusPage from './pages/orderStatusPage.jsx';
 import SecurityPage from './pages/securityPage.jsx';
@@ -26,7 +27,7 @@ import ChatPage from './pages/chatPage.jsx';
 import MessageDeveloperPage from './pages/messageDeveloperPage.jsx';
 
 // every kind of staff account but the developers, who are written to from Message developer and have no Dashboard
-const NOT_DEVELOPER = ["admin", "sales", "loading", "hardware", "security", "cashier"];
+const NOT_DEVELOPER = ["admin", "sales", "loading", "tba", "hardware", "security", "cashier"];
 
 // the browser tab: "Sheehan Inc. — Staff" until someone signs in, then their role ("Sheehan Inc. — Sales")
 function StaffTitle() {
@@ -78,14 +79,19 @@ export default function AdminApp() {
                             <Route path="loading" element={<LoadingPage />} />
                         </Route>
 
+                        {/* the TBA department (Tire, Battery, Chassis), the same as the loading crew for its own area */}
+                        <Route element={<ProtectedRoute roles={["admin", "tba"]} />}>
+                            <Route path="tba" element={<TbaPage />} />
+                        </Route>
+
                         {/* the Hardware department, the same as the loading crew for its own area */}
                         <Route element={<ProtectedRoute roles={["admin", "hardware"]} />}>
                             <Route path="hardware" element={<HardwarePage />} />
                         </Route>
 
-                        {/* where every customer is, for both departments and the developers; admins and sales have
+                        {/* where every customer is, for the departments and the developers; admins and sales have
                             the same board on Customer order */}
-                        <Route element={<ProtectedRoute roles={["admin", "loading", "hardware", "developer"]} />}>
+                        <Route element={<ProtectedRoute roles={["admin", "loading", "tba", "hardware", "developer"]} />}>
                             <Route path="order-status" element={<OrderStatusPage />} />
                         </Route>
 

@@ -415,6 +415,16 @@
   gap: 8px;
 }
 
+/* a problem at one of the order's areas, which sends it back there: in the report's red */
+.security-area-problem {
+  color: #8f1d1d;
+  border-color: #e3a5a5;
+}
+
+.security-area-problem:hover:not(:disabled) {
+  background: #fdeeee;
+}
+
 .security-results {
   display: grid;
   gap: 6px;

@@ -1673,14 +1673,6 @@
   border-radius: 6px;
 }
 
-/* the Loading page's station: all of them, or Roofings, Steel or TBA (status-chip, from orderStatus.css) */
-.station-picker {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 16px;
-}
-
 /* a customer at a station: only called, or loading since a time, in green */
 .loading-state {
   font-size: 14px;

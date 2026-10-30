@@ -23,6 +23,7 @@ const teamNames = teams.map((t) => t.name);
 const ROLE_CHOICES = [
     { value: "sales", hint: "takes orders and hands customers over, can change the payment status" },
     { value: "loading", hint: "calls customers sales hands over, their own page only" },
+    { value: "tba", hint: "the same as loading, for the TBA department (Tire, Battery, Chassis)" },
     { value: "hardware", hint: "the same as loading, for the Hardware department" },
     { value: "security", hint: "checks what customers leave with, looking only" },
     { value: "cashier", hint: "changes the payment status, nothing else" },

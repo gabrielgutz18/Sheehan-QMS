@@ -1,10 +1,10 @@
-// adds Loading staff accounts, like Laravel's db:seed, for trying the Loading page; each signs in to the admin area
+// adds Loading staff accounts, and one for TBA, like Laravel's db:seed, for trying the Loading and TBA pages; each signs in to the admin area
 // for Loading and My account only, with no admin or sales rights, and sees every order sales has handed over (loading
 // is one shared line)
 // they're made through the same POST /admin/users an admin uses on Accounts, signed in as the built-in admin from
 // .env; safe to run while the app is running, and running it again leaves existing accounts alone
-// run: npm run seed:loading                                 two demo accounts, password loading123:
-//                                                           loading1 and loading2
+// run: npm run seed:loading                                 three demo accounts, password loading123:
+//                                                           loading1 and loading2 (loading), tba1 (TBA)
 //      npm run seed:loading -- pedro crew-password-1        one account: your own username and password
 // don't run it on the live server with the default password
 import { createServer } from 'node:http';
@@ -13,14 +13,15 @@ import { createApi } from './api.js';
 
 const DEFAULT_PASSWORD = "loading123";
 
-// two, to see them share the one loading line
+// two, to see them share the one loading line, and one at TBA, its own department
 const DEMO_ACCOUNTS = [
-    { username: "loading1", name: "Loading Staff 1" },
-    { username: "loading2", name: "Loading Staff 2" },
+    { username: "loading1", name: "Loading Staff 1", role: "loading" },
+    { username: "loading2", name: "Loading Staff 2", role: "loading" },
+    { username: "tba1", name: "TBA Staff 1", role: "tba" },
 ];
 
 const [username, password = DEFAULT_PASSWORD] = process.argv.slice(2);
-const accounts = username ? [{ username, name: "Loading Staff" }] : DEMO_ACCOUNTS;
+const accounts = username ? [{ username, name: "Loading Staff", role: "loading" }] : DEMO_ACCOUNTS;
 
 const { ADMIN_USERNAME, ADMIN_PASSWORD, DATA_DIR } = process.env;
 if (!ADMIN_USERNAME || !ADMIN_PASSWORD) {
@@ -59,7 +60,7 @@ try {
     if (signIn.status !== 200) throw new Error(`The built-in admin couldn't sign in (${signIn.status}): ${signIn.body?.message}`);
 
     for (const account of accounts) {
-        const created = await admin("POST", "/admin/users", { ...account, password, role: "loading" });
+        const created = await admin("POST", "/admin/users", { ...account, password });
         if (created.status === 409) {
             const existing = (await admin("GET", "/admin/users")).body
                 .find((a) => a.username.toLowerCase() === account.username.toLowerCase());
@@ -74,7 +75,7 @@ try {
         const me = (await staff("GET", "/auth/me")).body;
         const history = (await staff("GET", "/admin/history")).status;
         console.log(`Added ${me.name}: username ${account.username}, password ${password}, role ${me.role}`);
-        console.log(`  signs in to the Loading page and My account; sees every order handed over; admin and sales pages refused (${history})`);
+        console.log(`  signs in to the ${me.role === "tba" ? "TBA" : "Loading"} page and My account; sees the orders handed over to it; admin and sales pages refused (${history})`);
     }
     console.log(`Data folder: ${api.dataDir}`);
 } catch (err) {

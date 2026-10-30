@@ -1,8 +1,15 @@
 import { splitList } from './list.js';
 
 // the departments that take a customer once sales hands them over, each with its own staff role and page: the
-// loading crew (Roofings, Steel, TBA) and Hardware; a customer who bought from both goes to each in turn, one at a time
-export const DEPARTMENTS = { loading: "Loading", hardware: "Hardware" };
+// loading crew (Roofings, Steel), TBA (Tire, Battery, Chassis) and Hardware; a customer who bought from several goes
+// to each in turn, one at a time
+export const DEPARTMENTS = { loading: "Loading", tba: "TBA", hardware: "Hardware" };
+
+// a department's name inside a sentence: "loading", "hardware", but "TBA" stays in capitals
+export const departmentWord = (department) => {
+    const label = DEPARTMENTS[department];
+    return label === label.toUpperCase() ? label : label.toLowerCase();
+};
 
 // the loading areas, departments of the company (not teams), in the order a customer goes through them, each with
 // the types of order (purpose.js) it loads and the department whose staff work it; a ticket for several types is
@@ -11,7 +18,7 @@ export const DEPARTMENTS = { loading: "Loading", hardware: "Hardware" };
 const loadingAreas = [
     { name: "Roofings", types: ["Roofings", "Roofings Accessories"], department: "loading" },
     { name: "Steel", types: ["Steel"], department: "loading" },
-    { name: "TBA", types: ["Tire", "Battery", "Chassis"], department: "loading" },
+    { name: "TBA", types: ["Tire", "Battery", "Chassis"], department: "tba" },
     { name: "Hardware", types: ["Hardwares"], department: "hardware" },
 ];
 

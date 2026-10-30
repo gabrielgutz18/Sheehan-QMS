@@ -1,7 +1,7 @@
 // the backend API, shared by the Vite dev server (npm run dev) and server/server.js (npm start)
 // orders, settings, staff accounts and sign-ins are saved in a SQLite database in the data folder
 // (see server/db.js), and an uploaded display video next to it in videos/, so nothing is lost on restart
-// seven roles: admins can do everything; sales, loading, hardware, security, cashier and developer staff only what
+// eight roles: admins can do everything; sales, loading, TBA, hardware, security, cashier and developer staff only what
 // ROLE_ROUTES lists for them
 import { createHash, randomBytes, scrypt, scryptSync, timingSafeEqual } from 'node:crypto';
 import { createReadStream, createWriteStream, mkdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -73,12 +73,13 @@ const VIDEO_EXTENSIONS = {
 const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 const HISTORY_LIMIT = 200;
 const ANNOUNCER_REPEATS = [1, 2];
-// loading: the loading crew, one shared line for its areas (Roofings, Steel, TBA); hardware: the Hardware department,
-// the same as loading but for its own area (src/data/loadingAreas.js); security: the guards at the gate, the last
-// stage, who check what each customer leaves with; cashier: who changes how each order is paid; developer: the team
-// that builds the app, who answer staff on the Chat page when something doesn't go well
-const ROLES = ["admin", "sales", "loading", "hardware", "security", "cashier", "developer"];
-const NO_SUCH_ROLE = "Pick admin, sales, loading, hardware, security, cashier or developer.";
+// loading: the loading crew, one shared line for its areas (Roofings, Steel); tba: the TBA department (Tire, Battery,
+// Chassis) and hardware: the Hardware department, each the same as loading but for its own area
+// (src/data/loadingAreas.js); security: the guards at the gate, the last stage, who check what each customer leaves
+// with; cashier: who changes how each order is paid; developer: the team that builds the app, who answer staff on the
+// Chat page when something doesn't go well
+const ROLES = ["admin", "sales", "loading", "tba", "hardware", "security", "cashier", "developer"];
+const NO_SUCH_ROLE = "Pick admin, sales, loading, TBA, hardware, security, cashier or developer.";
 // a developer makes and changes accounts on Accounts too, but not admin ones, so they can't give themselves everything
 const ADMINS_ONLY = "Only an admin can make or change an admin account.";
 // one chat message, written to or by the developers
@@ -155,6 +156,14 @@ const ROLE_ROUTES = {
         // the Order status board: every order, not just the ones handed over, with none of the sales details
         ["GET", /^\/admin\/order-status$/],
         ["POST", /^\/admin\/loading\/[^/]+\/(call|start|done|back)$/],
+        ...ACCOUNT_ROUTES,
+        ...MESSAGE_ROUTES,
+    ],
+    // the TBA page: the same as loading's, for the customers handed over with a Tire, Battery or Chassis
+    tba: [
+        ["GET", /^\/admin\/orders$/],
+        ["GET", /^\/admin\/order-status$/],
+        ["POST", /^\/admin\/tba\/[^/]+\/(call|start|done|back)$/],
         ...ACCOUNT_ROUTES,
         ...MESSAGE_ROUTES,
     ],
@@ -1631,7 +1640,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             return send(res, 200, { period, from: range[0], to: range[1], totals, buckets });
         }
 
-        // a loading or hardware account only gets the orders sales has handed over that its department has a part in:
+        // a loading, TBA or hardware account only gets the orders sales has handed over that its department has a part in:
         // the department's one shared line
         if (method === "GET" && path === "/admin/orders") {
             const date = today();
@@ -1803,17 +1812,18 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             }
         }
 
-        // the Loading and Hardware pages: a department's crew calls a customer sales has handed over to one of its
+        // the Loading, TBA and Hardware pages: a department's crew calls a customer sales has handed over to one of its
         // areas, marks them done, or sends them back to waiting; each is one shared line, so any of the department's
         // accounts (or an admin) can call any of them, and finish or send back one the department is serving; a
-        // customer is in one place at a time, so while a sales counter or the other department has them, they can't
+        // customer is in one place at a time, so while a sales counter or another department has them, they can't
         // be called
         // Done means the crew has finished loading the order there: whoever pressed it loaded it, and the sales staff
         // member who handed it over still served it
-        // a station loads one truck at a time: once the truck is at the area they were called to, the crew presses
-        // Loading (start), and from then on the customer can't be called to another area until that one is done (or
-        // sends them back to waiting), e.g. Steel waits while Roofings is loading; Done needs Loading first
-        const loadingMatch = path.match(/^\/admin\/(loading|hardware)\/([^/]+)\/(call|start|done|back)$/);
+        // a station loads one truck at a time: when the truck is at an area, the crew presses Loading at Roofings (or
+        // Steel, ...: start, with the area), whether they called the customer there, to another area, or not yet; from
+        // then on the customer can't be called or loaded at another area until that one is done (or sends them back to
+        // waiting), e.g. Steel waits while Roofings is loading; Done needs Loading first
+        const loadingMatch = path.match(/^\/admin\/(loading|tba|hardware)\/([^/]+)\/(call|start|done|back)$/);
         if (method === "POST" && loadingMatch) {
             const [, department, queueNum, action] = loadingMatch;
             const label = DEPARTMENTS[department];
@@ -1830,7 +1840,29 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             const leftHere = areasLeft.filter((area) => departmentOf(area) === department);
             const loadingAt = servingHere && order.loading_started_at ? order.loading_area || label : null;
 
-            if (action === "call") {
+            if (action === "start") {
+                if (order.status === "done") return send(res, 409, { message: `${label} has already finished this order.` });
+                if (order.status === "serving" && !servingHere) {
+                    return send(res, 409, { message: `Please wait until ${order.served_by_name ?? "the other counter"} finishes.` });
+                }
+                if (loadingAt) return send(res, 409, { message: `${loadingAt} is already loading this truck.` });
+                if (!departmentHas(department, areasLeft)) {
+                    return send(res, 409, { message: `There's nothing left for ${label} on this order.` });
+                }
+                // the area the truck is at: the one they were called to, or the next one, unless the crew picks another
+                const { area = (servingHere && order.loading_area) || (leftHere[0] ?? "") } = body;
+                if (leftHere.length > 0 && !leftHere.includes(area)) {
+                    return send(res, 400, { message: `Load it at an area this order still needs: ${leftHere.join(", ")}.` });
+                }
+                // not called there yet: they're at that area now, and the display says so
+                if (!servingHere || area !== order.loading_area) {
+                    changeStatus(order, "serving", me, {
+                        calledAt: Date.now(), remarks: area ? `Please proceed to ${area}` : "", servedBy: me.id, atLoading: 1,
+                        loadingArea: area,
+                    });
+                }
+                sql.startLoading.run(new Date().toISOString(), order.id);
+            } else if (action === "call") {
                 if (order.status === "done") return send(res, 409, { message: `${label} has already finished this order.` });
                 if (order.status === "serving" && !servingHere) {
                     return send(res, 409, { message: `Please wait until ${order.served_by_name ?? "the other counter"} finishes.` });
@@ -1855,13 +1887,10 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
                 });
             } else {
                 if (!servingHere) return send(res, 409, { message: `${label} isn't serving this customer.` });
-                const at = order.loading_area || label;
-                if (action === "start") {
-                    if (loadingAt) return send(res, 409, { message: `${at} is already loading this truck.` });
-                    sql.startLoading.run(new Date().toISOString(), order.id);
-                } else if (action === "back") changeStatus(order, "pending", me);
+                if (action === "back") changeStatus(order, "pending", me);
                 else if (!loadingAt) {
-                    return send(res, 409, { message: `Press Loading once the truck is at ${at}, then Done when it's loaded.` });
+                    const at = order.loading_area || label;
+                    return send(res, 409, { message: `Press Loading at ${at} once the truck is there, then Done when it's loaded.` });
                 } else {
                     // Done finishes the area they were called to: the order waits for its next area, here or at the
                     // other department, or, once every area is loaded, it's done and goes on to the security check
