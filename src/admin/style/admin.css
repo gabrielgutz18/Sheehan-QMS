@@ -2819,6 +2819,53 @@
   color: var(--text-muted);
 }
 
+/* department tabs on Accounts: shaped like folder tabs, the open one joined to the panel below */
+.folder-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: -1px;
+  overflow-x: auto;
+}
+
+.folder-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding: 8px 14px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--surface-muted);
+  border: 1px solid var(--field-border);
+  border-radius: 8px 8px 0 0;
+  cursor: pointer;
+}
+
+.folder-tab:hover {
+  color: var(--text-dark);
+}
+
+.folder-tab[aria-selected="true"] {
+  position: relative;
+  font-weight: 600;
+  color: var(--text-dark);
+  background: #ffffff;
+  border-bottom-color: #ffffff;
+}
+
+.folder-tab-count {
+  min-width: 20px;
+  padding: 0 6px;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
+  color: var(--text-muted);
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 9px;
+}
+
 /* the Employees grid: one card per account */
 .employee-grid-head {
   display: flex;
