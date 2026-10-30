@@ -91,7 +91,6 @@ describe("customer reports", () => {
         await app.client().post("/orders", report());
         const maria = await app.actingAsSales();
 
-        (await maria.post("/admin/orders/1/call", { remarks: "Customer service desk" })).assertStatus(200);
         const done = (await maria.patch("/admin/orders/1", { status: "done" })).assertStatus(200).body;
 
         assert.equal(done.servedBy.name, "Maria Santos");

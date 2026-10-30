@@ -12,11 +12,13 @@ import formatQueueNum from '../../../data/queueNum.js';
 import { readLastRemarks, saveLastRemarks } from '../../data/lastRemarks.js';
 
 // orders table with the row actions (status, call, edit, delete) and the call dialog
-// admins and sales staff can both set the status, call and edit; only admins can delete (the backend checks too)
+// admins and sales staff can both set the status and edit; only admins call (sales hand customers over and loading
+// calls them) and delete (the backend checks too)
 // Edit opens the ticket on Customer order, e.g. to change its payment status or pick-up day later
 export default function QueueTable({ orders, setOrders, loading, error }) {
     const { user } = useAuth();
     const canDelete = user?.role === "admin";
+    const canCall = user?.role === "admin";
     const [busy, setBusy] = useState(null);
     const [actionError, setActionError] = useState("");
     const [calling, setCalling] = useState(null);
@@ -110,9 +112,11 @@ export default function QueueTable({ orders, setOrders, loading, error }) {
                                             disabled={busy === o.queueNum}
                                             onChange={(e) => changeStatus(o.queueNum, e.target.value)}
                                         >
-                                            {/* a done order goes back in line (Waiting or Returning) before it's called */}
+                                            {/* a done order goes back in line (Waiting or Returning) before it's called;
+                                                Now serving calls them, which sales don't */}
                                             {orderStatus.map(({ value, label }) => (
-                                                <option key={value} value={value} disabled={o.status === "done" && value === "serving"}>
+                                                <option key={value} value={value}
+                                                    disabled={value === "serving" && o.status !== "serving" && (o.status === "done" || !canCall)}>
                                                     {label}
                                                 </option>
                                             ))}
@@ -125,7 +129,7 @@ export default function QueueTable({ orders, setOrders, loading, error }) {
                                     </td>
                                     <td>
                                         <div className="row-actions">
-                                            {o.status !== "done" && (
+                                            {canCall && o.status !== "done" && (
                                                 <button
                                                     type="button"
                                                     className="admin-btn admin-btn-call"
@@ -136,12 +140,12 @@ export default function QueueTable({ orders, setOrders, loading, error }) {
                                                 </button>
                                             )}
                                             {/* the queue ticket, to print it again */}
-                                            <Link className="admin-btn" to={`/admin/customer-order?ticket=${o.queueNum}&view=1`}>
+                                            <Link className="admin-btn" to={`/staff/customer-order?ticket=${o.queueNum}&view=1`}>
                                                 View ticket
                                             </Link>
                                             {/* a Customer Report has a concern, which Customer order no longer takes */}
                                             {!o.concern && (
-                                                <Link className="admin-btn" to={`/admin/customer-order?ticket=${o.queueNum}`}>
+                                                <Link className="admin-btn" to={`/staff/customer-order?ticket=${o.queueNum}`}>
                                                     Edit
                                                 </Link>
                                             )}

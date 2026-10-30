@@ -163,7 +163,7 @@ npm run build
 sudo -u sheehan node --env-file=.env server/server.js
 ```
 
-You should see `Sheehan queue running on http://localhost:3000` and `Data folder: /var/lib/sheehan-queue/data`. From your PC, open `http://<server-ip>:3000` and sign in at `/admin`. Then press Ctrl+C to stop it.
+You should see `Sheehan queue running on http://localhost:3000` and `Data folder: /var/lib/sheehan-queue/data`. From your PC, open `http://<server-ip>:3000` and sign in at `/staff`. Then press Ctrl+C to stop it.
 
 ## 7. Run it as a service
 
@@ -269,8 +269,8 @@ scp -r <user>@<server-ip>:/var/backups/sheehan-queue ./sheehan-backups
 | Screen | Open |
 |---|---|
 | Display screen | `http://<server-ip>:3000/`, opened with `deploy\display-screen.cmd` (below) |
-| Admin | `http://<server-ip>:3000/admin` |
-| Customer order (admin and sales) | `http://<server-ip>:3000/admin/customer-order` |
+| Staff (every role signs in here) | `http://<server-ip>:3000/staff` |
+| Customer order (admin and sales) | `http://<server-ip>:3000/staff/customer-order` |
 | Sales counter | `http://<server-ip>:3000/sales` |
 
 On the Windows PC that drives the display screen, copy [`deploy/display-screen.cmd`](../deploy/display-screen.cmd) from this repo, set `SERVER` at the top to the server's address (with nginx, `http://<server-ip>`), and double-click it. It opens the display full screen in its own Microsoft Edge window (Chrome if Edge isn't installed) that's allowed to play sound, so calls are read out without anyone clicking the page. Edge has Microsoft's natural voices (Ava, Emma, Jenny, Rosa for Philippine English, ...): pick one under Admin → Call announcements with the admin page open in Edge, so it's a voice the display has too. Put a shortcut to it in `shell:startup` to open the display when Windows starts. Opened any other way, the browser keeps the display silent after every start or reload until someone clicks on the page.

@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 import formatQueueNum from '../../../data/queueNum.js';
 import { handOverTo } from '../../data/loadingAreas.js';
 
-// modal to confirm handing the customer a sales counter is serving over to loading, Hardware, or both in turn (by what
+// modal to confirm handing a customer over to loading after the ticket and the talk, Hardware, or both in turn (by what
 // they bought): one shared line each, so there's no team to pick; the order keeps its sales team, and it counts as a
 // customer served
 export default function HandOverDialog({ order, busy, error, onHandOver, onClose }) {

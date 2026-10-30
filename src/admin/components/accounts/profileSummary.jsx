@@ -23,7 +23,7 @@ export default function ProfileSummary({ account }) {
     return (
         <section className="profile-summary" aria-label="Your profile">
             <div className="profile-summary-cover">
-                <Link to="/admin/account" className="profile-summary-edit" aria-label="Edit my account">
+                <Link to="/staff/account" className="profile-summary-edit" aria-label="Edit my account">
                     <Icon d={EDIT_ICON} />
                 </Link>
             </div>

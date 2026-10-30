@@ -38,7 +38,6 @@ const staff = async () => ({
 });
 
 const handOver = async (sales, queueNum) => {
-    (await sales.post(`/admin/orders/${queueNum}/call`)).assertStatus(200);
     return (await sales.post(`/admin/orders/${queueNum}/handover`)).assertStatus(200).body;
 };
 const areasOf = (o) => o.areas.map(({ name, loaded }) => [name, loaded?.by.name]);

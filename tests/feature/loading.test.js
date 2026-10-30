@@ -36,9 +36,8 @@ const staff = async () => ({
     rico: await app.actingAsLoading("Rico Steel"),
 });
 
-// the sales counter serves the customer, then hands them over to loading
+// after the ticket and the talk, the sales counter hands the customer over to loading (sales don't call them)
 const handOver = async (sales, queueNum) => {
-    (await sales.post(`/admin/orders/${queueNum}/call`)).assertStatus(200);
     return (await sales.post(`/admin/orders/${queueNum}/handover`)).assertStatus(200).body;
 };
 
@@ -81,8 +80,8 @@ describe("loading", () => {
 
         const refused = (await rico.post("/admin/loading/1/call")).assertStatus(409).body;
         assert.equal(refused.message, "Loading has already finished this order.");
-        // nor can a sales counter call them back once it's loaded
-        (await maria.post("/admin/orders/1/call")).assertStatus(409);
+        // nor can an admin call them back to a counter once it's loaded
+        (await (await app.actingAsAdmin()).post("/admin/orders/1/call")).assertStatus(409);
         app.assertDatabaseHas("orders", { queue_num: 1, status: "done", loaded_by: pedro.account.id });
     });
 
@@ -120,15 +119,16 @@ describe("loading", () => {
         assert.equal(done.loaded.by.name, "Pedro Garcia");
     });
 
-    test("a customer called back to a sales counter can't be called by loading", async () => {
+    test("a customer an admin calls back to a counter can't be called by loading", async () => {
         await takeOrder();
         const { maria, pedro } = await staff();
+        const admin = await app.actingAsAdmin();
         await handOver(maria, 1);
-        (await maria.post("/admin/orders/1/call")).assertStatus(200);
+        (await admin.post("/admin/orders/1/call")).assertStatus(200);
 
         const refused = (await pedro.post("/admin/loading/1/call")).assertStatus(409).body;
 
-        assert.equal(refused.message, "Please wait until Maria Santos finishes.");
+        assert.equal(refused.message, `Please wait until ${admin.account.name} finishes.`);
         (await pedro.post("/admin/loading/1/done")).assertStatus(409);
     });
 
@@ -291,7 +291,7 @@ describe("loading area by area", () => {
 });
 
 describe("handing over to loading", () => {
-    test("sales serves the customer first, and loading can call them once they're handed over", async () => {
+    test("after the ticket and the talk sales hands the customer over, without calling them, and loading calls them", async () => {
         await takeOrder();
         const { maria, pedro } = await staff();
 
@@ -299,13 +299,12 @@ describe("handing over to loading", () => {
         assert.equal(tooSoon.message, "Sales hasn't handed this customer over yet.");
         assert.deepEqual((await pedro.get("/admin/orders")).assertStatus(200).body, []);
 
-        (await maria.post("/admin/orders/1/call", { remarks: "Please proceed to Window 1" })).assertStatus(200);
         const handed = (await maria.post("/admin/orders/1/handover")).assertStatus(200).body;
 
-        // back in line, for loading now, without the counter's remarks; still the sales team's order
+        // in line, for loading now, never on the display before; still the sales team's order
         assert.equal(handed.status, "pending");
         assert.equal(handed.team, "GIGA");
-        assert.equal(handed.remarks, "");
+        assert.equal(handed.calledAt, undefined);
         assert.equal(handed.servedBy, undefined);
         assert.equal(handed.handedOver.by.name, "Maria Santos");
         assert.ok(handed.handedOver.at);
@@ -314,7 +313,21 @@ describe("handing over to loading", () => {
         assert.equal((await maria.get("/admin/me/stats?period=day")).assertStatus(200).body.totals.today, 1);
 
         assert.equal((await pedro.get("/admin/orders")).assertStatus(200).body.length, 1);
-        (await pedro.post("/admin/loading/1/call")).assertStatus(200);
+        const called = (await pedro.post("/admin/loading/1/call", { remarks: "Please proceed to Roofings" })).assertStatus(200).body;
+        assert.equal(called.servedBy.name, "Pedro Garcia");
+        assert.deepEqual((await app.client().get("/queue")).body.serving.map((c) => c.remarks), ["Please proceed to Roofings"]);
+    });
+
+    test("a customer an admin is serving at a counter can be handed over too", async () => {
+        await takeOrder();
+        const { maria } = await staff();
+        (await (await app.actingAsAdmin()).post("/admin/orders/1/call", { remarks: "Window 1" })).assertStatus(200);
+
+        const handed = (await maria.post("/admin/orders/1/handover")).assertStatus(200).body;
+
+        assert.equal(handed.status, "pending");
+        assert.equal(handed.remarks, "");
+        assert.equal(handed.servedBy, undefined);
     });
 
     test("there's no team to pick: an order with no sales team is handed over just the same", async () => {
@@ -327,24 +340,26 @@ describe("handing over to loading", () => {
         app.assertDatabaseHas("orders", { queue_num: 1, team: "", handed_over_by: maria.account.id });
     });
 
-    test("only a customer being served can be handed over, and only once", async () => {
+    test("a customer is handed over once, and not once they're done", async () => {
         await takeOrder();
+        await takeOrder({ name: "Ana Reyes" });
         const { maria } = await staff();
-
-        const notServed = (await maria.post("/admin/orders/1/handover")).assertStatus(409).body;
-        assert.equal(notServed.message, "Serve the customer first, then hand them over.");
 
         await handOver(maria, 1);
         const again = (await maria.post("/admin/orders/1/handover")).assertStatus(409).body;
         assert.equal(again.message, "This customer is already with loading.");
         (await maria.post("/admin/orders/9/handover")).assertStatus(404);
-        app.assertDatabaseCount("serves", 1);
+
+        (await maria.patch("/admin/orders/2", { status: "done" })).assertStatus(200);
+        const done = (await maria.post("/admin/orders/2/handover")).assertStatus(409).body;
+        assert.equal(done.message, "This order is already done.");
+        app.assertDatabaseHas("orders", { queue_num: 2, handed_over_by: null });
+        app.assertDatabaseCount("serves", 2);
     });
 
     test("loading staff can't hand customers over", async () => {
         await takeOrder();
-        const { maria, pedro } = await staff();
-        (await maria.post("/admin/orders/1/call")).assertStatus(200);
+        const { pedro } = await staff();
 
         (await pedro.post("/admin/orders/1/handover")).assertStatus(403);
         app.assertDatabaseHas("orders", { queue_num: 1, handed_over_by: null });

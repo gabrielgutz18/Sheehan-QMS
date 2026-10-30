@@ -30,16 +30,11 @@ const sale = (name, purpose, invoices, team = "GIGA") => ({
     salesman: SALES.name, runner: "", team, pickupDate: null,
 });
 
-// the sales counter serves the customer; handing them over sends them on to loading
-const call = (n, sales) => sales("POST", `/admin/orders/${n}/call`);
-const handOver = async (n, sales) => {
-    await call(n, sales);
-    await sales("POST", `/admin/orders/${n}/handover`);
-};
-const doneAtSales = async (n, sales) => {
-    await call(n, sales);
-    await sales("PATCH", `/admin/orders/${n}`, { status: "done" });
-};
+// sales don't call customers: after the ticket and the talk they hand them over to loading, or mark done one with
+// nothing to load; only an admin calls a customer to a counter
+const call = (n, admin) => admin("POST", `/admin/orders/${n}/call`);
+const handOver = (n, sales) => sales("POST", `/admin/orders/${n}/handover`);
+const doneAtSales = (n, sales) => sales("PATCH", `/admin/orders/${n}`, { status: "done" });
 // the loading crew calls them to their next area; Done there sends them on to the area after it, or, after the last,
 // to the security check
 const callToNextArea = (n, loading) => loading("POST", `/admin/loading/${n}/call`, { remarks: "" });
@@ -53,7 +48,7 @@ const loadEveryArea = async (n, loading) => {
 // the guard at the gate: verified, or a report of what's wrong
 const check = (n, guard, result, note) => guard("POST", `/admin/security/${n}/check`, { result, note });
 
-// every stage, each with what gets it there; s is the sales counter, l the loading crew, g the guard
+// every stage, each with what gets it there; s is the sales counter, l the loading crew, g the guard, a the admin
 const CUSTOMERS = [
     {
         order: sale("Juan Dela Cruz", "Roofings, Steel", [["44976501", "Roofings"], ["44976502", "Roofings"], ["22310077", "Steel"]]),
@@ -90,13 +85,13 @@ const CUSTOMERS = [
         steps: async (n, s) => { await handOver(n, s); },
     },
     {
-        // a sales counter calls a handed-over customer back, e.g. to fix an invoice
+        // an admin calls a handed-over customer back to a counter, e.g. to fix an invoice
         order: sale("Noel Ramos", "Roofings", [["44976640", "Roofings"]], "MEGA"),
-        steps: async (n, s) => { await handOver(n, s); await call(n, s); },
+        steps: async (n, s, l, g, a) => { await handOver(n, s); await call(n, a); },
     },
     {
         order: sale("Grace Torres", "Hardwares", [["88120533", "Hardwares"]]),
-        steps: async (n, s) => { await call(n, s); },
+        steps: async (n, s, l, g, a) => { await call(n, a); },
     },
     {
         // served before, and back in line for more
@@ -171,7 +166,7 @@ try {
     const added = [];
     for (const { order, steps } of CUSTOMERS) {
         const { body: taken } = await admin("POST", "/orders", order);
-        await steps(taken.queueNum, sales, loading, guard ?? admin);
+        await steps(taken.queueNum, sales, loading, guard ?? admin, admin);
         added.push(taken.queueNum);
     }
 

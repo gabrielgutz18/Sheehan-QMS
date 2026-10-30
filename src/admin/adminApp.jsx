@@ -3,6 +3,8 @@ import './style/admin.css';
 
 import AuthProvider from './auth/authProvider.jsx';
 import ProtectedRoute from './auth/protectedRoute.jsx';
+import { useAuth } from './auth/authContext.js';
+import { ROLE_LABELS } from './auth/roles.js';
 import AdminLayout from './components/layout/adminLayout.jsx';
 import LoginPage from './pages/loginPage.jsx';
 import DashboardPage from './pages/dashboardPage.jsx';
@@ -21,11 +23,17 @@ import OrderStatusPage from './pages/orderStatusPage.jsx';
 import SecurityPage from './pages/securityPage.jsx';
 import CashierPage from './pages/cashierPage.jsx';
 
-// mounted at /admin/* — paths below are relative to it
+// the browser tab: "Sheehan Inc. — Staff" until someone signs in, then their role ("Sheehan Inc. — Sales")
+function StaffTitle() {
+    const { user } = useAuth();
+    return <title>{`Sheehan Inc. — ${ROLE_LABELS[user?.role] ?? "Staff"}`}</title>;
+}
+
+// mounted at /staff/* — paths below are relative to it
 export default function AdminApp() {
     return (
         <AuthProvider>
-            <title>Sheehan Inc. — Admin</title>
+            <StaffTitle />
             {/* keep admin pages out of search engines if the site is ever public */}
             <meta name="robots" content="noindex, nofollow" />
 
@@ -43,7 +51,8 @@ export default function AdminApp() {
                         <Route element={<ProtectedRoute roles={["admin", "sales"]} />}>
                             <Route path="customer-order" element={<CustomerOrderPage />} />
                             <Route path="counter" element={<SalesPage />} />
-                            {/* sales can set any status here too; Delete stays admin-only */}
+                            {/* sales can set any status here but Now serving (they don't call); Call and Delete stay
+                                admin-only */}
                             <Route path="orders" element={<OrdersPage />} />
                             <Route path="history" element={<HistoryPage />} />
                         </Route>
@@ -70,8 +79,9 @@ export default function AdminApp() {
                             <Route path="security" element={<SecurityPage />} />
                         </Route>
 
-                        {/* the cashier: changing how each order is paid, no admin rights beyond this page and My account */}
-                        <Route element={<ProtectedRoute roles={["admin", "cashier"]} />}>
+                        {/* changing how each order is paid: the cashier, with no admin rights beyond this page and My
+                            account, and sales */}
+                        <Route element={<ProtectedRoute roles={["admin", "sales", "cashier"]} />}>
                             <Route path="cashier" element={<CashierPage />} />
                         </Route>
 
@@ -84,7 +94,7 @@ export default function AdminApp() {
                     </Route>
                 </Route>
 
-                <Route path="*" element={<Navigate to="/admin" replace />} />
+                <Route path="*" element={<Navigate to="/staff" replace />} />
             </Routes>
         </AuthProvider>
     );

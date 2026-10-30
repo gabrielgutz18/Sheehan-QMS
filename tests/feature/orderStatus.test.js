@@ -70,10 +70,9 @@ describe("order status", () => {
         const pedro = await app.actingAsLoading("Pedro Garcia");
         const now = async () => (await board(pedro))[0];
 
-        // at the sales counter
-        (await maria.post("/admin/orders/1/call")).assertStatus(200);
-        assert.equal((await now()).status, "serving");
-        assert.deepEqual((await now()).servedBy, { id: maria.account.id, name: "Maria Santos", photo: null });
+        // in line while sales takes the ticket and talks with them (sales don't call them)
+        assert.equal((await now()).status, "pending");
+        assert.equal((await now()).servedBy, undefined);
         assert.equal((await now()).handedOver, undefined);
 
         // handed over to loading, waiting for the loading crew
@@ -110,13 +109,15 @@ describe("order status", () => {
     test("it shows the photo of whoever is serving the customer, for the Dashboard's In charge list", async () => {
         await takeOrder();
         const maria = await app.actingAsSales();
-        app.db.prepare("UPDATE users SET photo = ? WHERE id = ?").run(`user-${maria.account.id}.jpg`, maria.account.id);
-        (await maria.post("/admin/orders/1/call")).assertStatus(200);
+        const pedro = await app.actingAsLoading("Pedro Garcia");
+        app.db.prepare("UPDATE users SET photo = ? WHERE id = ?").run(`user-${pedro.account.id}.jpg`, pedro.account.id);
+        (await maria.post("/admin/orders/1/handover")).assertStatus(200);
+        (await pedro.post("/admin/loading/1/call")).assertStatus(200);
 
-        // every role sees who has the customer, the guards and the cashier too
-        for (const staff of [await app.actingAsLoading(), await app.actingAsSecurity(), await app.actingAsCashier()]) {
+        // every role sees who has the customer, sales, the guards and the cashier too
+        for (const staff of [maria, await app.actingAsSecurity(), await app.actingAsCashier()]) {
             const [listed] = await board(staff);
-            assert.deepEqual(listed.servedBy, { id: maria.account.id, name: "Maria Santos", photo: `user-${maria.account.id}.jpg` });
+            assert.deepEqual(listed.servedBy, { id: pedro.account.id, name: "Pedro Garcia", photo: `user-${pedro.account.id}.jpg` });
         }
     });
 });

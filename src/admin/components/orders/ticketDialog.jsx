@@ -17,7 +17,7 @@ const duration = (ms) => {
 // (invoice, payment status, team, pick-up day), or their concern for a Customer Report
 // order: the ticket as it is now, so it shows straight away when someone else takes it
 // openedAt: when View was pressed, for how long they've waited
-// onServe: shows Serve while the ticket is still in line (My counter); leave it out to only look
+// onServe: shows Serve while the ticket is still in line (My counter, for admins); leave it out to only look
 export default function TicketDialog({ order, openedAt, onServe, onClose }) {
     const dialogRef = useRef(null);
 

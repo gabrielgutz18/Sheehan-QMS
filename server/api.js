@@ -36,6 +36,8 @@ const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 const ORDER_STATUSES = ["pending", "serving", "returning", "done"];
 // a done order can't be called (or set to Now serving) again: it has to go back in line first
 const ALREADY_DONE = "This order is already done. Mark them Returning to put them back in line, then call them.";
+// sales hand the customer over after the ticket and the talk; the department (loading or Hardware) calls them
+const SALES_DONT_CALL = "Sales don't call customers. Hand them over, and loading calls them.";
 const MAX_REMARKS = 120;
 // optional per-item color for roofing orders; must match src/data/roofingColors.js
 const ROOFING_COLORS = ["red", "blue", "green"];
@@ -43,10 +45,12 @@ const ROOFING_COLORS = ["red", "blue", "green"];
 // longer takes them, but older tickets are reports
 const REPORT_PURPOSE = "Customer Report";
 const MAX_CONCERN = 300;
-// the payment statuses the cashier picks from on the Cashier page (sales can't set them), and the teams sales pick on
-// Customer order; both are the lists in src/data, so a new one is added in one place
+// the payment statuses picked on the Cashier page and on Customer order, and the teams sales pick on Customer order;
+// both are the lists in src/data, so a new one is added in one place
 const PAYMENT_STATUSES = paymentStatus.map((p) => p.type);
 const NO_SUCH_PAYMENT = `Pick a payment status from the list (${PAYMENT_STATUSES.join(", ")}).`;
+// who picks the payment status on Customer order, as they take or edit the order; the cashier has the Cashier page
+const PAYMENT_ON_ORDER = ["admin", "sales"];
 const TEAMS = teams.map((t) => t.name);
 const CHECKER_COLUMNS = checkers.map((c) => c.name);
 // an order can have several invoices, each with its number and the type of order it's for
@@ -112,11 +116,14 @@ const ROLE_ROUTES = {
         ["GET", /^\/admin\/orders\/[^/]+$/],
         ["PUT", /^\/admin\/orders\/[^/]+$/],
         // the Order sheet on Customer order: every day's orders, saved one cell at a time (runner, receiver, sales
-        // team); the payment status shows there but only the cashier changes it
+        // team); the payment status shows there and is changed on the Cashier page
         ["GET", /^\/admin\/order-sheet$/],
         ["PATCH", /^\/admin\/order-sheet\/\d+$/],
-        ["POST", /^\/admin\/orders\/[^/]+\/call$/],
+        // sales don't call customers: after the ticket and the talk they hand them over, and the department calls them
         ["POST", /^\/admin\/orders\/[^/]+\/handover$/],
+        // the Cashier page, the same as the cashier's: changing how each order is paid
+        ["GET", /^\/admin\/payments$/],
+        ["PATCH", /^\/admin\/payments\/\d+$/],
         ["PATCH", /^\/admin\/orders\/[^/]+$/],
         ["GET", /^\/admin\/history$/],
         ["POST", /^\/admin\/history\/\d+\/restore$/],
@@ -390,14 +397,15 @@ const storedCheckers = (value = {}) => {
 };
 
 // the sales details from Customer order, each optional: salesman, runner, receiver, the times the customer came in to
-// sales and left it, the sales team that served them, and for a returning customer, the day they come back for the
-// items (null when they're taking them now); a payment status sent with them is left out: only the cashier sets it
+// sales and left it, the sales team that served them, how it's paid, and for a returning customer, the day they come
+// back for the items (null when they're taking them now); the payment status is only kept from an admin or sales staff
+// member (see paymentFrom)
 const validSale = ({
-    salesman, runner, receiver, salesTimeIn, salesTimeOut, checkers: checkerNames, team, pickupDate,
+    salesman, runner, receiver, salesTimeIn, salesTimeOut, checkers: checkerNames, team, paymentStatus: payment, pickupDate,
 }) =>
     optionalText(salesman, MAX_SALESMAN) && optionalText(runner, MAX_RUNNER) && optionalText(receiver, MAX_RECEIVER) &&
     optionalTime(salesTimeIn) && optionalTime(salesTimeOut) && validCheckers(checkerNames) &&
-    optionalPick(team, TEAMS) &&
+    optionalPick(team, TEAMS) && optionalPick(payment, PAYMENT_STATUSES) &&
     (pickupDate === undefined || pickupDate === null || validDay(pickupDate));
 
 const validReport = ({ concern, orders }) =>
@@ -467,7 +475,7 @@ const toMe = (row) => ({
 
 // a report keeps only its concern and an order only its items, so switching purpose on Edit drops the other
 // the keys besides orders and invoices are the insertOrder / updateOrder parameters; the payment status isn't one of
-// them: a new order has none until the cashier sets it, and saving it again on Customer order keeps what's stored
+// them: it's saved on its own (see paymentFrom), so the edit says who set it
 const pickOrder = ({
     name, purpose, orders: items = [], invoices = [], concern, salesman, runner, receiver, salesTimeIn, salesTimeOut,
     checkers: checkerNames, team, pickupDate,
@@ -491,15 +499,15 @@ const pickOrder = ({
 };
 
 // the details a save on Customer order can change, each with its column in orders; items and invoices are compared
-// on their own (the payment status is the cashier's, so it isn't one)
+// on their own, and so is the payment status (see paymentFrom)
 const EDITABLE_COLUMNS = {
     name: "name", purpose: "purpose", concern: "concern", salesman: "salesman", runner: "runner", receiver: "receiver",
     salesTimeIn: "sales_time_in", salesTimeOut: "sales_time_out", checkers: "checkers", team: "team",
     pickupDate: "pickup_date",
 };
 // the Order sheet on Customer order: the details any sales staff member fills in after the ticket, each cell saved on
-// its own, with whether a value is one it takes; the payment status shows on the sheet but isn't one: only the cashier
-// changes it
+// its own, with whether a value is one it takes; the payment status shows on the sheet but isn't one: it's changed on
+// Customer order or the Cashier page
 const SHEET_CELLS = {
     runner: (value) => typeof value === "string" && value.trim().length <= MAX_RUNNER,
     receiver: (value) => typeof value === "string" && value.trim().length <= MAX_RECEIVER,
@@ -521,6 +529,11 @@ const changedDetails = (row, storedItems, storedInvoices, { orders: items, invoi
     ...(JSON.stringify(itemsOf(storedItems)) !== JSON.stringify(items) ? ["items"] : []),
     ...(JSON.stringify(invoicesOf(storedInvoices)) !== JSON.stringify(invoices) ? ["invoices"] : []),
 ];
+
+// the payment status an order is saved with on Customer order: the one picked, from an admin or sales staff member;
+// otherwise (the kiosk, any other account, or none picked) what it had, so it can be changed there but not cleared
+const paymentFrom = (body, staff, stored = "") =>
+    (PAYMENT_ON_ORDER.includes(staff?.role) && body.paymentStatus) || stored;
 
 // one save on Customer order that changed something: who saved it, their sales team then (left out for none), what
 // changed and when (ISO 8601)
@@ -725,7 +738,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             INSERT INTO queue_counters (queue_date, last_num) VALUES (?, 1)
             ON CONFLICT (queue_date) DO UPDATE SET last_num = last_num + 1
             RETURNING last_num`),
-        // payment_status is left to its '' (none yet) and to setPayment, the cashier's
+        // payment_status is left to its '' (none yet) and to setPayment: Customer order's and the Cashier page's
         insertOrder: db.prepare(`
             INSERT INTO orders (queue_date, queue_num, name, purpose, concern, salesman, runner, receiver,
                 sales_time_in, sales_time_out, checkers, team, pickup_date, created_at)
@@ -740,7 +753,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
         updateSheet: db.prepare(`
             UPDATE orders SET runner = :runner, receiver = :receiver, team = :team
             WHERE id = :id`),
-        // the cashier's one change
+        // how the order is paid, from the Cashier page or Customer order
         setPayment: db.prepare("UPDATE orders SET payment_status = ? WHERE id = ?"),
         setStatus: db.prepare(`
             UPDATE orders SET status = :status, called_at = :calledAt, remarks = :remarks, served_by = :servedBy,
@@ -1121,13 +1134,22 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             // only tickets that join the queue count; a refused one is already covered by the api limit
             limiters.orders.hit(ip);
             const { orders: items, invoices, ...fields } = pickOrder(body);
+            // an admin or sales staff member taking it on Customer order can say how it's paid; the kiosk can't
+            const staff = getSession(req)?.user;
+            const payment = paymentFrom(body, staff);
             const order = transaction(db, () => {
                 const date = today();
                 // a plain number; the front end formats it as "SHN 01"
                 const { last_num: queueNum } = sql.nextQueueNum.get(date);
-                const { lastInsertRowid } = sql.insertOrder.run({ ...fields, date, queueNum, createdAt: new Date().toISOString() });
+                const createdAt = new Date().toISOString();
+                const { lastInsertRowid } = sql.insertOrder.run({ ...fields, date, queueNum, createdAt });
                 saveItems(lastInsertRowid, items);
                 saveInvoices(lastInsertRowid, invoices);
+                // kept as an edit too, so the Cashier page shows who set it
+                if (payment) {
+                    sql.setPayment.run(payment, lastInsertRowid);
+                    sql.insertEdit.run(lastInsertRowid, staff.id, staff.team, JSON.stringify(["paymentStatus"]), createdAt);
+                }
                 return loadOrder(sql.findOrder.get(date, queueNum));
             });
             return send(res, 201, order);
@@ -1443,14 +1465,15 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             return send(res, 200, loadOrder(findToday(order.queue_num)));
         }
 
-        // a sales counter hands the customer it's serving over to loading: they wait in line on the Loading page, the
-        // order keeps its sales team, and it counts as the customer served for whoever served them at the counter
+        // after the ticket and the talk with the customer, sales hands them over to loading: they wait in line on the
+        // Loading page, where the crew calls them (sales doesn't), the order keeps its sales team, and it counts as the
+        // customer served for whoever served them (whoever hands them over, if nobody called them)
         const handOverMatch = path.match(/^\/admin\/orders\/([^/]+)\/handover$/);
         if (method === "POST" && handOverMatch) {
             const order = findToday(Number(decodeURIComponent(handOverMatch[1])));
             if (!order) return send(res, 404, { message: "Order not found." });
             if (order.handed_over_by !== null) return send(res, 409, { message: "This customer is already with loading." });
-            if (order.status !== "serving") return send(res, 409, { message: "Serve the customer first, then hand them over." });
+            if (order.status === "done") return send(res, 409, { message: "This order is already done." });
             const at = new Date().toISOString();
             transaction(db, () => {
                 sql.handOver.run({ user: me.id, at, id: order.id });
@@ -1492,13 +1515,13 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             return send(res, 200, loadAnyDay([sql.findById.get(order.id)])[0]);
         }
 
-        // the Cashier page (cashiers and admins): the Order sheet's orders, every one from every day (deleted ones and
+        // the Cashier page (cashiers, sales and admins): the Order sheet's orders, every one from every day (deleted ones and
         // Customer Reports left out), with how each is paid
         if (method === "GET" && path === "/admin/payments") {
             return send(res, 200, loadPayments(sql.sheetOrders.all(REPORT_PURPOSE)));
         }
 
-        // the cashier changes how an order is paid, e.g. Vale to Paid once the customer has settled it; from any day, by
+        // the cashier (or sales) changes how an order is paid, e.g. Vale to Paid once the customer has settled it; from any day, by
         // id; it can be changed but not cleared, and a change is kept as an edit with who made it, like one on the Order
         // sheet, so sales see it on the ticket
         const paymentMatch = path.match(/^\/admin\/payments\/(\d+)$/);
@@ -1526,15 +1549,21 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             if (method === "GET") return send(res, 200, loadOrder(order));
             // Customer order saves the whole order again (admins and sales staff only); a save that changes something
             // is kept as an edit with who saved it, their sales team and when; one that changes nothing isn't
-            // the runner and receiver are filled in on the Order sheet, so a save without them keeps what's stored
+            // the runner and receiver are filled in on the Order sheet, so a save without them keeps what's stored; so
+            // does one without a payment status
             if (method === "PUT") {
                 const body = await readBody(req);
                 if (!validOrder(body)) return send(res, 400, { message: "Invalid order." });
                 const saved = pickOrder({ runner: order.runner, receiver: order.receiver, ...body });
                 const { orders: items, invoices, ...fields } = saved;
+                const payment = paymentFrom(body, me, order.payment_status);
                 transaction(db, () => {
-                    const changes = changedDetails(order, sql.orderItems.all(order.id), sql.orderInvoices.all(order.id), saved);
+                    const changes = [
+                        ...changedDetails(order, sql.orderItems.all(order.id), sql.orderInvoices.all(order.id), saved),
+                        ...(payment !== order.payment_status ? ["paymentStatus"] : []),
+                    ];
                     sql.updateOrder.run({ ...fields, id: order.id });
+                    sql.setPayment.run(payment, order.id);
                     saveItems(order.id, items);
                     saveInvoices(order.id, invoices);
                     if (changes.length) {
@@ -1546,7 +1575,10 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             if (method === "PATCH") {
                 const { status } = await readBody(req);
                 if (!ORDER_STATUSES.includes(status)) return send(res, 400, { message: "Invalid status." });
-                // Now serving puts them on the display, the same as calling them
+                // Now serving puts them on the display, the same as calling them, which sales don't do
+                if (status === "serving" && order.status !== "serving" && me.role === "sales") {
+                    return send(res, 403, { message: SALES_DONT_CALL });
+                }
                 if (order.status === "done" && status === "serving") return send(res, 409, { message: ALREADY_DONE });
                 const calledAt = status === "serving" && order.status !== "serving" ? Date.now() : order.called_at;
                 changeStatus(order, status, me, { calledAt });

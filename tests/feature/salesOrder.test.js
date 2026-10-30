@@ -251,11 +251,12 @@ describe("sales order", () => {
         (await desk.post("/orders", sale({ pickupDate: "tomorrow" }))).assertStatus(400);
         app.assertDatabaseCount("orders", 0);
 
-        // a payment status sent with the order is the cashier's to set, so it's left out rather than refused
-        for (const paymentStatus of ["Vale", "Cash", ""]) {
+        // a payment status must be one from the list; from the kiosk (nobody signed in) a good one is left out
+        (await desk.post("/orders", sale({ paymentStatus: "Cash" }))).assertStatus(400);
+        for (const paymentStatus of ["Vale", ""]) {
             (await desk.post("/orders", sale({ paymentStatus }))).assertStatus(201);
         }
-        app.assertDatabaseCount("orders", 3, { payment_status: "" });
+        app.assertDatabaseCount("orders", 2, { payment_status: "" });
     });
 
     test("editing changes the details and invoices and keeps the number", async () => {

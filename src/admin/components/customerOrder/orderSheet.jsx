@@ -89,7 +89,7 @@ function StatusCell({ order }) {
 // as wide as the page, with no scrolling sideways; every sales staff member works on it together: they pick the team and type the
 // runner and receiver right in the row, each cell saved as soon as they leave it (kept as an edit with who saved it;
 // the last column shows the latest and where the customer is now), and the others' changes show within a few seconds;
-// the terms (payment status) only show here: the cashier sets them, on the Cashier page
+// the terms (payment status) only show here: they're set on the ticket (Customer order) or the Cashier page
 // the rest is filled in on the ticket itself: today's queue numbers open the row's ticket on the Queue ticket tab (an
 // earlier day's can't be opened there, but its cells here can still be filled in)
 // onOpen(queueNum): opens that ticket
@@ -134,7 +134,7 @@ export default function OrderSheet({ onOpen }) {
                     <p className="tab-hint">
                         Every day's orders, newest first, shared by everyone in sales. Pick the team, type the runner
                         and receiver; each saves when you leave the cell, and the others see it within a few seconds.
-                        The terms are set by the cashier. Click one of today's queue numbers to open its ticket.
+                        The terms are set on the ticket or the Cashier page. Click one of today's queue numbers to open its ticket.
                     </p>
                 </div>
                 <p className="order-sheet-status" role="status">
@@ -225,7 +225,7 @@ export default function OrderSheet({ onOpen }) {
                                                 {invoices[column.key].map((invoiceNo) => <span key={invoiceNo}>{invoiceNo}</span>)}
                                             </td>
                                         ))}
-                                        {/* the cashier's: shown, not picked here */}
+                                        {/* set on the ticket or the Cashier page: shown, not picked here */}
                                         <td className="sheet-caps">{o.paymentStatus}</td>
                                         <td className="sheet-time">{sheetTime(o.salesTimeIn)}</td>
                                         <td className="sheet-time">{sheetTime(o.salesTimeOut)}</td>

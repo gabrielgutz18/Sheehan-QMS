@@ -218,7 +218,7 @@ export default function AccCreation() {
                     <label className="admin-field">
                         Role
                         <select {...field("role")}>
-                            <option value="sales">Sales: serves customers from My counter</option>
+                            <option value="sales">Sales: takes orders and hands customers over, can change the payment status</option>
                             <option value="loading">Loading: calls customers sales hands over, their own page only</option>
                             <option value="hardware">Hardware: the same as loading, for the Hardware department</option>
                             <option value="security">Security: checks what customers leave with, looking only</option>

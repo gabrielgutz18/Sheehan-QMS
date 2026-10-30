@@ -71,9 +71,9 @@ function PaymentButtons({ order, busy, onPick }) {
     );
 }
 
-// the cashier's page: every order from every day (as on the Order sheet: no Customer Reports), newest day first, with
+// the Cashier page (the cashier's, and sales staff's too): every order from every day (as on the Order sheet: no Customer Reports), newest day first, with
 // what the customer bought (the invoice numbers under their department), the salesman, where the customer is now and
-// how the order is paid; the cashier changes that with one tap (Vale, COD, Terms, Paid, ... from
+// how the order is paid; the cashier or a salesman changes that with one tap (Vale, COD, Terms, Paid, ... from
 // src/data/paymentStatus.js), saved at once and kept on the ticket as an edit with who made it, and the last change
 // shows on the row; it can be changed again but not cleared, and nothing else here calls, changes or saves an order
 export default function CashierPage() {

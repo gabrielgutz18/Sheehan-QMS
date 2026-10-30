@@ -66,7 +66,7 @@ const fieldsFor = (saved, salesman) => ({
     // every column's 1st and 2nd checker, "" until it's filled in
     checkers: Object.fromEntries(checkerColumns.map(({ name }) =>
         [name, CHECKER_ROUNDS.map((_, i) => saved?.checkers?.[name]?.[i] ?? "")])),
-    // set by the cashier on the Cashier page: shown here, grayed out, never changed or sent
+    // how it's paid: picked here by admins and sales, or on the Cashier page; once set it can be changed, not cleared
     paymentStatus: saved?.paymentStatus ?? "",
     // one sales team; a ticket from before had a list, which has to be picked again
     team: teamNames.includes(saved?.team) ? saved.team : "",
@@ -75,8 +75,7 @@ const fieldsFor = (saved, salesman) => ({
 });
 
 // what Serve sends: the form as it is now; submitted is the ticket being edited, if any
-// the runner and receiver are left out: they're filled in on the Order sheet, and Update keeps them as they are; so is
-// the payment status, which only the cashier sets
+// the runner and receiver are left out: they're filled in on the Order sheet, and Update keeps them as they are
 const orderFrom = (fields, submitted) => ({
     name: fields.name.trim(),
     purpose: joinList(fields.types),
@@ -89,6 +88,7 @@ const orderFrom = (fields, submitted) => ({
     checkers: Object.fromEntries(Object.entries(fields.checkers).map(([column, names]) =>
         [column, names.map((name) => name.trim())])),
     team: fields.team,
+    paymentStatus: fields.paymentStatus,
     pickupDate: fields.returning ? fields.pickupDate : null,
 });
 
@@ -98,7 +98,6 @@ const previewOf = (fields, submitted) => {
     const order = orderFrom(fields, submitted);
     return {
         ...order,
-        paymentStatus: fields.paymentStatus,
         queueNumber: formatQueueNum(submitted?.queueNum ?? "--", order.purpose || submitted?.purpose),
         invoices: order.invoices.filter((invoice) => invoice.invoiceNo),
         concern: submitted?.concern,
@@ -108,7 +107,7 @@ const previewOf = (fields, submitted) => {
 // staff (admin or sales) take a customer's order: their name, the types of order, the invoices (each with the type of
 // order it's for), the salesman, the times the customer came in to sales and left it (if typed in), the sales team that served them (it
 // stays theirs after the hand-over to loading), and for a customer coming back for the items on a later day, that
-// day; how it's paid shows grayed out: only the cashier sets it, on the Cashier page; the Checker tab takes the
+// day, and how it's paid (the cashier changes it on the Cashier page too); the Checker tab takes the
 // checkers, which the ticket always has, blank to be written in by hand, and Ticket preview shows the ticket exactly
 // as it will print; Serve gives the ticket its queue number and shows it, and Print ticket opens the print preview to
 // pick the printer
@@ -116,7 +115,7 @@ const previewOf = (fields, submitted) => {
 // the Order sheet beside Queue ticket lists every day's orders with all their details, like a shared spreadsheet: any
 // sales staff member fills in the runner the customer sent to collect the items and the receiver there (never on the
 // ticket either), and can change the sales team, each cell saved and kept as an edit on its own (the payment status
-// shows there too, but it's the cashier's)
+// shows there too, but it's set here or on the Cashier page)
 // ?ticket=5 opens today's ticket 5 to edit it (Edit on Orders); ?ticket=5&view=1 shows its ticket to print it again
 // (View queue ticket here, or View ticket on Orders)
 // beside it all on the right, the Order status board: where every customer today is (in a narrower window, the top
@@ -311,13 +310,8 @@ function OrderDesk({ saved, viewing, onNew }) {
                             queueNumber={formatQueueNum(submitted.queueNum, submitted.purpose)}
                             name={submitted.name}
                             purpose={submitted.purpose}
-                            orders={submitted.orders}
                             concern={submitted.concern}
                             invoices={submitted.invoices}
-                            paymentStatus={submitted.paymentStatus}
-                            salesman={submitted.salesman}
-                            team={submitted.team}
-                            pickupDate={submitted.pickupDate}
                             checkers={submitted.checkers}
                         />
                     </div>
@@ -356,10 +350,11 @@ function OrderDesk({ saved, viewing, onNew }) {
                         onChange={set("invoices")} onAdd={addInvoice} onRemove={removeInvoice} />
                     <SaleText id="sale-salesman" label="Salesman name" narrow maxLength={MAX_SALESMAN}
                         value={fields.salesman} onChange={set("salesman")} error={errors.salesman} />
-                    {/* the cashier's to pick, on the Cashier page; the ticket's own once they have */}
-                    <SaleSelect id="sale-payment" label="Payment status" narrow disabled placeholder="Set by the cashier"
+                    {/* the cashier can change it on the Cashier page too; once set it can't be cleared */}
+                    <SaleSelect id="sale-payment" label="Payment status" optional narrow placeholder="Not set yet"
+                        placeholderDisabled={Boolean(submitted?.paymentStatus)}
                         options={paymentStatus.map((p) => p.type)}
-                        value={fields.paymentStatus} />
+                        value={fields.paymentStatus} onChange={set("paymentStatus")} />
                     {/* when the customer came in to sales and when they left it */}
                     <SaleTime id="sale-time-in" label="Time in (sales)" optional narrow
                         value={fields.salesTimeIn} onChange={set("salesTimeIn")} />

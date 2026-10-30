@@ -16,13 +16,12 @@ import ServedBy from '../components/orders/servedBy.jsx';
 import OrderDetails from '../components/orders/orderDetails.jsx';
 import TicketDialog from '../components/orders/ticketDialog.jsx';
 
-// a sales staff member's counter: serve the next customer, recall them, mark them done (one point each)
-// or send them back to waiting, put a served customer who comes back in line as returning,
-// plus their own served totals and the announcer volume
+// a sales staff member's counter: the customers in line, each handed over or marked done (one point each), a served
+// customer who comes back put in line as returning, plus their own served totals and the announcer volume
 // (sales can't change the voice or the display video; the backend enforces that too)
-// every customer is served here first; for an order that goes on to loading, Hand over to loading sends the customer
-// on to the Loading page (it counts as a customer served, and the order keeps its sales team), and they leave this
-// counter's lists
+// sales don't call customers: after the ticket and the talk with the customer, Hand over sends them on to the Loading
+// (or Hardware) page, where that crew calls them (it counts as a customer served, and the order keeps its sales team),
+// and they leave this counter's lists; admins can still call and serve them here
 
 const ticketOf = (o) => formatQueueNum(o.queueNum, o.purpose);
 // Served today lists this many of the latest; the rest are counted under it
@@ -32,6 +31,8 @@ const servedTime = (o) => o.handedOver?.at ?? o.servedAt ?? "";
 
 export default function SalesPage() {
     const { user } = useAuth();
+    // sales hand customers over and loading calls them; only admins call from here
+    const canCall = user.role !== "sales";
     const { orders: allOrders, setOrders, loading, error } = useOrders();
     // the customers handed over are with loading now
     const orders = allOrders.filter((o) => !o.handedOver);
@@ -129,83 +130,89 @@ export default function SalesPage() {
             {(error || actionError) && <p className="field-error" role="alert">{actionError || error}</p>}
 
             <div className="queue-columns">
-                <div className="admin-panel">
-                    <div className="counter-head">
-                        <h2>You're serving</h2>
-                        <button
-                            type="button"
-                            className="admin-btn admin-btn-call"
-                            disabled={waiting.length === 0 || busy !== null}
-                            onClick={() => openCall(waiting[0])}
-                        >
-                            {waiting.length ? `Serve next: ${ticketOf(waiting[0])}` : "No one waiting"}
-                        </button>
-                    </div>
+                {(canCall || mine.length > 0) && (
+                    <div className="admin-panel">
+                        <div className="counter-head">
+                            <h2>You're serving</h2>
+                            {canCall && (
+                                <button
+                                    type="button"
+                                    className="admin-btn admin-btn-call"
+                                    disabled={waiting.length === 0 || busy !== null}
+                                    onClick={() => openCall(waiting[0])}
+                                >
+                                    {waiting.length ? `Serve next: ${ticketOf(waiting[0])}` : "No one waiting"}
+                                </button>
+                            )}
+                        </div>
 
-                    {loading ? (
-                        <p className="admin-empty">Loading...</p>
-                    ) : mine.length === 0 ? (
-                        <p className="admin-empty">No one yet. Press Serve next to call the next customer.</p>
-                    ) : (
-                        <ul className="counter-list">
-                            {mine.map((o) => (
-                                <li key={o.queueNum} className="counter-ticket">
-                                    <div className="counter-ticket-main">
-                                        <strong className="counter-number">{ticketOf(o)}</strong>
-                                        <span className="counter-name">{o.name}</span>
-                                        <span className="counter-meta">{o.purpose}{o.remarks && ` · “${o.remarks}”`}</span>
-                                        <OrderDetails order={o} />
-                                        <ServedBy order={o} />
-                                    </div>
-                                    <div className="row-actions">
-                                        <button
-                                            type="button"
-                                            className="admin-btn admin-btn-primary"
-                                            disabled={busy === o.queueNum}
-                                            onClick={() => setStatus(o, "done")}
-                                        >
-                                            Done
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="admin-btn"
-                                            disabled={busy === o.queueNum}
-                                            aria-haspopup="dialog"
-                                            onClick={() => openHandOver(o)}
-                                        >
-                                            Hand over to {handOverTo(o.purpose)}
-                                        </button>
-                                        <button type="button" className="admin-btn" disabled={busy === o.queueNum} onClick={() => openCall(o)}>
-                                            Recall
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="admin-btn"
-                                            disabled={busy === o.queueNum}
-                                            onClick={() => setStatus(o, "pending")}
-                                        >
-                                            Back to waiting
-                                        </button>
-                                    </div>
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-
-                    {others.length > 0 && (
-                        <div className="counter-others">
-                            <h3>At other counters</h3>
-                            <ul>
-                                {others.map((o) => (
-                                    <li key={o.queueNum}>
-                                        <span><strong>{ticketOf(o)}</strong> {o.name}</span>
-                                        <ServedBy order={o} />
+                        {loading ? (
+                            <p className="admin-empty">Loading...</p>
+                        ) : mine.length === 0 ? (
+                            <p className="admin-empty">No one yet. Press Serve next to call the next customer.</p>
+                        ) : (
+                            <ul className="counter-list">
+                                {mine.map((o) => (
+                                    <li key={o.queueNum} className="counter-ticket">
+                                        <div className="counter-ticket-main">
+                                            <strong className="counter-number">{ticketOf(o)}</strong>
+                                            <span className="counter-name">{o.name}</span>
+                                            <span className="counter-meta">{o.purpose}{o.remarks && ` · “${o.remarks}”`}</span>
+                                            <OrderDetails order={o} />
+                                            <ServedBy order={o} />
+                                        </div>
+                                        <div className="row-actions">
+                                            <button
+                                                type="button"
+                                                className="admin-btn admin-btn-primary"
+                                                disabled={busy === o.queueNum}
+                                                onClick={() => setStatus(o, "done")}
+                                            >
+                                                Done
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="admin-btn"
+                                                disabled={busy === o.queueNum}
+                                                aria-haspopup="dialog"
+                                                onClick={() => openHandOver(o)}
+                                            >
+                                                Hand over to {handOverTo(o.purpose)}
+                                            </button>
+                                            {canCall && (
+                                                <button type="button" className="admin-btn" disabled={busy === o.queueNum} onClick={() => openCall(o)}>
+                                                    Recall
+                                                </button>
+                                            )}
+                                            <button
+                                                type="button"
+                                                className="admin-btn"
+                                                disabled={busy === o.queueNum}
+                                                onClick={() => setStatus(o, "pending")}
+                                            >
+                                                Back to waiting
+                                            </button>
+                                        </div>
                                     </li>
                                 ))}
                             </ul>
-                        </div>
-                    )}
-                </div>
+                        )}
+
+                        {others.length > 0 && (
+                            <div className="counter-others">
+                                <h3>At other counters</h3>
+                                <ul>
+                                    {others.map((o) => (
+                                        <li key={o.queueNum}>
+                                            <span><strong>{ticketOf(o)}</strong> {o.name}</span>
+                                            <ServedBy order={o} />
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 <div className="admin-panel">
                     <h2>Waiting ({waiting.length})</h2>
@@ -235,14 +242,35 @@ export default function SalesPage() {
                                         >
                                             View
                                         </button>
+                                        {/* after the ticket and the talk: the department calls them from here on */}
                                         <button
                                             type="button"
-                                            className="admin-btn admin-btn-call"
+                                            className="admin-btn admin-btn-primary"
                                             disabled={busy === o.queueNum}
-                                            onClick={() => openCall(o)}
+                                            aria-haspopup="dialog"
+                                            onClick={() => openHandOver(o)}
                                         >
-                                            Serve
+                                            Hand over to {handOverTo(o.purpose)}
                                         </button>
+                                        {/* nothing to load, e.g. a concern settled at the counter */}
+                                        <button
+                                            type="button"
+                                            className="admin-btn"
+                                            disabled={busy === o.queueNum}
+                                            onClick={() => setStatus(o, "done")}
+                                        >
+                                            Done
+                                        </button>
+                                        {canCall && (
+                                            <button
+                                                type="button"
+                                                className="admin-btn admin-btn-call"
+                                                disabled={busy === o.queueNum}
+                                                onClick={() => openCall(o)}
+                                            >
+                                                Serve
+                                            </button>
+                                        )}
                                     </div>
                                 </li>
                             ))}
@@ -279,8 +307,8 @@ export default function SalesPage() {
                                         </>
                                     )}
                                 </div>
-                                {/* they came back after being served: back in line until a counter calls them (or,
-                                    once loading has finished with them, until loading does) */}
+                                {/* they came back after being served: back in line until they're handed over again
+                                    (or, once loading has finished with them, until loading calls them) */}
                                 {o.status === "done" && (
                                     <div className="row-actions">
                                         <button
@@ -310,10 +338,10 @@ export default function SalesPage() {
                 <TicketDialog
                     order={viewed}
                     openedAt={viewing.openedAt}
-                    onServe={(o) => {
+                    onServe={canCall ? (o) => {
                         setViewing(null);
                         openCall(o);
-                    }}
+                    } : undefined}
                     onClose={() => setViewing(null)}
                 />
             )}
