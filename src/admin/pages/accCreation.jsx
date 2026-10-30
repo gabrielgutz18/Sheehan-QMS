@@ -4,6 +4,7 @@ import { createUser, listUsers, updateUser } from '../api/adminUserController.js
 import { useAuth } from '../auth/authContext.js';
 import { ROLE_LABELS } from '../auth/roles.js';
 import Avatar from '../components/common/avatar.jsx';
+import DepartmentTabs from '../components/accounts/departmentTabs.jsx';
 import EmployeeGrid from '../components/accounts/employeeGrid.jsx';
 import teams from '../../data/teams.js';
 
@@ -82,6 +83,7 @@ export default function AccCreation() {
     const { user: me } = useAuth();
     const [accounts, setAccounts] = useState(null);
     const [form, setForm] = useState(EMPTY_FORM);
+    const [department, setDepartment] = useState("all");
     const [showPassword, setShowPassword] = useState(false);
     const [creating, setCreating] = useState(false);
     const [busy, setBusy] = useState(null);
@@ -178,6 +180,10 @@ export default function AccCreation() {
         }
     };
 
+    // a tab whose last account moved to another role goes back to All
+    const shownTab = department === "all" || accounts?.some((a) => a.role === department) ? department : "all";
+    const shown = shownTab === "all" ? accounts : accounts?.filter((a) => a.role === shownTab);
+
     const isDeveloper = me.role === "developer";
     const roleChoices = isDeveloper ? ROLE_CHOICES.filter(({ value }) => value !== "admin") : ROLE_CHOICES;
     // a developer changes nothing on an admin's account
@@ -192,7 +198,9 @@ export default function AccCreation() {
             {error && <p className="field-error" role="alert">{error}</p>}
             {notice && <p className="admin-notice" role="status">{notice}</p>}
 
-            <EmployeeGrid accounts={accounts} meId={me.id} />
+            {accounts && <DepartmentTabs accounts={accounts} value={shownTab} onChange={setDepartment} />}
+
+            <EmployeeGrid accounts={shown} meId={me.id} />
 
             <div className="admin-panel">
                 <h2>Create an account</h2>
@@ -269,10 +277,10 @@ export default function AccCreation() {
                         </tr>
                     </thead>
                     <tbody>
-                        {!accounts ? (
+                        {!shown ? (
                             <tr><td colSpan={7} className="admin-empty">Loading...</td></tr>
                         ) : (
-                            accounts.map((a) => (
+                            shown.map((a) => (
                                 <tr key={a.id} className={a.disabled ? "is-disabled" : undefined}>
                                     <td>
                                         <span className="account-person">
