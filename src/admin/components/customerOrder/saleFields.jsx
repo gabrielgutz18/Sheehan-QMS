@@ -256,20 +256,35 @@ export function InvoiceFields({ invoices, types, onChange, onAdd, onRemove, erro
     );
 }
 
-// a customer who comes back on a later day for the items: tick Returning and pick the day
-// a toggle button marking the order as a priority order: its ticket then shows with a "*" in front, "* RS 01",
-// everywhere it's listed, on the display and on the printed ticket
-export function PriorityField({ priority, onChange }) {
+// two toggle buttons marking the order: Priority, its ticket then shows with a "*" in front ("* RS 01"), or TBA
+// priority, with "**" ("** T 01"), everywhere it's listed, on the display and on the printed ticket; an order has one
+// mark at most, so pressing one takes the other off; onChange gets both, { priority, tbaPriority }
+const MARKS = [
+    { key: "priority", mark: "*", on: "Priority order", off: "Mark as priority" },
+    { key: "tbaPriority", mark: "**", on: "TBA priority order", off: "Mark as TBA priority" },
+];
+
+export function PriorityField({ priority, tbaPriority, onChange }) {
+    const marks = { priority, tbaPriority };
     return (
-        <div className="sale-priority">
-            <button type="button" className="priority-toggle" aria-pressed={priority} onClick={() => onChange(!priority)}>
-                <span className="priority-mark" aria-hidden="true">*</span>
-                {priority ? "Priority order" : "Mark as priority order"}
-            </button>
+        <div className="sale-priority" role="group" aria-label="Priority">
+            {MARKS.map(({ key, mark, on, off }) => (
+                <button
+                    key={key}
+                    type="button"
+                    className="priority-toggle"
+                    aria-pressed={marks[key]}
+                    onClick={() => onChange({ priority: false, tbaPriority: false, [key]: !marks[key] })}
+                >
+                    <span className="priority-mark" aria-hidden="true">{mark}</span>
+                    {marks[key] ? on : off}
+                </button>
+            ))}
         </div>
     );
 }
 
+// a customer who comes back on a later day for the items: tick Returning and pick the day
 export function ReturningField({ returning, pickupDate, onReturning, onPickupDate, error }) {
     return (
         <div className="sale-returning">

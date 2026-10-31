@@ -1,6 +1,6 @@
-// the TBA page: TBA (Tire, Battery, Chassis) is its own department, working like the loading crew and Hardware for its
+// the TBA page: TBA (Tire, Battery) is its own department, working like the loading crew and Hardware for its
 // own area (src/data/loadingAreas.js). A sales counter hands the customer over just the same; a customer who bought a
-// Tire, Battery or Chassis is called to TBA from the TBA page, and one who bought roofing too goes to the loading crew
+// Tire or Battery is called to TBA from the TBA page, and one who bought roofing too goes to the loading crew
 // and TBA in turn, one at a time
 // run: npm test            only these: npm test -- --test-name-pattern="TBA"
 import assert from 'node:assert/strict';
@@ -44,9 +44,9 @@ const handOver = async (sales, queueNum) => {
 const areasOf = (o) => o.areas.map(({ name, loaded }) => [name, loaded?.by.name]);
 
 describe("TBA", () => {
-    test("Tire and Chassis are both loaded at TBA, in one go, by the TBA department", async () => {
+    test("Tire and Battery are both loaded at TBA, in one go, by the TBA department", async () => {
         await takeOrder({
-            purpose: "Tire, Chassis", invoices: [{ invoiceNo: "601", type: "Tire" }, { invoiceNo: "602", type: "Chassis" }],
+            purpose: "Tire, Battery", invoices: [{ invoiceNo: "601", type: "Tire" }, { invoiceNo: "602", type: "Battery" }],
         });
         const { maria, pedro, tony } = await staff();
         await handOver(maria, 1);

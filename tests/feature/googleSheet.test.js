@@ -1,5 +1,6 @@
 // the Order sheet copied to Google Sheets: each order as a row of the loading schedule, and only the rows that changed
-// sent to the Apps Script web app (a fake one here), with deleted orders taken out
+// sent to the Apps Script web app (a fake one here), with deleted orders taken out; each day's priority orders ("*")
+// and TBA priority ones ("**") are grouped at its top
 // run: npm test -- --test-name-pattern="Google sheet"
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
@@ -81,7 +82,34 @@ describe("Google sheet", () => {
             loadingTimeOut: "",
             status: "In line for sales",
             doubleCheckedBy: "",
+            sortKey: "2026-10-29 2 0003",
         });
+    });
+
+    test("a priority order's QUE is \"*\" and a TBA priority one's \"**\", in place of the number", () => {
+        assert.equal(sheetRow(order({ priority: true })).que, "*");
+        assert.equal(sheetRow(order({ tbaPriority: true, purpose: "Tire" })).que, "**");
+        assert.equal(sheetRow(order({ purpose: "Tire" })).que, "T 03");
+    });
+
+    test("each day's rows sort with the priority orders first, then the TBA priority ones, then the rest", () => {
+        const rows = [
+            order({ id: 1, queueNum: 1 }),
+            order({ id: 2, queueNum: 2, tbaPriority: true }),
+            order({ id: 3, queueNum: 3, priority: true }),
+            order({ id: 4, queueNum: 4, tbaPriority: true }),
+            order({ id: 5, queueNum: 10, priority: true }),
+            order({ id: 6, queueNum: 1, date: "2026-10-28" }),
+        ].map(sheetRow);
+
+        const sorted = rows.toSorted((a, b) => a.sortKey.localeCompare(b.sortKey));
+
+        assert.deepEqual(sorted.map((row) => [row.id, row.que]), [
+            ["6", "RS 01"],
+            ["3", "*"], ["5", "*"],
+            ["2", "**"], ["4", "**"],
+            ["1", "RS 01"],
+        ]);
     });
 
     test("loading's times: in when sales handed them over, out once every area is loaded", () => {

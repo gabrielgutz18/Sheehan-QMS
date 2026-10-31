@@ -22,7 +22,7 @@ export default function SecurityDetails({ order, refresh }) {
     // the report being written: { returnTo } with the area it goes back to, or "" to finish the order; null when none
     const [reporting, setReporting] = useState(null);
     const atCheck = stageOf(order) === "security";
-    const ticket = formatQueueNum(order.queueNum, order.purpose, order.priority);
+    const ticket = formatQueueNum(order.queueNum, order.purpose, order);
     const areas = areasOf(order);
 
     const verify = async () => {

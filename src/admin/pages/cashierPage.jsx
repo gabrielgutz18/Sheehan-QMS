@@ -25,7 +25,7 @@ const FILTERS = [
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
 const changeFormat = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
-const ticketOf = (o) => formatQueueNum(o.queueNum, o.purpose, o.priority);
+const ticketOf = (o) => formatQueueNum(o.queueNum, o.purpose, o);
 
 // "Juan", "RT 03" or "3" finds the order, so does an invoice number, and "Oct-24" every order that day
 const matches = (order, search) => {

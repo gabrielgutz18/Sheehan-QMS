@@ -79,8 +79,9 @@ const fieldsFor = (saved, salesman) => ({
     team: teamNames.includes(saved?.team) ? saved.team : "",
     returning: Boolean(saved?.pickupDate),
     pickupDate: saved?.pickupDate ?? "",
-    // a priority order: its ticket shows as "* RS 01"
+    // a priority order: its ticket shows as "* RS 01"; a TBA priority one as "** T 01"
     priority: Boolean(saved?.priority),
+    tbaPriority: Boolean(saved?.tbaPriority),
 });
 
 // what Serve sends: the form as it is now; submitted is the ticket being edited, if any
@@ -100,6 +101,7 @@ const orderFrom = (fields, submitted) => ({
     paymentStatus: fields.paymentStatus,
     pickupDate: fields.returning ? fields.pickupDate : null,
     priority: fields.priority,
+    tbaPriority: fields.tbaPriority,
 });
 
 // the ticket Receipt shows for the form as it is now (Ticket preview); a new order gets its number with Serve, so it
@@ -108,7 +110,7 @@ const previewOf = (fields, submitted) => {
     const order = orderFrom(fields, submitted);
     return {
         ...order,
-        queueNumber: formatQueueNum(submitted?.queueNum ?? "--", order.purpose || submitted?.purpose, order.priority),
+        queueNumber: formatQueueNum(submitted?.queueNum ?? "--", order.purpose || submitted?.purpose, order),
         invoices: order.invoices.filter((invoice) => invoice.invoiceNo),
         concern: submitted?.concern,
     };
@@ -326,7 +328,7 @@ function OrderDesk({ saved, viewing, onNew }) {
                     <div className="ticket-sheet">
                         <Receipt
                             paper
-                            queueNumber={formatQueueNum(submitted.queueNum, submitted.purpose, submitted.priority)}
+                            queueNumber={formatQueueNum(submitted.queueNum, submitted.purpose, submitted)}
                             name={submitted.name}
                             purpose={submitted.purpose}
                             concern={submitted.concern}
@@ -361,8 +363,9 @@ function OrderDesk({ saved, viewing, onNew }) {
                     hidden={tab !== "sale-tab-order"}>
                     <SaleText id="sale-name" label="Customer name" maxLength={MAX_NAME}
                         value={fields.name} onChange={set("name")} error={errors.name} />
-                    {/* a priority order's ticket shows with a "*" in front, "* RS 01" */}
-                    <PriorityField priority={fields.priority} onChange={set("priority")} />
+                    {/* a priority order's ticket shows with a "*" in front, "* RS 01"; a TBA priority one's "** T 01" */}
+                    <PriorityField priority={fields.priority} tbaPriority={fields.tbaPriority}
+                        onChange={(marks) => setFields((prev) => ({ ...prev, ...marks }))} />
                     <CheckPicker id="sale-types" label="Type of order" placeholder="Choose one or more"
                         names={purpose.map((p) => p.name)}
                         value={fields.types} onChange={setTypes} error={errors.types} />

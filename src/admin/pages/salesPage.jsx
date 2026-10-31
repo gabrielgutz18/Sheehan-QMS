@@ -23,7 +23,7 @@ import TicketDialog from '../components/orders/ticketDialog.jsx';
 // (or Hardware) page, where that crew calls them (it counts as a customer served, and the order keeps its sales team),
 // and they leave this counter's lists; admins can still call and serve them here
 
-const ticketOf = (o) => formatQueueNum(o.queueNum, o.purpose, o.priority);
+const ticketOf = (o) => formatQueueNum(o.queueNum, o.purpose, o);
 // Served today lists this many of the latest; the rest are counted under it
 const SERVED_SHOWN = 5;
 // when this person finished with them here: handed over to loading, or marked Done

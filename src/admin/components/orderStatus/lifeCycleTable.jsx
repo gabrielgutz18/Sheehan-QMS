@@ -36,7 +36,7 @@ const STEP_STATES = { done: "done", now: "now", waiting: "not yet" };
 const matches = (order, search) => {
     const text = search.trim().toLowerCase();
     if (!text) return true;
-    const ticket = formatQueueNum(order.queueNum, order.purpose, order.priority).toLowerCase();
+    const ticket = formatQueueNum(order.queueNum, order.purpose, order).toLowerCase();
     return order.name.toLowerCase().includes(text) || ticket.includes(text) || String(order.queueNum) === text ||
         (order.invoices ?? []).some(({ invoiceNo }) => invoiceNo.toLowerCase().includes(text));
 };
@@ -135,7 +135,7 @@ export default function LifeCycleTable({
                         <li key={order.queueNum} className={`order-status-card is-${stage}`}>
                             <div className="order-status-card-head">
                                 <strong className="order-status-ticket">
-                                    {formatQueueNum(order.queueNum, order.purpose, order.priority)}
+                                    {formatQueueNum(order.queueNum, order.purpose, order)}
                                 </strong>
                                 <span className="order-status-card-name">{order.name}</span>
                                 <span className="order-status-sub">{timeFormat.format(new Date(order.createdAt))}</span>
@@ -165,7 +165,7 @@ export default function LifeCycleTable({
                                 <tr key={order.queueNum}>
                                     <td>
                                         <strong className="order-status-ticket">
-                                            {formatQueueNum(order.queueNum, order.purpose, order.priority)}
+                                            {formatQueueNum(order.queueNum, order.purpose, order)}
                                         </strong>
                                         <span className="order-status-sub">{timeFormat.format(new Date(order.createdAt))}</span>
                                     </td>

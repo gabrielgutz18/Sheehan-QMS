@@ -15,7 +15,7 @@ import { resultLabel } from '../../data/securityCheck.js';
 import { DEPARTMENTS, departmentWord } from '../../../data/loadingAreas.js';
 import formatQueueNum from '../../../data/queueNum.js';
 
-// a department's counter, the Loading, TBA and Hardware pages' (department: "loading", "tba" or "hardware",
+// a department's counter, the Loading, TBA, Chassis and Hardware pages' (department: "loading", "tba", "chassis" or "hardware",
 // src/data/loadingAreas.js), one shared line for every account of the department: today's customers once a sales
 // counter has served them and pressed Hand over on My counter, the ones with something from the department's areas,
 // in queue order; call one to one of those areas (the display shows "Please proceed to Roofings", which can be changed
@@ -33,7 +33,7 @@ import formatQueueNum from '../../../data/queueNum.js';
 // can't be called or loaded at another one (the backend refuses it)
 // an order a guard sent back from the security check to one area says so, with what the guard saw
 
-const ticketOf = (o) => formatQueueNum(o.queueNum, o.purpose, o.priority);
+const ticketOf = (o) => formatQueueNum(o.queueNum, o.purpose, o);
 
 // how far loading has got, e.g. "Roofings ✓ · Hardware next", or "Roofings ✓ · Hardware now" while a crew has them
 // there; "" for an order from before the areas

@@ -24,7 +24,7 @@ let nextRowKey = 0;
 const newRow = () => ({ ...EMPTY_FORM, key: nextRowKey++, showPassword: false, error: "" });
 const teamNames = teams.map((t) => t.name);
 // the roles to pick from on the create form, in the order the dropdown lists them
-const ROLE_CHOICES = ["sales", "loading", "tba", "hardware", "security", "cashier", "inventory", "developer", "admin"];
+const ROLE_CHOICES = ["sales", "loading", "tba", "chassis", "hardware", "security", "cashier", "inventory", "developer", "admin"];
 
 // a small dialog for typing someone's new password
 function PasswordDialog({ account, busy, error, onSave, onClose }) {

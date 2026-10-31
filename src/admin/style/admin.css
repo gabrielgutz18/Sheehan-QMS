@@ -2272,7 +2272,14 @@
   cursor: pointer;
 }
 
-/* Mark as priority order: an outlined button, filled red once it's pressed */
+/* Mark as priority / Mark as TBA priority: side by side, wrapping on a narrow screen */
+.sale-priority {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* each mark: an outlined button, filled red once it's pressed */
 .priority-toggle {
   display: inline-flex;
   align-items: center;

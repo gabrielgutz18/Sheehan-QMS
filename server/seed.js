@@ -92,7 +92,7 @@ try {
             order.team && `${order.team} team`,
             order.pickupDate && `picks up ${order.pickupDate}`,
         ].filter(Boolean).join(" · ");
-        console.log(`  ${formatQueueNum(order.queueNum, order.purpose, order.priority).padEnd(7)} ${order.name.padEnd(16)} ${details}`);
+        console.log(`  ${formatQueueNum(order.queueNum, order.purpose, order).padEnd(8)} ${order.name.padEnd(16)} ${details}`);
     }
     console.log(`Data folder: ${api.dataDir}`);
 } catch (err) {

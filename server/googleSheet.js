@@ -4,7 +4,7 @@
 // set GOOGLE_SHEET_URL (the web app's /exec link) and GOOGLE_SHEET_TOKEN (the script's SYNC_TOKEN) in .env to turn it on
 import { assistedBy, invoicesByColumn, sheetDate, sheetTime } from '../src/admin/data/sheetColumns.js';
 import { whereNow } from '../src/admin/data/orderStage.js';
-import formatQueueNum from '../src/data/queueNum.js';
+import formatQueueNum, { markOf } from '../src/data/queueNum.js';
 
 // rows per request, so one request stays well inside Apps Script's time limit on the first sync of a large sheet
 const CHUNK = 300;
@@ -30,15 +30,22 @@ const loadedAt = (order) => {
 const doubleCheckedBy = (checkers = {}) =>
     [...new Set(Object.values(checkers).map(([, second = ""]) => second.trim()).filter(Boolean))].join(", ");
 
+// where an order goes in its day's rows on the sheet: the priority orders first, then the TBA priority ones, then the
+// rest, each group in number order; the script sorts the rows by this text: "2026-10-29 0 0003"
+const GROUPS = { "*": 0, "**": 1, "": 2 };
+export const sortKey = (order) =>
+    `${order.date} ${GROUPS[markOf(order)]} ${String(order.queueNum).padStart(4, "0")}`;
+
 // an order from the Order sheet (toHistory's shape) as one row of the Google sheet, { [column key]: text }; id is
-// how the script finds the row again, and several invoice numbers in a column go one above the other
+// how the script finds the row again, and several invoice numbers in a column go one above the other; a priority
+// order's QUE is just its mark, "*", and a TBA priority one's "**", in place of the number
 export const sheetRow = (order) => {
     const invoices = invoicesByColumn(order);
     const stacked = (key) => invoices[key].join("\n");
     return {
         id: String(order.id),
         date: sheetDate(order.createdAt),
-        que: formatQueueNum(order.queueNum, order.purpose, order.priority),
+        que: markOf(order) || formatQueueNum(order.queueNum, order.purpose),
         team: order.team ?? "",
         salesman: order.salesman ?? "",
         assistedBy: assistedBy(order),
@@ -58,6 +65,7 @@ export const sheetRow = (order) => {
         loadingTimeOut: clockTime(loadedAt(order)),
         status: whereNow(order, { named: false }),
         doubleCheckedBy: doubleCheckedBy(order.checkers),
+        sortKey: sortKey(order),
     };
 };
 
