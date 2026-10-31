@@ -4,7 +4,7 @@ import '../../style/customerOrder.css';
 
 import Receipt from '../printing/receipt.jsx';
 import {
-    CheckPicker, InvoiceFields, ReturningField, SaleSelect, SaleTabs, SaleText, SaleTime,
+    CheckPicker, InvoiceFields, PriorityField, ReturningField, SaleSelect, SaleTabs, SaleText, SaleTime,
 } from '../components/customerOrder/saleFields.jsx';
 import CheckerSection from '../components/customerOrder/checkerSection.jsx';
 import LifeCycleTable from '../components/orderStatus/lifeCycleTable.jsx';
@@ -25,6 +25,7 @@ import { createOrder } from '../../api/orderController.js';
 import { getOrder, updateOrder } from '../api/adminOrderController.js';
 import EditedBy from '../components/orders/editedBy.jsx';
 import OrderSheet from '../components/customerOrder/orderSheet.jsx';
+import OrdersHistory from '../components/orders/ordersHistory.jsx';
 import PrintFunc from '../printing/printFunc.jsx';
 
 // must match the backend (server/api.js)
@@ -34,12 +35,18 @@ const MAX_INVOICES = 20;
 const MAX_SALESMAN = 60;
 const MAX_CHECKER = 60;
 
-// the two halves of the page: taking a customer's order for their queue ticket, and the Order sheet with every day's
-// orders, which every sales staff member works on together
+// the page's three tabs: taking a customer's order for their queue ticket; the Order sheet with every day's orders,
+// which every sales staff member works on together; and Orders & history: today's queue with its row actions, the
+// deleted tickets and every earlier ticket, with Restore and Export (what were the Orders and History pages)
 const VIEWS = [
     { value: "ticket", label: "Queue ticket" },
     { value: "sheet", label: "Order sheet" },
+    { value: "orders", label: "Orders & history" },
 ];
+
+// ?tab= opens the page on a tab: tab=orders on Orders & history's Today, tab=history on its Deleted (the old
+// /staff/orders and /staff/history addresses, and the Dashboard's Manage orders)
+const viewFor = (tab) => (tab === "sheet" ? "sheet" : tab === "orders" || tab === "history" ? "orders" : "ticket");
 
 // the tabs along the top of the form: the order itself, the checkers printed on the ticket, and the ticket as it
 // will print
@@ -72,6 +79,8 @@ const fieldsFor = (saved, salesman) => ({
     team: teamNames.includes(saved?.team) ? saved.team : "",
     returning: Boolean(saved?.pickupDate),
     pickupDate: saved?.pickupDate ?? "",
+    // a priority order: its ticket shows as "* RS 01"
+    priority: Boolean(saved?.priority),
 });
 
 // what Serve sends: the form as it is now; submitted is the ticket being edited, if any
@@ -90,6 +99,7 @@ const orderFrom = (fields, submitted) => ({
     team: fields.team,
     paymentStatus: fields.paymentStatus,
     pickupDate: fields.returning ? fields.pickupDate : null,
+    priority: fields.priority,
 });
 
 // the ticket Receipt shows for the form as it is now (Ticket preview); a new order gets its number with Serve, so it
@@ -98,7 +108,7 @@ const previewOf = (fields, submitted) => {
     const order = orderFrom(fields, submitted);
     return {
         ...order,
-        queueNumber: formatQueueNum(submitted?.queueNum ?? "--", order.purpose || submitted?.purpose),
+        queueNumber: formatQueueNum(submitted?.queueNum ?? "--", order.purpose || submitted?.purpose, order.priority),
         invoices: order.invoices.filter((invoice) => invoice.invoiceNo),
         concern: submitted?.concern,
     };
@@ -116,8 +126,8 @@ const previewOf = (fields, submitted) => {
 // sales staff member fills in the runner the customer sent to collect the items and the receiver there (never on the
 // ticket either), and can change the sales team, each cell saved and kept as an edit on its own (the payment status
 // shows there too, but it's set here or on the Cashier page)
-// ?ticket=5 opens today's ticket 5 to edit it (Edit on Orders); ?ticket=5&view=1 shows its ticket to print it again
-// (View queue ticket here, or View ticket on Orders)
+// ?ticket=5 opens today's ticket 5 to edit it (Edit on Orders & history); ?ticket=5&view=1 shows its ticket to print
+// it again (View queue ticket here, or View ticket on Orders & history)
 // beside it all on the right, the Order status board: where every customer today is (in a narrower window, the top
 // bar's Order status drawer opens it)
 export default function CustomerOrderPage() {
@@ -128,8 +138,16 @@ export default function CustomerOrderPage() {
     const [opened, setOpened] = useState(null);
     // New order starts the form over
     const [round, setRound] = useState(0);
-    // the Order sheet keeps the form as it is underneath, so switching back finds it as it was left
-    const [view, setView] = useState("ticket");
+    // the other tabs keep the form as it is underneath, so switching back finds it as it was left
+    const [view, setView] = useState(() => viewFor(params.get("tab")));
+    // Orders & history's first view: Deleted when the page was opened from the old History address
+    const [ordersStart] = useState(() => (params.get("tab") === "history" ? "deleted" : "today"));
+    // a ticket opened from another tab (Edit or View ticket on Orders & history) shows on the Queue ticket tab
+    const [shownTicket, setShownTicket] = useState(ticket);
+    if (ticket !== shownTicket) {
+        setShownTicket(ticket);
+        if (ticket) setView("ticket");
+    }
     const boardDocks = useMediaQuery(BOARD_DOCKS);
 
     useEffect(() => {
@@ -170,6 +188,7 @@ export default function CustomerOrderPage() {
             </div>
 
             {view === "sheet" && <OrderSheet onOpen={(queueNum) => openTicket(queueNum)} />}
+            {view === "orders" && <OrdersHistory initial={ordersStart} />}
 
             {/* hidden, not taken away, while the sheet shows: a half-filled form is still there to come back to */}
             <div className={`desk-layout${boardDocks ? " has-status" : ""}`} hidden={view !== "ticket"}>
@@ -307,7 +326,7 @@ function OrderDesk({ saved, viewing, onNew }) {
                     <div className="ticket-sheet">
                         <Receipt
                             paper
-                            queueNumber={formatQueueNum(submitted.queueNum, submitted.purpose)}
+                            queueNumber={formatQueueNum(submitted.queueNum, submitted.purpose, submitted.priority)}
                             name={submitted.name}
                             purpose={submitted.purpose}
                             concern={submitted.concern}
@@ -342,6 +361,8 @@ function OrderDesk({ saved, viewing, onNew }) {
                     hidden={tab !== "sale-tab-order"}>
                     <SaleText id="sale-name" label="Customer name" maxLength={MAX_NAME}
                         value={fields.name} onChange={set("name")} error={errors.name} />
+                    {/* a priority order's ticket shows with a "*" in front, "* RS 01" */}
+                    <PriorityField priority={fields.priority} onChange={set("priority")} />
                     <CheckPicker id="sale-types" label="Type of order" placeholder="Choose one or more"
                         names={purpose.map((p) => p.name)}
                         value={fields.types} onChange={setTypes} error={errors.types} />

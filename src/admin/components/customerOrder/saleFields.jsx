@@ -257,6 +257,19 @@ export function InvoiceFields({ invoices, types, onChange, onAdd, onRemove, erro
 }
 
 // a customer who comes back on a later day for the items: tick Returning and pick the day
+// a toggle button marking the order as a priority order: its ticket then shows with a "*" in front, "* RS 01",
+// everywhere it's listed, on the display and on the printed ticket
+export function PriorityField({ priority, onChange }) {
+    return (
+        <div className="sale-priority">
+            <button type="button" className="priority-toggle" aria-pressed={priority} onClick={() => onChange(!priority)}>
+                <span className="priority-mark" aria-hidden="true">*</span>
+                {priority ? "Priority order" : "Mark as priority order"}
+            </button>
+        </div>
+    );
+}
+
 export function ReturningField({ returning, pickupDate, onReturning, onPickupDate, error }) {
     return (
         <div className="sale-returning">

@@ -33,7 +33,7 @@ import formatQueueNum from '../../../data/queueNum.js';
 // can't be called or loaded at another one (the backend refuses it)
 // an order a guard sent back from the security check to one area says so, with what the guard saw
 
-const ticketOf = (o) => formatQueueNum(o.queueNum, o.purpose);
+const ticketOf = (o) => formatQueueNum(o.queueNum, o.purpose, o.priority);
 
 // how far loading has got, e.g. "Roofings ✓ · Hardware next", or "Roofings ✓ · Hardware now" while a crew has them
 // there; "" for an order from before the areas

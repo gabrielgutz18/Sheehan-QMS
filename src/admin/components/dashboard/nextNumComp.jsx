@@ -37,7 +37,7 @@ export default function NextNumComp({ orders, loading, limit = 6, manage = false
                     </thead>
                     <tbody>
                         {shown.map((o) => {
-                            const ticket = formatQueueNum(o.queueNum, o.purpose);
+                            const ticket = formatQueueNum(o.queueNum, o.purpose, o.priority);
                             return (
                                 <tr key={o.queueNum}>
                                     <td>
@@ -68,7 +68,7 @@ export default function NextNumComp({ orders, loading, limit = 6, manage = false
             )}
 
             {hidden > 0 && <p className="mini-more">+{hidden} more in line</p>}
-            {manage && <Link to="/staff/orders" className="admin-link mini-line-manage">Manage orders →</Link>}
+            {manage && <Link to="/staff/customer-order?tab=orders" className="admin-link mini-line-manage">Manage orders →</Link>}
 
             {viewed && <TicketDialog order={viewed} openedAt={viewing.openedAt} onClose={() => setViewing(null)} />}
         </section>

@@ -38,7 +38,7 @@ export const sheetRow = (order) => {
     return {
         id: String(order.id),
         date: sheetDate(order.createdAt),
-        que: formatQueueNum(order.queueNum, order.purpose),
+        que: formatQueueNum(order.queueNum, order.purpose, order.priority),
         team: order.team ?? "",
         salesman: order.salesman ?? "",
         assistedBy: assistedBy(order),

@@ -89,7 +89,7 @@ export const orderExportRows = (orders) =>
         .toSorted((a, b) => a.date.localeCompare(b.date) || a.queueNum - b.queueNum)
         .map((order) => ({
             date: excelDate(order.date),
-            ticket: formatQueueNum(order.queueNum, order.purpose),
+            ticket: formatQueueNum(order.queueNum, order.purpose, order.priority),
             name: order.name,
             purpose: order.purpose,
             invoices: invoiceText(order),
