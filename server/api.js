@@ -1,7 +1,7 @@
 // the backend API, shared by the Vite dev server (npm run dev) and server/server.js (npm start)
 // orders, settings, staff accounts and sign-ins are saved in a SQLite database in the data folder
 // (see server/db.js), and an uploaded display video next to it in videos/, so nothing is lost on restart
-// eight roles: admins can do everything; sales, loading, TBA, hardware, security, cashier and developer staff only what
+// nine roles: admins can do everything; sales, loading, TBA, hardware, security, cashier, inventory and developer staff only what
 // ROLE_ROUTES lists for them
 import { createHash, randomBytes, scrypt, scryptSync, timingSafeEqual } from 'node:crypto';
 import { createReadStream, createWriteStream, mkdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -77,10 +77,10 @@ const ANNOUNCER_REPEATS = [1, 2];
 // loading: the loading crew, one shared line for its areas (Roofings, Steel); tba: the TBA department (Tire, Battery,
 // Chassis) and hardware: the Hardware department, each the same as loading but for its own area
 // (src/data/loadingAreas.js); security: the guards at the gate, the last stage, who check what each customer leaves
-// with; cashier: who changes how each order is paid; developer: the team that builds the app, who answer staff on the
-// Chat page when something doesn't go well
-const ROLES = ["admin", "sales", "loading", "tba", "hardware", "security", "cashier", "developer"];
-const NO_SUCH_ROLE = "Pick admin, sales, loading, TBA, hardware, security, cashier or developer.";
+// with; cashier: who changes how each order is paid; inventory: the inventory department, with no work page of its own
+// yet; developer: the team that builds the app, who answer staff on the Chat page when something doesn't go well
+const ROLES = ["admin", "sales", "loading", "tba", "hardware", "security", "cashier", "inventory", "developer"];
+const NO_SUCH_ROLE = "Pick admin, sales, loading, TBA, hardware, security, cashier, inventory or developer.";
 // a developer makes and changes accounts on Accounts too, but not admin ones, so they can't give themselves everything
 const ADMINS_ONLY = "Only an admin can make or change an admin account.";
 // one chat message, written to or by the developers
@@ -120,13 +120,22 @@ const ACCOUNT_ROUTES = [
     ["PUT", /^\/admin\/me\/photo$/],
     ["DELETE", /^\/admin\/me\/photo$/],
 ];
+// SheeChat: every staff member but the developers chats with any other of them, one conversation per pair
+const SHEECHAT_ROUTES = [
+    ["GET", /^\/admin\/sheechat$/],
+    ["GET", /^\/admin\/sheechat\/people$/],
+    ["GET", /^\/admin\/sheechat\/\d+$/],
+    ["POST", /^\/admin\/sheechat\/\d+$/],
+    ["POST", /^\/admin\/sheechat\/\d+\/image$/],
+];
 // Message developer: every staff member but the developers writes to them there when something doesn't go well,
-// seeing which of them are online
+// seeing which of them are online; SheeChat goes with it, for the same people
 const MESSAGE_ROUTES = [
     ["GET", /^\/admin\/messages$/],
     ["POST", /^\/admin\/messages$/],
     ["POST", /^\/admin\/messages\/image$/],
     ["GET", /^\/admin\/developers$/],
+    ...SHEECHAT_ROUTES,
 ];
 // what each role other than admin may do; every other /admin route is for admins only, so a new route is safe by default
 const ROLE_ROUTES = {
@@ -198,6 +207,14 @@ const ROLE_ROUTES = {
         ["GET", /^\/admin\/payments$/],
         ["PATCH", /^\/admin\/payments\/\d+$/],
         // the Order status board the top bar opens
+        ["GET", /^\/admin\/order-status$/],
+        ...ACCOUNT_ROUTES,
+        ...MESSAGE_ROUTES,
+    ],
+    // the inventory department: no work page of its own yet, so the Order status board, where every customer is today
+    // (with none of the sales details), SheeChat, Message developer and their own account; nothing they can call,
+    // change or save in the queue
+    inventory: [
         ["GET", /^\/admin\/order-status$/],
         ...ACCOUNT_ROUTES,
         ...MESSAGE_ROUTES,
@@ -509,6 +526,18 @@ const toMessage = (row) => ({
     from: { id: row.sender_id, name: row.name, role: row.role, photo: row.photo },
     read: row.read_at !== null,
     // whether it carries a picture, shown from /chat-images/<id>
+    image: row.image !== null,
+});
+
+// one SheeChat message between two staff members; to: the recipient's id; read: the recipient has opened it
+const toDirectMessage = (row) => ({
+    id: row.id,
+    body: row.body,
+    sentAt: row.sent_at,
+    from: { id: row.sender_id, name: row.name, role: row.role, photo: row.photo },
+    to: row.recipient_id,
+    read: row.read_at !== null,
+    // whether it carries a picture, shown from /sheechat-images/<id>
     image: row.image !== null,
 });
 
@@ -1060,6 +1089,31 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
                 (SELECT COUNT(*) FROM messages x WHERE x.staff_id = u.id AND x.sender_id = u.id AND x.read_at IS NULL) AS unread
             FROM users u JOIN messages m ON m.id = (SELECT MAX(id) FROM messages WHERE staff_id = u.id)
             ORDER BY m.id DESC`),
+        // SheeChat: the conversation between :me and :other, either way round, oldest first
+        dmThread: db.prepare(`
+            SELECT d.id, d.sender_id, d.recipient_id, d.body, d.image, d.sent_at, d.read_at, u.name, u.role, u.photo
+            FROM direct_messages d JOIN users u ON u.id = d.sender_id
+            WHERE (d.sender_id = :me AND d.recipient_id = :other) OR (d.sender_id = :other AND d.recipient_id = :me)
+            ORDER BY d.id`),
+        insertDm: db.prepare("INSERT INTO direct_messages (sender_id, recipient_id, body, image, sent_at) VALUES (?, ?, ?, ?, ?)"),
+        findDm: db.prepare(`
+            SELECT d.id, d.sender_id, d.recipient_id, d.body, d.image, d.sent_at, d.read_at, u.name, u.role, u.photo
+            FROM direct_messages d JOIN users u ON u.id = d.sender_id WHERE d.id = ?`),
+        // a picture sent on SheeChat, and who it's between, for /sheechat-images/<id>
+        findDmImage: db.prepare("SELECT sender_id, recipient_id, image FROM direct_messages WHERE id = ? AND image IS NOT NULL"),
+        // opening a conversation reads what the other person sent you: (read_at, sender, recipient)
+        readDms: db.prepare("UPDATE direct_messages SET read_at = ? WHERE sender_id = ? AND recipient_id = ? AND read_at IS NULL"),
+        // everyone :me has a conversation with, the newest message first, with how many of theirs :me hasn't read
+        listDmChats: db.prepare(`
+            SELECT u.id, u.name, u.role, u.photo, u.disabled_at, d.body AS last_body, d.image IS NOT NULL AS last_image,
+                d.sent_at AS last_at, d.sender_id = :me AS last_mine,
+                (SELECT COUNT(*) FROM direct_messages x
+                    WHERE x.sender_id = u.id AND x.recipient_id = :me AND x.read_at IS NULL) AS unread
+            FROM users u JOIN direct_messages d ON d.id = (
+                SELECT MAX(id) FROM direct_messages
+                WHERE (sender_id = :me AND recipient_id = u.id) OR (sender_id = u.id AND recipient_id = :me))
+            WHERE u.id != :me
+            ORDER BY d.id DESC`),
         setLastSeen: db.prepare("UPDATE users SET last_seen = ? WHERE id = ?"),
         // every account but switched-off ones, with whether a sign-in of theirs is still open, for who's online
         listPresence: db.prepare(`
@@ -1428,6 +1482,27 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             });
         }
 
+        // a picture sent on SheeChat, for the two people in that conversation only; a plain GET from an <img>
+        const dmImageMatch = path.match(/^\/sheechat-images\/(\d+)$/);
+        if (method === "GET" && dmImageMatch) {
+            const viewers = allSessions(req);
+            if (viewers.length === 0) return send(res, 401, { message: "Please sign in." });
+            const message = sql.findDmImage.get(Number(dmImageMatch[1]));
+            const allowed = message && viewers.some(({ user }) => user.id === message.sender_id || user.id === message.recipient_id);
+            const file = allowed ? join(chatImagesDir, message.image) : null;
+            const stats = file ? statSync(file, { throwIfNoEntry: false }) : undefined;
+            if (!stats) return send(res, 404, { message: "No picture." });
+            res.writeHead(200, {
+                "Content-Type": photoType(file),
+                "Content-Length": stats.size,
+                "Cache-Control": "private, max-age=31536000, immutable",
+                "X-Content-Type-Options": "nosniff",
+            });
+            return pipeline(createReadStream(file), res).catch(() => {
+                // the page went away part-way; nothing to do
+            });
+        }
+
         if (method === "GET" && path === "/auth/me") return send(res, 200, session.user);
 
         if (method === "POST" && path === "/auth/logout") {
@@ -1596,6 +1671,62 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
                 lastSeen: row.last_seen,
             })).toSorted((a, b) => b.online - a.online);
         };
+
+        // SheeChat, for every role but the developers (ROLE_ROUTES leaves them out too; they have the Chat page)
+        if (path.startsWith("/admin/sheechat") && me.role === "developer") {
+            return send(res, 403, { message: "Developers answer staff on the Chat page." });
+        }
+
+        // SheeChat's list: everyone you have a conversation with, newest first, with how many of theirs you haven't read
+        if (method === "GET" && path === "/admin/sheechat") {
+            return send(res, 200, sql.listDmChats.all({ me: me.id }).map((row) => ({
+                with: { id: row.id, name: row.name, role: row.role, photo: row.photo, disabled: row.disabled_at !== null },
+                last: {
+                    body: row.last_body,
+                    image: Boolean(row.last_image),
+                    sentAt: row.last_at,
+                    mine: Boolean(row.last_mine),
+                },
+                unread: row.unread,
+            })));
+        }
+
+        // SheeChat's People list: every other staff member but the developers, online first, to start a conversation
+        if (method === "GET" && path === "/admin/sheechat/people") {
+            return send(res, 200, presence().filter((account) => account.role !== "developer" && account.id !== me.id));
+        }
+
+        // the person on the other side of a SheeChat conversation: any staff member but a developer or yourself
+        const dmMatch = path.match(/^\/admin\/sheechat\/(\d+)(\/image)?$/);
+        if (dmMatch) {
+            const other = sql.findUserById.get(Number(dmMatch[1]));
+            if (!other || other.role === "developer" || other.id === me.id) {
+                return send(res, 404, { message: "Staff member not found." });
+            }
+
+            // the conversation, oldest first; opening it reads what they sent you
+            if (method === "GET" && !dmMatch[2]) {
+                sql.readDms.run(new Date().toISOString(), other.id, me.id);
+                return send(res, 200, sql.dmThread.all({ me: me.id, other: other.id }).map(toDirectMessage));
+            }
+
+            if (method === "POST") {
+                // an earlier conversation with someone switched off can still be read, but not added to
+                if (other.disabled_at !== null) return send(res, 409, { message: `${other.name}'s account is switched off.` });
+                let body;
+                let image = null;
+                if (dmMatch[2]) {
+                    const saved = await saveChatImage(req, url, me.id);
+                    if (!saved.file) return send(res, saved.status, { message: saved.message });
+                    ({ body, file: image } = saved);
+                } else {
+                    body = messageBody(await readBody(req));
+                    if (!body) return send(res, 400, { message: `Write a message of up to ${MAX_MESSAGE} characters.` });
+                }
+                const { lastInsertRowid } = sql.insertDm.run(me.id, other.id, body, image, new Date().toISOString());
+                return send(res, 201, toDirectMessage(sql.findDm.get(lastInsertRowid)));
+            }
+        }
 
         // the developer team, for Message developer and the Chat page's chat heads
         if (method === "GET" && path === "/admin/developers") {

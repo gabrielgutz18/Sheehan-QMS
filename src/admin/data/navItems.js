@@ -1,5 +1,5 @@
 // every kind of staff account
-const STAFF = ["admin", "sales", "loading", "tba", "hardware", "security", "cashier", "developer"];
+const STAFF = ["admin", "sales", "loading", "tba", "hardware", "security", "cashier", "inventory", "developer"];
 // everyone but the developers, who are the ones written to
 const NOT_DEVELOPER = STAFF.filter((role) => role !== "developer");
 
@@ -16,6 +16,7 @@ export const NAV_FOLDERS = {
 // folder: the NAV_FOLDERS folder it sits in, left out for one straight in its group
 const navItems = [
     { to: "/staff", label: "Dashboard", end: true, group: "Overview", roles: NOT_DEVELOPER, icon: "M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z", blurb: "The live queue and your profile" },
+    { to: "/staff/sheechat", label: "SheeChat", group: "Overview", roles: NOT_DEVELOPER, icon: "M3 6h12v8H7l-4 3zM9 14v2h8l4 3V9h-6", blurb: "Chat with anyone on the staff" },
     { to: "/staff/chat", label: "Chat", group: "My work", roles: ["developer"], icon: "M4 5h16v11H9l-5 4zM8 9h8M8 12h5", blurb: "What staff write when something doesn't go well, and your answers" },
     { to: "/staff/customer-order", label: "Customer order", group: "My work", roles: ["admin", "sales"], icon: "M9 3h6v3H9zM9 4.5H5V21h14V4.5h-4M12 10v7M8.5 13.5h7", blurb: "Take orders, print tickets, and today's orders and the history" },
     { to: "/staff/counter", label: "My counter", group: "My work", roles: ["admin", "sales"], icon: "M3 10h18M5 10v10h14V10M8 10V6a4 4 0 0 1 8 0v4", blurb: "Hand the customers in line over to loading" },
@@ -23,7 +24,7 @@ const navItems = [
     { to: "/staff/tba", label: "TBA", group: "My work", folder: "Department", roles: ["admin", "tba"], icon: "M12 3a9 9 0 1 0 0 18 9 9 0 1 0 0-18M12 8a4 4 0 1 0 0 8 4 4 0 1 0 0-8M12 3v5M12 16v5M3 12h5M16 12h5", blurb: "Call the customers handed over to TBA" },
     { to: "/staff/hardware", label: "Hardware", group: "My work", folder: "Department", roles: ["admin", "hardware"], icon: "M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z", blurb: "Call the customers handed over to Hardware" },
     // admins and sales have the same board on Customer order
-    { to: "/staff/order-status", label: "Order status", group: "My work", roles: ["loading", "tba", "hardware", "developer"], icon: "M4 6h3M4 12h3M4 18h3M11 6h9M11 12h9M11 18h9M5.5 4.5v3M5.5 10.5v3M5.5 16.5v3", blurb: "Where every customer is today" },
+    { to: "/staff/order-status", label: "Order status", group: "My work", roles: ["loading", "tba", "hardware", "inventory", "developer"], icon: "M4 6h3M4 12h3M4 18h3M11 6h9M11 12h9M11 18h9M5.5 4.5v3M5.5 10.5v3M5.5 16.5v3", blurb: "Where every customer is today" },
     { to: "/staff/security", label: "Security", group: "My work", folder: "Department", roles: ["admin", "security"], icon: "M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6zM8.5 12l2.5 2.5 4.5-5", blurb: "Check what each customer leaves with" },
     { to: "/staff/cashier", label: "Cashier", group: "My work", folder: "Department", roles: ["admin", "sales", "cashier"], icon: "M2 6h20v12H2zM12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 1 0 0-5M5.5 9v6M18.5 9v6", blurb: "Change how each order is paid" },
     { to: "/staff/video", label: "Display video", group: "Display", roles: ["admin"], icon: "M3 6h13v12H3zM16 10l5-3v10l-5-3", blurb: "What plays on the queue display" },

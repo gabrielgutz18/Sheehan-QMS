@@ -23,9 +23,10 @@ import SecurityPage from './pages/securityPage.jsx';
 import CashierPage from './pages/cashierPage.jsx';
 import ChatPage from './pages/chatPage.jsx';
 import MessageDeveloperPage from './pages/messageDeveloperPage.jsx';
+import SheeChatPage from './pages/sheeChatPage.jsx';
 
 // every kind of staff account but the developers, who are written to from Message developer and have no Dashboard
-const NOT_DEVELOPER = ["admin", "sales", "loading", "tba", "hardware", "security", "cashier"];
+const NOT_DEVELOPER = ["admin", "sales", "loading", "tba", "hardware", "security", "cashier", "inventory"];
 
 // the browser tab: "Sheehan Inc. — Staff" until someone signs in, then their role ("Sheehan Inc. — Sales")
 function StaffTitle() {
@@ -50,10 +51,11 @@ export default function AdminApp() {
                         <Route path="account" element={<AccountPage />} />
 
                         {/* the live queue and their own profile, for everyone but the developers (admins' has the
-                            day's counts and sales graph too), and writing to the developers when something doesn't go
-                            well */}
+                            day's counts and sales graph too), SheeChat with one another, and writing to the developers
+                            when something doesn't go well */}
                         <Route element={<ProtectedRoute roles={NOT_DEVELOPER} />}>
                             <Route index element={<DashboardPage />} />
+                            <Route path="sheechat" element={<SheeChatPage />} />
                             <Route path="message-developer" element={<MessageDeveloperPage />} />
                         </Route>
 
@@ -90,7 +92,7 @@ export default function AdminApp() {
 
                         {/* where every customer is, for the departments and the developers; admins and sales have
                             the same board on Customer order */}
-                        <Route element={<ProtectedRoute roles={["admin", "loading", "tba", "hardware", "developer"]} />}>
+                        <Route element={<ProtectedRoute roles={["admin", "loading", "tba", "hardware", "inventory", "developer"]} />}>
                             <Route path="order-status" element={<OrderStatusPage />} />
                         </Route>
 

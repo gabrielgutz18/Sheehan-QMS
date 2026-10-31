@@ -1,7 +1,7 @@
 import http from '../../api/http.js';
 
 // staff accounts, for admins and developers (a developer can't make or change an admin account: 403)
-// account: { id, username, name, role: "admin" | "sales" | "loading" | "tba" | "hardware" | "security" | "cashier" | "developer", team, createdAt, disabled, builtIn, servedToday,
+// account: { id, username, name, role: "admin" | "sales" | "loading" | "tba" | "hardware" | "security" | "cashier" | "inventory" | "developer", team, createdAt, disabled, builtIn, servedToday,
 //            servedTotal, servingNow, signedIn } plus the profile fields from accountController.js
 // team is their own sales team from src/data/teams.js ("" for none); the edits they save on Customer order show it
 // builtIn is the admin from the server's .env file: its password and role can't be changed here

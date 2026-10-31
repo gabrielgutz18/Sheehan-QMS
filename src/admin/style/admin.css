@@ -2855,6 +2855,37 @@
   min-width: 0;
 }
 
+/* the create form, one box per new account */
+.account-rows {
+  display: grid;
+  gap: 16px;
+}
+
+.account-row {
+  margin: 0;
+  padding: 16px;
+  border: 1px solid var(--cream-border);
+  border-radius: 10px;
+  background: var(--surface-muted);
+  min-width: 0;
+}
+
+.account-row-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 6px;
+  font-weight: 600;
+}
+
+.account-row .field-error {
+  margin-top: 10px;
+}
+
+.account-add {
+  margin: 12px 0 16px;
+}
+
 .admin-table tr.is-disabled td {
   color: var(--text-muted);
 }

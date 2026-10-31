@@ -19,18 +19,12 @@ const MIN_PASSWORD = 8;
 const REFRESH_MS = 30000;
 const whole = new Intl.NumberFormat();
 const EMPTY_FORM = { name: "", username: "", password: "", role: "sales", team: "" };
+// one row of the create form; key tells React the rows apart when one is removed
+let nextRowKey = 0;
+const newRow = () => ({ ...EMPTY_FORM, key: nextRowKey++, showPassword: false, error: "" });
 const teamNames = teams.map((t) => t.name);
-// the roles to pick from, with what each can do, as the create form describes them
-const ROLE_CHOICES = [
-    { value: "sales", hint: "takes orders and hands customers over, can change the payment status" },
-    { value: "loading", hint: "calls customers sales hands over, their own page only" },
-    { value: "tba", hint: "the same as loading, for the TBA department (Tire, Battery, Chassis)" },
-    { value: "hardware", hint: "the same as loading, for the Hardware department" },
-    { value: "security", hint: "checks what customers leave with, looking only" },
-    { value: "cashier", hint: "changes the payment status, nothing else" },
-    { value: "developer", hint: "answers staff on Chat, the Order status board and Accounts" },
-    { value: "admin", hint: "everything, including accounts" },
-];
+// the roles to pick from on the create form, in the order the dropdown lists them
+const ROLE_CHOICES = ["sales", "loading", "tba", "hardware", "security", "cashier", "inventory", "developer", "admin"];
 
 // a small dialog for typing someone's new password
 function PasswordDialog({ account, busy, error, onSave, onClose }) {
@@ -82,9 +76,8 @@ function PasswordDialog({ account, busy, error, onSave, onClose }) {
 export default function AccCreation() {
     const { user: me } = useAuth();
     const [accounts, setAccounts] = useState(null);
-    const [form, setForm] = useState(EMPTY_FORM);
+    const [rows, setRows] = useState(() => [newRow()]);
     const [department, setDepartment] = useState("all");
-    const [showPassword, setShowPassword] = useState(false);
     const [creating, setCreating] = useState(false);
     const [busy, setBusy] = useState(null);
     const [resetting, setResetting] = useState(null);
@@ -114,10 +107,18 @@ export default function AccCreation() {
         };
     }, []);
 
-    const field = (key) => ({
-        value: form[key],
-        onChange: (e) => setForm((prev) => ({ ...prev, [key]: e.target.value })),
+    // the value and onChange of one input, in the row with this key
+    const field = (rowKey, name) => ({
+        value: rows.find((r) => r.key === rowKey)[name],
+        onChange: (e) => updateRow(rowKey, { [name]: e.target.value }),
     });
+
+    const updateRow = (rowKey, changes) =>
+        setRows((prev) => prev.map((r) => (r.key === rowKey ? { ...r, ...changes, error: "" } : r)));
+
+    const addRow = () => setRows((prev) => [...prev, newRow()]);
+
+    const removeRow = (rowKey) => setRows((prev) => prev.filter((r) => r.key !== rowKey));
 
     const replace = (saved) => {
         edits.current += 1;
@@ -126,21 +127,44 @@ export default function AccCreation() {
 
     const create = async (e) => {
         e.preventDefault();
-        setCreating(true);
         setError("");
         setNotice("");
-        try {
-            const created = await createUser({ ...form, username: form.username.trim(), name: form.name.trim() });
-            edits.current += 1;
-            setAccounts((prev) => [...prev, created]);
-            setNotice(`Account created. ${created.name} can sign in with the username “${created.username}”.`);
-            setForm(EMPTY_FORM);
-            setShowPassword(false);
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setCreating(false);
+
+        // usernames ignore case in the database (COLLATE NOCASE), so "Maria" and "maria" are the same one
+        const names = rows.map((r) => r.username.trim().toLowerCase());
+        const twice = names.find((u, i) => names.indexOf(u) !== i);
+        if (twice) {
+            setError(`The username “${twice}” is in the form more than once.`);
+            return;
         }
+
+        setCreating(true);
+        const made = [];
+        const failed = [];
+        // one at a time, so each row gets its own answer (e.g. "That username is taken.")
+        for (const row of rows) {
+            // only the account's details go to the server, not the row's key, Show toggle or error
+            const { name, username, password, role, team } = row;
+            try {
+                made.push(await createUser({ name: name.trim(), username: username.trim(), password, role, team }));
+            } catch (err) {
+                failed.push({ ...row, error: err.message });
+            }
+        }
+
+        if (made.length) {
+            edits.current += 1;
+            setAccounts((prev) => [...prev, ...made]);
+            setNotice(made.length === 1
+                ? `Account created. ${made[0].name} can sign in with the username “${made[0].username}”.`
+                : `${made.length} accounts created: ${made.map((a) => a.username).join(", ")}.`);
+        }
+        if (failed.length) {
+            setError(`${failed.length} of ${rows.length} weren't created. Fix them below and press Create again.`);
+        }
+        // the ones that saved leave the form; the ones that didn't stay, with their error
+        setRows(failed.length ? failed : [newRow()]);
+        setCreating(false);
     };
 
     const change = async (account, changes, message) => {
@@ -185,7 +209,7 @@ export default function AccCreation() {
     const shown = shownTab === "all" ? accounts : accounts?.filter((a) => a.role === shownTab);
 
     const isDeveloper = me.role === "developer";
-    const roleChoices = isDeveloper ? ROLE_CHOICES.filter(({ value }) => value !== "admin") : ROLE_CHOICES;
+    const roleChoices = isDeveloper ? ROLE_CHOICES.filter((role) => role !== "admin") : ROLE_CHOICES;
     // a developer changes nothing on an admin's account
     const adminOnly = (account) => isDeveloper && account.role === "admin";
     // the built-in admin from .env, and your own account, can't be demoted or switched off
@@ -203,60 +227,88 @@ export default function AccCreation() {
             <EmployeeGrid accounts={shown} meId={me.id} />
 
             <div className="admin-panel">
-                <h2>Create an account</h2>
-                <form className="account-form" onSubmit={create}>
-                    <label className="admin-field">
-                        Name
-                        <input type="text" required maxLength={60} placeholder="Maria Santos" {...field("name")} />
-                    </label>
-                    <label className="admin-field">
-                        Username
-                        <input
-                            type="text"
-                            required
-                            minLength={3}
-                            maxLength={32}
-                            pattern="[A-Za-z0-9._\-]+"
-                            autoCapitalize="none"
-                            spellCheck={false}
-                            placeholder="sales_staff2"
-                            {...field("username")}
-                        />
-                    </label>
-                    <label className="admin-field">
-                        Password
-                        <span className="password-row">
-                            <input
-                                type={showPassword ? "text" : "password"}
-                                required
-                                minLength={MIN_PASSWORD}
-                                maxLength={128}
-                                autoComplete="new-password"
-                                {...field("password")}
-                            />
-                            <button type="button" className="admin-btn" onClick={() => setShowPassword((s) => !s)}>
-                                {showPassword ? "Hide" : "Show"}
-                            </button>
-                        </span>
-                    </label>
-                    <label className="admin-field">
-                        Role
-                        <select {...field("role")}>
-                            {roleChoices.map(({ value, hint }) => (
-                                <option key={value} value={value}>{ROLE_LABELS[value]}: {hint}</option>
-                            ))}
-                        </select>
-                    </label>
-                    <label className="admin-field">
-                        Sales team
-                        <select {...field("team")}>
-                            <option value="">No team</option>
-                            {teamNames.map((name) => <option key={name} value={name}>{name}</option>)}
-                        </select>
-                    </label>
+                <h2>Create accounts</h2>
+                <form onSubmit={create}>
+                    <div className="account-rows">
+                        {rows.map((row, i) => (
+                            <fieldset key={row.key} className="account-row" disabled={creating}>
+                                <legend className="account-row-title">
+                                    Account {i + 1}
+                                    {rows.length > 1 && (
+                                        <button type="button" className="link-btn" onClick={() => removeRow(row.key)}>
+                                            Remove
+                                        </button>
+                                    )}
+                                </legend>
+                                <div className="account-form">
+                                    <label className="admin-field">
+                                        Name
+                                        <input type="text" required maxLength={60} placeholder="Maria Santos" {...field(row.key, "name")} />
+                                    </label>
+                                    <label className="admin-field">
+                                        Username
+                                        <input
+                                            type="text"
+                                            required
+                                            minLength={3}
+                                            maxLength={32}
+                                            pattern="[A-Za-z0-9._\-]+"
+                                            autoCapitalize="none"
+                                            spellCheck={false}
+                                            placeholder="sales_staff2"
+                                            {...field(row.key, "username")}
+                                        />
+                                    </label>
+                                    <label className="admin-field">
+                                        Password
+                                        <span className="password-row">
+                                            <input
+                                                type={row.showPassword ? "text" : "password"}
+                                                required
+                                                minLength={MIN_PASSWORD}
+                                                maxLength={128}
+                                                autoComplete="new-password"
+                                                {...field(row.key, "password")}
+                                            />
+                                            <button
+                                                type="button"
+                                                className="admin-btn"
+                                                onClick={() => updateRow(row.key, { showPassword: !row.showPassword })}
+                                            >
+                                                {row.showPassword ? "Hide" : "Show"}
+                                            </button>
+                                        </span>
+                                    </label>
+                                    <label className="admin-field">
+                                        Role
+                                        <select {...field(row.key, "role")}>
+                                            {roleChoices.map((role) => (
+                                                <option key={role} value={role}>{ROLE_LABELS[role]}</option>
+                                            ))}
+                                        </select>
+                                    </label>
+                                    <label className="admin-field">
+                                        Sales team
+                                        <select {...field(row.key, "team")}>
+                                            <option value="">No team</option>
+                                            {teamNames.map((name) => <option key={name} value={name}>{name}</option>)}
+                                        </select>
+                                    </label>
+                                </div>
+                                {row.error && <p className="field-error" role="alert">{row.error}</p>}
+                            </fieldset>
+                        ))}
+                    </div>
+
+                    <button type="button" className="link-btn account-add" onClick={addRow} disabled={creating}>
+                        + Add another account
+                    </button>
+
                     <div className="account-form-actions">
                         <button type="submit" className="admin-btn admin-btn-primary" disabled={creating}>
-                            {creating ? "Creating..." : "Create account"}
+                            {creating
+                                ? "Creating..."
+                                : rows.length === 1 ? "Create account" : `Create ${rows.length} accounts`}
                         </button>
                         <span className="video-hint">Usernames: letters, numbers, dots, dashes or underscores. Passwords: at least {MIN_PASSWORD} characters.</span>
                     </div>
@@ -307,8 +359,8 @@ export default function AccCreation() {
                                                 disabled={busy === a.id}
                                                 onChange={(e) => change(a, { role: e.target.value }, `${a.name} is now ${ROLE_LABELS[e.target.value]}.`)}
                                             >
-                                                {roleChoices.map(({ value }) => (
-                                                    <option key={value} value={value}>{ROLE_LABELS[value]}</option>
+                                                {roleChoices.map((role) => (
+                                                    <option key={role} value={role}>{ROLE_LABELS[role]}</option>
                                                 ))}
                                             </select>
                                         )}

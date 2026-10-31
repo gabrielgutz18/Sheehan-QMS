@@ -7,7 +7,8 @@ const sentTime = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeS
 // a chat picture opened full size over the page, as Messenger or Telegram does, instead of in a new tab; the arrows
 // (or the ← → keys) step through the conversation's other pictures; Esc, ✕ or a click beside the picture closes it
 // pictures: the conversation's messages that carry one, oldest first; index: the one open; onIndex(i) opens another
-export default function ImageViewer({ pictures, index, onIndex, onClose }) {
+// imageUrl(message): where a picture is shown from (the developer chat's, unless SheeChat passes its own)
+export default function ImageViewer({ pictures, index, onIndex, onClose, imageUrl = chatImageUrl }) {
     const dialogRef = useRef(null);
     const message = pictures[index];
     const hasPrev = index > 0;
@@ -49,7 +50,7 @@ export default function ImageViewer({ pictures, index, onIndex, onClose }) {
                         ‹
                     </button>
                 )}
-                <img key={message.id} src={chatImageUrl(message)} alt={message.body ? `Picture: ${message.body}` : `Picture from ${message.from.name}`} />
+                <img key={message.id} src={imageUrl(message)} alt={message.body ? `Picture: ${message.body}` : `Picture from ${message.from.name}`} />
                 {hasNext && (
                     <button type="button" className="chat-viewer-btn chat-viewer-next" aria-label="Next picture" onClick={() => onIndex(index + 1)}>
                         ›
