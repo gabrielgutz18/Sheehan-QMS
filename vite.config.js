@@ -36,6 +36,11 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), useDevApi && devApi(env)],
+    build: {
+      // exceljs ships as one prebuilt ~930 kB file that can't be split further; it is already loaded
+      // on demand (only when an Excel export is clicked), so allow it without hiding real regressions
+      chunkSizeWarningLimit: 1000,
+    },
     server: {
       // forward /api requests to the real backend during development
       proxy: useDevApi ? undefined : {
