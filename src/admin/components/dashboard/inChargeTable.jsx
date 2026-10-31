@@ -66,7 +66,7 @@ export default function InChargeTable() {
                                 return (
                                     <tr key={o.queueNum} className={mine ? "is-mine" : undefined}>
                                         <th scope="row">
-                                            <span className="charge-ticket">{formatQueueNum(o.queueNum, o.purpose, o.priority)}</span>
+                                            <span className="charge-ticket">{formatQueueNum(o.queueNum, o.purpose, o)}</span>
                                             <span className="charge-name">{o.name}</span>
                                         </th>
                                         <td>

@@ -32,7 +32,7 @@ export default function OrderSummary({ fields, ticket }) {
             <div className="sale-summary-box">
                 {ticket && (
                     <p className="sale-summary-ticket">
-                        Editing <strong>{formatQueueNum(ticket.queueNum, fields.types.join(", ") || ticket.purpose, fields.priority)}</strong>
+                        Editing <strong>{formatQueueNum(ticket.queueNum, fields.types.join(", ") || ticket.purpose, fields)}</strong>
                     </p>
                 )}
                 <dl className="sale-summary-list">

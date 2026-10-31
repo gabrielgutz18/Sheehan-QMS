@@ -5,6 +5,8 @@
  * for a new order (at the bottom, oldest first) or rewrites the row of one it already has, found by its APP ID (a
  * hidden column). Orders deleted in the app are taken out. The c/o column (F) and REMARKS are typed in the sheet
  * itself: the app never writes them, so what you type there stays.
+ * Each day's rows are kept sorted: the priority orders first (QUE "*"), then the TBA priority ones ("**"), then the
+ * rest, each group in number order, by APP SORT (another hidden column); a row moves with what's typed in it.
  *
  * Setup (once):
  *   1. Open the spreadsheet → Extensions → Apps Script, and paste this file in (or create a standalone project).
@@ -52,9 +54,13 @@ const COLUMNS = [
     { key: null, header: "REMARKS", width: 330, align: "left" },
     // the order's id in the app, so its row is found again; hidden
     { key: "id", header: "APP ID", width: 60, hidden: true },
+    // where the row goes, "2026-10-29 0 0003" (the day, the group, the number; see sortKey in server/googleSheet.js);
+    // hidden
+    { key: "sortKey", header: "APP SORT", width: 60, hidden: true },
 ];
 
 const ID_COLUMN = COLUMNS.findIndex((column) => column.key === "id") + 1;
+const SORT_COLUMN = COLUMNS.findIndex((column) => column.key === "sortKey") + 1;
 // the runs of columns the app writes, [first, last] (1-based), so a row is rewritten without touching the typed ones
 const APP_RUNS = COLUMNS.reduce((runs, column, i) => {
     if (!column.key) return runs;
@@ -86,6 +92,7 @@ function doPost(e) {
         const sheet = orderSheet_();
         const result = { ok: true, added: 0, updated: 0, removed: 0 };
         if (Array.isArray(body.rows)) upsertRows_(sheet, body.rows, result);
+        if (result.added || result.updated) sortRows_(sheet);
         if (Array.isArray(body.remove)) {
             const remove = new Set(body.remove.map(String));
             result.removed += deleteRowsWhere_(sheet, (id) => remove.has(id));
@@ -128,7 +135,35 @@ function orderSheet_() {
     let sheet = book.getSheetByName(SHEET_NAME);
     if (!sheet) sheet = book.insertSheet(SHEET_NAME);
     if (sheet.getLastRow() === 0) layOut_(sheet);
+    else addNewColumns_(sheet);
     return sheet;
+}
+
+// a sheet laid out before a column was added at the end (APP SORT) gets its header, hidden like the others, and the
+// filter is made again over it
+function addNewColumns_(sheet) {
+    // one read of the header row, as this runs on every request
+    const headers = sheet.getRange(1, 1, 1, COLUMNS.length).getDisplayValues()[0];
+    const missing = COLUMNS.map((column, i) => i).filter((i) => COLUMNS[i].hidden && !headers[i]);
+    if (!missing.length) return;
+    for (const i of missing) {
+        sheet.getRange(1, i + 1).setValue(COLUMNS[i].header)
+            .setBackground(HEADER_BG).setFontColor("#ffffff").setFontWeight("bold");
+        sheet.setColumnWidth(i + 1, COLUMNS[i].width);
+        sheet.hideColumns(i + 1);
+    }
+    stretchFilter_(sheet);
+}
+
+// every row in APP SORT order, so the day's priority orders are together at its top, then the TBA priority ones;
+// whole rows move, typed columns too; a row typed in by hand (no APP SORT) goes to the bottom
+function sortRows_(sheet) {
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 3) return;
+    const filter = sheet.getFilter();
+    // the filter's own sort leaves the header where it is and sorts the rows it hides as well
+    if (filter) filter.sort(SORT_COLUMN, true);
+    else sheet.getRange(2, 1, lastRow - 1, COLUMNS.length).sort({ column: SORT_COLUMN, ascending: true });
 }
 
 // the header row, as in the schedule: black, white bold capitals, the time headers yellow, the second line in italics
@@ -226,12 +261,15 @@ function upsertRows_(sheet, rows, result) {
     }
 }
 
-// the header's filter covers the rows it was made over, so once rows are added below them it's made again over the
-// whole sheet, with the same filters people had picked
+// the header's filter covers the rows and columns it was made over, so once rows are added below them (or a column
+// at the end) it's made again over the whole sheet, with the same filters people had picked
 function stretchFilter_(sheet) {
     const filter = sheet.getFilter();
-    if (!filter || filter.getRange().getLastRow() >= sheet.getMaxRows()) return;
-    const criteria = COLUMNS.map((column, i) => filter.getColumnFilterCriteria(i + 1));
+    if (!filter) return;
+    const range = filter.getRange();
+    if (range.getLastRow() >= sheet.getMaxRows() && range.getLastColumn() >= COLUMNS.length) return;
+    // a column the old filter didn't cover has no criteria to keep
+    const criteria = COLUMNS.map((column, i) => (i < range.getLastColumn() ? filter.getColumnFilterCriteria(i + 1) : null));
     filter.remove();
     const stretched = sheet.getRange(1, 1, sheet.getMaxRows(), COLUMNS.length).createFilter();
     criteria.forEach((criterion, i) => {

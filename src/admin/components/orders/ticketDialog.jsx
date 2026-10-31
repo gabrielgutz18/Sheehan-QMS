@@ -32,7 +32,7 @@ export default function TicketDialog({ order, openedAt, onServe, onClose }) {
         <dialog ref={dialogRef} className="admin-dialog" aria-labelledby="ticket-title" onClose={onClose}>
             <div className="admin-dialog-body">
                 <h2 id="ticket-title" className="admin-dialog-title">
-                    <strong>{formatQueueNum(order.queueNum, order.purpose, order.priority)}</strong> {order.name}
+                    <strong>{formatQueueNum(order.queueNum, order.purpose, order)}</strong> {order.name}
                 </h2>
 
                 <dl className="ticket-facts">

@@ -30,7 +30,7 @@ export default function CallDialog({
         inputRef.current.select();
     }, []);
 
-    const ticket = formatQueueNum(order.queueNum, order.purpose, order.priority);
+    const ticket = formatQueueNum(order.queueNum, order.purpose, order);
     const again = order.status === "serving";
 
     const submit = (e) => {

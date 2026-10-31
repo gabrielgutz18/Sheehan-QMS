@@ -116,13 +116,13 @@ function TicketHistory({ deleted }) {
     const loading = result.key !== key;
 
     const restore = async (row) => {
-        const before = formatQueueNum(row.queueNum, row.purpose, row.priority);
+        const before = formatQueueNum(row.queueNum, row.purpose, row);
         setRestoring(row.id);
         setError("");
         setNotice("");
         try {
             const restored = await restoreOrder(row.id);
-            const now = formatQueueNum(restored.queueNum, restored.purpose, restored.priority);
+            const now = formatQueueNum(restored.queueNum, restored.purpose, restored);
             setNotice(row.isToday
                 ? `${now} is back in today's queue.`
                 : `Restored to today's queue as ${now} (was ${before} on ${formatDay(row.date)}).`);
@@ -187,10 +187,10 @@ function TicketHistory({ deleted }) {
                                     <tr key={row.id}>
                                         <td>{row.isToday ? "Today" : formatDay(row.date)}</td>
                                         <td>
-                                            <strong>{formatQueueNum(row.queueNum, row.purpose, row.priority)}</strong>
+                                            <strong>{formatQueueNum(row.queueNum, row.purpose, row)}</strong>
                                             {row.originalDate && (
                                                 <span className="history-note">
-                                                    first {formatQueueNum(row.originalNum, row.purpose, row.priority)} on {formatDay(row.originalDate)}
+                                                    first {formatQueueNum(row.originalNum, row.purpose, row)} on {formatDay(row.originalDate)}
                                                 </span>
                                             )}
                                         </td>

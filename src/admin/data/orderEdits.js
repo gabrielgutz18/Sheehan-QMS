@@ -16,6 +16,7 @@ const DETAIL_LABELS = {
     team: "Sales team",
     pickupDate: "Pick-up date",
     priority: "Priority order",
+    tbaPriority: "TBA priority order",
 };
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });

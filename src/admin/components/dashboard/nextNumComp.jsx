@@ -37,7 +37,7 @@ export default function NextNumComp({ orders, loading, limit = 6, manage = false
                     </thead>
                     <tbody>
                         {shown.map((o) => {
-                            const ticket = formatQueueNum(o.queueNum, o.purpose, o.priority);
+                            const ticket = formatQueueNum(o.queueNum, o.purpose, o);
                             return (
                                 <tr key={o.queueNum}>
                                     <td>

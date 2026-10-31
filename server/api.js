@@ -50,7 +50,7 @@ const MAX_CONCERN = 300;
 const PAYMENT_STATUSES = paymentStatus.map((p) => p.type);
 const NO_SUCH_PAYMENT = `Pick a payment status from the list (${PAYMENT_STATUSES.join(", ")}).`;
 // who picks the payment status on Customer order, as they take or edit the order; the cashier has the Cashier page
-// they're also the ones who can mark an order as a priority order: a ticket from the kiosk never is one
+// they're also the ones who can mark an order as a priority or TBA priority order: a ticket from the kiosk never is one
 const PAYMENT_ON_ORDER = ["admin", "sales"];
 const TEAMS = teams.map((t) => t.name);
 const CHECKER_COLUMNS = checkers.map((c) => c.name);
@@ -468,17 +468,19 @@ const storedCheckers = (value = {}) => {
 
 // the sales details from Customer order, each optional: salesman, runner, receiver, the times the customer came in to
 // sales and left it, the sales team that served them, how it's paid, and for a returning customer, the day they come
-// back for the items (null when they're taking them now), and whether it's a priority order; the payment status and
-// priority are only kept from an admin or sales staff member (see paymentFrom)
+// back for the items (null when they're taking them now), and whether it's a priority order ("*") or a TBA priority one
+// ("**"), never both; the payment status and the marks are only kept from an admin or sales staff member (see
+// paymentFrom)
 const validSale = ({
     salesman, runner, receiver, salesTimeIn, salesTimeOut, checkers: checkerNames, team, paymentStatus: payment, pickupDate,
-    priority,
+    priority, tbaPriority,
 }) =>
     optionalText(salesman, MAX_SALESMAN) && optionalText(runner, MAX_RUNNER) && optionalText(receiver, MAX_RECEIVER) &&
     optionalTime(salesTimeIn) && optionalTime(salesTimeOut) && validCheckers(checkerNames) &&
     optionalPick(team, TEAMS) && optionalPick(payment, PAYMENT_STATUSES) &&
     (pickupDate === undefined || pickupDate === null || validDay(pickupDate)) &&
-    (priority === undefined || typeof priority === "boolean");
+    (priority === undefined || typeof priority === "boolean") &&
+    (tbaPriority === undefined || typeof tbaPriority === "boolean") && !(priority && tbaPriority);
 
 const validReport = ({ concern, orders }) =>
     typeof concern === "string" && concern.trim() !== "" && concern.trim().length <= MAX_CONCERN &&
@@ -587,7 +589,7 @@ const toMe = (row) => ({
 // them: it's saved on its own (see paymentFrom), so the edit says who set it
 const pickOrder = ({
     name, purpose, orders: items = [], invoices = [], concern, salesman, runner, receiver, salesTimeIn, salesTimeOut,
-    checkers: checkerNames, team, pickupDate, priority,
+    checkers: checkerNames, team, pickupDate, priority, tbaPriority,
 }) => {
     const isReport = purpose === REPORT_PURPOSE;
     return {
@@ -606,6 +608,7 @@ const pickOrder = ({
         pickupDate: pickupDate ?? null,
         // stored as 1 or 0, so it compares with the column in changedDetails
         priority: priority === true ? 1 : 0,
+        tbaPriority: tbaPriority === true ? 1 : 0,
     };
 };
 
@@ -614,7 +617,7 @@ const pickOrder = ({
 const EDITABLE_COLUMNS = {
     name: "name", purpose: "purpose", concern: "concern", salesman: "salesman", runner: "runner", receiver: "receiver",
     salesTimeIn: "sales_time_in", salesTimeOut: "sales_time_out", checkers: "checkers", team: "team",
-    pickupDate: "pickup_date", priority: "priority",
+    pickupDate: "pickup_date", priority: "priority", tbaPriority: "tba_priority",
 };
 // the Order sheet on Customer order: the details any sales staff member fills in after the ticket, each cell saved on
 // its own, with whether a value is one it takes; the payment status shows on the sheet but isn't one: it's changed on
@@ -729,8 +732,10 @@ const toOrder = (row, items, invoices, edits = []) => ({
     // team is the sales team that served the customer (src/data/teams.js); it stays theirs after the hand-over
     ...(row.team && { team: row.team }),
     ...(row.pickup_date && { pickupDate: row.pickup_date }),
-    // a priority order, marked on Customer order: its ticket shows as "* RS 01"; left out for any other
+    // a priority order, marked on Customer order: its ticket shows as "* RS 01"; a TBA priority one as "** T 01";
+    // each left out for any other
     ...(row.priority === 1 && { priority: true }),
+    ...(row.tba_priority === 1 && { tbaPriority: true }),
     // the loading crew is serving the customer now (rather than a sales counter that called them back)
     ...(row.at_loading === 1 && { atLoading: true }),
     // the sales staff member who handed the customer over to loading, and when (ISO 8601); until then it's served at
@@ -772,6 +777,7 @@ const toStatus = (row) => ({
     ...(row.served_by !== null && { servedBy: { id: row.served_by, name: row.served_by_name, photo: row.served_by_photo } }),
     ...(row.pickup_date && { pickupDate: row.pickup_date }),
     ...(row.priority === 1 && { priority: true }),
+    ...(row.tba_priority === 1 && { tbaPriority: true }),
     ...progressOf(row),
 });
 
@@ -874,14 +880,14 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
         // payment_status is left to its '' (none yet) and to setPayment: Customer order's and the Cashier page's
         insertOrder: db.prepare(`
             INSERT INTO orders (queue_date, queue_num, name, purpose, concern, salesman, runner, receiver,
-                sales_time_in, sales_time_out, checkers, team, pickup_date, priority, created_at)
+                sales_time_in, sales_time_out, checkers, team, pickup_date, priority, tba_priority, created_at)
             VALUES (:date, :queueNum, :name, :purpose, :concern, :salesman, :runner, :receiver,
-                :salesTimeIn, :salesTimeOut, :checkers, :team, :pickupDate, :priority, :createdAt)`),
+                :salesTimeIn, :salesTimeOut, :checkers, :team, :pickupDate, :priority, :tbaPriority, :createdAt)`),
         updateOrder: db.prepare(`
             UPDATE orders SET name = :name, purpose = :purpose, concern = :concern,
                 salesman = :salesman, runner = :runner, receiver = :receiver, sales_time_in = :salesTimeIn,
                 sales_time_out = :salesTimeOut, checkers = :checkers, team = :team, pickup_date = :pickupDate,
-                priority = :priority
+                priority = :priority, tba_priority = :tbaPriority
             WHERE id = :id`),
         // the Order sheet's cells; the ones a save leaves out keep what's stored
         updateSheet: db.prepare(`
@@ -939,13 +945,13 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
         // "Please wait" (no remarks) until that crew calls them, instead of going back in line
         serving: db.prepare(`
             SELECT queue_num, name, purpose, CASE WHEN status = 'serving' THEN remarks ELSE '' END AS remarks, called_at,
-                priority
+                priority, tba_priority
             FROM orders
             WHERE queue_date = ? AND deleted_at IS NULL AND status = 'serving'
             ORDER BY called_at DESC`),
         // the line: waiting and returning customers, in number order
         upcoming: db.prepare(`
-            SELECT queue_num, name, purpose, status, priority FROM orders
+            SELECT queue_num, name, purpose, status, priority, tba_priority FROM orders
             WHERE queue_date = ? AND status IN ('pending', 'returning') AND deleted_at IS NULL
             ORDER BY queue_num`),
         // orders per time slot and purpose ("Roofings, Steel" as it's stored), deleted tickets and Customer Reports
@@ -1378,14 +1384,14 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             // an admin or sales staff member taking it on Customer order can say how it's paid; the kiosk can't
             const staff = getSession(req)?.user;
             const payment = paymentFrom(body, staff);
-            // and mark it as a priority order
-            const priority = PAYMENT_ON_ORDER.includes(staff?.role) ? fields.priority : 0;
+            // and mark it as a priority or TBA priority order
+            const marks = PAYMENT_ON_ORDER.includes(staff?.role) ? {} : { priority: 0, tbaPriority: 0 };
             const order = transaction(db, () => {
                 const date = today();
                 // a plain number; the front end formats it as "SHN 01"
                 const { last_num: queueNum } = sql.nextQueueNum.get(date);
                 const createdAt = new Date().toISOString();
-                const { lastInsertRowid } = sql.insertOrder.run({ ...fields, priority, date, queueNum, createdAt });
+                const { lastInsertRowid } = sql.insertOrder.run({ ...fields, ...marks, date, queueNum, createdAt });
                 saveItems(lastInsertRowid, items);
                 saveInvoices(lastInsertRowid, invoices);
                 // kept as an edit too, so the Cashier page shows who set it
@@ -1404,14 +1410,16 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             return send(res, 200, {
                 // most recently called first, so the display headlines the newest call
                 // calledAt lets the display replay its animation when the same number is called again
-                // priority: the ticket shows as "* RS 01"
+                // priority: the ticket shows as "* RS 01"; tbaPriority: as "** T 01"
                 serving: sql.serving.all(date).map((o) => ({
                     queueNum: o.queue_num, name: o.name, purpose: o.purpose, remarks: o.remarks, calledAt: o.called_at,
                     ...(o.priority === 1 && { priority: true }),
+                    ...(o.tba_priority === 1 && { tbaPriority: true }),
                 })),
                 upcoming: sql.upcoming.all(date).map((o) => ({
                     queueNum: o.queue_num, name: o.name, purpose: o.purpose, ...(o.status === "returning" && { returning: true }),
                     ...(o.priority === 1 && { priority: true }),
+                    ...(o.tba_priority === 1 && { tbaPriority: true }),
                 })),
             });
         }
