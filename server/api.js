@@ -1,7 +1,7 @@
 // the backend API, shared by the Vite dev server (npm run dev) and server/server.js (npm start)
 // orders, settings, staff accounts and sign-ins are saved in a SQLite database in the data folder
 // (see server/db.js), and an uploaded display video next to it in videos/, so nothing is lost on restart
-// nine roles: admins can do everything; sales, loading, TBA, hardware, security, cashier, inventory and developer staff only what
+// ten roles: admins can do everything; sales, loading, TBA, chassis, hardware, security, cashier, inventory and developer staff only what
 // ROLE_ROUTES lists for them
 import { createHash, randomBytes, scrypt, scryptSync, timingSafeEqual } from 'node:crypto';
 import { createReadStream, createWriteStream, mkdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -74,13 +74,13 @@ const VIDEO_EXTENSIONS = {
 const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 const HISTORY_LIMIT = 200;
 const ANNOUNCER_REPEATS = [1, 2];
-// loading: the loading crew, one shared line for its areas (Roofings, Steel); tba: the TBA department (Tire, Battery,
-// Chassis) and hardware: the Hardware department, each the same as loading but for its own area
+// loading: the loading crew, one shared line for its areas (Roofings, Steel); tba: the TBA department (Tire, Battery),
+// chassis: the Chassis department and hardware: the Hardware department, each the same as loading but for its own area
 // (src/data/loadingAreas.js); security: the guards at the gate, the last stage, who check what each customer leaves
 // with; cashier: who changes how each order is paid; inventory: the inventory department, with no work page of its own
 // yet; developer: the team that builds the app, who answer staff on the Chat page when something doesn't go well
-const ROLES = ["admin", "sales", "loading", "tba", "hardware", "security", "cashier", "inventory", "developer"];
-const NO_SUCH_ROLE = "Pick admin, sales, loading, TBA, hardware, security, cashier, inventory or developer.";
+const ROLES = ["admin", "sales", "loading", "tba", "chassis", "hardware", "security", "cashier", "inventory", "developer"];
+const NO_SUCH_ROLE = "Pick admin, sales, loading, TBA, chassis, hardware, security, cashier, inventory or developer.";
 // a developer makes and changes accounts on Accounts too, but not admin ones, so they can't give themselves everything
 const ADMINS_ONLY = "Only an admin can make or change an admin account.";
 // one chat message, written to or by the developers
@@ -172,11 +172,19 @@ const ROLE_ROUTES = {
         ...ACCOUNT_ROUTES,
         ...MESSAGE_ROUTES,
     ],
-    // the TBA page: the same as loading's, for the customers handed over with a Tire, Battery or Chassis
+    // the TBA page: the same as loading's, for the customers handed over with a Tire or Battery
     tba: [
         ["GET", /^\/admin\/orders$/],
         ["GET", /^\/admin\/order-status$/],
         ["POST", /^\/admin\/tba\/[^/]+\/(call|start|done|back)$/],
+        ...ACCOUNT_ROUTES,
+        ...MESSAGE_ROUTES,
+    ],
+    // the Chassis page: the same as loading's, for the customers handed over with a Chassis
+    chassis: [
+        ["GET", /^\/admin\/orders$/],
+        ["GET", /^\/admin\/order-status$/],
+        ["POST", /^\/admin\/chassis\/[^/]+\/(call|start|done|back)$/],
         ...ACCOUNT_ROUTES,
         ...MESSAGE_ROUTES,
     ],
@@ -1875,7 +1883,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             return send(res, 200, { period, from: range[0], to: range[1], totals, buckets });
         }
 
-        // a loading, TBA or hardware account only gets the orders sales has handed over that its department has a part in:
+        // a loading, TBA, chassis or hardware account only gets the orders sales has handed over that its department has a part in:
         // the department's one shared line
         if (method === "GET" && path === "/admin/orders") {
             const date = today();
@@ -2047,7 +2055,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             }
         }
 
-        // the Loading, TBA and Hardware pages: a department's crew calls a customer sales has handed over to one of its
+        // the Loading, TBA, Chassis and Hardware pages: a department's crew calls a customer sales has handed over to one of its
         // areas, marks them done, or sends them back to waiting; each is one shared line, so any of the department's
         // accounts (or an admin) can call any of them, and finish or send back one the department is serving; a
         // customer is in one place at a time, so while a sales counter or another department has them, they can't
@@ -2058,7 +2066,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
         // Steel, ...: start, with the area), whether they called the customer there, to another area, or not yet; from
         // then on the customer can't be called or loaded at another area until that one is done (or sends them back to
         // waiting), e.g. Steel waits while Roofings is loading; Done needs Loading first
-        const loadingMatch = path.match(/^\/admin\/(loading|tba|hardware)\/([^/]+)\/(call|start|done|back)$/);
+        const loadingMatch = path.match(/^\/admin\/(loading|tba|chassis|hardware)\/([^/]+)\/(call|start|done|back)$/);
         if (method === "POST" && loadingMatch) {
             const [, department, queueNum, action] = loadingMatch;
             const label = DEPARTMENTS[department];

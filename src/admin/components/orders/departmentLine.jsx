@@ -15,7 +15,7 @@ import { resultLabel } from '../../data/securityCheck.js';
 import { DEPARTMENTS, departmentWord } from '../../../data/loadingAreas.js';
 import formatQueueNum from '../../../data/queueNum.js';
 
-// a department's counter, the Loading, TBA and Hardware pages' (department: "loading", "tba" or "hardware",
+// a department's counter, the Loading, TBA, Chassis and Hardware pages' (department: "loading", "tba", "chassis" or "hardware",
 // src/data/loadingAreas.js), one shared line for every account of the department: today's customers once a sales
 // counter has served them and pressed Hand over on My counter, the ones with something from the department's areas,
 // in queue order; call one to one of those areas (the display shows "Please proceed to Roofings", which can be changed

@@ -1,9 +1,9 @@
 import { splitList } from './list.js';
 
 // the departments that take a customer once sales hands them over, each with its own staff role and page: the
-// loading crew (Roofings, Steel), TBA (Tire, Battery, Chassis) and Hardware; a customer who bought from several goes
+// loading crew (Roofings, Steel), TBA (Tire, Battery), Chassis and Hardware; a customer who bought from several goes
 // to each in turn, one at a time
-export const DEPARTMENTS = { loading: "Loading", tba: "TBA", hardware: "Hardware" };
+export const DEPARTMENTS = { loading: "Loading", tba: "TBA", chassis: "Chassis", hardware: "Hardware" };
 
 // a department's name inside a sentence: "loading", "hardware", but "TBA" stays in capitals
 export const departmentWord = (department) => {
@@ -18,7 +18,8 @@ export const departmentWord = (department) => {
 const loadingAreas = [
     { name: "Roofings", types: ["Roofings", "Roofings Accessories"], department: "loading" },
     { name: "Steel", types: ["Steel"], department: "loading" },
-    { name: "TBA", types: ["Tire", "Battery", "Chassis"], department: "tba" },
+    { name: "TBA", types: ["Tire", "Battery"], department: "tba" },
+    { name: "Chassis", types: ["Chassis"], department: "chassis" },
     { name: "Hardware", types: ["Hardwares"], department: "hardware" },
 ];
 
