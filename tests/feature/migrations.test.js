@@ -434,3 +434,41 @@ test("rebuilding users for TBA accounts keeps every account, sign-in, last seen,
         db.close();
     }
 });
+
+// 029 rebuilds users again (the inventory department): every account keeps its role, details, when it was last seen
+// and what points at it, its developer chat and SheeChat messages included
+test("rebuilding users for inventory accounts keeps every account, sign-in, last seen and message", () => {
+    const old = databaseBefore("029");
+    old.exec(`
+        INSERT INTO users (id, username, name, role, password_hash, created_at, employee_id, department, photo, sales_team, last_seen)
+            VALUES (1, 'maria', 'Maria Santos', 'sales', 'x', '2026-10-20T08:00:00.000Z', 'E-1', 'Sales', 'user-1.jpg', 'GIGA', 1761800000000),
+                   (2, 'tony', 'Tony Gulong', 'tba', 'x', '2026-10-30T08:00:00.000Z', NULL, '', NULL, '', NULL),
+                   (3, 'dev', 'Dev Coder', 'developer', 'x', '2026-10-29T08:00:00.000Z', NULL, '', NULL, '', NULL);
+        INSERT INTO messages (staff_id, sender_id, body, sent_at) VALUES (1, 3, 'Fixed it', '2026-10-29T10:00:00.000Z');
+        INSERT INTO direct_messages (sender_id, recipient_id, body, sent_at) VALUES (1, 2, 'Battery ready?', '2026-10-31T10:00:00.000Z');
+        INSERT INTO sessions (sid_hash, user_id, expires) VALUES ('abc', 1, 4102444800000);
+    `);
+    old.close();
+
+    const quiet = mock.method(console, "log", () => {});
+    const db = openDatabase(dataDir);
+    quiet.mock.restore();
+
+    try {
+        const maria = db.prepare("SELECT role, employee_id, photo, sales_team, last_seen FROM users WHERE id = 1").get();
+        assert.deepEqual({ ...maria }, { role: "sales", employee_id: "E-1", photo: "user-1.jpg", sales_team: "GIGA", last_seen: 1761800000000 });
+        assert.equal(db.prepare("SELECT role FROM users WHERE id = 2").get().role, "tba");
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sessions WHERE user_id = 1").get().n, 1);
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM messages WHERE sender_id = 3").get().n, 1);
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM direct_messages WHERE sender_id = 1 AND recipient_id = 2").get().n, 1);
+        assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(), []);
+
+        db.prepare(`INSERT INTO users (username, name, role, password_hash, created_at)
+            VALUES ('ines', 'Ines Bodega', 'inventory', 'x', '2026-10-31T08:00:00.000Z')`).run();
+        assert.throws(() => db.prepare(`INSERT INTO users (username, name, role, password_hash, created_at)
+            VALUES ('teller', 'Someone', 'teller', 'x', '2026-10-31T08:00:00.000Z')`).run(), /CHECK constraint/);
+        assert.throws(() => db.prepare("UPDATE users SET employee_id = 'e-1' WHERE id = 2").run(), /UNIQUE/);
+    } finally {
+        db.close();
+    }
+});

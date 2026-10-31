@@ -8,12 +8,13 @@ import Avatar from '../common/avatar.jsx';
 // who's online changes as staff come and go, so it checks again now and then
 const REFRESH_MS = 15000;
 // the departments, in the order the sidebar has their pages; each is a kind of staff account
-const DEPARTMENTS = ["admin", "sales", "loading", "tba", "hardware", "security", "cashier"];
+const DEPARTMENTS = ["admin", "sales", "loading", "tba", "hardware", "security", "cashier", "inventory"];
 
 // the Chat page's Staff list: every staff member by department, online ones first in each, with a green dot on the
 // ones online and when the others were last on; picking one opens a conversation with them
 // openId: the staff member whose conversation is open; onPick(account) opens theirs
-export default function StaffList({ openId, onPick }) {
+// list({ signal }): who to show (the developers' staff list, unless SheeChat passes its People list)
+export default function StaffList({ openId, onPick, list = listStaffPresence }) {
     const [staff, setStaff] = useState(null);
     const [error, setError] = useState("");
     const [onlineOnly, setOnlineOnly] = useState(false);
@@ -22,7 +23,7 @@ export default function StaffList({ openId, onPick }) {
         const controller = new AbortController();
         const { signal } = controller;
         const load = () =>
-            listStaffPresence({ signal })
+            list({ signal })
                 .then((data) => {
                     setStaff(data ?? []);
                     setError("");
@@ -34,7 +35,7 @@ export default function StaffList({ openId, onPick }) {
             clearInterval(id);
             controller.abort();
         };
-    }, []);
+    }, [list]);
 
     if (error) return <p className="field-error" role="alert">{error}</p>;
     if (!staff) return <p className="admin-empty">Loading...</p>;

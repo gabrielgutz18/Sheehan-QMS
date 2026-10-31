@@ -123,6 +123,8 @@ export async function bootApp() {
     const actingAsSecurity = (name = "Jose Bantay") => actingAsStaff("security", name);
     // the cashier, who changes how each order is paid
     const actingAsCashier = (name = "Rosa Bayad") => actingAsStaff("cashier", name);
+    // someone in the inventory department
+    const actingAsInventory = (name = "Ines Bodega") => actingAsStaff("inventory", name);
     // someone on the team that builds the app, who answers staff on the Chat page
     const actingAsDeveloper = (name = "Dev Coder") => actingAsStaff("developer", name);
 
@@ -143,6 +145,7 @@ export async function bootApp() {
         actingAsHardware,
         actingAsSecurity,
         actingAsCashier,
+        actingAsInventory,
         actingAsDeveloper,
 
         assertDatabaseHas(table, conditions) {

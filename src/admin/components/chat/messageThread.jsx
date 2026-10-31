@@ -42,7 +42,9 @@ async function chatImage(file) {
 // a picture can go with it, pasted (Ctrl+V) or attached from the computer
 // mine(message): whether it's the signed-in side's, shown on the right; onSend(body, image) saves one and gives it
 // back, image a Blob or null; empty: what shows before anyone has written; label: the box's name for screen readers
-export default function MessageThread({ messages, loading, error, mine, onSend, empty, label }) {
+// imageUrl(message): where a picture is shown from (the developer chat's, unless SheeChat passes its own); disabled:
+// why nothing can be sent, e.g. the other person's account is switched off, or empty when it can
+export default function MessageThread({ messages, loading, error, mine, onSend, empty, label, imageUrl = chatImageUrl, disabled = "" }) {
     const [draft, setDraft] = useState("");
     // the picture waiting to go: { blob, url } (url for its preview), or null
     const [image, setImage] = useState(null);
@@ -128,7 +130,7 @@ export default function MessageThread({ messages, loading, error, mine, onSend, 
                                         onClick={() => setViewing(m.id)}
                                     >
                                         <img
-                                            src={chatImageUrl(m)}
+                                            src={imageUrl(m)}
                                             alt={m.body ? `Picture: ${m.body}` : `Picture from ${m.from.name}`}
                                             loading="lazy"
                                             onLoad={() => {
@@ -149,63 +151,68 @@ export default function MessageThread({ messages, loading, error, mine, onSend, 
 
             {error && <p className="field-error" role="alert">{error}</p>}
 
-            <form className="chat-compose" onSubmit={send}>
-                {image && (
-                    <div className="chat-attachment">
-                        <img src={image.url} alt="Picture to send" />
-                        <button type="button" className="admin-btn" onClick={() => setImage(null)} disabled={sending}>
-                            Remove
-                        </button>
+            {disabled ? (
+                <p className="admin-empty">{disabled}</p>
+            ) : (
+                <form className="chat-compose" onSubmit={send}>
+                    {image && (
+                        <div className="chat-attachment">
+                            <img src={image.url} alt="Picture to send" />
+                            <button type="button" className="admin-btn" onClick={() => setImage(null)} disabled={sending}>
+                                Remove
+                            </button>
+                        </div>
+                    )}
+                    <textarea
+                        aria-label={label}
+                        rows={3}
+                        maxLength={MAX_MESSAGE}
+                        placeholder={image ? "Add a caption..." : "Write a message, or paste a picture..."}
+                        value={draft}
+                        onChange={(e) => setDraft(e.target.value)}
+                        onPaste={paste}
+                        onKeyDown={(e) => {
+                            // Enter sends, Shift+Enter starts a new line
+                            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) send(e);
+                        }}
+                    />
+                    <div className="chat-compose-actions">
+                        <span className="video-hint">{draft.length}/{MAX_MESSAGE} · Enter sends, Shift+Enter for a new line · Ctrl+V pastes a picture</span>
+                        <span className="chat-compose-buttons">
+                            <input
+                                ref={fileRef}
+                                type="file"
+                                accept="image/*"
+                                hidden
+                                onChange={(e) => {
+                                    const [file] = e.target.files;
+                                    // cleared, so picking the same file again still counts
+                                    e.target.value = "";
+                                    if (file) attach(file);
+                                }}
+                            />
+                            <button
+                                type="button"
+                                className="admin-btn chat-attach-btn"
+                                aria-label={image ? "Change picture" : "Attach a picture"}
+                                onClick={() => fileRef.current.click()}
+                                disabled={sending}
+                            >
+                                <Icon d={PAPER_CLIP} className="line-icon chat-attach-icon" />
+                                {image ? "Change" : "Attach"}
+                            </button>
+                            <button type="submit" className="admin-btn admin-btn-primary" disabled={sending || (!draft.trim() && !image)}>
+                                {sending ? "Sending..." : "Send"}
+                            </button>
+                        </span>
                     </div>
-                )}
-                <textarea
-                    aria-label={label}
-                    rows={3}
-                    maxLength={MAX_MESSAGE}
-                    placeholder={image ? "Add a caption..." : "Write a message, or paste a picture..."}
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    onPaste={paste}
-                    onKeyDown={(e) => {
-                        // Enter sends, Shift+Enter starts a new line
-                        if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) send(e);
-                    }}
-                />
-                <div className="chat-compose-actions">
-                    <span className="video-hint">{draft.length}/{MAX_MESSAGE} · Enter sends, Shift+Enter for a new line · Ctrl+V pastes a picture</span>
-                    <span className="chat-compose-buttons">
-                        <input
-                            ref={fileRef}
-                            type="file"
-                            accept="image/*"
-                            hidden
-                            onChange={(e) => {
-                                const [file] = e.target.files;
-                                // cleared, so picking the same file again still counts
-                                e.target.value = "";
-                                if (file) attach(file);
-                            }}
-                        />
-                        <button
-                            type="button"
-                            className="admin-btn chat-attach-btn"
-                            aria-label={image ? "Change picture" : "Attach a picture"}
-                            onClick={() => fileRef.current.click()}
-                            disabled={sending}
-                        >
-                            <Icon d={PAPER_CLIP} className="line-icon chat-attach-icon" />
-                            {image ? "Change" : "Attach"}
-                        </button>
-                        <button type="submit" className="admin-btn admin-btn-primary" disabled={sending || (!draft.trim() && !image)}>
-                            {sending ? "Sending..." : "Send"}
-                        </button>
-                    </span>
-                </div>
-                {sendError && <p className="field-error" role="alert">{sendError}</p>}
-            </form>
+                    {sendError && <p className="field-error" role="alert">{sendError}</p>}
+                </form>
+            )}
 
             {viewIndex !== -1 && (
                 <ImageViewer
+                    imageUrl={imageUrl}
                     pictures={pictures}
                     index={viewIndex}
                     onIndex={(i) => setViewing(pictures[i].id)}
