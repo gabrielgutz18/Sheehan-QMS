@@ -103,7 +103,7 @@ try {
         if (handed.status !== 200) throw new Error(`The API refused to hand over ${queueNum} (${handed.status}): ${handed.body?.message}`);
         const order = handed.body;
         const areas = order.areas.map(({ name }) => name).join(" → ");
-        console.log(`  ${formatQueueNum(order.queueNum, order.purpose).padEnd(9)} ${order.name.padEnd(16)} ${order.purpose.padEnd(38)} ${areas}`);
+        console.log(`  ${formatQueueNum(order.queueNum, order.purpose, order.priority).padEnd(9)} ${order.name.padEnd(16)} ${order.purpose.padEnd(38)} ${areas}`);
     }
     console.log(`Data folder: ${api.dataDir}`);
 } catch (err) {

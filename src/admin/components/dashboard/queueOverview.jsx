@@ -16,7 +16,7 @@ export default function QueueOverview({ orders, loading }) {
     const cards = [
         { label: "Now serving", value: orders.filter((o) => o.status === "serving").length, icon: ICONS.serving },
         { label: "In line", value: line.length, icon: ICONS.line },
-        { label: "Next number", value: next ? formatQueueNum(next.queueNum, next.purpose) : "None", icon: ICONS.next },
+        { label: "Next number", value: next ? formatQueueNum(next.queueNum, next.purpose, next.priority) : "None", icon: ICONS.next },
     ];
 
     return (

@@ -18,7 +18,7 @@ const TEAMS = teams.map((t) => t.name);
 // what each cell is called in a message
 const CELL_LABELS = { runner: "runner", receiver: "receiver", team: "sales team" };
 
-const ticketOf = (o) => formatQueueNum(o.queueNum, o.purpose);
+const ticketOf = (o) => formatQueueNum(o.queueNum, o.purpose, o.priority);
 const stageLabel = (order) => STAGES.find((s) => s.value === stageOf(order)).label;
 
 // "Juan", "RT 03" or "3" finds the order, and "Oct-24" every order that day

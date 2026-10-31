@@ -22,7 +22,7 @@ export default function TicketPicker({ current, onView }) {
                 </option>
                 {newestFirst.map((o) => (
                     <option key={o.queueNum} value={o.queueNum}>
-                        {formatQueueNum(o.queueNum, o.purpose)} · {o.name}
+                        {formatQueueNum(o.queueNum, o.purpose, o.priority)} · {o.name}
                     </option>
                 ))}
             </select>

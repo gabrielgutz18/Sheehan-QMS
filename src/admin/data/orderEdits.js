@@ -15,6 +15,7 @@ const DETAIL_LABELS = {
     paymentStatus: "Payment status",
     team: "Sales team",
     pickupDate: "Pick-up date",
+    priority: "Priority order",
 };
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });

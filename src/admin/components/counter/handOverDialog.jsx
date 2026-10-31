@@ -32,7 +32,7 @@ export default function HandOverDialog({ order, busy, error, onHandOver, onClose
         >
             <form className="admin-dialog-body" onSubmit={submit}>
                 <h2 id="handover-title" className="admin-dialog-title">
-                    Hand over <strong>{formatQueueNum(order.queueNum, order.purpose)}</strong> to {to}
+                    Hand over <strong>{formatQueueNum(order.queueNum, order.purpose, order.priority)}</strong> to {to}
                 </h2>
                 <p className="admin-dialog-sub">{order.name} · {order.purpose}</p>
 

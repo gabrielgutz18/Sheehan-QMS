@@ -90,7 +90,7 @@ export default function QueueDisplay() {
                                     shown.map((o) => (
                                         <tr key={o.queueNum}>
                                             <td>
-                                                <NumberCard number={o.queueNum} purpose={o.purpose} />
+                                                <NumberCard number={o.queueNum} purpose={o.purpose} priority={o.priority} />
                                             </td>
                                             <td className="upcoming-name">
                                                 {o.name}
@@ -130,7 +130,7 @@ export default function QueueDisplay() {
                                 <>
                                     {/* key on the call so a new number, or the same one called again, replays its animation */}
                                     <div key={`${current.queueNum}-${current.calledAt}`} className="serving-call">
-                                        <NumberCard number={current.queueNum} purpose={current.purpose} variant="serving" />
+                                        <NumberCard number={current.queueNum} purpose={current.purpose} priority={current.priority} variant="serving" />
                                         <p className="serving-name">{current.name}</p>
                                         <hr className="serving-rule" />
                                         <p className="serving-note">{callNote(current)}</p>
@@ -140,7 +140,7 @@ export default function QueueDisplay() {
                                         <ul className="serving-others" aria-label="Also being served">
                                             {othersShown.map((o) => (
                                                 <li key={o.queueNum} className="serving-other">
-                                                    <NumberCard number={o.queueNum} purpose={o.purpose} />
+                                                    <NumberCard number={o.queueNum} purpose={o.purpose} priority={o.priority} />
                                                     <span className="serving-other-name">{o.name}</span>
                                                     <span className="serving-other-note">{callNote(o)}</span>
                                                 </li>

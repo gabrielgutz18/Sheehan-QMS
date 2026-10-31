@@ -178,7 +178,7 @@ try {
             ...order.invoices.map(({ invoiceNo }) => invoiceNo),
             ...order.orders.map(({ item, qty }) => `${qty} × ${item}`),
         ].join(", ");
-        console.log(`  ${formatQueueNum(order.queueNum, order.purpose).padEnd(7)} ${order.name.padEnd(16)} ${whereNow(order).padEnd(30)} ${products}`);
+        console.log(`  ${formatQueueNum(order.queueNum, order.purpose, order.priority).padEnd(7)} ${order.name.padEnd(16)} ${whereNow(order).padEnd(30)} ${products}`);
     }
     console.log(`\nSign in as ${GUARD.username}${guard ? ` (password ${guardPassword})` : ""} to see it: /admin/security`);
     console.log(`Data folder: ${api.dataDir}`);

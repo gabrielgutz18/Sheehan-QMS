@@ -8,11 +8,9 @@ import { ROLE_LABELS } from './auth/roles.js';
 import AdminLayout from './components/layout/adminLayout.jsx';
 import LoginPage from './pages/loginPage.jsx';
 import DashboardPage from './pages/dashboardPage.jsx';
-import OrdersPage from './pages/ordersPage.jsx';
 import VideoPage from './pages/videoPage.jsx';
 import PrinterPage from './pages/printerPage.jsx';
 import AnnouncerPage from './pages/announcerPage.jsx';
-import HistoryPage from './pages/historyPage.jsx';
 import SalesPage from './pages/salesPage.jsx';
 import CustomerOrderPage from './pages/customerOrderPage.jsx';
 import AccCreation from './pages/accCreation.jsx';
@@ -68,10 +66,11 @@ export default function AdminApp() {
                         <Route element={<ProtectedRoute roles={["admin", "sales"]} />}>
                             <Route path="customer-order" element={<CustomerOrderPage />} />
                             <Route path="counter" element={<SalesPage />} />
-                            {/* sales can set any status here but Now serving (they don't call); Call and Delete stay
-                                admin-only */}
-                            <Route path="orders" element={<OrdersPage />} />
-                            <Route path="history" element={<HistoryPage />} />
+                            {/* Orders and History are the Orders & history tab of Customer order now; their old
+                                addresses open it (sales can set any status there but Now serving, as they don't call;
+                                Call and Delete stay admin-only) */}
+                            <Route path="orders" element={<Navigate to="/staff/customer-order?tab=orders" replace />} />
+                            <Route path="history" element={<Navigate to="/staff/customer-order?tab=history" replace />} />
                         </Route>
 
                         {/* the loading crew; no admin rights beyond these pages and My account */}
