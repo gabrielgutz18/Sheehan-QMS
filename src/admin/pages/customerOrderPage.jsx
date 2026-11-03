@@ -364,14 +364,15 @@ function OrderDesk({ saved, viewing, onNew }) {
                     <SaleText id="sale-name" label="Customer name" maxLength={MAX_NAME}
                         value={fields.name} onChange={set("name")} error={errors.name} />
                     {/* a priority order's ticket shows with a "*" in front, "* RS 01"; a TBA priority one's "** T 01" */}
-                    <PriorityField priority={fields.priority} tbaPriority={fields.tbaPriority}
-                        onChange={(marks) => setFields((prev) => ({ ...prev, ...marks }))} />
+                    
                     <CheckPicker id="sale-types" label="Type of order" placeholder="Choose one or more"
                         names={purpose.map((p) => p.name)}
                         value={fields.types} onChange={setTypes} error={errors.types} />
                     <InvoiceFields invoices={fields.invoices} types={fields.types} errors={errors.invoices}
                         maxLength={MAX_INVOICE} max={MAX_INVOICES}
                         onChange={set("invoices")} onAdd={addInvoice} onRemove={removeInvoice} />
+                    <PriorityField priority={fields.priority} tbaPriority={fields.tbaPriority}
+                    onChange={(marks) => setFields((prev) => ({ ...prev, ...marks }))} />
                     <SaleText id="sale-salesman" label="Salesman name" narrow maxLength={MAX_SALESMAN}
                         value={fields.salesman} onChange={set("salesman")} error={errors.salesman} />
                     {/* the cashier can change it on the Cashier page too; once set it can't be cleared */}
