@@ -5,8 +5,8 @@
  * for a new order (at the bottom, oldest first) or rewrites the row of one it already has, found by its APP ID (a
  * hidden column). Orders deleted in the app are taken out. The c/o column (F) and REMARKS are typed in the sheet
  * itself: the app never writes them, so what you type there stays.
- * Each day's rows are kept sorted: the priority orders first (QUE "*"), then the TBA priority ones ("**"), then the
- * rest, each group in number order, by APP SORT (another hidden column); a row moves with what's typed in it.
+ * Each day's rows are kept sorted: the regular queue first, then the priority orders (QUE "*"), then the TBA priority
+ * ones ("**"), each group in number order, by APP SORT (another hidden column); a row moves with what's typed in it.
  *
  * Setup (once):
  *   1. Open the spreadsheet → Extensions → Apps Script, and paste this file in (or create a standalone project).
@@ -155,7 +155,7 @@ function addNewColumns_(sheet) {
     stretchFilter_(sheet);
 }
 
-// every row in APP SORT order, so the day's priority orders are together at its top, then the TBA priority ones;
+// every row in APP SORT order, so the day's priority orders are together below its regular queue, then the TBA ones;
 // whole rows move, typed columns too; a row typed in by hand (no APP SORT) goes to the bottom
 function sortRows_(sheet) {
     const lastRow = sheet.getLastRow();

@@ -1,6 +1,6 @@
 // the Order sheet copied to Google Sheets: each order as a row of the loading schedule, and only the rows that changed
 // sent to the Apps Script web app (a fake one here), with deleted orders taken out; each day's priority orders ("*")
-// and TBA priority ones ("**") are grouped at its top
+// and TBA priority ones ("**") are grouped below its regular queue
 // run: npm test -- --test-name-pattern="Google sheet"
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
@@ -82,7 +82,7 @@ describe("Google sheet", () => {
             loadingTimeOut: "",
             status: "In line for sales",
             doubleCheckedBy: "",
-            sortKey: "2026-10-29 2 0003",
+            sortKey: "2026-10-29 0 0003",
         });
     });
 
@@ -92,7 +92,7 @@ describe("Google sheet", () => {
         assert.equal(sheetRow(order({ purpose: "Tire" })).que, "T 03");
     });
 
-    test("each day's rows sort with the priority orders first, then the TBA priority ones, then the rest", () => {
+    test("each day's rows sort with the regular queue first, then the priority orders, then the TBA priority ones", () => {
         const rows = [
             order({ id: 1, queueNum: 1 }),
             order({ id: 2, queueNum: 2, tbaPriority: true }),
@@ -106,9 +106,9 @@ describe("Google sheet", () => {
 
         assert.deepEqual(sorted.map((row) => [row.id, row.que]), [
             ["6", "RS 01"],
+            ["1", "RS 01"],
             ["3", "*"], ["5", "*"],
             ["2", "**"], ["4", "**"],
-            ["1", "RS 01"],
         ]);
     });
 

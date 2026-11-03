@@ -986,6 +986,14 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
         sheetOrders: db.prepare(`
             SELECT ${ORDER_ROW} WHERE o.deleted_at IS NULL AND o.purpose != ?
             ORDER BY o.queue_date DESC, o.queue_num`),
+        // the same orders as the Order sheet shows them: within a day the regular queue comes first, then the priority
+        // orders ("*") together below it, then the TBA priority ones ("**"), the same as on the Google sheet (sortKey in
+        // googleSheet.js)
+        sheetOrdersGrouped: db.prepare(`
+            SELECT ${ORDER_ROW} WHERE o.deleted_at IS NULL AND o.purpose != ?
+            ORDER BY o.queue_date DESC,
+                CASE WHEN o.priority = 1 THEN 1 WHEN o.tba_priority = 1 THEN 2 ELSE 0 END,
+                o.queue_num`),
         // a customer one loading crew has finished with while another still has to call them stays on the display as
         // "Please wait" (no remarks) until that crew calls them, instead of going back in line
         serving: db.prepare(`
@@ -2132,7 +2140,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
         // the Order sheet on Customer order: every order from every day, not just today's (deleted ones and Customer
         // Reports left out)
         if (method === "GET" && path === "/admin/order-sheet") {
-            return send(res, 200, loadAnyDay(sql.sheetOrders.all(REPORT_PURPOSE)));
+            return send(res, 200, loadAnyDay(sql.sheetOrdersGrouped.all(REPORT_PURPOSE)));
         }
 
         // the Order sheet's cells, shared by every sales staff member: each cell is saved on its own, so two people
