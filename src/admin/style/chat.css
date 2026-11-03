@@ -404,6 +404,91 @@
   box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
+/* a row whose photo opens the person's profile: see profileButton.jsx */
+.chat-list-row {
+  position: relative;
+}
+
+/* covers the row's padding and photo, stopping short of the name, so it's an easy target and the row stays clickable */
+.chat-profile-btn {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1;
+  width: 52px;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.chat-profile-btn:hover + .chat-list-item .avatar {
+  box-shadow: 0 0 0 2px var(--brand-red);
+}
+
+.chat-profile-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+/* the name above the open conversation, with their photo; it opens their profile */
+.chat-profile-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 8px 2px 2px;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.chat-profile-link:hover span {
+  text-decoration: underline;
+}
+
+.chat-profile-link:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+/* someone's profile opened over SheeChat: the same banner and details as the Dashboard's */
+.staff-profile {
+  width: min(420px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  overflow-y: auto;
+  color: var(--text-dark);
+  background: #ffffff;
+  border: 0;
+  border-radius: 12px;
+}
+
+.staff-profile::backdrop {
+  background: rgba(10, 10, 12, 0.55);
+}
+
+.staff-profile .profile-summary-cover {
+  height: auto;
+  aspect-ratio: 3 / 1;
+}
+
+.staff-profile-close {
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.staff-profile-message {
+  width: 100%;
+  margin-top: 20px;
+}
+
 .chat-list-text {
   display: flex;
   flex-direction: column;

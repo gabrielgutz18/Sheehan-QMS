@@ -13,6 +13,11 @@ export const listSheeChats = (options) => http.get("/admin/sheechat", options);
 // [{ id, name, firstName, surname, role, department, photo, online, lastSeen }]
 export const listSheeChatPeople = (options) => http.get("/admin/sheechat/people", options);
 
+// one person's profile: { id, name, firstName, surname, role, department, team, photo, coverPhoto, createdAt, disabled,
+// online, lastSeen }; looking at it reads nothing
+export const getSheeChatProfile = (userId, options) =>
+    http.get(`/admin/sheechat/${encodeURIComponent(userId)}/profile`, options);
+
 // your conversation with one person, oldest first; opening it reads what they sent you
 export const listSheeChat = (userId, options) => http.get(`/admin/sheechat/${encodeURIComponent(userId)}`, options);
 

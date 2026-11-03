@@ -92,7 +92,7 @@ export async function bootApp() {
             patch: (path, body) => send("PATCH", path, body),
             delete: (path) => send("DELETE", path),
             // a file sent as its bytes, e.g. upload("/admin/messages/image", png, "image/png")
-            upload: (path, bytes, contentType) => send("POST", path, bytes, contentType),
+            upload: (path, bytes, contentType, method = "POST") => send(method, path, bytes, contentType),
         };
     };
 

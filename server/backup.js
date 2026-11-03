@@ -1,4 +1,4 @@
-// copies the database, the uploaded display video, staff photos and chat pictures into <BACKUP_DIR>/<date_time>/ (default:
+// copies the database, the uploaded display video, staff photos and covers and chat pictures into <BACKUP_DIR>/<date_time>/ (default:
 // backups/ in the data folder), keeping the newest KEEP backups; safe to run while the app is running
 // run: npm run backup   (on the server, schedule it daily with Windows Task Scheduler and set
 // BACKUP_DIR to another drive, so a failed disk doesn't take the backups with it)

@@ -107,7 +107,7 @@ test('a message pops up in the corner of any page, and clicking it opens the con
     await other.goto('/staff/sheechat');
     await signIn(other, sender.username, sender.password);
     await other.getByRole('button', { name: 'People' }).click();
-    await other.getByRole('region', { name: /^Admin/ }).getByRole('button').first().click();
+    await other.getByRole('region', { name: /^Admin/ }).locator('.chat-list-item').first().click();
     const box = other.getByRole('textbox', { name: /^Message to / });
     await box.fill('The truck is here.');
     await box.press('Enter');
@@ -179,7 +179,7 @@ test('a message shows one gray check until it is opened, then two red ones, and 
     await other.goto('/staff/sheechat');
     await signIn(other, sender.username, sender.password);
     await other.getByRole('button', { name: 'People' }).click();
-    await other.getByRole('region', { name: /^Admin/ }).getByRole('button').first().click();
+    await other.getByRole('region', { name: /^Admin/ }).locator('.chat-list-item').first().click();
     const box = other.getByRole('textbox', { name: /^Message to / });
     await box.fill('Checking the ticks.');
     await box.press('Enter');
@@ -187,7 +187,7 @@ test('a message shows one gray check until it is opened, then two red ones, and 
     await expect(sent.getByRole('img', { name: 'Delivered' })).toBeVisible();
 
     // the admin opens it: two red checks, and only on the sender's own message
-    await page.getByRole('button', { name: new RegExp(sender.name) }).first().click();
+    await page.locator('.chat-list-item', { hasText: sender.name }).first().click();
     await expect(page.locator('.chat-messages').getByText('Checking the ticks.')).toBeVisible();
     await expect(sent.getByRole('img', { name: 'Seen' })).toBeVisible({ timeout: 8000 });
     await expect(sent.locator('.chat-ticks')).toHaveCSS('color', 'rgb(200, 32, 42)');
@@ -217,6 +217,72 @@ test('a message shows one gray check until it is opened, then two red ones, and 
     // back on the tab, it's read
     await setHidden(false);
     await expect(unseen.getByRole('img', { name: 'Seen' })).toBeVisible({ timeout: 8000 });
+
+    await theirs.close();
+});
+
+test('a cover photo shows on the Dashboard, and a coworker can open that profile from SheeChat', async ({ page, browser }) => {
+    const stamp = Date.now();
+    const coworker = { username: `e2e-cover-${stamp}`, password: 'e2e-password', name: `Cover ${stamp}`, role: 'sales' };
+    // a 1 by 1 red PNG, a real picture for the browser to open and crop
+    const picture = {
+        name: 'cover.png',
+        mimeType: 'image/png',
+        buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==', 'base64'),
+    };
+
+    await page.goto('/staff/account');
+    await signIn(page, ADMIN.username, ADMIN.password);
+    await expect(page.getByRole('heading', { name: 'My account' })).toBeVisible();
+    await page.evaluate(async (account) => {
+        const res = await fetch('/api/admin/users', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-Tab-Id': sessionStorage.getItem('tabId'),
+            },
+            body: JSON.stringify(account),
+        });
+        if (!res.ok) throw new Error(`Making the account failed (${res.status})`);
+    }, coworker);
+
+    // the coworker picks a cover on My account, cropped to a wide banner, and sees it on their Dashboard
+    const theirs = await browser.newContext();
+    const other = await theirs.newPage();
+    watch(other);
+    await other.goto('/staff/account');
+    await signIn(other, coworker.username, coworker.password);
+    await other.getByLabel('Cover photo file').setInputFiles(picture);
+    await expect(other.getByRole('button', { name: 'Remove cover' })).toBeVisible();
+    const preview = other.locator('.cover-photo-field img');
+    await expect(preview).toHaveJSProperty('naturalWidth', 1200);
+    await expect(preview).toHaveJSProperty('naturalHeight', 400);
+
+    await other.getByRole('link', { name: 'Dashboard' }).click();
+    const onDashboard = other.getByRole('region', { name: 'Your profile' }).locator('.profile-summary-cover-img');
+    await expect(onDashboard).toHaveJSProperty('naturalWidth', 1200);
+
+    // the admin finds them on SheeChat's People and opens their profile from their photo, without opening the conversation
+    await page.goto('/staff/sheechat');
+    await page.getByRole('button', { name: 'People' }).click();
+    await page.getByRole('button', { name: `View ${coworker.name}'s profile` }).click();
+    const profile = page.getByRole('dialog', { name: `${coworker.name}'s profile` });
+    await expect(profile.getByRole('heading', { name: coworker.name })).toBeVisible();
+    await expect(profile.getByText('Online')).toBeVisible();
+    await expect(profile.locator('.profile-summary-cover-img')).toHaveJSProperty('naturalWidth', 1200);
+    await expect(page.getByRole('textbox', { name: `Message to ${coworker.name}` })).toHaveCount(0);
+
+    // Send a message goes on to the conversation, and the name above it opens the profile again
+    await profile.getByRole('button', { name: 'Send a message' }).click();
+    await expect(profile).toHaveCount(0);
+    await expect(page.getByRole('textbox', { name: `Message to ${coworker.name}` })).toBeVisible();
+    await page.locator('.chat-panel').getByRole('button', { name: coworker.name }).click();
+    await expect(page.getByRole('dialog', { name: `${coworker.name}'s profile` })).toBeVisible();
+    // already talking to them, so there's nowhere for it to go
+    await expect(page.getByRole('button', { name: 'Send a message' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Close' }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
 
     await theirs.close();
 });

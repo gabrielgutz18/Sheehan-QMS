@@ -39,7 +39,8 @@ const quietly = (fn) => {
 const officeDay = async () => {
     const maria = await office.actingAsSales();
     writeFileSync(join(office.dataDir, "photos", "maria.jpg"), "photo bytes");
-    office.db.prepare("UPDATE users SET photo = 'maria.jpg' WHERE id = ?").run(maria.account.id);
+    writeFileSync(join(office.dataDir, "photos", "maria-cover.jpg"), "cover bytes");
+    office.db.prepare("UPDATE users SET photo = 'maria.jpg', cover_photo = 'maria-cover.jpg' WHERE id = ?").run(maria.account.id);
     const kiosk = office.client();
     await kiosk.post("/orders", ticket());
     await kiosk.post("/orders", { name: "Ana Reyes", purpose: "Customer Report", orders: [], concern: "Leaking roof" });
@@ -68,6 +69,7 @@ describe("snapshot", () => {
         assert.equal(report.concern, "Leaking roof");
         home.assertDatabaseCount("serves", 1, { user_id: maria.account.id });
         assert.equal(readFileSync(join(home.dataDir, "photos", "maria.jpg"), "utf8"), "photo bytes");
+        assert.equal(readFileSync(join(home.dataDir, "photos", "maria-cover.jpg"), "utf8"), "cover bytes");
     });
 
     test("the snapshot's day becomes today, so its queue is today's queue", async () => {

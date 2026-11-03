@@ -808,6 +808,23 @@
     linear-gradient(135deg, #27272a, #111111 60%, #0a0a0a);
 }
 
+.profile-summary-cover-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* a cover photo can be pale, so the button on it gets a dark backing to stay readable */
+.profile-summary-cover.has-photo .profile-summary-edit {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.profile-summary-cover.has-photo .profile-summary-edit:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+
 .profile-summary-edit {
   position: absolute;
   top: 12px;
@@ -2762,6 +2779,19 @@
   flex-wrap: wrap;
   justify-content: center;
   gap: 8px;
+}
+
+.admin-panel .account-cover-heading {
+  margin-top: 24px;
+}
+
+/* the cover as it will look, at the same shape it's cropped to */
+.cover-photo-field .profile-summary-cover {
+  align-self: stretch;
+  height: auto;
+  aspect-ratio: 3 / 1;
+  overflow: hidden;
+  border-radius: 8px;
 }
 
 .account-facts {

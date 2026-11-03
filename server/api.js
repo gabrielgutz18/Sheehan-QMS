@@ -89,6 +89,8 @@ const MAX_MESSAGE = 1000;
 const MAX_CHAT_IMAGE_BYTES = 5 * 1024 * 1024;
 // a developer is online while signed in and using the app: every open page fetches far more often than this
 const ONLINE_MS = 2 * 60 * 1000;
+// row: an account with last_seen and signed_in (whether a sign-in of theirs is still open)
+const isOnline = (row, now) => Boolean(row.signed_in) && row.last_seen !== null && now - row.last_seen < ONLINE_MS;
 // how often an account's last_seen is written, at most, so a busy page doesn't write on every request
 const SEEN_EVERY_MS = 30 * 1000;
 // someone counts as typing for this long after the page last said so; it says so every 2 seconds while they type, so
@@ -117,11 +119,13 @@ const RATE_LIMITS = {
 const TOO_MANY_REQUESTS = "Too many requests. Please wait a moment and try again.";
 const TOO_MANY_LOGINS = "Too many attempts. Please wait a moment and try again.";
 
-// My account: every staff member keeps their own name, details and photo
+// My account: every staff member keeps their own name, details, photo and cover photo
 const ACCOUNT_ROUTES = [
     ["PATCH", /^\/admin\/me$/],
     ["PUT", /^\/admin\/me\/photo$/],
     ["DELETE", /^\/admin\/me\/photo$/],
+    ["PUT", /^\/admin\/me\/cover$/],
+    ["DELETE", /^\/admin\/me\/cover$/],
     // the pop-ups in the corner of every page when someone writes to you
     ["GET", /^\/admin\/unread-messages$/],
 ];
@@ -130,6 +134,7 @@ const SHEECHAT_ROUTES = [
     ["GET", /^\/admin\/sheechat$/],
     ["GET", /^\/admin\/sheechat\/people$/],
     ["GET", /^\/admin\/sheechat\/\d+$/],
+    ["GET", /^\/admin\/sheechat\/\d+\/profile$/],
     ["POST", /^\/admin\/sheechat\/\d+$/],
     ["POST", /^\/admin\/sheechat\/\d+\/image$/],
     ["GET", /^\/admin\/sheechat\/\d+\/typing$/],
@@ -599,8 +604,28 @@ const toMe = (row) => ({
     team: row.sales_team,
     // the photo's file name doubles as a version for its URL, or null
     photo: row.photo,
+    // the cover photo's file name, which doubles as a version the same way, or null
+    coverPhoto: row.cover_photo,
     // when the account was made: "Joined on" on the Dashboard's profile
     createdAt: row.created_at,
+});
+
+// someone's profile as a coworker sees it on SheeChat; never their username, which is half of signing in as them, or
+// their employee ID and middle name, which only they and the people managing accounts need
+const toProfile = (row, now) => ({
+    id: row.id,
+    name: row.name,
+    firstName: row.first_name,
+    surname: row.surname,
+    role: row.role,
+    department: row.department,
+    team: row.sales_team,
+    photo: row.photo,
+    coverPhoto: row.cover_photo,
+    createdAt: row.created_at,
+    disabled: row.disabled_at !== null,
+    online: isOnline(row, now),
+    lastSeen: row.last_seen,
 });
 
 // a report keeps only its concern and an order only its items, so switching purpose on Edit drops the other
@@ -1053,7 +1078,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
         // a disabled account's sign-ins stop working at once
         findSession: db.prepare(`
             SELECT s.expires, u.id, u.username, u.name, u.role, u.first_name, u.middle_name, u.surname,
-                u.employee_id, u.department, u.sales_team, u.photo, u.created_at
+                u.employee_id, u.department, u.sales_team, u.photo, u.cover_photo, u.created_at
             FROM sessions s JOIN users u ON u.id = s.user_id
             WHERE s.sid_hash = ? AND u.disabled_at IS NULL`),
         deleteSession: db.prepare("DELETE FROM sessions WHERE sid_hash = ?"),
@@ -1078,6 +1103,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             WHERE id = :id`),
         employeeIdTaken: db.prepare("SELECT id FROM users WHERE employee_id = ? COLLATE NOCASE AND id != ?"),
         setPhoto: db.prepare("UPDATE users SET photo = ? WHERE id = ?"),
+        setCoverPhoto: db.prepare("UPDATE users SET cover_photo = ? WHERE id = ?"),
         // signed_in: a sign-in that hasn't expired or been signed out (closing the browser doesn't end it, the TTL does)
         listUsers: db.prepare(`
             SELECT u.*,
@@ -1167,6 +1193,11 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             FROM users u
             WHERE u.disabled_at IS NULL
             ORDER BY u.name COLLATE NOCASE`),
+        // one account for its profile, switched off or not, since an old conversation can still lead to it
+        findProfile: db.prepare(`
+            SELECT u.*, EXISTS (SELECT 1 FROM sessions s WHERE s.user_id = u.id AND s.expires > :now) AS signed_in
+            FROM users u
+            WHERE u.id = :id`),
 
         // one staff member's points, by served time
         myTotals: db.prepare(`
@@ -1327,6 +1358,28 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
         const previous = sql.findUserById.get(userId).photo;
         sql.setPhoto.run(file, userId);
         if (previous && previous !== file) rmSync(join(photosDir, previous), { force: true });
+    };
+
+    // the same for an account's cover photo
+    const setCoverPhoto = (userId, file) => {
+        const previous = sql.findUserById.get(userId).cover_photo;
+        sql.setCoverPhoto.run(file, userId);
+        if (previous && previous !== file) rmSync(join(photosDir, previous), { force: true });
+    };
+
+    // a profile or cover photo sent as the image itself (My account shrinks it first); saves it under a name starting
+    // with prefix and gives { file }, or { status, message } to answer with when it isn't one
+    const saveProfilePicture = async (req, prefix, userId) => {
+        const type = PHOTO_TYPES[req.headers["content-type"]];
+        if (!type) return { status: 415, message: "Upload a JPEG, PNG or WebP picture." };
+        if (Number(req.headers["content-length"]) > MAX_PHOTO_BYTES) {
+            return { status: 413, message: "Photos can be up to 2 MB." };
+        }
+        const bytes = await readBytes(req, MAX_PHOTO_BYTES);
+        if (!type.isIt(bytes)) return { status: 400, message: "That file isn't a picture." };
+        const file = `${prefix}-${userId}-${Date.now()}${type.ext}`;
+        writeFileSync(join(photosDir, file), bytes);
+        return { file };
     };
 
     // the session behind one cookie value, or null
@@ -1513,13 +1566,14 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
         const me = session?.user;
         if (me) seen(me.id);
 
-        // a staff member's profile photo, for any signed-in account; a plain GET from an <img>, so it lives
-        // outside /admin, where every request must carry the X-Requested-With header
-        const photoMatch = path.match(/^\/photos\/(\d+)$/);
+        // a staff member's profile photo, or with /cover their cover photo, for any signed-in account; a plain GET from
+        // an <img>, so it lives outside /admin, where every request must carry the X-Requested-With header
+        const photoMatch = path.match(/^\/photos\/(\d+)(\/cover)?$/);
         if (method === "GET" && photoMatch) {
             if (!anySession(req)) return send(res, 401, { message: "Please sign in." });
             const account = sql.findUserById.get(Number(photoMatch[1]));
-            const file = account?.photo ? join(photosDir, account.photo) : null;
+            const stored = photoMatch[2] ? account?.cover_photo : account?.photo;
+            const file = stored ? join(photosDir, stored) : null;
             const stats = file ? statSync(file, { throwIfNoEntry: false }) : undefined;
             if (!stats) return send(res, 404, { message: "No photo." });
             res.writeHead(200, {
@@ -1770,7 +1824,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
                 role: row.role,
                 department: row.department,
                 photo: row.photo,
-                online: Boolean(row.signed_in) && row.last_seen !== null && now - row.last_seen < ONLINE_MS,
+                online: isOnline(row, now),
                 lastSeen: row.last_seen,
             })).toSorted((a, b) => Number(b.online) - Number(a.online));
         };
@@ -1800,6 +1854,18 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
         }
 
         // the person on the other side of a SheeChat conversation: any staff member but a developer or yourself
+        // someone's profile, opened from SheeChat; the same people you can chat with, switched off or not. Looking at it
+        // reads nothing, so it stays apart from the conversation below
+        const profileMatch = path.match(/^\/admin\/sheechat\/(\d+)\/profile$/);
+        if (method === "GET" && profileMatch) {
+            const now = Date.now();
+            const other = sql.findProfile.get({ now, id: Number(profileMatch[1]) });
+            if (!other || other.role === "developer" || other.id === me.id) {
+                return send(res, 404, { message: "Staff member not found." });
+            }
+            return send(res, 200, toProfile(other, now));
+        }
+
         const dmMatch = path.match(/^\/admin\/sheechat\/(\d+)(\/image|\/typing)?$/);
         if (dmMatch) {
             const other = sql.findUserById.get(Number(dmMatch[1]));
@@ -1946,21 +2012,27 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
 
         // your profile photo, sent as the image itself (My account shrinks it to a small square first)
         if (method === "PUT" && path === "/admin/me/photo") {
-            const type = PHOTO_TYPES[req.headers["content-type"]];
-            if (!type) return send(res, 415, { message: "Upload a JPEG, PNG or WebP picture." });
-            if (Number(req.headers["content-length"]) > MAX_PHOTO_BYTES) {
-                return send(res, 413, { message: "Photos can be up to 2 MB." });
-            }
-            const bytes = await readBytes(req, MAX_PHOTO_BYTES);
-            if (!type.isIt(bytes)) return send(res, 400, { message: "That file isn't a picture." });
-            const file = `user-${me.id}-${Date.now()}${type.ext}`;
-            writeFileSync(join(photosDir, file), bytes);
-            setPhoto(me.id, file);
+            const saved = await saveProfilePicture(req, "user", me.id);
+            if (!saved.file) return send(res, saved.status, { message: saved.message });
+            setPhoto(me.id, saved.file);
             return send(res, 200, toMe(sql.findUserById.get(me.id)));
         }
 
         if (method === "DELETE" && path === "/admin/me/photo") {
             setPhoto(me.id, null);
+            return send(res, 200, toMe(sql.findUserById.get(me.id)));
+        }
+
+        // your cover photo, the same way (My account shrinks it to a wide banner first)
+        if (method === "PUT" && path === "/admin/me/cover") {
+            const saved = await saveProfilePicture(req, "cover", me.id);
+            if (!saved.file) return send(res, saved.status, { message: saved.message });
+            setCoverPhoto(me.id, saved.file);
+            return send(res, 200, toMe(sql.findUserById.get(me.id)));
+        }
+
+        if (method === "DELETE" && path === "/admin/me/cover") {
+            setCoverPhoto(me.id, null);
             return send(res, 200, toMe(sql.findUserById.get(me.id)));
         }
 

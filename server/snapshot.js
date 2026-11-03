@@ -101,11 +101,13 @@ export function saveSnapshot(dataDir, file = SNAPSHOT_FILE) {
         db.close();
     }
 
-    // profile photos ride along inside the file; they're small squares
+    // profile and cover photos ride along inside the file; they're shrunk before uploading, so they're small
     const photos = {};
-    for (const { photo } of tables.users) {
-        const path = photo && join(dataDir, "photos", basename(photo));
-        if (path && existsSync(path)) photos[photo] = readFileSync(path).toString("base64");
+    for (const { photo, cover_photo: cover } of tables.users) {
+        for (const name of [photo, cover]) {
+            const path = name && join(dataDir, "photos", basename(name));
+            if (path && existsSync(path)) photos[name] = readFileSync(path).toString("base64");
+        }
     }
 
     mkdirSync(dirname(file), { recursive: true });
