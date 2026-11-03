@@ -4,7 +4,8 @@ import '../style/orderStatus.css';
 import '../style/chat.css';
 
 import {
-    listSheeChat, listSheeChatPeople, listSheeChats, sendSheeChat, sendSheeChatImage, sheeChatImageUrl,
+    listSheeChat, listSheeChatPeople, listSheeChats, listSheeChatTyping, noteSheeChatTyping, sendSheeChat, sendSheeChatImage,
+    sheeChatImageUrl,
 } from '../api/sheechatController.js';
 import { ROLE_LABELS } from '../auth/roles.js';
 import { useAuth } from '../auth/authContext.js';
@@ -13,6 +14,7 @@ import MessageThread from '../components/chat/messageThread.jsx';
 import StaffList from '../components/chat/staffList.jsx';
 import { useViewingConversation } from '../hooks/useMessageToasts.js';
 import useMessages from '../hooks/useMessages.js';
+import useTyping from '../hooks/useTyping.js';
 
 // new messages should show up while the page is open
 const REFRESH_MS = 5000;
@@ -22,6 +24,9 @@ const lastTime = new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeSt
 function Conversation({ person, meId, onSent }) {
     const list = useCallback((options) => listSheeChat(person.id, options), [person.id]);
     const { messages, loading, error, added } = useMessages(list);
+    const listTyping = useCallback((options) => listSheeChatTyping(person.id, options), [person.id]);
+    const noteTyping = useCallback(() => noteSheeChatTyping(person.id), [person.id]);
+    const { typing, typed } = useTyping(listTyping, noteTyping);
     useViewingConversation(`sheechat:${person.id}`);
 
     return (
@@ -35,6 +40,8 @@ function Conversation({ person, meId, onSent }) {
                 loading={loading}
                 error={error}
                 mine={(m) => m.from.id === meId}
+                typing={typing}
+                onTyping={typed}
                 imageUrl={sheeChatImageUrl}
                 disabled={person.disabled ? `${person.name}'s account is switched off, so you can't send them messages.` : ""}
                 onSend={async (body, image) => {

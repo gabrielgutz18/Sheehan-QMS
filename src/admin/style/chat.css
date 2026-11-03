@@ -256,11 +256,68 @@
   flex: none;
 }
 
-.chat-seen {
-  margin: 4px 0 0;
-  font-size: 12px;
-  text-align: right;
+/* gray with one check: delivered; red with two: the other side has opened it */
+.chat-ticks {
+  display: flex;
+  justify-content: flex-end;
+  margin: 2px 0 0;
   color: var(--text-muted);
+}
+
+.chat-ticks.is-seen {
+  color: var(--brand-red);
+}
+
+.chat-ticks span {
+  display: flex;
+}
+
+.chat-ticks-icon {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.25;
+}
+
+.chat-typing {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 18px;
+  margin: -4px 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.chat-typing-dots {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.chat-typing-dots i {
+  width: 5px;
+  height: 5px;
+  background: currentColor;
+  border-radius: 50%;
+  animation: chat-typing-dot 1.2s ease-in-out infinite;
+}
+
+.chat-typing-dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.chat-typing-dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes chat-typing-dot {
+  0%, 60%, 100% {
+    opacity: 0.35;
+    transform: none;
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
 }
 
 .chat-compose {
@@ -687,7 +744,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .message-toast {
+  .message-toast,
+  .chat-typing-dots i {
     animation: none;
   }
 }
