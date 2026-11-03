@@ -138,6 +138,31 @@ describe("order sheet", () => {
         assert.deepEqual((await maria.get("/admin/orders")).assertStatus(200).body.map((o) => o.queueNum), [1, 2]);
     });
 
+    test("each day's regular queue comes first, then the priority orders together, then the TBA priority ones", async () => {
+        const maria = await app.actingAsSales();
+        const take = async (name, marks) =>
+            (await maria.post("/orders", sale({ name, ...marks }))).assertStatus(201);
+        await take("Regular 1");
+        await take("Priority 1", { priority: true });
+        await take("Regular 2");
+        await take("TBA 1", { purpose: "Tire", invoices: [{ invoiceNo: "2224", type: "Tire" }], tbaPriority: true });
+        await take("Priority 2", { priority: true });
+        await take("Regular 3");
+        takeEarlierOrder(1, 7, "Yesterday");
+
+        const listed = (await maria.get("/admin/order-sheet")).assertStatus(200).body;
+
+        assert.deepEqual(listed.map((o) => o.name), [
+            "Regular 1", "Regular 2", "Regular 3", "Priority 1", "Priority 2", "TBA 1", "Yesterday",
+        ]);
+        // the line and the Cashier page stay in number order: a mark doesn't move a customer ahead there
+        assert.deepEqual((await maria.get("/admin/orders")).assertStatus(200).body.map((o) => o.queueNum), [1, 2, 3, 4, 5, 6]);
+        assert.deepEqual(
+            (await maria.get("/admin/payments")).assertStatus(200).body.filter((o) => o.isToday).map((o) => o.queueNum),
+            [1, 2, 3, 4, 5, 6],
+        );
+    });
+
     test("an earlier day's order is filled in by its id, not today's order with the same number", async () => {
         const yesterday = takeEarlierOrder(1, 1, "Ana Lim");
         const todays = await takeOrder();

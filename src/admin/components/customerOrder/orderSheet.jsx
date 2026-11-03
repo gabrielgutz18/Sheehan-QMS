@@ -84,7 +84,7 @@ function StatusCell({ order }) {
 }
 
 // the Order sheet on Customer order: every order from every day (no Customer Reports: they're concerns, not orders),
-// newest day first, one row each with all its details, laid out like the loading schedule sales keeps in Google Sheets (date, queue number, team, salesman, who assisted,
+// newest day first with each day's priority orders together below its regular queue, one row each with all its details, laid out like the loading schedule sales keeps in Google Sheets (date, queue number, team, salesman, who assisted,
 // the customer, the invoice numbers under their department, terms, time in and out at sales, runner and receiver) and
 // as wide as the page, with no scrolling sideways; every sales staff member works on it together: they pick the team and type the
 // runner and receiver right in the row, each cell saved as soon as they leave it (kept as an edit with who saved it;
@@ -132,7 +132,7 @@ export default function OrderSheet({ onOpen }) {
                 <div>
                     <h2 id="order-sheet-title">Order sheet</h2>
                     <p className="tab-hint">
-                        Every day's orders, newest first, shared by everyone in sales. Pick the team, type the runner
+                        Every day's orders, newest first, with priority orders below the regular queue of each day, shared by everyone in sales. Pick the team, type the runner
                         and receiver; each saves when you leave the cell, and the others see it within a few seconds.
                         The terms are set on the ticket or the Cashier page. Click one of today's queue numbers to open its ticket.
                     </p>

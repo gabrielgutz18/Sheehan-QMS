@@ -30,9 +30,9 @@ const loadedAt = (order) => {
 const doubleCheckedBy = (checkers = {}) =>
     [...new Set(Object.values(checkers).map(([, second = ""]) => second.trim()).filter(Boolean))].join(", ");
 
-// where an order goes in its day's rows on the sheet: the priority orders first, then the TBA priority ones, then the
-// rest, each group in number order; the script sorts the rows by this text: "2026-10-29 0 0003"
-const GROUPS = { "*": 0, "**": 1, "": 2 };
+// where an order goes in its day's rows on the sheet: the regular queue first, then the priority orders together below
+// it, then the TBA priority ones, each group in number order; the script sorts the rows by this text: "2026-10-29 0 0003"
+const GROUPS = { "": 0, "*": 1, "**": 2 };
 export const sortKey = (order) =>
     `${order.date} ${GROUPS[markOf(order)]} ${String(order.queueNum).padStart(4, "0")}`;
 

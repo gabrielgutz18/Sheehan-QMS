@@ -1,5 +1,5 @@
 // adds 4 priority orders ("*") to today's queue with regular customers between them, for checking that the priority
-// orders end up together on the Google sheet: taken one after the other they'd be next to each other anyway, so here
+// orders end up together on the Order sheet and the Google sheet: taken one after the other they'd be next to each other anyway, so here
 // every second ticket is a regular one, and only sorting can bring the four together
 // each one goes through the same POST /orders Customer order uses, signed in as the built-in admin from .env, since the
 // kiosk can't mark a priority order; safe to run while the app is running
@@ -73,7 +73,7 @@ try {
         const order = created.body;
         console.log(`  ${formatQueueNum(order.queueNum, order.purpose, order).padEnd(8)} ${order.name}`);
     }
-    console.log(`On the Google sheet, today's Priority Customers 1 to ${PRIORITY_COUNT} should be together at the top of the day.`);
+    console.log(`On the Order sheet and the Google sheet, Priority Customers 1 to ${PRIORITY_COUNT} should be together below today's Regular Customers.`);
     console.log(`Data folder: ${api.dataDir}`);
 } catch (err) {
     console.error(err.message);
