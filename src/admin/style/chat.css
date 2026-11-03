@@ -539,3 +539,155 @@
 .chat-staff-status.is-online {
   color: #15803d;
 }
+
+/* the message pop-ups in the bottom right corner of every staff page: the sender's photo and name, what they wrote and
+   when, on plain white with a thin border; the gaps between them still click through to the page below */
+.message-toasts {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(320px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.message-toast {
+  display: flex;
+  align-items: flex-start;
+  background: #ffffff;
+  border: 1px solid var(--field-border);
+  border-radius: 10px;
+  /* only enough to lift it off the white page behind it */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  pointer-events: auto;
+  animation: message-toast-in 160ms ease-out;
+}
+
+.message-toast-open {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 0 10px 10px;
+  font: inherit;
+  color: var(--text-dark);
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.message-toast-open:focus-visible,
+.message-toast-close:focus-visible {
+  outline: 2px solid var(--brand-red);
+  outline-offset: -2px;
+}
+
+.message-toast-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* the name and when, on one line; a long name gives way so the time always shows */
+.message-toast-from {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.message-toast-from strong {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.message-toast-time {
+  flex: none;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* a long message shows its start; the whole of it is a click away */
+.message-toast-body {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+/* out of sight until the pointer or keyboard is on the pop-up, which closes by itself anyway */
+.message-toast-close {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 4px;
+  padding: 0;
+  color: var(--text-muted);
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.message-toast:hover .message-toast-close,
+.message-toast:focus-within .message-toast-close {
+  opacity: 1;
+}
+
+.message-toast-close:hover {
+  color: var(--text-dark);
+  background: var(--cream);
+}
+
+/* the red dot for unopened messages: at the far end of a sidebar link, and on the corner of the menu button */
+.admin-unread-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-left: auto;
+  background: var(--brand-red);
+  border-radius: 50%;
+}
+
+.admin-menu-btn {
+  position: relative;
+}
+
+.admin-menu-btn .admin-unread-dot {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  margin: 0;
+  box-shadow: 0 0 0 2px #ffffff;
+}
+
+@keyframes message-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .message-toast {
+    animation: none;
+  }
+}

@@ -5,6 +5,12 @@ import http, { apiUrl } from '../../api/http.js';
 // fromStaff: written by the staff member whose conversation it is (a developer's answer otherwise); read: the other
 // side has opened it; image: it carries a picture (see chatImageUrl), body is its caption then, '' for none
 
+// the message pop-ups (everyone): one entry per conversation with something you haven't opened, newest first:
+// [{ kind, id, body, image, sentAt, unread, from: { id, name, role, photo, disabled } }]
+// kind: 'sheechat', 'developer' (a developer's answer to you) or 'staff' (what staff wrote, for the developers);
+// id, body, image, sentAt: its newest unopened message; unread: how many; asking marks nothing as read
+export const listUnreadMessages = (options) => http.get("/admin/unread-messages", options);
+
 // Message developer (every role but developer): your own conversation, oldest first; opening it reads their answers
 export const listMyMessages = (options) => http.get("/admin/messages", options);
 

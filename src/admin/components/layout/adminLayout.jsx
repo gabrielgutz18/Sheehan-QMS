@@ -6,6 +6,8 @@ import { useAuth } from '../../auth/authContext.js';
 import { ROLE_LABELS } from '../../auth/roles.js';
 import { NAV_GROUPS, navFor, withFolders } from '../../data/navItems.js';
 import useMediaQuery from '../../hooks/useMediaQuery.js';
+import useMessageToasts from '../../hooks/useMessageToasts.js';
+import MessageToasts from '../chat/messageToasts.jsx';
 import Avatar from '../common/avatar.jsx';
 import Icon from '../common/icon.jsx';
 import OrderStatusDrawer, { BOARD_DOCKS } from '../orderStatus/orderStatusDrawer.jsx';
@@ -17,12 +19,19 @@ const SIDEBAR_ICON = "M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1
 const SIGN_OUT_ICON = "M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4";
 const CHEVRON_ICON = "M9 6l6 6-6 6";
 
-// one sidebar link; onNavigate puts the sliding sidebar away on narrow screens
-function NavItem({ item: { to, label, end, icon }, onNavigate }) {
+// the red dot for messages nobody has opened yet
+function UnreadDot() {
+    return <span className="admin-unread-dot" role="img" aria-label="Unread messages" />;
+}
+
+// one sidebar link; onNavigate puts the sliding sidebar away on narrow screens; unread: show the red dot on it
+/** @param {{ item: any, onNavigate: () => void, unread?: boolean }} props */
+function NavItem({ item: { to, label, end, icon }, onNavigate, unread = false }) {
     return (
         <NavLink to={to} end={end} className="admin-nav-link" onClick={onNavigate}>
             <Icon d={icon} className="admin-nav-icon" />
             {label}
+            {unread && <UnreadDot />}
         </NavLink>
     );
 }
@@ -78,6 +87,7 @@ export default function AdminLayout() {
     // the page open now, named in the top bar
     const current = links.find(({ to, end = false }) => matchPath({ path: to, end }, pathname));
     const sidebarShown = slides ? menuOpen : !collapsed;
+    const { toasts, dismiss, unreadSheeChat } = useMessageToasts(user?.id);
 
     useEffect(() => {
         if (!menuOpen) return;
@@ -110,7 +120,7 @@ export default function AdminLayout() {
                                 <p id={headingId} className="admin-nav-heading">{group}</p>
                                 {withFolders(items).map((entry) => entry.links
                                     ? <NavFolder key={entry.folder} {...entry} onNavigate={() => setMenuOpen(false)} />
-                                    : <NavItem key={entry.to} item={entry} onNavigate={() => setMenuOpen(false)} />)}
+                                    : <NavItem key={entry.to} item={entry} onNavigate={() => setMenuOpen(false)} unread={entry.to === "/staff/sheechat" && unreadSheeChat} />)}
                             </div>
                         );
                     })}
@@ -144,6 +154,8 @@ export default function AdminLayout() {
                         onClick={() => (slides ? setMenuOpen(true) : setCollapsed((was) => !was))}
                     >
                         <Icon d={SIDEBAR_ICON} className="admin-nav-icon" />
+                        {/* with the sidebar away its dot can't be seen, so the button that brings it back has it */}
+                        {unreadSheeChat && !sidebarShown && <UnreadDot />}
                     </button>
                     {current && (
                         <p className="admin-topbar-title">
@@ -161,6 +173,8 @@ export default function AdminLayout() {
                     <Outlet />
                 </main>
             </div>
+
+            <MessageToasts toasts={toasts} dismiss={dismiss} />
         </div>
     );
 }
