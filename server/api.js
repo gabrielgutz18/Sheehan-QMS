@@ -469,7 +469,7 @@ const validCheckers = (value) =>
 // the checkers as stored: JSON with only the columns that have a name, each with its 1st and 2nd checker; "" for none
 const storedCheckers = (value = {}) => {
     const filled = CHECKER_COLUMNS
-        .map((column) => [column, CHECKER_ROUNDS.map((_, i) => value[column]?.[i]?.trim() ?? "")])
+        .map((column) => /** @type {[string, string[]]} */ ([column, CHECKER_ROUNDS.map((_, i) => value[column]?.[i]?.trim() ?? "")]))
         .filter(([, names]) => names.some(Boolean));
     return filled.length ? JSON.stringify(Object.fromEntries(filled)) : "";
 };
@@ -863,6 +863,7 @@ const likePattern = (text) => `%${text.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 // adminUsername / adminPassword: the built-in admin from .env, created or updated at every start
 // googleSheet: { url, token } of the Google Apps Script web app the Order sheet is copied to (see server/googleSheet.js);
 // left out, nothing is sent
+/** @param {{ adminUsername: string, adminPassword: string, dataDir?: string, googleSheet?: { url: string, token: string } }} options */
 export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }) {
     const dir = resolveDataDir(dataDir);
     const videosDir = join(dir, "videos");
@@ -1183,6 +1184,12 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
     // served by the sales staff member who handed it over, and loadedBy is who finished loading it (the loading staff
     // member serving it, unless the Loading page says who pressed Done); leaving done clears it
     // loadingArea: the area the loading crew calls them to; finishedArea: the area loading has just finished
+    /**
+     * @param {any} order
+     * @param {string} status
+     * @param {any} user
+     * @param {{ calledAt?: number, remarks?: string, servedBy?: number, atLoading?: number, loadedBy?: number, loadingArea?: string, finishedArea?: string }} [changes]
+     */
     const changeStatus = (order, status, user, {
         calledAt = order.called_at, remarks = order.remarks, servedBy, atLoading, loadedBy, loadingArea, finishedArea,
     } = {}) =>
@@ -1685,7 +1692,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
                 photo: row.photo,
                 online: Boolean(row.signed_in) && row.last_seen !== null && now - row.last_seen < ONLINE_MS,
                 lastSeen: row.last_seen,
-            })).toSorted((a, b) => b.online - a.online);
+            })).toSorted((a, b) => Number(b.online) - Number(a.online));
         };
 
         // SheeChat, for every role but the developers (ROLE_ROUTES leaves them out too; they have the Chat page)

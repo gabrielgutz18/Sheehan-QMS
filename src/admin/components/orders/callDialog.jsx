@@ -16,6 +16,9 @@ const QUICK_REMARKS = [
 // quickRemarks: the one-tap messages under the box (the Loading page offers the order's loading areas instead, each
 // with its area: picking one is where the customer is called to); defaultArea: the area picked to begin with
 // onCall(remarks, area)
+/**
+ * @param {{ order: any, defaultRemarks?: string, quickRemarks?: { label: string, text: string, area?: string }[], defaultArea?: string, busy: boolean, error: string, onCall: (remarks: string, area?: string) => any, onClose: () => void }} props
+ */
 export default function CallDialog({
     order, defaultRemarks = "", quickRemarks = QUICK_REMARKS, defaultArea, busy, error, onCall, onClose,
 }) {

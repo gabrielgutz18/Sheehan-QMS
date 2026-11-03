@@ -2291,7 +2291,7 @@
   color: var(--text-dark);
   background: var(--surface-muted);
   border: 1px solid var(--field-border);
-  border-radius: 999px;
+  border-radius: 10px;
   cursor: pointer;
 }
 

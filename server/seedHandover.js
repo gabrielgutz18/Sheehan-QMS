@@ -69,8 +69,9 @@ const fakeCustomer = (i) => {
 
 const api = createApi({ adminUsername: ADMIN_USERNAME, adminPassword: ADMIN_PASSWORD, dataDir: DATA_DIR });
 const server = createServer(api);
-await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-const base = `http://127.0.0.1:${server.address().port}/api`;
+await new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve(undefined)));
+const { port } = /** @type {import('node:net').AddressInfo} */ (server.address());
+const base = `http://127.0.0.1:${port}/api`;
 
 // the signed-in admin: keeps its session cookie and sends the header the admin pages send
 let cookie = "";

@@ -2,7 +2,9 @@
 import { useEffect, useState } from 'react';
 import '../style/clock.css';
 
+/** @type {Intl.DateTimeFormatOptions} */
 const timeFormat = { hour: 'numeric', minute: '2-digit', second: '2-digit' };
+/** @type {Intl.DateTimeFormatOptions} */
 const dateFormat = { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' };
 
 export default function Clock() {

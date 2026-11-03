@@ -10,7 +10,7 @@ const PLATFORMS = [
         match: /(?:youtube\.com\/(?:watch\?.*v=|shorts\/|embed\/|live\/)|youtu\.be\/)([\w-]{11})/,
         // loop needs playlist set to the same id
         embed: (id) => `https://www.youtube-nocookie.com/embed/${id}?` +
-            new URLSearchParams({ autoplay: 1, mute: 1, loop: 1, playlist: id, controls: 0, rel: 0 }),
+            new URLSearchParams({ autoplay: "1", mute: "1", loop: "1", playlist: id, controls: "0", rel: "0" }),
     },
     {
         name: "Vimeo",
@@ -67,7 +67,7 @@ export const resolveVideo = (url) => {
 
     for (const { name, match, embed } of PLATFORMS) {
         const m = url.match(match);
-        if (m) return { type: "iframe", src: embed(m[1] ?? m[2], url), platform: name };
+        if (m) return { type: "iframe", src: embed(m[1] ?? m[2]), platform: name };
     }
 
     // unknown site: assume it's already an embeddable player link

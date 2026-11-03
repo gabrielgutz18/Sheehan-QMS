@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   ci:
-    name: Lint & Build
+    name: Lint, Test & Build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -27,7 +27,8 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          # the same version as the server (docs/DEPLOY-UBUNTU.md)
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install dependencies
@@ -36,8 +37,28 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test:coverage
+
       - name: Build
         run: npm run build
+
+      - name: Install the test browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser tests
+        run: npx playwright test
+
+      - name: Keep the browser test report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 7
 
   deploy-server:
     name: Deploy to the Ubuntu server

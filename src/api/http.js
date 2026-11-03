@@ -40,10 +40,18 @@ const unauthorizedListeners = new Set();
 
 export function onUnauthorized(listener) {
     unauthorizedListeners.add(listener);
-    return () => unauthorizedListeners.delete(listener);
+    return () => {
+        unauthorizedListeners.delete(listener);
+    };
 }
 
 // a File/Blob body is sent as-is (uploads); anything else goes as JSON
+/**
+ * @param {string} method
+ * @param {string} path
+ * @param {any} [body]
+ * @param {{ signal?: AbortSignal, timeout?: number, headers?: Record<string, string> }} [options]
+ */
 async function request(method, path, body, { signal, timeout = TIMEOUT_MS, headers } = {}) {
     const isFile = body instanceof Blob;
     const controller = new AbortController();

@@ -1,0 +1,17 @@
+{
+  // npm run typecheck adds --checkJs; left off here so the editor doesn't underline the current findings everywhere
+  "compilerOptions": {
+    "allowJs": true,
+    "strict": false,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "target": "es2024",
+    "lib": ["es2024", "dom", "dom.iterable"],
+    "types": ["node", "vite/client", "w3c-web-usb"],
+    "maxNodeModuleJsDepth": 0,
+    "skipLibCheck": true
+  },
+  "include": ["src", "server", "vite.config.js"]
+}

@@ -64,7 +64,7 @@ export async function forgetPrinter(device) {
 const findBulkOut = (device) => {
     const candidates = device.configuration.interfaces
         .map((iface) => ({ iface, alt: iface.alternate }))
-        .sort((a, b) => (b.alt.interfaceClass === PRINTER_CLASS) - (a.alt.interfaceClass === PRINTER_CLASS));
+        .sort((a, b) => Number(b.alt.interfaceClass === PRINTER_CLASS) - Number(a.alt.interfaceClass === PRINTER_CLASS));
     for (const { iface, alt } of candidates) {
         const endpoint = alt.endpoints.find((e) => e.direction === "out" && e.type === "bulk");
         if (endpoint) return { iface, endpoint };

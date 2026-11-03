@@ -4,6 +4,11 @@ import { todayKey } from '../../../data/pickupDate.js';
 
 // the fields of Customer order: a label over each and its error under it
 // narrow: the short ones (salesman, payment status, team, pick-up date) are half as wide, as on the paper form
+/**
+ * @typedef {{ id: string, label: string, optional?: boolean, narrow?: boolean, error?: string }} FieldProps
+ */
+
+/** @param {FieldProps & { children: import('react').ReactNode }} props */
 function Field({ id, label, optional, narrow, error, children }) {
     return (
         <div className={`admin-field sale-field${narrow ? " is-narrow" : ""}`}>
@@ -23,6 +28,7 @@ const errorProps = (id, error) => ({
     className: error ? "has-error" : undefined,
 });
 
+/** @param {FieldProps & { value: string, onChange: (value: string) => void, maxLength?: number, placeholder?: string }} props */
 export function SaleText({ id, label, value, onChange, error, optional, narrow, maxLength, placeholder }) {
     return (
         <Field id={id} label={label} optional={optional} narrow={narrow} error={error}>
@@ -88,6 +94,7 @@ export function SaleTime({ id, label, value, onChange, optional, narrow }) {
 
 // options: the choices; the empty first one reads `placeholder`; disabled: grayed out, shown but not picked here
 // placeholderDisabled: once picked, it can't go back to none (the payment status)
+/** @param {FieldProps & { value: string, onChange?: (value: string) => void, options: string[], placeholder?: string, placeholderDisabled?: boolean, disabled?: boolean }} props */
 export function SaleSelect({ id, label, value, onChange, options, placeholder, placeholderDisabled, error, optional, narrow, disabled }) {
     return (
         <Field id={id} label={label} optional={optional} narrow={narrow} error={error}>
@@ -108,6 +115,7 @@ const MENU_EDGE = 12;
 // a field that opens a list to tick one or more of, e.g. Roofings and Steel (Type of order)
 // they're kept in the list's order whatever order they're ticked in, so the queue number's letters (one set per type,
 // "RT" for Roofings and Tire) don't depend on the clicking
+/** @param {FieldProps & { names: string[], value: string[], onChange: (value: string[]) => void, placeholder?: string }} props */
 export function CheckPicker({ id, label, names, value, onChange, placeholder, optional, error }) {
     const [open, setOpen] = useState(false);
     const containerRef = useRef(null);

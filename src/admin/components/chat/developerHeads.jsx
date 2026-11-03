@@ -9,6 +9,7 @@ const REFRESH_MS = 15000;
 
 // the developer team as a row of chat heads, a green dot on each one online, online ones first
 // meId: the signed-in developer, marked You on the Chat page
+/** @param {{ meId?: number }} props */
 export default function DeveloperHeads({ meId }) {
     const [team, setTeam] = useState(null);
 

@@ -1,0 +1,10 @@
+dist
+data
+seeders
+public
+playwright-report
+test-results
+package-lock.json
+server/migrations
+docs
+README.md

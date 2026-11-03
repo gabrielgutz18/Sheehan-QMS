@@ -85,6 +85,25 @@ npm test -- --test-name-pattern="restoring"       # only tests whose name matche
 
 Like `php artisan test` in Laravel: each test starts the real API with its own empty database in a temp folder (the way `RefreshDatabase` works), sends requests the way the kiosk, display and counters do, and checks the responses and the tables (`assertStatus`, `assertDatabaseHas`, `assertDatabaseMissing`, `assertDatabaseCount`). Nothing touches `data/` or `.env`. It uses Node's built-in test runner, so there's nothing to install.
 
+**Browser tests** run the built site in Chromium, on a throwaway database that never touches `data/` or the Google sheet:
+
+```bash
+npx playwright install chromium    # once, on each computer
+npm run test:e2e                   # builds the site, then runs e2e/
+```
+
+**Other checks:**
+
+| Command | What it does | Blocks CI? |
+| ------- | ------------ | ---------- |
+| `npm run lint` | ESLint | Yes |
+| `npm run test:coverage` | The tests, failing below 88% lines, 90% branches or 83% functions | Yes |
+| `npm run typecheck` | Type-checks the JavaScript with TypeScript (not strict mode) | Yes |
+| `npm run knip` | Finds unused files, exports and packages | No, it has existing findings |
+| `npm run format:check` | Checks formatting with Prettier | No, the code hasn't been formatted yet |
+
+Dependabot opens pull requests for outdated packages (`.github/dependabot.yml`).
+
 ## Sample customers
 
 ```bash

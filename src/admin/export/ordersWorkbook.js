@@ -10,7 +10,7 @@ const RED = "FFC8202A";
 const MUTED = "FF6F6F6F";
 const LINE = "FFDEDEDB";
 
-const thin = (argb) => ({ style: "thin", color: { argb } });
+const thin = (argb) => ({ style: /** @type {const} */ ("thin"), color: { argb } });
 
 // report: { title, rangeLabel, rows: from orderExportRows, fullDays: labels of days that may have more tickets }
 // logo: the company logo as a data: URL

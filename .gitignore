@@ -32,3 +32,10 @@ dist-ssr
 .env
 .env.*
 !.env.example
+
+# browser test results (npm run test:e2e)
+playwright-report
+test-results
+
+# local record of what was committed
+COMMITS.md

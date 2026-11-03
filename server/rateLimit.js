@@ -19,6 +19,7 @@ export const clientIp = (req) => {
 };
 
 // at most `limit` hits per key in each window of `windowMs`; onLimit(key) runs once per window when a key goes over
+/** @param {{ limit: number, windowMs: number, onLimit?: (key: string) => void, now?: () => number }} options */
 export function createRateLimiter({ limit, windowMs, onLimit = () => {}, now = Date.now }) {
     // key → { count, resetAt }
     const windows = new Map();
