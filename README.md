@@ -64,6 +64,7 @@ server/
   seed.js                  adds sample customers to today's queue (npm run seed)
   seedLoading.js           adds Loading staff accounts, one per crew (npm run seed:loading)
   seedSecurity.js          adds a Security account and customers at every stage (npm run seed:security)
+  seedPriority.js          adds 4 priority orders with regular customers between them (npm run seed:priority)
   snapshot.js              saves / loads a snapshot of the real data (npm run snapshot, seed:snapshot)
 tests/
   feature/                 API tests, e.g. ticketLifecycle.test.js (npm test)

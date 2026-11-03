@@ -21,7 +21,7 @@ npm run test:coverage                        # with the coverage minimums CI enf
 npm run test:e2e                             # builds, then runs the Playwright browser tests
 npx playwright test -g "wrong password"      # one browser test, against the existing dist/
 
-npm run seed -- 12                           # sample customers (also seed:loading, seed:security, seed:handover)
+npm run seed -- 12                           # sample customers (also seed:loading, seed:security, seed:handover, seed:priority)
 ```
 
 CI blocks on lint, `npm run typecheck` (non-strict `--checkJs`), `test:coverage`, build and the browser tests. Types are JSDoc comments, with `src/global.d.ts` for browser globals; add a JSDoc type to fix an error rather than `@ts-ignore`, and mark optional component props there, because TypeScript treats destructured props as required.
