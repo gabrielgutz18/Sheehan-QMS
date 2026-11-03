@@ -62,6 +62,9 @@ function Steps({ order }) {
 const Pickup = ({ order }) =>
     order.pickupDate && <span className="order-status-pickup">Picks up {formatPickup(order.pickupDate)}</span>;
 
+/**
+ * @param {{ heading?: "h1" | "h2" | "h3", compact?: boolean, action?: import('react').ReactNode, list?: any, title?: string, details?: import('react').ComponentType<any>, startWith?: string }} props
+ */
 export default function LifeCycleTable({
     heading = "h2", compact = false, action = null, list, title = "Order status", details: Details = null,
     startWith = "active",

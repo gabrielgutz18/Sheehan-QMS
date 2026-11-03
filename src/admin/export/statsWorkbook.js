@@ -9,7 +9,7 @@ const MUTED = "FF6F6F6F";
 const LINE = "FFDEDEDB";
 const NUMBER = "#,##0";
 
-const thin = (argb) => ({ style: "thin", color: { argb } });
+const thin = (argb) => ({ style: /** @type {const} */ ("thin"), color: { argb } });
 
 // report: {
 //   title, rangeLabel, productLabel, columnLabel ("Date" / "Hour" / "Month"),

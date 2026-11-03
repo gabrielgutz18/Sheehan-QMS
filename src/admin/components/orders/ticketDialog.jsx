@@ -18,6 +18,7 @@ const duration = (ms) => {
 // order: the ticket as it is now, so it shows straight away when someone else takes it
 // openedAt: when View was pressed, for how long they've waited
 // onServe: shows Serve while the ticket is still in line (My counter, for admins); leave it out to only look
+/** @param {{ order: any, openedAt: number, onServe?: (order: any) => void, onClose: () => void }} props */
 export default function TicketDialog({ order, openedAt, onServe, onClose }) {
     const dialogRef = useRef(null);
 

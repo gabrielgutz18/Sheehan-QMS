@@ -45,6 +45,10 @@ const formatIssued = (issuedAt) => {
 // which are for staff only; orders are the items on a ticket taken before invoices, and concern a Customer Report's
 // concern, printed in place of them; the checkers are always printed, a line to write each one left out on
 // columns: characters per line, 32 for 58mm paper and 48 for 80mm
+/**
+ * @param {{ queueNumber: string, name: string, purpose: string, orders?: any[], concern?: string, invoices?: any[], paymentStatus?: string, salesman?: string, team?: string, pickupDate?: string, checkers?: Record<string, string[]>, issuedAt?: any }} ticket
+ * @param {{ columns?: number }} [options]
+ */
 export function buildReceipt(
     {
         queueNumber, name, purpose, orders = [], concern, invoices = [], paymentStatus, salesman, team, pickupDate,

@@ -57,6 +57,16 @@ function migrate(db) {
     }
 }
 
+// a row's columns come from its SQL, which the type checker can't read, so rows are `any`
+/**
+ * @typedef {{ get(...params: any[]): any, all(...params: any[]): any[], run(...params: any[]): any }} Statement
+ * @typedef {Omit<DatabaseSync, "prepare"> & { prepare(sql: string): Statement }} Database
+ */
+
+/**
+ * @param {string} dataDir
+ * @returns {Database}
+ */
 export function openDatabase(dataDir) {
     mkdirSync(dataDir, { recursive: true });
     const db = new DatabaseSync(join(dataDir, DB_FILE));

@@ -229,7 +229,7 @@ export default function CustomerOrderPage() {
 function OrderDesk({ saved, viewing, onNew }) {
     const { user } = useAuth();
     const [fields, setFields] = useState(() => fieldsFor(saved, user?.name ?? ""));
-    const [errors, setErrors] = useState({});
+    const [errors, setErrors] = useState(/** @type {Record<string, any>} */ ({}));
     const [submitted, setSubmitted] = useState(saved);
     const [editing, setEditing] = useState(Boolean(saved) && !viewing);
     const [submitting, setSubmitting] = useState(false);

@@ -10,6 +10,7 @@ const initials = (name) => name.trim().split(/\s+/).map((word) => word[0]).join(
 
 const purposeInitials = (purpose) => splitList(purpose).map(initials).join("").toUpperCase() || "SHN";
 
+/** @param {{ priority?: any, tbaPriority?: any }} [marks] */
 export const markOf = ({ priority, tbaPriority } = {}) => (tbaPriority ? "**" : priority ? "*" : "");
 
 const formatQueueNum = (n, purpose, marks) => {

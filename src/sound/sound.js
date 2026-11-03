@@ -92,6 +92,10 @@ export function watchVoices(callback) {
 
 // the chosen voice by name; if this computer doesn't have it, one in the same language;
 // then one in the browser's language; then the default
+/**
+ * @param {any[]} voices
+ * @param {{ voice?: string, lang?: string }} [chosen]
+ */
 export function findVoice(voices, { voice, lang } = {}) {
     const sameLang = (a, b) => a && b && a.toLowerCase().split("-")[0] === b.toLowerCase().split("-")[0];
     return (
@@ -119,7 +123,7 @@ export async function speak(text, settings = DEFAULT_ANNOUNCER) {
         const timer = setTimeout(resolve, MAX_SPEECH_MS);
         utterance.onend = utterance.onerror = () => {
             clearTimeout(timer);
-            resolve();
+            resolve(undefined);
         };
         window.speechSynthesis.speak(utterance);
     });

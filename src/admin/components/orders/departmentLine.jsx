@@ -93,7 +93,7 @@ export default function DepartmentLine({ department }) {
     // customer the crew has called); just "Loading" for an order from before the areas
     const loadingButtons = (o, disabled, { called = false } = {}) => {
         const left = areasLeftIn(o, department);
-        const areas = left.length ? [...left].sort((a, b) => (b === o.loadingArea) - (a === o.loadingArea)) : [""];
+        const areas = left.length ? [...left].sort((a, b) => Number(b === o.loadingArea) - Number(a === o.loadingArea)) : [""];
         return areas.map((area, i) => (
             <button
                 key={area}
