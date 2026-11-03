@@ -3,7 +3,7 @@ import { useLocation } from 'react-router';
 import '../style/orderStatus.css';
 import '../style/chat.css';
 
-import { answerChat, answerChatImage, listChat, listChats } from '../api/chatController.js';
+import { answerChat, answerChatImage, listChat, listChats, listChatTyping, noteChatTyping } from '../api/chatController.js';
 import { ROLE_LABELS } from '../auth/roles.js';
 import { useAuth } from '../auth/authContext.js';
 import Avatar from '../components/common/avatar.jsx';
@@ -12,6 +12,7 @@ import MessageThread from '../components/chat/messageThread.jsx';
 import StaffList from '../components/chat/staffList.jsx';
 import { useViewingConversation } from '../hooks/useMessageToasts.js';
 import useMessages from '../hooks/useMessages.js';
+import useTyping from '../hooks/useTyping.js';
 
 // new messages should show up while a developer has the page open
 const REFRESH_MS = 5000;
@@ -21,6 +22,9 @@ const lastTime = new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeSt
 function Conversation({ staff, onSent }) {
     const list = useCallback((options) => listChat(staff.id, options), [staff.id]);
     const { messages, loading, error, added } = useMessages(list);
+    const listTyping = useCallback((options) => listChatTyping(staff.id, options), [staff.id]);
+    const noteTyping = useCallback(() => noteChatTyping(staff.id), [staff.id]);
+    const { typing, typed } = useTyping(listTyping, noteTyping);
     useViewingConversation(`staff:${staff.id}`);
 
     return (
@@ -31,6 +35,8 @@ function Conversation({ staff, onSent }) {
                 loading={loading}
                 error={error}
                 mine={(m) => !m.fromStaff}
+                typing={typing}
+                onTyping={typed}
                 onSend={async (body, image) => {
                     added(await (image ? answerChatImage(staff.id, image, body) : answerChat(staff.id, body)));
                     onSent();

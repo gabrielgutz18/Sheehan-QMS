@@ -25,6 +25,19 @@ export const listStaffPresence = (options) => http.get("/admin/staff-presence", 
 // body: the text → the message
 export const sendMyMessage = (body) => http.post("/admin/messages", { body });
 
+// which developers are writing to you right now: [{ id, name }]
+export const listMyTyping = (options) => http.get("/admin/messages/typing", options);
+
+// tells the developers you're writing; it wears off by itself a few seconds after the last time, or when the message
+// is sent
+export const noteMyTyping = () => http.post("/admin/messages/typing");
+
+// who's writing in one staff member's conversation (developers only), them or another developer: [{ id, name }]
+export const listChatTyping = (staffId, options) => http.get(`/admin/chats/${encodeURIComponent(staffId)}/typing`, options);
+
+// tells them, and the other developers, that you're answering; it wears off as noteMyTyping's does
+export const noteChatTyping = (staffId) => http.post(`/admin/chats/${encodeURIComponent(staffId)}/typing`);
+
 // pictures are bigger than a message, so they get longer to arrive
 const IMAGE_TIMEOUT_MS = 60000;
 const withCaption = (path, body) => (body ? `${path}?body=${encodeURIComponent(body)}` : path);

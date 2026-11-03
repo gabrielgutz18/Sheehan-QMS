@@ -19,6 +19,13 @@ export const listSheeChat = (userId, options) => http.get(`/admin/sheechat/${enc
 // body: the text → the message
 export const sendSheeChat = (userId, body) => http.post(`/admin/sheechat/${encodeURIComponent(userId)}`, { body });
 
+// whether they're writing to you right now: [{ id, name }], empty when they aren't
+export const listSheeChatTyping = (userId, options) =>
+    http.get(`/admin/sheechat/${encodeURIComponent(userId)}/typing`, options);
+
+// tells them you're writing; it wears off by itself a few seconds after the last time, or when the message is sent
+export const noteSheeChatTyping = (userId) => http.post(`/admin/sheechat/${encodeURIComponent(userId)}/typing`);
+
 // pictures are bigger than a message, so they get longer to arrive
 const IMAGE_TIMEOUT_MS = 60000;
 

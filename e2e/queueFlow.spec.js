@@ -151,3 +151,72 @@ test('a message pops up in the corner of any page, and clicking it opens the con
 
     await theirs.close();
 });
+
+test('a message shows one gray check until it is opened, then two red ones, and typing shows on the other side', async ({ page, browser }) => {
+    const stamp = Date.now();
+    const sender = { username: `e2e-ticks-${stamp}`, password: 'e2e-password', name: `Ticks ${stamp}`, role: 'sales' };
+
+    await page.goto('/staff/sheechat');
+    await signIn(page, ADMIN.username, ADMIN.password);
+    await expect(page.getByRole('heading', { name: 'SheeChat' })).toBeVisible();
+    await page.evaluate(async (account) => {
+        const res = await fetch('/api/admin/users', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-Tab-Id': sessionStorage.getItem('tabId'),
+            },
+            body: JSON.stringify(account),
+        });
+        if (!res.ok) throw new Error(`Making the account failed (${res.status})`);
+    }, sender);
+
+    // sent, but the admin hasn't opened it: one check, delivered
+    const theirs = await browser.newContext();
+    const other = await theirs.newPage();
+    watch(other);
+    await other.goto('/staff/sheechat');
+    await signIn(other, sender.username, sender.password);
+    await other.getByRole('button', { name: 'People' }).click();
+    await other.getByRole('region', { name: /^Admin/ }).getByRole('button').first().click();
+    const box = other.getByRole('textbox', { name: /^Message to / });
+    await box.fill('Checking the ticks.');
+    await box.press('Enter');
+    const sent = other.getByRole('listitem').filter({ hasText: 'Checking the ticks.' });
+    await expect(sent.getByRole('img', { name: 'Delivered' })).toBeVisible();
+
+    // the admin opens it: two red checks, and only on the sender's own message
+    await page.getByRole('button', { name: new RegExp(sender.name) }).first().click();
+    await expect(page.locator('.chat-messages').getByText('Checking the ticks.')).toBeVisible();
+    await expect(sent.getByRole('img', { name: 'Seen' })).toBeVisible({ timeout: 8000 });
+    await expect(sent.locator('.chat-ticks')).toHaveCSS('color', 'rgb(200, 32, 42)');
+    await expect(page.locator('.chat-ticks')).toHaveCount(0);
+
+    // writing shows on the admin's side, and sending ends it
+    const typing = page.getByRole('status').filter({ hasText: `${sender.name} is typing` });
+    await box.fill('Still there?');
+    await expect(typing).toBeVisible();
+    await box.press('Enter');
+    await expect(page.locator('.chat-messages').getByText('Still there?')).toBeVisible();
+    await expect(typing).toHaveCount(0);
+
+    // the admin's tab goes behind another window: what arrives isn't seen, even with the conversation open
+    const setHidden = (hidden) => page.evaluate((value) => {
+        Object.defineProperty(document, 'hidden', { configurable: true, value });
+        document.dispatchEvent(new Event('visibilitychange'));
+    }, hidden);
+    await setHidden(true);
+    await box.fill('Are you looking?');
+    await box.press('Enter');
+    const unseen = other.getByRole('listitem').filter({ hasText: 'Are you looking?' });
+    await expect(unseen.getByRole('img', { name: 'Delivered' })).toBeVisible();
+    await page.waitForTimeout(6000);
+    await expect(unseen.getByRole('img', { name: 'Delivered' })).toBeVisible();
+
+    // back on the tab, it's read
+    await setHidden(false);
+    await expect(unseen.getByRole('img', { name: 'Seen' })).toBeVisible({ timeout: 8000 });
+
+    await theirs.close();
+});

@@ -16,6 +16,9 @@ const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 const MAX_ORIGINAL_MB = 25;
 // a paper clip, for the Attach button
 const PAPER_CLIP = "m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48";
+// under your own messages: one check once it has reached the server, two once the other side has opened it
+const DELIVERED_TICK = "M20 6 9 17l-5-5";
+const SEEN_TICKS = "M18 6 7 17l-5-5M22 10l-7.5 7.5L13 16";
 
 // a picture small enough to send: kept as it is when it already is (screenshots stay sharp), or shrunk to fit
 // MAX_IMAGE_SIDE as a JPEG
@@ -44,7 +47,8 @@ async function chatImage(file) {
 // back, image a Blob or null; empty: what shows before anyone has written; label: the box's name for screen readers
 // imageUrl(message): where a picture is shown from (the developer chat's, unless SheeChat passes its own); disabled:
 // why nothing can be sent, e.g. the other person's account is switched off, or empty when it can
-export default function MessageThread({ messages, loading, error, mine, onSend, empty, label, imageUrl = chatImageUrl, disabled = "" }) {
+// typing: who else is writing right now, [{ id, name }]; onTyping(): called as you write a message (see useTyping)
+export default function MessageThread({ messages, loading, error, mine, onSend, empty, label, typing, onTyping, imageUrl = chatImageUrl, disabled = "" }) {
     const [draft, setDraft] = useState("");
     // the picture waiting to go: { blob, url } (url for its preview), or null
     const [image, setImage] = useState(null);
@@ -142,12 +146,28 @@ export default function MessageThread({ messages, loading, error, mine, onSend, 
                                     </button>
                                 )}
                                 {m.body && <p className="chat-body">{m.body}</p>}
-                                {mine(m) && m.read && <p className="chat-seen">Seen</p>}
+                                {mine(m) && (
+                                    <p className={`chat-ticks${m.read ? " is-seen" : ""}`}>
+                                        <span role="img" aria-label={m.read ? "Seen" : "Delivered"} title={m.read ? "Seen" : "Delivered"}>
+                                            <Icon d={m.read ? SEEN_TICKS : DELIVERED_TICK} className="line-icon chat-ticks-icon" />
+                                        </span>
+                                    </p>
+                                )}
                             </div>
                         </li>
                     ))
                 )}
             </ol>
+
+            {/* always there, so the messages don't jump when someone starts or stops typing */}
+            <p className="chat-typing" role="status">
+                {typing.length > 0 && (
+                    <>
+                        <span className="chat-typing-dots" aria-hidden="true"><i /><i /><i /></span>
+                        {typing.map(({ name }) => name).join(", ")} {typing.length === 1 ? "is" : "are"} typing
+                    </>
+                )}
+            </p>
 
             {error && <p className="field-error" role="alert">{error}</p>}
 
@@ -169,7 +189,11 @@ export default function MessageThread({ messages, loading, error, mine, onSend, 
                         maxLength={MAX_MESSAGE}
                         placeholder={image ? "Add a caption..." : "Write a message, or paste a picture..."}
                         value={draft}
-                        onChange={(e) => setDraft(e.target.value)}
+                        onChange={(e) => {
+                            setDraft(e.target.value);
+                            // rubbing it all out isn't writing to anyone
+                            if (e.target.value.trim()) onTyping();
+                        }}
                         onPaste={paste}
                         onKeyDown={(e) => {
                             // Enter sends, Shift+Enter starts a new line

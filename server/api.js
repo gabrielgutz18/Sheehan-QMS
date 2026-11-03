@@ -91,6 +91,9 @@ const MAX_CHAT_IMAGE_BYTES = 5 * 1024 * 1024;
 const ONLINE_MS = 2 * 60 * 1000;
 // how often an account's last_seen is written, at most, so a busy page doesn't write on every request
 const SEEN_EVERY_MS = 30 * 1000;
+// someone counts as typing for this long after the page last said so; it says so every 2 seconds while they type, so
+// this outlasts a short pause, and a closed tab or a cleared box goes quiet on its own
+const TYPING_MS = 4000;
 // what a guard's security check can find: all as it should be, or something missing, more than the order's quantity,
 // or stolen (the last three are reports, with a note saying what)
 const SECURITY_RESULTS = ["verified", "missing", "over", "stolen"];
@@ -129,6 +132,8 @@ const SHEECHAT_ROUTES = [
     ["GET", /^\/admin\/sheechat\/\d+$/],
     ["POST", /^\/admin\/sheechat\/\d+$/],
     ["POST", /^\/admin\/sheechat\/\d+\/image$/],
+    ["GET", /^\/admin\/sheechat\/\d+\/typing$/],
+    ["POST", /^\/admin\/sheechat\/\d+\/typing$/],
 ];
 // Message developer: every staff member but the developers writes to them there when something doesn't go well,
 // seeing which of them are online; SheeChat goes with it, for the same people
@@ -136,6 +141,8 @@ const MESSAGE_ROUTES = [
     ["GET", /^\/admin\/messages$/],
     ["POST", /^\/admin\/messages$/],
     ["POST", /^\/admin\/messages\/image$/],
+    ["GET", /^\/admin\/messages\/typing$/],
+    ["POST", /^\/admin\/messages\/typing$/],
     ["GET", /^\/admin\/developers$/],
     ...SHEECHAT_ROUTES,
 ];
@@ -236,6 +243,8 @@ const ROLE_ROUTES = {
         ["GET", /^\/admin\/chats\/\d+$/],
         ["POST", /^\/admin\/chats\/\d+$/],
         ["POST", /^\/admin\/chats\/\d+\/image$/],
+        ["GET", /^\/admin\/chats\/\d+\/typing$/],
+        ["POST", /^\/admin\/chats\/\d+\/typing$/],
         // their team, and which of them are online; and every other staff member, online or not, on the Chat page's
         // Staff list
         ["GET", /^\/admin\/developers$/],
@@ -1345,6 +1354,28 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
         sql.setLastSeen.run(now, userId);
     };
 
+    // who's writing a message right now, per conversation: nothing worth keeping, so it stays in memory and a restart
+    // just forgets it; a conversation is 'staff:<their id>' (with the developers) or 'sheechat:<lower id>:<higher id>'
+    const typingNow = new Map();
+    const sheeChatKey = (a, b) => `sheechat:${Math.min(a, b)}:${Math.max(a, b)}`;
+    const noteTyping = (conversation, account) => {
+        if (!typingNow.has(conversation)) typingNow.set(conversation, new Map());
+        typingNow.get(conversation).set(account.id, { id: account.id, name: account.name, until: Date.now() + TYPING_MS });
+    };
+    // their message arrived, so they've stopped
+    const stopTyping = (conversation, userId) => typingNow.get(conversation)?.delete(userId);
+    // everyone typing there but you, [{ id, name }]; anyone whose time ran out is dropped on the way
+    const typingIn = (conversation, meId) => {
+        const people = typingNow.get(conversation);
+        if (!people) return [];
+        const now = Date.now();
+        people.forEach(({ until }, id) => {
+            if (until <= now) people.delete(id);
+        });
+        if (people.size === 0) typingNow.delete(conversation);
+        return [...people.values()].filter(({ id }) => id !== meId).map(({ id, name }) => ({ id, name }));
+    };
+
     // every tab's sign-in in this browser: for <img> requests (profile photos, chat pictures), which can't send X-Tab-Id
     const allSessions = (req) =>
         Object.entries(readCookies(req))
@@ -1687,6 +1718,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             const body = messageBody(await readBody(req));
             if (!body) return send(res, 400, { message: `Write a message of up to ${MAX_MESSAGE} characters.` });
             const { lastInsertRowid } = sql.insertMessage.run(me.id, me.id, body, null, new Date().toISOString());
+            stopTyping(`staff:${me.id}`, me.id);
             return send(res, 201, toMessage(sql.findMessage.get(lastInsertRowid)));
         }
 
@@ -1696,7 +1728,16 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             const saved = await saveChatImage(req, url, me.id);
             if (!saved.file) return send(res, saved.status, { message: saved.message });
             const { lastInsertRowid } = sql.insertMessage.run(me.id, me.id, saved.body, saved.file, new Date().toISOString());
+            stopTyping(`staff:${me.id}`, me.id);
             return send(res, 201, toMessage(sql.findMessage.get(lastInsertRowid)));
+        }
+
+        // Message developer's typing: POST says you're writing to the developers, GET says which of them are writing to you
+        if (path === "/admin/messages/typing" && (method === "GET" || method === "POST")) {
+            if (me.role === "developer") return send(res, 403, { message: "Answer staff on the Chat page." });
+            if (method === "GET") return send(res, 200, typingIn(`staff:${me.id}`, me.id));
+            noteTyping(`staff:${me.id}`, me);
+            return send(res, 204);
         }
 
         // the message pop-ups, polled from every staff page: one entry per conversation with something you haven't
@@ -1759,11 +1800,20 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
         }
 
         // the person on the other side of a SheeChat conversation: any staff member but a developer or yourself
-        const dmMatch = path.match(/^\/admin\/sheechat\/(\d+)(\/image)?$/);
+        const dmMatch = path.match(/^\/admin\/sheechat\/(\d+)(\/image|\/typing)?$/);
         if (dmMatch) {
             const other = sql.findUserById.get(Number(dmMatch[1]));
             if (!other || other.role === "developer" || other.id === me.id) {
                 return send(res, 404, { message: "Staff member not found." });
+            }
+
+            // POST says you're writing to them, GET says whether they're writing to you
+            if (dmMatch[2] === "/typing") {
+                if (method === "GET") return send(res, 200, typingIn(sheeChatKey(me.id, other.id), me.id));
+                if (method === "POST") {
+                    noteTyping(sheeChatKey(me.id, other.id), me);
+                    return send(res, 204);
+                }
             }
 
             // the conversation, oldest first; opening it reads what they sent you
@@ -1786,6 +1836,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
                     if (!body) return send(res, 400, { message: `Write a message of up to ${MAX_MESSAGE} characters.` });
                 }
                 const { lastInsertRowid } = sql.insertDm.run(me.id, other.id, body, image, new Date().toISOString());
+                stopTyping(sheeChatKey(me.id, other.id), me.id);
                 return send(res, 201, toDirectMessage(sql.findDm.get(lastInsertRowid)));
             }
         }
@@ -1831,7 +1882,20 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             const body = messageBody(await readBody(req));
             if (!body) return send(res, 400, { message: `Write a message of up to ${MAX_MESSAGE} characters.` });
             const { lastInsertRowid } = sql.insertMessage.run(staff.id, me.id, body, null, new Date().toISOString());
+            stopTyping(`staff:${staff.id}`, me.id);
             return send(res, 201, toMessage(sql.findMessage.get(lastInsertRowid)));
+        }
+
+        // the Chat page's typing: POST says you're answering them, GET says who else is writing there, them or another
+        // developer, so two developers don't answer the same thing
+        const chatTyping = path.match(/^\/admin\/chats\/(\d+)\/typing$/);
+        if (chatTyping && (method === "GET" || method === "POST")) {
+            if (me.role !== "developer") return send(res, 403, { message: "Only a developer can do that." });
+            const staff = sql.findUserById.get(Number(chatTyping[1]));
+            if (!staff || staff.role === "developer") return send(res, 404, { message: "Staff member not found." });
+            if (method === "GET") return send(res, 200, typingIn(`staff:${staff.id}`, me.id));
+            noteTyping(`staff:${staff.id}`, me);
+            return send(res, 204);
         }
 
         // a picture answering them, as POST /admin/messages/image has it
@@ -1843,6 +1907,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             const saved = await saveChatImage(req, url, me.id);
             if (!saved.file) return send(res, saved.status, { message: saved.message });
             const { lastInsertRowid } = sql.insertMessage.run(staff.id, me.id, saved.body, saved.file, new Date().toISOString());
+            stopTyping(`staff:${staff.id}`, me.id);
             return send(res, 201, toMessage(sql.findMessage.get(lastInsertRowid)));
         }
 
