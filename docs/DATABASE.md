@@ -30,7 +30,7 @@ data/                    created on first start; ignored by git
   queue.db-wal           recent changes not yet folded into queue.db (see "WAL" below)
   queue.db-shm           index for the -wal file
   videos/                the uploaded display video (the database stores only its file name)
-  photos/                staff profile photos (users.photo stores only each file's name)
+  photos/                staff profile and cover photos (users.photo and users.cover_photo store only each file's name)
   backups/               npm run backup writes here unless BACKUP_DIR is set
 ```
 
@@ -324,6 +324,7 @@ erDiagram
         TEXT department
         TEXT sales_team "their own sales team, e.g. GIGA; '' for none"
         TEXT photo "file in photos/"
+        TEXT cover_photo "file in photos/, or NULL"
     }
     sessions {
         TEXT sid_hash PK "SHA-256 of the cookie"
@@ -731,23 +732,29 @@ updateProfile: db.prepare(`
 employeeIdTaken: db.prepare("SELECT id FROM users WHERE employee_id = ? COLLATE NOCASE AND id != ?"),
 ```
 
-**The photo:** the browser crops the picture to its middle square and shrinks it before uploading. [`src/admin/components/accounts/profilePhoto.jsx:11-23`](../src/admin/components/accounts/profilePhoto.jsx#L11-L23)
+**The photo and the cover photo:** the browser crops the picture to the middle of its shape and shrinks it before uploading: a 400 by 400 square for the photo, a 1200 by 400 banner for the cover. [`src/admin/hooks/usePictureUpload.js`](../src/admin/hooks/usePictureUpload.js)
 
 ```js
-// the middle square of the picture, shrunk to PHOTO_SIZE, as a JPEG
-async function squarePhoto(file) {
+// the middle of the picture, as much of it as fits the shape, shrunk to width by height, as a JPEG
+async function cropPicture(file, width, height) {
     const bitmap = await createImageBitmap(file);
-    const side = Math.min(bitmap.width, bitmap.height);
+    const shape = width / height;
+    const cropWidth = Math.min(bitmap.width, bitmap.height * shape);
+    const cropHeight = cropWidth / shape;
     const canvas = document.createElement("canvas");
-    canvas.width = PHOTO_SIZE;
-    canvas.height = PHOTO_SIZE;
-    canvas
-        .getContext("2d")
-        .drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, PHOTO_SIZE, PHOTO_SIZE);
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    // a see-through PNG goes on white, not black
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, width, height);
+    context.drawImage(bitmap, (bitmap.width - cropWidth) / 2, (bitmap.height - cropHeight) / 2, cropWidth, cropHeight, 0, 0, width, height);
     bitmap.close();
     return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
 }
 ```
+
+The cover photo goes through `PUT /admin/me/cover` and `saveProfilePicture()`, the same checks as the photo below. It's saved in `photos/` too, with its file name in `users.cover_photo` (migration [`032_cover_photos.sql`](../server/migrations/032_cover_photos.sql)), and shown from `GET /api/photos/:id/cover`. The Dashboard reads it from the signed-in account, and SheeChat from `GET /admin/sheechat/:userId/profile`, which leaves out the username and employee ID.
 
 The server only keeps real pictures: the file must start the way a JPEG, PNG or WebP does. It's saved in `photos/`, and only its file name goes into `users.photo`. [`server/api.js:267-272`](../server/api.js#L267-L272) and [`server/api.js:824-836`](../server/api.js#L824-L836)
 

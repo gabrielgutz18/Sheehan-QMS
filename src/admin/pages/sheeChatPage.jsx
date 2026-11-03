@@ -11,7 +11,9 @@ import { ROLE_LABELS } from '../auth/roles.js';
 import { useAuth } from '../auth/authContext.js';
 import Avatar from '../components/common/avatar.jsx';
 import MessageThread from '../components/chat/messageThread.jsx';
+import ProfileButton from '../components/chat/profileButton.jsx';
 import StaffList from '../components/chat/staffList.jsx';
+import StaffProfileDialog from '../components/chat/staffProfileDialog.jsx';
 import { useViewingConversation } from '../hooks/useMessageToasts.js';
 import useMessages from '../hooks/useMessages.js';
 import useTyping from '../hooks/useTyping.js';
@@ -20,8 +22,8 @@ import useTyping from '../hooks/useTyping.js';
 const REFRESH_MS = 5000;
 const lastTime = new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeStyle: "short" });
 
-// the open conversation with one person; onSent: once a message is saved
-function Conversation({ person, meId, onSent }) {
+// the open conversation with one person; onSent: once a message is saved; onProfile: opens their profile
+function Conversation({ person, meId, onSent, onProfile }) {
     const list = useCallback((options) => listSheeChat(person.id, options), [person.id]);
     const { messages, loading, error, added } = useMessages(list);
     const listTyping = useCallback((options) => listSheeChatTyping(person.id, options), [person.id]);
@@ -32,7 +34,10 @@ function Conversation({ person, meId, onSent }) {
     return (
         <>
             <h2>
-                {person.name}
+                <button type="button" className="chat-profile-link" title="View profile" onClick={onProfile}>
+                    <Avatar account={person} size={32} />
+                    <span>{person.name}</span>
+                </button>
                 <span className="history-note"> {ROLE_LABELS[person.role] ?? person.role}</span>
             </h2>
             <MessageThread
@@ -67,6 +72,8 @@ export default function SheeChatPage() {
     // who the open conversation is with: { id, name, role, photo, disabled? }, or null
     const [openPerson, setOpenPerson] = useState(null);
     const openId = openPerson?.id ?? null;
+    // whose profile is open over the page, as the list has them, or null
+    const [profileOf, setProfileOf] = useState(null);
     // bumped on every message sent, so the list shows it as the last one straight away
     const [sent, setSent] = useState(0);
 
@@ -108,7 +115,7 @@ export default function SheeChatPage() {
         <section className="admin-page">
             <div>
                 <h1 className="admin-title">SheeChat</h1>
-                <p className="tab-hint">Chat with anyone on the staff. Pick a conversation, or someone on People to start one.</p>
+                <p className="tab-hint">Chat with anyone on the staff. Pick a conversation, or someone on People to start one. Click a photo to see their profile.</p>
             </div>
 
             {listError && <p className="field-error" role="alert">{listError}</p>}
@@ -125,7 +132,7 @@ export default function SheeChatPage() {
                         </button>
                     </div>
                     {view === "people" ? (
-                        <StaffList openId={openId} onPick={pick} list={listSheeChatPeople} />
+                        <StaffList openId={openId} onPick={pick} list={listSheeChatPeople} onProfile={setProfileOf} />
                     ) : !chats ? (
                         <p className="admin-empty">Loading...</p>
                     ) : chats.length === 0 ? (
@@ -133,7 +140,8 @@ export default function SheeChatPage() {
                     ) : (
                         <ul>
                             {chats.map(({ with: person, last, unread: count }) => (
-                                <li key={person.id}>
+                                <li key={person.id} className="chat-list-row">
+                                    <ProfileButton person={person} onProfile={setProfileOf} />
                                     <button
                                         type="button"
                                         className={`chat-list-item${person.id === openId ? " is-open" : ""}`}
@@ -174,12 +182,26 @@ export default function SheeChatPage() {
                             person={openPerson}
                             meId={user.id}
                             onSent={() => setSent((n) => n + 1)}
+                            onProfile={() => setProfileOf(openPerson)}
                         />
                     ) : (
                         <p className="admin-empty">Pick a conversation, or someone on People, on the left.</p>
                     )}
                 </div>
             </div>
+
+            {profileOf && (
+                // keyed by who it's for, so each one fetches its own
+                <StaffProfileDialog
+                    key={profileOf.id}
+                    person={profileOf}
+                    onClose={() => setProfileOf(null)}
+                    onMessage={profileOf.id === openId ? null : () => {
+                        pick(profileOf);
+                        setProfileOf(null);
+                    }}
+                />
+            )}
         </section>
     );
 }

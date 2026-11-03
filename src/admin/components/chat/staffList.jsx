@@ -4,6 +4,7 @@ import { listStaffPresence } from '../../api/chatController.js';
 import { ROLE_LABELS } from '../../auth/roles.js';
 import { seenAgo } from '../../data/lastSeen.js';
 import Avatar from '../common/avatar.jsx';
+import ProfileButton from './profileButton.jsx';
 
 // who's online changes as staff come and go, so it checks again now and then
 const REFRESH_MS = 15000;
@@ -14,7 +15,8 @@ const DEPARTMENTS = ["admin", "sales", "loading", "tba", "chassis", "hardware", 
 // ones online and when the others were last on; picking one opens a conversation with them
 // openId: the staff member whose conversation is open; onPick(account) opens theirs
 // list({ signal }): who to show (the developers' staff list, unless SheeChat passes its People list)
-export default function StaffList({ openId, onPick, list = listStaffPresence }) {
+// onProfile(account): opens their profile from their photo (SheeChat only; the Chat page has no profiles)
+export default function StaffList({ openId, onPick, list = listStaffPresence, onProfile = null }) {
     const [staff, setStaff] = useState(null);
     const [error, setError] = useState("");
     const [onlineOnly, setOnlineOnly] = useState(false);
@@ -69,7 +71,8 @@ export default function StaffList({ openId, onPick, list = listStaffPresence }) 
                         ) : (
                             <ul>
                                 {shown.map((s) => (
-                                    <li key={s.id}>
+                                    <li key={s.id} className="chat-list-row">
+                                        {onProfile && <ProfileButton person={s} onProfile={onProfile} />}
                                         <button
                                             type="button"
                                             className={`chat-list-item${s.id === openId ? " is-open" : ""}`}

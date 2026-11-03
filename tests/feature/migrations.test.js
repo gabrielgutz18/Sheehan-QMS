@@ -473,6 +473,26 @@ test("rebuilding users for inventory accounts keeps every account, sign-in, last
     }
 });
 
+test("accounts start with no cover photo, and keep their profile photo", () => {
+    const old = databaseBefore("032");
+    old.exec(`
+        INSERT INTO users (id, username, name, role, password_hash, created_at, photo)
+            VALUES (1, 'maria', 'Maria Santos', 'sales', 'x', '2026-10-29T08:00:00.000Z', 'user-1.jpg');
+    `);
+    old.close();
+
+    const quiet = mock.method(console, "log", () => {});
+    const db = openDatabase(dataDir);
+    quiet.mock.restore();
+
+    try {
+        const maria = db.prepare("SELECT photo, cover_photo FROM users WHERE id = 1").get();
+        assert.deepEqual({ ...maria }, { photo: "user-1.jpg", cover_photo: null });
+    } finally {
+        db.close();
+    }
+});
+
 // 031 rebuilds users again (the Chassis department): every account keeps its role, details, when it was last seen
 // and what points at it, its developer chat and SheeChat messages included
 test("rebuilding users for chassis accounts keeps every account, sign-in, last seen and message", () => {

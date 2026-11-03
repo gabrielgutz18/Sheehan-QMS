@@ -3,11 +3,12 @@ import { Link } from 'react-router';
 import { ROLE_LABELS } from '../../auth/roles.js';
 import Avatar from '../common/avatar.jsx';
 import Icon from '../common/icon.jsx';
+import ProfileCover from './profileCover.jsx';
 
 const EDIT_ICON = "M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4";
 const dayFormat = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" });
 
-// the signed-in staff member at the top of the Dashboard's side panel: their photo on a banner, their name and
+// the signed-in staff member at the top of the Dashboard's side panel: their photo on their cover banner, their name and
 // username, and the details they keep on My account (where the pencil goes to change them); a detail they haven't
 // filled in is left out
 // account: the signed-in account, from useAuth()
@@ -22,11 +23,11 @@ export default function ProfileSummary({ account }) {
 
     return (
         <section className="profile-summary" aria-label="Your profile">
-            <div className="profile-summary-cover">
+            <ProfileCover account={account}>
                 <Link to="/staff/account" className="profile-summary-edit" aria-label="Edit my account">
                     <Icon d={EDIT_ICON} />
                 </Link>
-            </div>
+            </ProfileCover>
             <div className="profile-summary-body">
                 <Avatar account={account} size={64} />
                 <p className="profile-summary-name">{account.name}</p>
