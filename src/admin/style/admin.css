@@ -3260,6 +3260,12 @@
   margin-bottom: 0;
 }
 
+/* each tab on one line, "All tickets" too */
+.history-filters .video-tab {
+  flex: none;
+  white-space: nowrap;
+}
+
 /* Orders & history on Customer order: the Today / Deleted / All tickets switch and its filters on one line, Export at
    its end, and the table under them across the whole width */
 .orders-history-export {
@@ -3319,6 +3325,247 @@
   margin-top: 4px;
   font-size: 13px;
   color: var(--text-muted);
+}
+
+/* ---------- ticket cards ---------- */
+
+/* Orders & history gets wider than the other pages, for more tickets on a big screen */
+.admin-main:has(.orders-history) {
+  max-width: 1640px;
+}
+
+/* every row of cards is as tall as the tallest, so all the cards are one size */
+.ticket-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
+  grid-auto-rows: 1fr;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ticket-cards-empty {
+  margin: 0;
+  padding: 40px 16px;
+  color: var(--text-muted);
+  text-align: center;
+  background: #ffffff;
+  border: 1px solid var(--field-border);
+  border-radius: 12px;
+}
+
+.ticket-cards-limit {
+  margin-top: 12px;
+}
+
+.ticket-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: #ffffff;
+  border: 1px solid var(--field-border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-xs);
+}
+
+.ticket-card-head {
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--field-border);
+}
+
+.ticket-card-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ticket-card-number {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--brand-red);
+}
+
+.ticket-card-day {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: #3f3f46;
+}
+
+.ticket-card-name {
+  margin: 2px 0 0;
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Status, Purpose and Order: the label on the left, the same width on every card so the values line up */
+.ticket-card-info {
+  flex: 1;
+  margin: 0;
+  padding: 2px 16px;
+}
+
+.ticket-card-info > div {
+  display: grid;
+  grid-template-columns: 68px minmax(0, 1fr);
+  gap: 8px;
+  padding: 10px 0;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.ticket-card-info > div + div {
+  border-top: 1px solid var(--field-border);
+}
+
+.ticket-card-info dt {
+  font-weight: 600;
+  color: #52525b;
+}
+
+.ticket-card-info dd {
+  min-width: 0;
+  margin: 0;
+}
+
+.ticket-card-info .status-select,
+.ticket-card-status {
+  width: 100%;
+  height: 36px;
+}
+
+/* the status when it can't be changed from here: the same box as the status picker */
+.ticket-card-status {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  font-weight: 600;
+  /* the color comes with the status */
+  border-style: solid;
+  border-width: 1px;
+  border-radius: 8px;
+}
+
+.ticket-card-status.is-deleted {
+  color: #8a1c22;
+  background: #fdecec;
+  border-color: #f3c2c4;
+}
+
+/* a row is kept for this even when it's empty, so the card doesn't change size once a ticket is called */
+.ticket-card-who {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  margin-top: 6px;
+  font-size: 13px;
+  color: #3f3f46;
+}
+
+.ticket-card-line {
+  flex: 1;
+  min-width: 0;
+  min-height: 20px;
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ticket-card-line.is-reported {
+  font-weight: 600;
+  color: #8f1d1d;
+}
+
+.ticket-card-none,
+.ticket-card-more {
+  color: var(--text-muted);
+}
+
+/* two lines for the purpose and three for the order, kept even when they aren't all used */
+.ticket-card-purpose,
+.ticket-card-concern {
+  display: -webkit-box;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+}
+
+.ticket-card-purpose {
+  min-height: 40px;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.ticket-card-concern {
+  margin: 0;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
+.ticket-card-order {
+  min-height: 60px;
+}
+
+.ticket-card-details {
+  min-height: 32px;
+  margin: 4px 0 -6px;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--brand-red);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+
+.ticket-card-details:hover {
+  color: var(--primary-hover);
+}
+
+.ticket-card-details:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* along the bottom of the card: Call or Restore across its width, the others sharing the row under it equally */
+.ticket-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--field-border);
+}
+
+.ticket-card-actions .admin-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 40px;
+  padding: 8px;
+  white-space: nowrap;
+}
+
+.ticket-card-actions .admin-btn-call {
+  flex-basis: 100%;
+}
+
+/* grayed out when it can't be used right now, not red like a button that's ready to press */
+.ticket-card-actions .admin-btn-call:disabled {
+  color: #6f6f6f;
+  background: #e4e4e1;
+  border-color: #d4d4d0;
+  opacity: 1;
 }
 
 /* ---------- calling ---------- */

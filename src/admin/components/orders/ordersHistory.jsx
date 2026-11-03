@@ -4,10 +4,8 @@ import useOrders from '../../hooks/useOrders.js';
 import { listHistory, restoreOrder } from '../../api/adminOrderController.js';
 import orderStatus from '../../data/orderStatus.js';
 import formatQueueNum from '../../../data/queueNum.js';
-import QueueTable from './queueTable.jsx';
-import ServedBy from './servedBy.jsx';
-import EditedBy from './editedBy.jsx';
-import OrderDetails from './orderDetails.jsx';
+import QueueList from './queueList.jsx';
+import TicketCard, { TicketLinks } from './ticketCard.jsx';
 import OrderExport from './orderExport.jsx';
 
 // today's queue, live, with the row actions; the tickets deleted (from any day); and every ticket of every day
@@ -79,7 +77,7 @@ function TodayOrders() {
             <div className="orders-history-export"><OrderExport /></div>
 
             <div className="orders-history-body">
-                <QueueTable orders={visible} setOrders={setOrders} loading={loading} error={error} />
+                <QueueList orders={visible} setOrders={setOrders} loading={loading} error={error} />
             </div>
         </>
     );
@@ -160,81 +158,57 @@ function TicketHistory({ deleted }) {
                 {(error || result.error) && <p className="field-error" role="alert">{error || result.error}</p>}
                 {notice && <p className="admin-notice" role="status">{notice}</p>}
 
-                <div className="admin-table-wrap">
-                    <table className="admin-table">
-                        <thead>
-                            <tr>
-                                <th scope="col">Day</th>
-                                <th scope="col">Ticket</th>
-                                <th scope="col">Name</th>
-                                <th scope="col">Purpose</th>
-                                <th scope="col">Order</th>
-                                <th scope="col">Status</th>
-                                <th scope="col"><span className="visually-hidden">Actions</span></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading ? (
-                                <tr><td colSpan={7} className="admin-empty">Loading...</td></tr>
-                            ) : result.rows.length === 0 ? (
-                                <tr>
-                                    <td colSpan={7} className="admin-empty">
-                                        {deleted ? "No deleted tickets." : "No tickets found."}
-                                    </td>
-                                </tr>
-                            ) : (
-                                result.rows.map((row) => (
-                                    <tr key={row.id}>
-                                        <td>{row.isToday ? "Today" : formatDay(row.date)}</td>
-                                        <td>
-                                            <strong>{formatQueueNum(row.queueNum, row.purpose, row)}</strong>
+                {loading ? (
+                    <p className="ticket-cards-empty">Loading...</p>
+                ) : result.rows.length === 0 ? (
+                    <p className="ticket-cards-empty">{deleted ? "No deleted tickets." : "No tickets found."}</p>
+                ) : (
+                    <ul className="ticket-cards">
+                        {result.rows.map((row) => {
+                            const inQueue = row.isToday && !row.deletedAt;
+                            return (
+                                <TicketCard
+                                    key={row.id}
+                                    order={row}
+                                    day={row.isToday ? "Today" : formatDay(row.date)}
+                                    status={row.deletedAt ? (
+                                        <span className="ticket-card-status is-deleted">Deleted</span>
+                                    ) : (
+                                        <span className={`ticket-card-status status-${row.status}`}>{statusLabel(row.status)}</span>
+                                    )}
+                                    statusNote={row.deletedAt && `Deleted ${formatTime(row.deletedAt)}`}
+                                    notes={(row.originalDate || row.restoredAt) && (
+                                        <div>
                                             {row.originalDate && (
                                                 <span className="history-note">
-                                                    first {formatQueueNum(row.originalNum, row.purpose, row)} on {formatDay(row.originalDate)}
+                                                    First {formatQueueNum(row.originalNum, row.purpose, row)} on {formatDay(row.originalDate)}
                                                 </span>
                                             )}
-                                        </td>
-                                        <td>{row.name}</td>
-                                        <td>{row.purpose}</td>
-                                        <td><OrderDetails order={row} /></td>
-                                        <td>
-                                            {row.deletedAt ? (
-                                                <>
-                                                    <span className="history-badge history-badge--deleted">Deleted</span>
-                                                    <span className="history-note">{formatTime(row.deletedAt)}</span>
-                                                </>
-                                            ) : (
-                                                <span className={`history-badge status-${row.status}`}>{statusLabel(row.status)}</span>
-                                            )}
-                                            <ServedBy order={row} />
-                                            <EditedBy edits={row.edits} />
                                             {row.restoredAt && <span className="history-note">Restored {formatTime(row.restoredAt)}</span>}
-                                        </td>
-                                        <td>
-                                            <div className="row-actions">
-                                                {row.isToday && !row.deletedAt ? (
-                                                    <span className="history-note">In today's queue</span>
-                                                ) : (
-                                                    <button
-                                                        type="button"
-                                                        className="admin-btn admin-btn-call"
-                                                        disabled={restoring === row.id}
-                                                        onClick={() => restore(row)}
-                                                    >
-                                                        {restoring === row.id ? "Restoring..." : "Restore"}
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                                        </div>
+                                    )}
+                                    actions={(
+                                        <>
+                                            {/* the same place and size as Restore, to say why there's nothing to restore */}
+                                            <button
+                                                type="button"
+                                                className="admin-btn admin-btn-call"
+                                                disabled={inQueue || restoring === row.id}
+                                                onClick={() => restore(row)}
+                                            >
+                                                {inQueue ? "In today's queue" : restoring === row.id ? "Restoring..." : "Restore"}
+                                            </button>
+                                            <TicketLinks order={row} today={inQueue} />
+                                        </>
+                                    )}
+                                />
+                            );
+                        })}
+                    </ul>
+                )}
 
                 {!loading && result.rows.length >= 200 && (
-                    <p className="history-note">Showing the newest 200. Search by name or pick a day to find older tickets.</p>
+                    <p className="history-note ticket-cards-limit">Showing the newest 200. Search by name or pick a day to find older tickets.</p>
                 )}
             </div>
         </>
