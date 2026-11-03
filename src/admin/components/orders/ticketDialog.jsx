@@ -16,10 +16,14 @@ const duration = (ms) => {
 // one ticket up close, opened with View on a waiting or returning ticket: its purpose and what the customer ordered
 // (invoice, payment status, team, pick-up day), or their concern for a Customer Report
 // order: the ticket as it is now, so it shows straight away when someone else takes it
-// openedAt: when View was pressed, for how long they've waited
+// openedAt: when View was pressed, for how long they've waited; leave it out for a ticket that isn't in today's queue
+// day: the ticket's day, for a ticket from the lists that cover every day
+// children: anything more to show under who served it
 // onServe: shows Serve while the ticket is still in line (My counter, for admins); leave it out to only look
-/** @param {{ order: any, openedAt: number, onServe?: (order: any) => void, onClose: () => void }} props */
-export default function TicketDialog({ order, openedAt, onServe, onClose }) {
+/**
+ * @param {{ order: any, openedAt?: number, day?: string, children?: any, onServe?: (order: any) => void, onClose: () => void }} props
+ */
+export default function TicketDialog({ order, openedAt, day, children, onServe, onClose }) {
     const dialogRef = useRef(null);
 
     useEffect(() => {
@@ -27,7 +31,7 @@ export default function TicketDialog({ order, openedAt, onServe, onClose }) {
     }, []);
 
     // how long they've waited counts from the ticket, so it's left off for a returning customer
-    const waiting = order.status === "pending";
+    const waiting = openedAt !== undefined && order.status === "pending";
 
     return (
         <dialog ref={dialogRef} className="admin-dialog" aria-labelledby="ticket-title" onClose={onClose}>
@@ -37,6 +41,12 @@ export default function TicketDialog({ order, openedAt, onServe, onClose }) {
                 </h2>
 
                 <dl className="ticket-facts">
+                    {day && (
+                        <div>
+                            <dt>Day</dt>
+                            <dd>{day}</dd>
+                        </div>
+                    )}
                     <div>
                         <dt>Purpose</dt>
                         <dd>{order.purpose}</dd>
@@ -56,6 +66,7 @@ export default function TicketDialog({ order, openedAt, onServe, onClose }) {
                 </div>
 
                 <ServedBy order={order} />
+                {children}
 
                 <div className="admin-dialog-actions">
                     <button type="button" className="admin-btn" onClick={() => dialogRef.current.close()}>

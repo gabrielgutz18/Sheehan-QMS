@@ -543,7 +543,7 @@ const ORDER_ROW = `o.*, u.name AS served_by_name, u.photo AS served_by_photo, s.
 
 ### 5.5 Delete and Restore → `orders.deleted_at`, `restored_at`, `original_*`
 
-Delete in Orders ([`src/admin/components/orders/queueTable.jsx:64`](../src/admin/components/orders/queueTable.jsx#L64)) only marks the row. [`server/api.js:906-910`](../server/api.js#L906-L910)
+Delete in Orders ([`src/admin/components/orders/queueList.jsx:67`](../src/admin/components/orders/queueList.jsx#L67)) only marks the row. [`server/api.js:906-910`](../server/api.js#L906-L910)
 
 ```js
 // moves it to History, where it can be restored

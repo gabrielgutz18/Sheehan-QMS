@@ -221,6 +221,88 @@ test('a message shows one gray check until it is opened, then two red ones, and 
     await theirs.close();
 });
 
+test('Orders & history shows every ticket as one size of card, and a deleted ticket can be restored', async ({ page, browser }) => {
+    const stamp = Date.now();
+    const full = `Full Order ${stamp}`;
+    const report = `Report ${stamp}`;
+    const salesAccount = { username: `e2e-orders-${stamp}`, password: 'e2e-password', name: `Orders ${stamp}`, role: 'sales' };
+
+    await page.goto('/staff/customer-order?tab=orders');
+    await signIn(page, ADMIN.username, ADMIN.password);
+    await expect(page.getByRole('heading', { name: 'Customer order' })).toBeVisible();
+    await page.evaluate(async ([tickets, account]) => {
+        const post = async (path, body) => {
+            const res = await fetch(path, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-Tab-Id': sessionStorage.getItem('tabId'),
+                },
+                body: JSON.stringify(body),
+            });
+            if (!res.ok) throw new Error(`${path} failed (${res.status})`);
+        };
+        for (const ticket of tickets) await post('/api/orders', ticket);
+        await post('/api/admin/users', account);
+    }, [[
+        {
+            name: full,
+            purpose: 'Roofings, Tire, Steel, Hardwares, Chassis',
+            invoices: [{ invoiceNo: '5001', type: 'Roofings' }, { invoiceNo: '5002', type: 'Steel' }, { invoiceNo: '5003', type: 'Tire' }],
+            paymentStatus: 'Paid',
+            salesman: 'Test Salesman',
+            runner: 'Boy Reyes',
+        },
+        { name: report, purpose: 'Customer Report', concern: 'The sheets are leaking at the joints. '.repeat(5) },
+    ], salesAccount]);
+
+    await page.getByRole('radio', { name: 'Orders & history' }).click();
+
+    // a ticket with a lot on it and one with very little are the same size, with the rest behind See all details
+    const fullCard = page.getByRole('listitem').filter({ hasText: full });
+    const reportCard = page.getByRole('listitem').filter({ hasText: report });
+    await expect(fullCard.getByRole('button', { name: /^Call/ })).toBeVisible();
+    await expect(reportCard.getByRole('button', { name: /^Call/ })).toBeVisible();
+    const fullBox = await fullCard.boundingBox();
+    const reportBox = await reportCard.boundingBox();
+    expect([fullBox.width, fullBox.height]).toEqual([reportBox.width, reportBox.height]);
+
+    await expect(fullCard.getByText('Boy Reyes')).toHaveCount(0);
+    await fullCard.getByRole('button', { name: /^See all details/ }).click();
+    const details = page.getByRole('dialog');
+    await expect(details.getByText('Boy Reyes')).toBeVisible();
+    await details.getByRole('button', { name: 'Close' }).click();
+    await expect(details).toHaveCount(0);
+
+    // a customer report has no order to edit, so its Edit stays in its place, grayed out
+    await expect(reportCard.getByRole('button', { name: 'Edit', exact: true })).toBeDisabled();
+    await expect(fullCard.getByRole('link', { name: /^Edit/ })).toBeVisible();
+
+    // sales see the same cards, without Call and Delete
+    const theirs = await browser.newContext();
+    const other = await theirs.newPage();
+    watch(other);
+    await other.goto('/staff/customer-order?tab=orders');
+    await signIn(other, salesAccount.username, salesAccount.password);
+    await other.getByRole('radio', { name: 'Orders & history' }).click();
+    const theirCard = other.getByRole('listitem').filter({ hasText: full });
+    await expect(theirCard.getByRole('link', { name: /^View ticket/ })).toBeVisible();
+    await expect(theirCard.getByRole('button', { name: /^(Call|Delete)/ })).toHaveCount(0);
+    await theirs.close();
+
+    // deleted, it leaves Today and waits on Deleted, where Restore puts it back
+    page.once('dialog', (confirm) => confirm.accept());
+    await fullCard.getByRole('button', { name: /^Delete/ }).click();
+    await expect(fullCard).toHaveCount(0);
+    await page.getByRole('radio', { name: 'Deleted' }).click();
+    await fullCard.getByRole('button', { name: 'Restore' }).click();
+    await expect(page.getByRole('status').filter({ hasText: "back in today's queue" })).toBeVisible();
+    await expect(fullCard).toHaveCount(0);
+    await page.getByRole('radio', { name: 'Today' }).click();
+    await expect(fullCard).toBeVisible();
+});
+
 test('a cover photo shows on the Dashboard, and a coworker can open that profile from SheeChat', async ({ page, browser }) => {
     const stamp = Date.now();
     const coworker = { username: `e2e-cover-${stamp}`, password: 'e2e-password', name: `Cover ${stamp}`, role: 'sales' };
