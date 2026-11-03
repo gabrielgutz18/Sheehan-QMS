@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useLocation } from 'react-router';
 import '../style/orderStatus.css';
 import '../style/chat.css';
 
@@ -10,6 +11,7 @@ import { useAuth } from '../auth/authContext.js';
 import Avatar from '../components/common/avatar.jsx';
 import MessageThread from '../components/chat/messageThread.jsx';
 import StaffList from '../components/chat/staffList.jsx';
+import { useViewingConversation } from '../hooks/useMessageToasts.js';
 import useMessages from '../hooks/useMessages.js';
 
 // new messages should show up while the page is open
@@ -20,6 +22,7 @@ const lastTime = new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeSt
 function Conversation({ person, meId, onSent }) {
     const list = useCallback((options) => listSheeChat(person.id, options), [person.id]);
     const { messages, loading, error, added } = useMessages(list);
+    useViewingConversation(`sheechat:${person.id}`);
 
     return (
         <>
@@ -85,6 +88,14 @@ export default function SheeChatPage() {
         setOpenPerson(person);
         setChats((prev) => prev?.map((c) => (c.with.id === person.id ? { ...c, unread: 0 } : c)));
     };
+
+    // a message pop-up clicked: open the conversation it's from, once for each click
+    const asked = useLocation().state?.open;
+    const [answered, setAnswered] = useState(null);
+    if (asked && asked !== answered) {
+        setAnswered(asked);
+        pick(asked);
+    }
 
     return (
         <section className="admin-page">

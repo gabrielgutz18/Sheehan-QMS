@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useLocation } from 'react-router';
 import '../style/orderStatus.css';
 import '../style/chat.css';
 
@@ -9,6 +10,7 @@ import Avatar from '../components/common/avatar.jsx';
 import DeveloperHeads from '../components/chat/developerHeads.jsx';
 import MessageThread from '../components/chat/messageThread.jsx';
 import StaffList from '../components/chat/staffList.jsx';
+import { useViewingConversation } from '../hooks/useMessageToasts.js';
 import useMessages from '../hooks/useMessages.js';
 
 // new messages should show up while a developer has the page open
@@ -19,6 +21,7 @@ const lastTime = new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeSt
 function Conversation({ staff, onSent }) {
     const list = useCallback((options) => listChat(staff.id, options), [staff.id]);
     const { messages, loading, error, added } = useMessages(list);
+    useViewingConversation(`staff:${staff.id}`);
 
     return (
         <>
@@ -80,6 +83,14 @@ export default function ChatPage() {
         setOpenStaff(staff);
         setChats((prev) => prev?.map((c) => (c.staff.id === staff.id ? { ...c, unread: 0 } : c)));
     };
+
+    // a message pop-up clicked: open the conversation it's from, once for each click
+    const asked = useLocation().state?.open;
+    const [answered, setAnswered] = useState(null);
+    if (asked && asked !== answered) {
+        setAnswered(asked);
+        pick(asked);
+    }
 
     return (
         <section className="admin-page">

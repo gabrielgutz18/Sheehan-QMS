@@ -119,6 +119,8 @@ const ACCOUNT_ROUTES = [
     ["PATCH", /^\/admin\/me$/],
     ["PUT", /^\/admin\/me\/photo$/],
     ["DELETE", /^\/admin\/me\/photo$/],
+    // the pop-ups in the corner of every page when someone writes to you
+    ["GET", /^\/admin\/unread-messages$/],
 ];
 // SheeChat: every staff member but the developers chats with any other of them, one conversation per pair
 const SHEECHAT_ROUTES = [
@@ -1129,6 +1131,25 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
                 WHERE (sender_id = :me AND recipient_id = u.id) OR (sender_id = u.id AND recipient_id = :me))
             WHERE u.id != :me
             ORDER BY d.id DESC`),
+        // the message pop-ups: for each conversation with something unopened, its newest message and how many there
+        // are; these only look, as a pop-up appearing doesn't mean anyone has read it
+        unreadDms: db.prepare(`
+            SELECT d.id, d.body, d.image, d.sent_at, n.unread, u.id AS from_id, u.name, u.role, u.photo, u.disabled_at
+            FROM (SELECT MAX(id) AS id, COUNT(*) AS unread FROM direct_messages
+                WHERE recipient_id = ? AND read_at IS NULL GROUP BY sender_id) n
+            JOIN direct_messages d ON d.id = n.id JOIN users u ON u.id = d.sender_id`),
+        // a staff member's own conversation with the developers: the answers they haven't opened
+        unreadAnswers: db.prepare(`
+            SELECT m.id, m.body, m.image, m.sent_at, n.unread, u.id AS from_id, u.name, u.role, u.photo, u.disabled_at
+            FROM (SELECT MAX(id) AS id, COUNT(*) AS unread FROM messages
+                WHERE staff_id = ? AND sender_id != staff_id AND read_at IS NULL) n
+            JOIN messages m ON m.id = n.id JOIN users u ON u.id = m.sender_id`),
+        // what staff wrote that no developer has opened yet, for the whole developer team
+        unreadQuestions: db.prepare(`
+            SELECT m.id, m.body, m.image, m.sent_at, n.unread, u.id AS from_id, u.name, u.role, u.photo, u.disabled_at
+            FROM (SELECT MAX(id) AS id, COUNT(*) AS unread FROM messages
+                WHERE sender_id = staff_id AND read_at IS NULL GROUP BY staff_id) n
+            JOIN messages m ON m.id = n.id JOIN users u ON u.id = m.sender_id`),
         setLastSeen: db.prepare("UPDATE users SET last_seen = ? WHERE id = ?"),
         // every account but switched-off ones, with whether a sign-in of theirs is still open, for who's online
         listPresence: db.prepare(`
@@ -1676,6 +1697,24 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             if (!saved.file) return send(res, saved.status, { message: saved.message });
             const { lastInsertRowid } = sql.insertMessage.run(me.id, me.id, saved.body, saved.file, new Date().toISOString());
             return send(res, 201, toMessage(sql.findMessage.get(lastInsertRowid)));
+        }
+
+        // the message pop-ups, polled from every staff page: one entry per conversation with something you haven't
+        // opened, newest first; kind says which chat it's in, so unlike opening a conversation this reads nothing
+        if (method === "GET" && path === "/admin/unread-messages") {
+            const toUnread = (kind) => (row) => ({
+                kind,
+                id: row.id,
+                body: row.body,
+                image: row.image !== null,
+                sentAt: row.sent_at,
+                unread: row.unread,
+                from: { id: row.from_id, name: row.name, role: row.role, photo: row.photo, disabled: row.disabled_at !== null },
+            });
+            const unread = me.role === "developer"
+                ? sql.unreadQuestions.all().map(toUnread("staff"))
+                : [...sql.unreadDms.all(me.id).map(toUnread("sheechat")), ...sql.unreadAnswers.all(me.id).map(toUnread("developer"))];
+            return send(res, 200, unread.toSorted((a, b) => b.sentAt.localeCompare(a.sentAt)));
         }
 
         // who's online: every account but switched-off ones, online ones first, then by name; online while signed in
