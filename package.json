@@ -15,6 +15,7 @@
     "seed:loading": "node --env-file-if-exists=.env server/seedLoading.js",
     "seed:handover": "node --env-file-if-exists=.env server/seedHandover.js",
     "seed:security": "node --env-file-if-exists=.env server/seedSecurity.js",
+    "seed:priority": "node --env-file-if-exists=.env server/seedPriority.js",
     "snapshot": "node --env-file-if-exists=.env server/snapshot.js save",
     "seed:snapshot": "node --env-file-if-exists=.env server/snapshot.js load",
     "test:coverage": "node --test --experimental-test-coverage --test-coverage-exclude=tests/** --test-coverage-lines=88 --test-coverage-branches=90 --test-coverage-functions=83",
