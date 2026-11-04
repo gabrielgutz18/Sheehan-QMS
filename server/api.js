@@ -286,6 +286,9 @@ const pad2 = (n) => String(n).padStart(2, "0");
 // YYYY-MM-DD by the server's clock
 const localDate = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 
+// HH:MM (24-hour) by the server's clock, the way the sales times are kept
+const localTime = (d) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+
 // queue numbers start again at 1 each day, by the server's clock
 const today = () => localDate(new Date());
 
@@ -1518,8 +1521,12 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
                 const date = today();
                 // a plain number; the front end formats it as "SHN 01"
                 const { last_num: queueNum } = sql.nextQueueNum.get(date);
-                const createdAt = new Date().toISOString();
-                const { lastInsertRowid } = sql.insertOrder.run({ ...fields, ...marks, date, queueNum, createdAt });
+                const now = new Date();
+                const createdAt = now.toISOString();
+                // sales taking the order means the customer is at sales now, so the ticket gets its time in along with
+                // its number and day, unless they typed one; it can still be changed or cleared with Edit
+                const salesTimeIn = fields.salesTimeIn || (staff?.role === "sales" ? localTime(now) : "");
+                const { lastInsertRowid } = sql.insertOrder.run({ ...fields, ...marks, salesTimeIn, date, queueNum, createdAt });
                 saveItems(lastInsertRowid, items);
                 saveInvoices(lastInsertRowid, invoices);
                 // kept as an edit too, so the Cashier page shows who set it

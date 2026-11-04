@@ -289,6 +289,12 @@ test('Orders & history shows every ticket as one size of card, and a deleted tic
     const theirCard = other.getByRole('listitem').filter({ hasText: full });
     await expect(theirCard.getByRole('link', { name: /^View ticket/ })).toBeVisible();
     await expect(theirCard.getByRole('button', { name: /^(Call|Delete)/ })).toHaveCount(0);
+    // sales don't call customers: not with the status either, and not from My counter, where they hand them over
+    await expect(theirCard.getByRole('option', { name: 'Now serving' })).toHaveCount(0);
+    await other.goto('/staff/counter');
+    const atCounter = other.getByRole('listitem').filter({ hasText: full });
+    await expect(atCounter.getByRole('button', { name: /^Hand over/ })).toBeVisible();
+    await expect(other.getByRole('button', { name: /^(Call|Serve|Recall)/ })).toHaveCount(0);
     await theirs.close();
 
     // deleted, it leaves Today and waits on Deleted, where Restore puts it back
@@ -301,6 +307,59 @@ test('Orders & history shows every ticket as one size of card, and a deleted tic
     await expect(fullCard).toHaveCount(0);
     await page.getByRole('radio', { name: 'Today' }).click();
     await expect(fullCard).toBeVisible();
+});
+
+test('an order sales takes fills in its ticket, date and time in on the Order sheet, and Edit keeps the time', async ({ page, browser }) => {
+    const stamp = Date.now();
+    const customer = `Timed Order ${stamp}`;
+    const salesAccount = { username: `e2e-timein-${stamp}`, password: 'e2e-password', name: `Time In ${stamp}`, role: 'sales' };
+
+    await page.goto('/staff/customer-order');
+    await signIn(page, ADMIN.username, ADMIN.password);
+    await expect(page.getByRole('heading', { name: 'Customer order' })).toBeVisible();
+    await page.evaluate(async (account) => {
+        const res = await fetch('/api/admin/users', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-Tab-Id': sessionStorage.getItem('tabId'),
+            },
+            body: JSON.stringify(account),
+        });
+        if (!res.ok) throw new Error(`creating the account failed (${res.status})`);
+    }, salesAccount);
+
+    const theirs = await browser.newContext();
+    const sales = await theirs.newPage();
+    watch(sales);
+    await sales.goto('/staff/customer-order');
+    await signIn(sales, salesAccount.username, salesAccount.password);
+    await expect(sales.getByRole('heading', { name: 'Customer order' })).toBeVisible();
+
+    // the time in is left blank; Serve fills it in
+    await sales.getByRole('textbox', { name: 'Customer name' }).fill(customer);
+    await sales.getByRole('button', { name: /^Type of order/ }).click();
+    await sales.getByRole('checkbox', { name: 'Roofings', exact: true }).check();
+    await sales.keyboard.press('Escape');
+    await sales.getByLabel('Invoice 1 number').fill(`T${stamp}`);
+    await expect(sales.getByLabel(/^Time in/)).toHaveValue('');
+    await sales.getByRole('button', { name: 'Serve', exact: true }).click();
+
+    // Edit starts from the time it was given, so Update doesn't clear it or count as a change
+    await sales.getByRole('button', { name: 'Edit', exact: true }).click();
+    await expect(sales.getByLabel(/^Time in/)).toHaveValue(/^\d{2}:\d{2}$/);
+    await sales.getByRole('button', { name: 'Update', exact: true }).click();
+    await expect(sales.getByRole('button', { name: 'New order' })).toBeVisible();
+
+    await sales.getByRole('radio', { name: 'Order sheet' }).click();
+    const row = sales.getByRole('row').filter({ hasText: customer });
+    await expect(row.locator('.sheet-date')).toHaveText(/^[A-Z][a-z]{2}-\d{2}-\d{2}$/);
+    await expect(row.locator('.sheet-que')).toHaveText(/^R \d+$/);
+    await expect(row.locator('.sheet-time').first()).toHaveText(/^\d{4}H$/);
+    await expect(row.locator('.sheet-time').last()).toHaveText('');
+    await expect(row.getByText('Edited by')).toHaveCount(0);
+    await theirs.close();
 });
 
 test('a cover photo shows on the Dashboard, and a coworker can open that profile from SheeChat', async ({ page, browser }) => {
