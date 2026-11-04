@@ -23,6 +23,8 @@ const sale = (overrides = {}) => ({
     orders: [],
     invoices: [{ invoiceNo: "2223", type: "Roofings" }],
     salesman: "Maria Santos",
+    // typed in, or it's filled in when sales take the order; Update sends it back as it is
+    salesTimeIn: "09:05",
     checkers: {},
     team: "GIGA",
     pickupDate: null,

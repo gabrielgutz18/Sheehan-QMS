@@ -104,6 +104,33 @@ describe("sales order", () => {
         app.assertDatabaseHas("orders", { queue_num: 1, receiver: "", sales_time_in: "", sales_time_out: "" });
     });
 
+    test("an order sales takes gets its time in on its own, and only sales' orders do", async () => {
+        const maria = await app.actingAsSales();
+        const clock = () => new Date().toTimeString().slice(0, 5);
+
+        // left blank: the time it was taken, along with the ticket's number and day
+        const before = clock();
+        const stamped = (await maria.post("/orders", sale())).assertStatus(201).body;
+        const after = clock();
+        assert.ok([before, after].includes(stamped.salesTimeIn), `got ${stamped.salesTimeIn}`);
+        assert.equal(stamped.queueNum, 1);
+        assert.equal(stamped.salesTimeOut, undefined);
+        app.assertDatabaseHas("orders", { queue_num: 1, sales_time_in: stamped.salesTimeIn, sales_time_out: "" });
+
+        // one they typed stays
+        const typed = (await maria.post("/orders", sale({ salesTimeIn: "07:30" }))).assertStatus(201).body;
+        assert.equal(typed.salesTimeIn, "07:30");
+
+        // clearing it with Edit isn't filled in again
+        const cleared = (await maria.put("/admin/orders/1", sale())).assertStatus(200).body;
+        assert.equal(cleared.salesTimeIn, undefined);
+
+        // an admin's order and the kiosk's stay blank
+        const admin = await app.actingAsAdmin();
+        assert.equal((await admin.post("/orders", sale())).assertStatus(201).body.salesTimeIn, undefined);
+        assert.equal((await takeOrder()).salesTimeIn, undefined);
+    });
+
     test("the runner, receiver and sales times are optional", async () => {
         const saved = await takeOrder({
             runner: undefined, receiver: undefined, salesTimeIn: undefined, salesTimeOut: undefined,

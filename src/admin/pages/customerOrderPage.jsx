@@ -117,7 +117,7 @@ const previewOf = (fields, submitted) => {
 };
 
 // staff (admin or sales) take a customer's order: their name, the types of order, the invoices (each with the type of
-// order it's for), the salesman, the times the customer came in to sales and left it (if typed in), the sales team that served them (it
+// order it's for), the salesman, the times the customer came in to sales and left it (if typed in; for sales staff, Serve fills in a blank time in), the sales team that served them (it
 // stays theirs after the hand-over to loading), and for a customer coming back for the items on a later day, that
 // day, and how it's paid (the cashier changes it on the Cashier page too); the Checker tab takes the
 // checkers, which the ticket always has, blank to be written in by hand, and Ticket preview shows the ticket exactly
@@ -311,6 +311,8 @@ function OrderDesk({ saved, viewing, onNew }) {
                 ? await updateOrder(submitted.queueNum, payload)
                 : await createOrder(payload);
             setSubmitted(saved);
+            // the backend may have filled in the time in, so Edit has to start from it or Update would clear it
+            setFields((prev) => ({ ...prev, salesTimeIn: saved.salesTimeIn ?? "" }));
             setEditing(false);
         } catch (err) {
             setSubmitError(err.message);
@@ -380,7 +382,8 @@ function OrderDesk({ saved, viewing, onNew }) {
                         placeholderDisabled={Boolean(submitted?.paymentStatus)}
                         options={paymentStatus.map((p) => p.type)}
                         value={fields.paymentStatus} onChange={set("paymentStatus")} />
-                    {/* when the customer came in to sales and when they left it */}
+                    {/* when the customer came in to sales and when they left it; a sales staff member who leaves the
+                        time in blank gets the time they press Serve (the backend fills it in) */}
                     <SaleTime id="sale-time-in" label="Time in (sales)" optional narrow
                         value={fields.salesTimeIn} onChange={set("salesTimeIn")} />
                     <SaleTime id="sale-time-out" label="Time out (sales)" optional narrow

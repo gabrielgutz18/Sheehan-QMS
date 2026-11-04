@@ -97,14 +97,16 @@ export default function QueueList({ orders, setOrders, loading, error }) {
                                         disabled={busy === o.queueNum}
                                         onChange={(e) => changeStatus(o.queueNum, e.target.value)}
                                     >
-                                        {/* a done order goes back in line (Waiting or Returning) before it's called;
-                                            Now serving calls them, which sales don't */}
-                                        {orderStatus.map(({ value, label }) => (
-                                            <option key={value} value={value}
-                                                disabled={value === "serving" && o.status !== "serving" && (o.status === "done" || !canCall)}>
-                                                {label}
-                                            </option>
-                                        ))}
+                                        {/* Now serving calls them, which sales don't, so they aren't offered it (it stays
+                                            on a ticket already being served, to show its status); a done order goes
+                                            back in line (Waiting or Returning) before it's called */}
+                                        {orderStatus
+                                            .filter(({ value }) => value !== "serving" || canCall || o.status === "serving")
+                                            .map(({ value, label }) => (
+                                                <option key={value} value={value} disabled={value === "serving" && o.status === "done"}>
+                                                    {label}
+                                                </option>
+                                            ))}
                                     </select>
                                 )}
                                 notes={o.status === "serving" && o.remarks && (
