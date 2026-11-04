@@ -1690,15 +1690,197 @@
   border-radius: 6px;
 }
 
-/* a customer at a station: only called, or loading since a time, in green */
-.loading-state {
-  font-size: 14px;
-  font-weight: 600;
-  color: #5c5c58;
+/* a customer a crew has now, one card each: who and how far along, the order, then what to do next */
+.serving-list {
+  display: grid;
+  gap: 12px;
 }
 
-.loading-state.is-loading {
-  color: #1d6b3a;
+.serving-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px 16px 16px;
+  background: #ffffff;
+  border: 1px solid var(--field-border);
+  border-radius: 10px;
+}
+
+/* the truck is being loaded: in the same green as its status */
+.serving-card.is-loading {
+  border-color: #9fd3ae;
+}
+
+.serving-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* the number and its status stay on one line, whatever the length of the customer's name under them */
+.serving-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.serving-number {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  color: var(--brand-red);
+}
+
+.serving-name {
+  font-size: 16px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+/* only called, in amber, or loading since a time, in green */
+.serving-status {
+  padding: 3px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #7a4f00;
+  background: #fdf3dc;
+  border: 1px solid #f0d9a0;
+  border-radius: 999px;
+}
+
+.serving-card.is-loading .serving-status {
+  color: #1a6b32;
+  background: #e8f6ec;
+  border-color: #9fd3ae;
+}
+
+/* the order's areas in turn: finished, where they are now, and what's left */
+.serving-areas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.serving-area {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  border: 1px solid var(--field-border);
+  border-radius: 999px;
+  white-space: pre-wrap;
+}
+
+.serving-area.is-done {
+  color: #1a6b32;
+  background: #e8f6ec;
+  border-color: #9fd3ae;
+}
+
+.serving-area.is-now {
+  font-weight: 700;
+  color: #ffffff;
+  background: var(--text-dark);
+  border-color: var(--text-dark);
+}
+
+.serving-area-now {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.serving-facts {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  font-size: 14px;
+}
+
+.serving-facts > div {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.serving-facts dt {
+  color: var(--text-muted);
+}
+
+.serving-facts dd {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* the sale's details, in tidy columns rather than one long line */
+.serving-card .sale-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 4px 16px;
+  padding-top: 10px;
+  border-top: 1px solid var(--field-border);
+}
+
+.serving-card .sale-pay {
+  justify-self: start;
+}
+
+.serving-card .served-by,
+.serving-card .sent-back-note {
+  margin-top: 0;
+}
+
+.serving-actions {
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--field-border);
+}
+
+.serving-next {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.serving-main-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* one main button across the card, with any other areas sharing the row under it */
+.serving-main-actions .admin-btn {
+  flex: 1 1 170px;
+  min-height: 44px;
+}
+
+.serving-main-actions .admin-btn-primary {
+  flex-basis: 100%;
+  font-weight: 600;
+}
+
+.serving-more-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.serving-more-actions .admin-btn {
+  flex: 1 1 130px;
 }
 
 /* a guard's report that sent the order back to an area, in the report's red */

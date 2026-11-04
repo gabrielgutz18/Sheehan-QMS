@@ -21,6 +21,14 @@ export const areasLeft = (order) => (order.areas ?? []).filter((area) => !area.l
 // the ones of them a department works: ["Hardware"] for an order for Roofings and Hardwares, at Hardware
 export const areasLeftIn = (order, department) => areasLeft(order).filter((area) => departmentOf(area) === department);
 
+// the areas a crew can start loading at, the one the customer was called to first; [""] for an order from before the
+// areas, which has just the one Start loading
+export const areasToStart = (order, department) => {
+    const left = areasLeftIn(order, department);
+    return left.length ? [...left].sort((a, b) => Number(b === order.loadingArea) - Number(a === order.loadingArea)) : [""];
+};
+export const startLoadingLabel = (area) => (area ? `Start loading at ${area}` : "Start loading");
+
 // whether a department has a part in the order (one of its areas, or, for the loading crew, an order from before the
 // areas), and whether any of it is still to do while the order isn't done
 export const departmentHasOrder = (order, department) => departmentHas(department, (order.areas ?? []).map(({ name }) => name));

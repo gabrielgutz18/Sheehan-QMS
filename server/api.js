@@ -2331,7 +2331,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
                 if (action === "back") changeStatus(order, "pending", me);
                 else if (!loadingAt) {
                     const at = order.loading_area || label;
-                    return send(res, 409, { message: `Press Loading at ${at} once the truck is there, then Done when it's loaded.` });
+                    return send(res, 409, { message: `Press Start loading at ${at} once the truck is there, then Done when it's loaded.` });
                 } else {
                     // Done finishes the area they were called to: the order waits for its next area, here or at the
                     // other department, or, once every area is loaded, it's done and goes on to the security check

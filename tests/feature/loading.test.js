@@ -297,7 +297,7 @@ describe("loading at a station", () => {
         assert.equal(called.loadingStartedAt, undefined);
 
         const early = (await pedro.post("/admin/loading/1/done")).assertStatus(409).body;
-        assert.equal(early.message, "Press Loading at Roofings once the truck is there, then Done when it's loaded.");
+        assert.equal(early.message, "Press Start loading at Roofings once the truck is there, then Done when it's loaded.");
         const started = (await pedro.post("/admin/loading/1/start")).assertStatus(200).body;
         assert.ok(started.loadingStartedAt);
         assert.equal(started.loadingArea, "Roofings");

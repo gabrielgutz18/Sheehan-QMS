@@ -73,7 +73,12 @@ test('a customer goes from their ticket, through hand-over and loading, with the
 
     // the truck arrives and the crew finishes, so the customer leaves the display
     const ticket = page.getByRole('listitem').filter({ hasText: customer });
-    await ticket.getByRole('button', { name: 'Loading at Roofings' }).click();
+    // the card says where they are and what to press next, with one main button at a time
+    await expect(ticket.getByText('Called', { exact: true })).toBeVisible();
+    await expect(ticket.getByText('Press Start loading once the truck is at the area.')).toBeVisible();
+    await ticket.getByRole('button', { name: 'Start loading at Roofings' }).click();
+    await expect(ticket.getByText(/^Loading since /)).toBeVisible();
+    await expect(ticket.getByRole('button', { name: 'Call again' })).toHaveCount(0);
     await ticket.getByRole('button', { name: 'Done at Roofings' }).click();
     await expect(page.getByRole('button', { name: 'Done at Roofings' })).toBeHidden();
     await expect(nowServing.getByText(customer)).toBeHidden();
