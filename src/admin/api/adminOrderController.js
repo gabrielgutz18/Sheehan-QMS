@@ -42,6 +42,10 @@ export const listOrderSheet = (options) => http.get("/admin/order-sheet", option
 // like updateOrder
 export const updateOrderSheet = (id, cells) => http.patch(`/admin/order-sheet/${encodeURIComponent(id)}`, cells);
 
+// how the Order sheet's copy in Google Sheets is doing → { state: "off" } where no sheet is set up, or { state:
+// "waiting" | "saving" | "saved" | "failed", savedAt (when the sheet last took some rows, or null), error, link }
+export const getOrderSheetSync = (options) => http.get("/admin/order-sheet/sync", options);
+
 // the Cashier page (cashiers and admins): the Order sheet's orders, every one from every day, with how each is paid
 // → [{ id, date, isToday, ...as listOrderStatus, invoices: [{ invoiceNo, type }], salesman?, paymentStatus?,
 //      paymentChange?: { by: { name }, at } (who last changed the payment status, and when) }]

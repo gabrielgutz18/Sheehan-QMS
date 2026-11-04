@@ -46,11 +46,12 @@ const whereClause = (conditions) => {
     return keys.length ? ` WHERE ${keys.map((key) => `${key} IS ?`).join(" AND ")}` : "";
 };
 
-export async function bootApp() {
+// googleSheet: passed on to createApi, with a fake fetch, to test the copy to Google Sheets
+export async function bootApp({ googleSheet } = {}) {
     const dataDir = mkdtempSync(join(tmpdir(), "sheehan-test-"));
     // keep "Database: applied migration ..." out of the test report
     const quiet = mock.method(console, "log", () => {});
-    const api = createApi({ adminUsername: ADMIN.username, adminPassword: ADMIN.password, dataDir });
+    const api = createApi({ adminUsername: ADMIN.username, adminPassword: ADMIN.password, dataDir, googleSheet });
     quiet.mock.restore();
 
     const server = createServer(api);

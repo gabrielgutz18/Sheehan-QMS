@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
 import { createSheetSync, sheetRow } from '../../server/googleSheet.js';
+import { bootApp } from '../support/testApp.js';
 
 // an ISO moment at this time today by the local clock, as the server keeps them
 const at = (hh, mm) => {
@@ -213,5 +214,112 @@ describe("Google sheet", () => {
 
         await sync.syncOnce();
         assert.deepEqual(log.errors, ["Google sheet: couldn't sync the orders: Wrong token."]);
+    });
+
+    test("the status goes from waiting to saving to saved", async () => {
+        let answer;
+        const sync = createSheetSync({
+            url: "https://example.test/exec", token: "t", listOrders: () => [order()],
+            fetch: () => new Promise((resolve) => { answer = resolve; }),
+        });
+        assert.deepEqual(sync.status(), { state: "waiting", savedAt: null, error: "" });
+
+        const syncing = sync.syncOnce();
+        assert.equal(sync.status().state, "saving");
+
+        // the rows, then the ids to keep
+        answer(Response.json({ ok: true }));
+        await new Promise((resolve) => setImmediate(resolve));
+        answer(Response.json({ ok: true }));
+        await syncing;
+
+        const { state, savedAt, error } = sync.status();
+        assert.equal(state, "saved");
+        assert.ok(!Number.isNaN(Date.parse(savedAt)));
+        assert.equal(error, "");
+    });
+
+    test("the status stays failed with its reason through a retry, keeps the last save, and clears once one gets through", async () => {
+        let fetch = fakeWebApp().fetch;
+        const sync = createSheetSync({
+            url: "https://example.test/exec", token: "t", listOrders: () => orders, log: quietLog(),
+            fetch: (...args) => fetch(...args),
+        });
+        let orders = [order()];
+        await sync.syncOnce();
+        const { savedAt } = sync.status();
+
+        orders = [order({ runner: "REMZ" })];
+        fetch = async () => { throw new Error("fetch failed"); };
+        await sync.syncOnce();
+        assert.deepEqual(sync.status(), { state: "failed", savedAt, error: "fetch failed" });
+
+        // still failed while the retry is on its way, rather than flickering to saving
+        let answer;
+        fetch = () => new Promise((resolve) => { answer = resolve; });
+        const retrying = sync.syncOnce();
+        assert.equal(sync.status().state, "failed");
+
+        answer(Response.json({ ok: true }));
+        await retrying;
+        assert.equal(sync.status().state, "saved");
+        assert.equal(sync.status().error, "");
+    });
+
+    test("nothing to send is not a save: the last save's time stays", async () => {
+        const sync = createSheetSync({ url: "https://example.test/exec", token: "t", listOrders: () => [order()], fetch: fakeWebApp().fetch });
+        await sync.syncOnce();
+        const { savedAt } = sync.status();
+
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        await sync.syncOnce();
+        assert.equal(sync.status().savedAt, savedAt);
+    });
+
+    describe("on the Order sheet", () => {
+        const LINK = "https://docs.google.com/spreadsheets/d/abc/edit";
+
+        // the API with a sheet set up behind this fake fetch, stopped after the test
+        const withSheet = async (t, fetch, link = LINK) => {
+            const app = await bootApp({ googleSheet: { url: "https://example.test/exec", token: "t", link, fetch, log: quietLog() } });
+            t.after(() => app.close());
+            return app;
+        };
+        // the first sync runs as the API starts; this waits for it to finish
+        const settled = async (browser, state) => {
+            for (let tries = 0; tries < 100; tries += 1) {
+                const { body } = (await browser.get("/admin/order-sheet/sync")).assertStatus(200);
+                if (body.state === state) return body;
+                await new Promise((resolve) => setTimeout(resolve, 10));
+            }
+            assert.fail(`the sync never reached ${state}`);
+        };
+
+        test("sales see that it saved, with the link to open it", async (t) => {
+            const app = await withSheet(t, fakeWebApp().fetch);
+            const body = await settled(await app.actingAsSales(), "saved");
+            assert.equal(body.link, LINK);
+            assert.equal(body.error, "");
+        });
+
+        test("sales see why it failed", async (t) => {
+            const app = await withSheet(t, async () => { throw new Error("fetch failed"); });
+            const body = await settled(await app.actingAsSales(), "failed");
+            assert.equal(body.error, "fetch failed");
+            assert.equal(body.savedAt, null);
+        });
+
+        test("it's off where no sheet is set up", async (t) => {
+            const app = await bootApp();
+            t.after(() => app.close());
+            const { body } = (await (await app.actingAsAdmin()).get("/admin/order-sheet/sync")).assertStatus(200);
+            assert.deepEqual(body, { state: "off" });
+        });
+
+        test("only sales and admins may see it, and it needs a sign-in", async (t) => {
+            const app = await withSheet(t, fakeWebApp().fetch);
+            (await (await app.actingAsLoading()).get("/admin/order-sheet/sync")).assertStatus(403);
+            (await app.client().get("/admin/order-sheet/sync")).assertStatus(401);
+        });
     });
 });

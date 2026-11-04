@@ -82,22 +82,31 @@ export function createSheetSync({ url, token, listOrders, intervalMs = 15000, fe
     let timer = null;
     // the last error logged, so a sheet that stays unreachable is logged once, not every few seconds
     let lastError = "";
+    // whether rows are on their way right now, and when the sheet last took some
+    let saving = false;
+    let savedAt = null;
 
     const post = async (payload) => {
-        const res = await fetch(url, {
-            method: "POST",
-            // text/plain needs no preflight and Apps Script reads it the same
-            headers: { "Content-Type": "text/plain;charset=utf-8" },
-            body: JSON.stringify({ token, ...payload }),
-            signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-        });
-        if (!res.ok) throw new Error(`the web app answered ${res.status}`);
-        // a Google sign-in page instead of JSON: the web app isn't deployed for "Anyone"
-        const answer = await res.json().catch(() => {
-            throw new Error("the web app didn't answer with JSON; deploy it with access for Anyone");
-        });
-        if (!answer.ok) throw new Error(answer.error ?? "the web app refused the rows");
-        return answer;
+        saving = true;
+        try {
+            const res = await fetch(url, {
+                method: "POST",
+                // text/plain needs no preflight and Apps Script reads it the same
+                headers: { "Content-Type": "text/plain;charset=utf-8" },
+                body: JSON.stringify({ token, ...payload }),
+                signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+            });
+            if (!res.ok) throw new Error(`the web app answered ${res.status}`);
+            // a Google sign-in page instead of JSON: the web app isn't deployed for "Anyone"
+            const answer = await res.json().catch(() => {
+                throw new Error("the web app didn't answer with JSON; deploy it with access for Anyone");
+            });
+            if (!answer.ok) throw new Error(answer.error ?? "the web app refused the rows");
+            savedAt = new Date().toISOString();
+            return answer;
+        } finally {
+            saving = false;
+        }
     };
 
     async function syncOnce() {
@@ -133,6 +142,14 @@ export function createSheetSync({ url, token, listOrders, intervalMs = 15000, fe
 
     return {
         syncOnce,
+        // how the copy is doing, for the Order sheet page: "waiting" before anything has gone, "saving" while rows are on
+        // their way, "saved" once they've gone, and "failed" until a retry gets through, so a retry doesn't flicker back
+        // to "saving"; savedAt: when the sheet last took some rows; error: why it failed
+        status: () => ({
+            state: lastError ? "failed" : saving ? "saving" : savedAt ? "saved" : "waiting",
+            savedAt,
+            error: lastError,
+        }),
         start() {
             syncOnce();
             timer = setInterval(syncOnce, intervalMs);

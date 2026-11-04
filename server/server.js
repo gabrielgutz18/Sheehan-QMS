@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { createApi } from './api.js';
 
 const PORT = Number(process.env.PORT ?? 3000);
-const { ADMIN_USERNAME, ADMIN_PASSWORD, DATA_DIR, GOOGLE_SHEET_URL, GOOGLE_SHEET_TOKEN } = process.env;
+const { ADMIN_USERNAME, ADMIN_PASSWORD, DATA_DIR, GOOGLE_SHEET_URL, GOOGLE_SHEET_TOKEN, GOOGLE_SHEET_LINK } = process.env;
 
 const DIST = fileURLToPath(new URL('../dist/', import.meta.url));
 const ASSETS = join(DIST, 'assets');
@@ -82,7 +82,7 @@ const api = createApi({
     adminUsername: ADMIN_USERNAME,
     adminPassword: ADMIN_PASSWORD,
     dataDir: DATA_DIR,
-    googleSheet: GOOGLE_SHEET_URL && { url: GOOGLE_SHEET_URL, token: GOOGLE_SHEET_TOKEN },
+    googleSheet: GOOGLE_SHEET_URL && { url: GOOGLE_SHEET_URL, token: GOOGLE_SHEET_TOKEN, link: GOOGLE_SHEET_LINK },
 });
 
 const server = createServer((req, res) => {
