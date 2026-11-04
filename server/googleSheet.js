@@ -1,5 +1,5 @@
 // the Order sheet copied to Google Sheets, laid out like the loading schedule sales keeps there: every few seconds the
-// orders that changed are sent to the Google Apps Script web app (tools/google-apps-script/salesTemp.gs), which adds
+// orders that changed are sent to the Google Apps Script web app (tools/google-apps-script/orderSheet.gs), which adds
 // or updates their rows in the spreadsheet; Google can't reach the server on the company network, so the server sends
 // set GOOGLE_SHEET_URL (the web app's /exec link) and GOOGLE_SHEET_TOKEN (the script's SYNC_TOKEN) in .env to turn it on
 import { assistedBy, invoicesByColumn, sheetDate, sheetTime } from '../src/admin/data/sheetColumns.js';
@@ -30,11 +30,12 @@ const loadedAt = (order) => {
 const doubleCheckedBy = (checkers = {}) =>
     [...new Set(Object.values(checkers).map(([, second = ""]) => second.trim()).filter(Boolean))].join(", ");
 
-// where an order goes in its day's rows on the sheet: the regular queue first, then the priority orders together below
-// it, then the TBA priority ones, each group in number order; the script sorts the rows by this text: "2026-10-29 0 0003"
+// where an order goes on the sheet: every regular order first, then all the priority orders together below them, then
+// all the TBA priority ones, whatever their day, so a day doesn't split them up; oldest first within each group, in
+// number order within a day; the script sorts the rows by this text: "0 2026-10-29 0003"
 const GROUPS = { "": 0, "*": 1, "**": 2 };
 export const sortKey = (order) =>
-    `${order.date} ${GROUPS[markOf(order)]} ${String(order.queueNum).padStart(4, "0")}`;
+    `${GROUPS[markOf(order)]} ${order.date} ${String(order.queueNum).padStart(4, "0")}`;
 
 // an order from the Order sheet (toHistory's shape) as one row of the Google sheet, { [column key]: text }; id is
 // how the script finds the row again, and several invoice numbers in a column go one above the other; a priority
