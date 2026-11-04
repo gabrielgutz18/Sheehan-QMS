@@ -1982,6 +1982,58 @@
   color: var(--text-muted);
 }
 
+/* stacked at the right of the heading, so the sheet's copy in Google Sheets doesn't push the search onto its own line */
+.order-sheet-tools {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: 100%;
+}
+
+/* the search's own phone rule (flex: 1) is for a row; in this column it would squash its height */
+.order-sheet-tools .order-status-search {
+  flex: none;
+}
+
+@media (max-width: 640px) {
+  .order-sheet-tools,
+  .order-sheet-tools .order-status-search {
+    width: 100%;
+  }
+}
+
+/* the sheet's copy in Google Sheets: how it's doing, and the button to open it */
+.sheet-sync {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.sheet-sync-status {
+  display: flex;
+  flex-direction: column;
+  max-width: 340px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.sheet-sync-status strong {
+  color: var(--text-dark);
+}
+
+.sheet-sync-status.is-saved strong {
+  color: #15803d;
+}
+
+.sheet-sync-status.is-failed strong {
+  color: var(--brand-red);
+}
+
 /* the Order sheet uses the whole width of the screen, with narrower margins */
 .admin-main:has(.order-sheet) {
   max-width: none;

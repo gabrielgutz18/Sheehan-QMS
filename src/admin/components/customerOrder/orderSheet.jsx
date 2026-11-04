@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 
 import useOrders from '../../hooks/useOrders.js';
 import { listOrderSheet, updateOrderSheet } from '../../api/adminOrderController.js';
+import GoogleSheetSync from './googleSheetSync.jsx';
 import { STAGES, stageOf, whereNow } from '../../data/orderStage.js';
 import { changedDetails, editTime } from '../../data/orderEdits.js';
 import { INVOICE_COLUMNS, assistedBy, invoicesByColumn, sheetDate, sheetTime } from '../../data/sheetColumns.js';
@@ -140,14 +141,17 @@ export default function OrderSheet({ onOpen }) {
                 <p className="order-sheet-status" role="status">
                     {saving > 0 ? "Saving..." : savedOnce ? "All changes saved" : ""}
                 </p>
-                <input
-                    type="search"
-                    className="order-status-search"
-                    placeholder="Search name, number or date"
-                    aria-label="Search the sheet by customer name, ticket number or date"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                />
+                <div className="order-sheet-tools">
+                    <GoogleSheetSync />
+                    <input
+                        type="search"
+                        className="order-status-search"
+                        placeholder="Search name, number or date"
+                        aria-label="Search the sheet by customer name, ticket number or date"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                    />
+                </div>
             </div>
 
             {(saveError || error) && <p className="field-error" role="alert">{saveError || `Couldn't refresh the sheet: ${error}`}</p>}

@@ -163,6 +163,8 @@ const ROLE_ROUTES = {
         // team); the payment status shows there and is changed on the Cashier page
         ["GET", /^\/admin\/order-sheet$/],
         ["PATCH", /^\/admin\/order-sheet\/\d+$/],
+        // whether the sheet's copy in Google Sheets is saving or failing, shown on the sheet with a button to open it
+        ["GET", /^\/admin\/order-sheet\/sync$/],
         // sales don't call customers: after the ticket and the talk they hand them over, and the department calls them
         ["POST", /^\/admin\/orders\/[^/]+\/handover$/],
         // the Cashier page, the same as the cashier's: changing how each order is paid
@@ -902,7 +904,7 @@ const likePattern = (text) => `%${text.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 // adminUsername / adminPassword: the built-in admin from .env, created or updated at every start
 // googleSheet: { url, token } of the Google Apps Script web app the Order sheet is copied to (see server/googleSheet.js);
 // left out, nothing is sent
-/** @param {{ adminUsername: string, adminPassword: string, dataDir?: string, googleSheet?: { url: string, token: string } }} options */
+/** @param {{ adminUsername: string, adminPassword: string, dataDir?: string, googleSheet?: { url: string, token: string, link?: string } }} options */
 export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }) {
     const dir = resolveDataDir(dataDir);
     const videosDir = join(dir, "videos");
@@ -2148,6 +2150,12 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
         // Reports left out)
         if (method === "GET" && path === "/admin/order-sheet") {
             return send(res, 200, loadAnyDay(sql.sheetOrdersGrouped.all(REPORT_PURPOSE)));
+        }
+
+        // how the sheet's copy in Google Sheets is doing, and the link staff open it with (GOOGLE_SHEET_LINK); it stays
+        // behind sign-in, since the spreadsheet has customers' names; "off" where no sheet is set up, like a test PC
+        if (method === "GET" && path === "/admin/order-sheet/sync") {
+            return send(res, 200, sheetSync ? { ...sheetSync.status(), link: googleSheet.link ?? "" } : { state: "off" });
         }
 
         // the Order sheet's cells, shared by every sales staff member: each cell is saved on its own, so two people
