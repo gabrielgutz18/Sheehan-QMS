@@ -73,7 +73,7 @@ docs/                      DATABASE.md (every table and the code behind it), DEP
 deploy/                    the Ubuntu server's service, nginx (http or https, with make-certs.sh), sudoers and update script, and the display PC's launcher and every PC's certificate installer
 tools/
   print-service/           the Python print service for the PC with the receipt printer (see Admin → Printer)
-  google-apps-script/      Google Apps Script files (salesTemp.gs, empty for now)
+  google-apps-script/      Google Apps Script files (orderSheet.gs follows the sheet's own format; salesTemp.gs is the old one)
 data/                      created on first start, not in git: queue.db, videos/, backups/
 ```
 
@@ -230,7 +230,7 @@ All paths are relative to `VITE_API_URL` (default `/api`).
 | PUT    | `/admin/orders/:queueNum`| admin, sales | the `POST /orders` body → saved order (a body without `runner` or `receiver` keeps the stored ones: the Order tab leaves them to the Order sheet; the payment status is always kept as the cashier left it); a save that changes something is kept as an edit, and the order lists them newest first: `edits: [{ by: { id, name, photo }, team?, changes: ["runner", "invoices", ...], at }]` (`team`: the editor's own sales team when they saved it; a save that changes nothing adds none); `401` signed out, `403` for loading |
 | POST   | `/admin/orders/:queueNum/call` | admin | `{ remarks }` → order, served by the caller (sales don't call: they hand over, and loading calls) |
 | POST   | `/admin/orders/:queueNum/handover` | admin, sales | → order, back in line for loading with `handedOver: { by: { id, name }, at }` (it keeps its sales team), and a point for whoever served them; `409` unless the customer is being served and not handed over yet |
-| GET    | `/admin/order-sheet`     | admin, sales | → the Order sheet: every order from every day (deleted ones and Customer Reports left out), newest day first; within a day the regular queue, then the priority orders, then the TBA priority ones, each group in number order; as `/admin/history` has them: `[{ id, date, isToday, ...the order }]` (`id` picks one out, since queue numbers repeat every day); `403` for loading |
+| GET    | `/admin/order-sheet`     | admin, sales | → the Order sheet: every order from every day (deleted ones and Customer Reports left out): every regular order, then all the priority orders, then all the TBA priority ones, whatever their day; newest day first within each group, in number order within a day; as `/admin/history` has them: `[{ id, date, isToday, ...the order }]` (`id` picks one out, since queue numbers repeat every day); `403` for loading |
 | PATCH  | `/admin/order-sheet/:id` | admin, sales | an order on the Order sheet, from any day: one or more of `{ runner, receiver, team }` → saved order; only the cells sent are saved, so two people on the same order don't overwrite each other; the payment status isn't one (only the cashier changes it); `team` from [`src/data/teams.js`](src/data/teams.js) or `""`; a change is kept as an edit, as for `PUT`; `400` for any other key or value, `404` for a deleted one or a Customer Report, `403` for loading |
 | PATCH  | `/admin/orders/:queueNum`| staff | `{ status: "pending" \| "serving" \| "returning" \| "done" }` → order (`returning`: back in line after being served; sales can't set `serving`, which calls them) |
 | DELETE | `/admin/orders/:queueNum`| admin | moves the ticket to Deleted on Orders & history → `204`                       |
