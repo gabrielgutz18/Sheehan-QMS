@@ -367,7 +367,7 @@ test('an order sales takes fills in its ticket, date and time in on the Order sh
     await theirs.close();
 });
 
-test('a long queue code stays whole on the Order sheet: its column widens, without the sheet scrolling sideways', async ({ page }) => {
+test('a long queue code stays whole on the Order sheet: its column widens, and the page itself never scrolls sideways', async ({ page }) => {
     const customer = `Long Code ${Date.now()}`;
 
     // a small office screen, where the columns are at their narrowest
@@ -400,11 +400,82 @@ test('a long queue code stays whole on the Order sheet: its column widens, witho
         return text.height <= parseFloat(getComputedStyle(cell).lineHeight) + 1 && text.right <= cell.getBoundingClientRect().right;
     };
     expect(await row.locator('.sheet-que').evaluate(fits)).toBe(true);
-    expect(await row.getByRole('cell', { name: 'CORONACION' }).evaluate(fits)).toBe(true);
+    expect(await row.locator('td', { hasText: 'CORONACION' }).locator('.sheet-cell').evaluate(fits)).toBe(true);
 
-    // the rest of the sheet still fits the page
+    // the sheet scrolls inside its frame, not the page
     const sideways = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(sideways).toBeLessThanOrEqual(0);
+});
+
+test('the Order sheet works like a spreadsheet: cells change where they are, a new row makes a ticket, and a column can be added', async ({ page }) => {
+    const stamp = Date.now();
+    const customer = `Sheet Row ${stamp}`;
+    const renamed = `Renamed ${stamp}`;
+    const column = `Truck ${stamp % 100000}`;
+
+    await page.setViewportSize({ width: 1366, height: 768 });
+    await page.goto('/staff/customer-order');
+    await signIn(page, ADMIN.username, ADMIN.password);
+    await page.getByRole('radio', { name: 'Order sheet' }).click();
+
+    // a new row: nothing to tick, it's a ticket as soon as it has what it needs
+    await page.getByRole('button', { name: 'Add row' }).click();
+    const fillNew = async (label, value) => {
+        await page.getByRole('button', { name: `${label} for the new row` }).click();
+        await page.getByRole('textbox', { name: `${label} for the new row` }).fill(value);
+        await page.keyboard.press('Tab');
+    };
+    await fillNew("Customer's name", customer);
+    await fillNew('Type of order', 'roofings');
+    await expect(page.getByText('Needs a customer')).toBeVisible();
+    await fillNew('Roofing', `R${stamp}`);
+    await expect(page.getByText('Needs a customer')).toHaveCount(0);
+
+    const row = page.getByRole('row').filter({ hasText: customer });
+    await expect(row.locator('.sheet-que-btn')).toHaveText(/^R \d+$/);
+    await expect(row.locator('.sheet-time').first()).toHaveText(/^\d{4}H$/);
+    const ticket = await row.locator('.sheet-que-btn').innerText();
+
+    // the terms and the customer change right in the row
+    await row.getByRole('combobox', { name: `Terms for ${ticket}` }).selectOption('Vale');
+    await expect(row.getByText('Edited by')).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'All changes saved' })).toBeVisible();
+
+    await row.getByRole('button', { name: `Customer's name for ${ticket}` }).click();
+    await row.getByRole('textbox', { name: `Customer's name for ${ticket}` }).fill(renamed);
+    await page.keyboard.press('Enter');
+    const same = page.getByRole('row').filter({ hasText: renamed });
+    await expect(same.locator('.sheet-que-btn')).toHaveText(ticket);
+
+    // a value it can't take says why, and goes back
+    await same.getByRole('button', { name: `TBA for ${ticket}` }).click();
+    await same.getByRole('textbox', { name: `TBA for ${ticket}` }).fill('999');
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('alert')).toContainText('invoice 999 is under TBA');
+    await expect(same.getByRole('button', { name: `TBA for ${ticket}` })).toHaveText('');
+
+    // the date, number and status can't be typed in
+    await expect(same.locator('.sheet-date button, .sheet-date textarea')).toHaveCount(0);
+    await expect(same.locator('.sheet-status textarea')).toHaveCount(0);
+
+    // a column of their own, filled in on the row, and still there after a reload
+    await page.getByRole('button', { name: 'Add column' }).click();
+    await page.getByLabel("New column's name").fill(column);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await same.getByRole('button', { name: `${column} for ${ticket}` }).click();
+    await same.getByRole('textbox', { name: `${column} for ${ticket}` }).fill('Isuzu');
+    await page.keyboard.press('Enter');
+    await expect(same.getByRole('button', { name: `${column} for ${ticket}` })).toHaveText('Isuzu');
+    await page.screenshot({ path: process.env.SHEET_SHOT ?? 'test-results/order-sheet.png' });
+
+    await page.reload();
+    await page.getByRole('radio', { name: 'Order sheet' }).click();
+    await expect(same.getByRole('button', { name: `${column} for ${ticket}` })).toHaveText('Isuzu');
+
+    // and it can be taken off again
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.getByRole('button', { name: `Remove the ${column} column` }).click();
+    await expect(page.getByRole('columnheader', { name: column })).toHaveCount(0);
 });
 
 test('a cover photo shows on the Dashboard, and a coworker can open that profile from SheeChat', async ({ page, browser }) => {

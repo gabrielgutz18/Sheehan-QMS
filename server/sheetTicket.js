@@ -11,14 +11,25 @@ const TYPES = purpose.map((p) => p.name);
 const TEAMS = teams.map((t) => t.name);
 const TERMS = paymentStatus.map((p) => p.type);
 
-const cleaned = (text) => String(text ?? "").trim();
+export const cleaned = (text) => String(text ?? "").trim();
 // the list's own spelling of what was typed, whatever its capitals; undefined if it isn't on the list
-const pick = (list, typed) => list.find((name) => name.toUpperCase() === typed.toUpperCase());
+export const pick = (list, typed) => list.find((name) => name.toUpperCase() === typed.toUpperCase());
 // several in one cell go one above the other, as the sheet shows them, or with commas
-const splitCell = (text) => cleaned(text).split(/[\n,]+/).map(cleaned).filter(Boolean);
+export const splitCell = (text) => cleaned(text).split(/[\n,]+/).map(cleaned).filter(Boolean);
+
+// the types of order typed in a cell, in the list's order and spelling, like every other ticket, which is what its queue
+// code is made from: { types }, or { problem } saying what to fix
+export const typesFrom = (typed) => {
+    const words = splitCell(typed);
+    if (!words.length) return { problem: `the type of order is empty: ${TYPES.join(", ")}` };
+    const unknown = words.find((word) => !pick(TYPES, word));
+    if (unknown) return { problem: `"${unknown}" isn't a type of order: ${TYPES.join(", ")}` };
+    const chosen = words.map((word) => pick(TYPES, word));
+    return { types: TYPES.filter((type) => chosen.includes(type)) };
+};
 
 // a time as the sheet writes it, "0734H", or as a person might, "7:34", as the HH:MM an order keeps; null if it isn't one
-const timeFrom = (typed) => {
+export const timeFrom = (typed) => {
     const match = /^(\d{1,2}):?(\d{2})\s*H?$/i.exec(typed);
     if (!match || Number(match[1]) > 23 || Number(match[2]) > 59) return null;
     return `${match[1].padStart(2, "0")}:${match[2]}`;
@@ -44,13 +55,8 @@ export const ticketFromSheet = (values) => {
     const name = cleaned(values.customer);
     if (!name) return { problem: "the customer's name is empty" };
 
-    const typedTypes = splitCell(values.purpose);
-    if (!typedTypes.length) return { problem: `the type of order is empty: ${TYPES.join(", ")}` };
-    const unknownType = typedTypes.find((typed) => !pick(TYPES, typed));
-    if (unknownType) return { problem: `"${unknownType}" isn't a type of order: ${TYPES.join(", ")}` };
-    const chosen = typedTypes.map((typed) => pick(TYPES, typed));
-    // in the list's order, like every other ticket, which is what its queue code is made from
-    const types = TYPES.filter((type) => chosen.includes(type));
+    const { types, problem: typesProblem } = typesFrom(values.purpose);
+    if (typesProblem) return { problem: typesProblem };
 
     const { invoices, problem } = invoicesFrom(values, types);
     if (problem) return { problem };

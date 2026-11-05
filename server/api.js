@@ -12,6 +12,7 @@ import { promisify } from 'node:util';
 import { openDatabase, resolveDataDir, transaction } from './db.js';
 import { clientIp, createRateLimiter } from './rateLimit.js';
 import { createSheetSync } from './googleSheet.js';
+import { TYPED_OVER_CELLS, applyCell, cellChanged, columnKey, columnNameProblem, editNameOf, isColumnKey, sheetStateOf } from './sheetCells.js';
 import { ticketFromSheet } from './sheetTicket.js';
 import paymentStatus from '../src/data/paymentStatus.js';
 import teams from '../src/data/teams.js';
@@ -160,10 +161,14 @@ const ROLE_ROUTES = {
         // one of today's tickets, opened on Customer order to edit it, and saved again (kept as an edit, with who saved it)
         ["GET", /^\/admin\/orders\/[^/]+$/],
         ["PUT", /^\/admin\/orders\/[^/]+$/],
-        // the Order sheet on Customer order: every day's orders, saved one cell at a time (runner, receiver, sales
-        // team); the payment status shows there and is changed on the Cashier page
+        // the Order sheet on Customer order: every day's orders, saved one cell at a time (every column but the date,
+        // number and status), a new row making a ticket, and columns of their own
         ["GET", /^\/admin\/order-sheet$/],
+        ["POST", /^\/admin\/order-sheet$/],
         ["PATCH", /^\/admin\/order-sheet\/\d+$/],
+        ["GET", /^\/admin\/order-sheet\/columns$/],
+        ["POST", /^\/admin\/order-sheet\/columns$/],
+        ["DELETE", /^\/admin\/order-sheet\/columns\/\d+$/],
         // whether the sheet's copy in Google Sheets is saving or failing, shown on the sheet with a button to open it
         ["GET", /^\/admin\/order-sheet\/sync$/],
         // sales don't call customers: after the ticket and the talk they hand them over, and the department calls them
@@ -669,20 +674,6 @@ const EDITABLE_COLUMNS = {
     salesTimeIn: "sales_time_in", salesTimeOut: "sales_time_out", checkers: "checkers", team: "team",
     pickupDate: "pickup_date", priority: "priority", tbaPriority: "tba_priority",
 };
-// the Order sheet on Customer order: the details any sales staff member fills in after the ticket, each cell saved on
-// its own, with whether a value is one it takes; the payment status shows on the sheet but isn't one: it's changed on
-// Customer order or the Cashier page
-const SHEET_CELLS = {
-    runner: (value) => typeof value === "string" && value.trim().length <= MAX_RUNNER,
-    receiver: (value) => typeof value === "string" && value.trim().length <= MAX_RECEIVER,
-    team: (value) => value === "" || TEAMS.includes(value),
-};
-// the longest each typed cell takes, for saying so when the Google sheet sends a longer one
-const SHEET_CELL_MAX = { runner: MAX_RUNNER, receiver: MAX_RECEIVER };
-// a save from the sheet: one or more of its cells, nothing else
-const validSheet = (body) =>
-    typeof body === "object" && body !== null && !Array.isArray(body) && Object.keys(body).length > 0 &&
-    Object.entries(body).every(([key, value]) => Object.hasOwn(SHEET_CELLS, key) && SHEET_CELLS[key](value));
 const itemsOf = (rows) => rows.map(({ item, qty, color }) => ({ item, qty, ...(color && { color }) }));
 const invoicesOf = (rows) => rows.map(({ invoice_no, type }) => ({ invoiceNo: invoice_no, type }));
 
@@ -872,11 +863,14 @@ const toPayment = (row, invoices, edits, todayDate) => {
 };
 
 // a ticket from any day for the History page and the Order sheet; id picks it out, since numbers repeat every day
-const toHistory = (row, items, invoices, edits, todayDate) => ({
+const toHistory = (row, items, invoices, edits, todayDate, cells = []) => ({
     id: row.id,
     date: row.queue_date,
     isToday: row.queue_date === todayDate,
     ...toOrder(row, items, invoices, edits),
+    // what's typed in the Order sheet's own columns, and over the cells the system works out, { [cell]: text }; left out
+    // for none
+    ...(cells.length && { sheetCells: Object.fromEntries(cells.map(({ cell, value }) => [cell, value])) }),
     deletedAt: row.deleted_at,
     restoredAt: row.restored_at,
     ...(row.original_date !== null && { originalDate: row.original_date, originalNum: row.original_num }),
@@ -952,8 +946,21 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
         setSheetKey: db.prepare("UPDATE orders SET sheet_key = ? WHERE id = ?"),
         // the Order sheet's cells; the ones a save leaves out keep what's stored
         updateSheet: db.prepare(`
-            UPDATE orders SET runner = :runner, receiver = :receiver, team = :team
+            UPDATE orders SET name = :name, purpose = :purpose, salesman = :salesman, runner = :runner, receiver = :receiver,
+                team = :team, sales_time_in = :salesTimeIn, sales_time_out = :salesTimeOut
             WHERE id = :id`),
+        // the sheet's own columns, and what's typed in them and over the cells the system works out
+        sheetColumns: db.prepare("SELECT id, key, name FROM sheet_columns WHERE removed_at IS NULL ORDER BY id"),
+        findSheetColumn: db.prepare("SELECT id, key, name, removed_at FROM sheet_columns WHERE key = ?"),
+        insertSheetColumn: db.prepare("INSERT INTO sheet_columns (key, name, created_at) VALUES (?, ?, ?)"),
+        restoreSheetColumn: db.prepare("UPDATE sheet_columns SET removed_at = NULL WHERE id = ?"),
+        removeSheetColumn: db.prepare("UPDATE sheet_columns SET removed_at = ? WHERE id = ? AND removed_at IS NULL"),
+        orderSheetCells: db.prepare("SELECT cell, value FROM sheet_cells WHERE order_id = ?"),
+        sheetCellsFor: db.prepare("SELECT order_id, cell, value FROM sheet_cells WHERE order_id IN (SELECT value FROM json_each(?))"),
+        setSheetCell: db.prepare(`
+            INSERT INTO sheet_cells (order_id, cell, value) VALUES (?, ?, ?)
+            ON CONFLICT (order_id, cell) DO UPDATE SET value = excluded.value`),
+        clearSheetCell: db.prepare("DELETE FROM sheet_cells WHERE order_id = ? AND cell = ?"),
         // how the order is paid, from the Cashier page or Customer order
         setPayment: db.prepare("UPDATE orders SET payment_status = ? WHERE id = ?"),
         setStatus: db.prepare(`
@@ -1323,9 +1330,10 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
         const itemsByOrder = Map.groupBy(sql.itemsFor.all(ids), (i) => i.order_id);
         const invoicesByOrder = Map.groupBy(sql.invoicesFor.all(ids), (i) => i.order_id);
         const editsByOrder = Map.groupBy(sql.editsFor.all(ids), (e) => e.order_id);
+        const cellsByOrder = Map.groupBy(sql.sheetCellsFor.all(ids), (c) => c.order_id);
         const date = today();
         return rows.map((row) => toHistory(row, itemsByOrder.get(row.id) ?? [],
-            invoicesByOrder.get(row.id) ?? [], editsByOrder.get(row.id) ?? [], date));
+            invoicesByOrder.get(row.id) ?? [], editsByOrder.get(row.id) ?? [], date, cellsByOrder.get(row.id) ?? []));
     };
     // the same, in toPayment's shape, for the Cashier page
     const loadPayments = (rows) => {
@@ -1336,52 +1344,86 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
         return rows.map((row) => toPayment(row, invoicesByOrder.get(row.id) ?? [], editsByOrder.get(row.id) ?? [], date));
     };
 
-    // an order's cells on the Order sheet saved, each on its own, so two people working on the same order at once don't
-    // overwrite each other's cells; a save that changes something is kept as an edit, the same as a save on Customer
-    // order; editor: who saved it, none for a cell typed in the Google sheet
-    const saveSheetCells = (order, body, editor) => {
-        const cells = {
-            runner: (body.runner ?? order.runner).trim(),
-            receiver: (body.receiver ?? order.receiver).trim(),
-            team: body.team ?? order.team,
-        };
-        const changes = Object.keys(body).filter((key) => cells[key] !== order[EDITABLE_COLUMNS[key]]);
-        transaction(db, () => {
-            sql.updateSheet.run({ ...cells, id: order.id });
-            if (changes.length) {
-                sql.insertEdit.run(order.id, editor?.id ?? null, editor?.team ?? "", JSON.stringify(changes), new Date().toISOString());
-            }
-        });
+    // the columns on the Order sheet now, [{ id, key, name }]
+    const activeColumns = () => sql.sheetColumns.all();
+    // a column added on the page or in the Google sheet; one removed earlier comes back with its cells, so it's the same
+    // column again; answers the column
+    const addSheetColumn = (name) => {
+        const key = columnKey(name);
+        const known = sql.findSheetColumn.get(key);
+        if (known) sql.restoreSheetColumn.run(known.id);
+        else sql.insertSheetColumn.run(key, name.trim(), new Date().toISOString());
+        return sql.findSheetColumn.get(key);
+    };
+    // the columns the Google sheet has that the Order sheet doesn't join it, unless they were removed on purpose or their
+    // name can't be used; answers the list as it is now
+    const takeSheetHeaders = (headers) => {
+        for (const { key, name } of headers) {
+            if (columnKey(name) === key && !columnNameProblem(name) && !sql.findSheetColumn.get(key)) addSheetColumn(name);
+        }
+        return activeColumns();
     };
 
-    // a cell typed in the Google sheet, held to the same rules as one typed on the Order sheet; why it can't be taken, or
-    // "" when it was; a team in other letters is still that team; an order that's gone has nothing to change, and its
-    // row is on its way out of the sheet
-    const takeSheetEdit = ({ id, key, value }) => {
-        const order = sql.findById.get(Number(id));
-        if (!order || order.deleted_at !== null || order.purpose === REPORT_PURPOSE) return "";
-        if (!Object.hasOwn(SHEET_CELLS, key)) return "only the team, runner and receiver come back from this sheet";
-        const typed = String(value ?? "").trim();
-        const cell = key === "team" ? TEAMS.find((team) => team.toUpperCase() === typed.toUpperCase()) ?? typed : typed;
-        if (!validSheet({ [key]: cell })) {
-            return key === "team" ? `"${typed}" isn't a sales team: ${TEAMS.join(", ")}` : `it's too long: at most ${SHEET_CELL_MAX[key]} letters`;
+    // an order's cells on the Order sheet saved, only the ones given, so two people working on the same order at once
+    // don't overwrite each other's cells; one that can't be taken stops the save, and its reason is the answer, "" once
+    // they're saved; a save that changes something is kept as an edit, the same as a save on Customer order; editor: who
+    // saved it, none for a cell typed in the Google sheet
+    const saveSheetCells = (order, body, editor) => {
+        const before = sheetStateOf(order, sql.orderInvoices.all(order.id), sql.orderItems.all(order.id).length, sql.orderSheetCells.all(order.id));
+        const after = structuredClone(before);
+        const columns = activeColumns();
+        const columnKeys = columns.map(({ key }) => key);
+        for (const [key, value] of Object.entries(body)) {
+            const problem = applyCell(after, key, value, columnKeys);
+            if (problem) return problem;
         }
-        saveSheetCells(order, { [key]: cell });
+        const changed = Object.keys(body).filter((key) => cellChanged(before, after, key));
+        if (!changed.length) return "";
+        const changes = [...new Set(changed.map((key) => (isColumnKey(key) ? columns.find((c) => c.key === key).name : editNameOf(key))))];
+
+        transaction(db, () => {
+            sql.updateSheet.run({
+                name: after.customer, purpose: after.purpose, salesman: after.salesman, runner: after.runner, receiver: after.receiver,
+                team: after.team, salesTimeIn: after.salesTimeIn, salesTimeOut: after.salesTimeOut, id: order.id,
+            });
+            if (after.terms !== before.terms) sql.setPayment.run(after.terms, order.id);
+            if (changes.includes("invoices")) saveInvoices(order.id, after.invoices);
+            for (const key of changed) {
+                if (!Object.hasOwn(after.cells, key) && !Object.hasOwn(before.cells, key)) continue;
+                if (Object.hasOwn(after.cells, key)) sql.setSheetCell.run(order.id, key, after.cells[key]);
+                else sql.clearSheetCell.run(order.id, key);
+            }
+            sql.insertEdit.run(order.id, editor?.id ?? null, editor?.team ?? "", JSON.stringify(changes), new Date().toISOString());
+        });
         return "";
     };
 
-    // a row typed in the Google sheet, sent because CREATE TICKET was ticked or it's been sent before: { id } of its
-    // ticket, { problem } saying why there isn't one, or null if it's been unticked and has none. It joins the line like
-    // a ticket taken on Customer order, with a time in unless one was typed. The row's key finds the ticket it already
-    // made, so a row sent twice, after an answer got lost, never makes two
-    const takeSheetRow = ({ key, ticked, values }) => {
-        const made = sql.findBySheetKey.get(String(key));
-        if (made) return made.deleted_at === null ? { id: made.id } : { problem: "its ticket was deleted in the system" };
-        if (!ticked) return null;
+    // a cell typed in the Google sheet, held to the same rules as one typed on the Order sheet; why it can't be taken, ""
+    // when it was, or null if there's nowhere for it to go: an order that's gone, whose row is on its way out of the sheet,
+    // or a column taken off the Order sheet, which stays the Google sheet's own
+    const takeSheetEdit = ({ id, key, value }) => {
+        const order = sql.findById.get(Number(id));
+        if (!order || order.deleted_at !== null || order.purpose === REPORT_PURPOSE) return null;
+        if (isColumnKey(key) && !activeColumns().some((column) => column.key === key)) return null;
+        return saveSheetCells(order, { [key]: String(value ?? "") });
+    };
 
-        const { order: body, problem } = ticketFromSheet(values ?? {});
+    // a ticket from a row of cells, typed on the Order sheet or in the Google sheet: { id }, or { problem } saying what to
+    // fix. It joins the line like a ticket taken on Customer order, with a time in unless one was typed. editor: who typed
+    // it, none for the Google sheet, whose row sheetKey stops it making two
+    const createFromCells = (values, editor, sheetKey) => {
+        const { order: body, problem } = ticketFromSheet(values);
         if (problem) return { problem };
         if (!validOrder(body)) return { problem: "a cell is too long, or the same invoice number is in twice" };
+
+        // the cells that aren't the order's own details: its own columns, and any typed over what the system works out
+        const extra = { cells: {} };
+        const columnKeys = activeColumns().map(({ key }) => key);
+        for (const [key, value] of Object.entries(values)) {
+            if (!(columnKeys.includes(key) || TYPED_OVER_CELLS.includes(key))) continue;
+            const cellProblem = applyCell(extra, key, String(value ?? ""), columnKeys);
+            if (cellProblem) return { problem: cellProblem };
+        }
 
         const { orders: items, invoices, ...fields } = pickOrder(body);
         return transaction(db, () => {
@@ -1393,19 +1435,32 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             const { lastInsertRowid } = sql.insertOrder.run({ ...fields, salesTimeIn, date, queueNum, createdAt });
             saveItems(lastInsertRowid, items);
             saveInvoices(lastInsertRowid, invoices);
-            sql.setSheetKey.run(String(key), lastInsertRowid);
+            for (const [key, value] of Object.entries(extra.cells)) sql.setSheetCell.run(lastInsertRowid, key, value);
+            if (sheetKey) sql.setSheetKey.run(sheetKey, lastInsertRowid);
             if (body.paymentStatus) sql.setPayment.run(body.paymentStatus, lastInsertRowid);
             // the Cashier page shows who set the payment status from an edit listing it
-            const changes = [CREATED_IN_SHEET, ...(body.paymentStatus ? ["paymentStatus"] : [])];
-            sql.insertEdit.run(lastInsertRowid, null, "", JSON.stringify(changes), createdAt);
+            const changes = [...(editor ? [] : [CREATED_IN_SHEET]), ...(body.paymentStatus ? ["paymentStatus"] : [])];
+            if (changes.length) sql.insertEdit.run(lastInsertRowid, editor?.id ?? null, editor?.team ?? "", JSON.stringify(changes), createdAt);
             return { id: Number(lastInsertRowid) };
         });
+    };
+
+    // a row typed in the Google sheet, sent because it has a TYPE OF ORDER or it's been sent before: { id } of its ticket,
+    // { problem } saying why there isn't one, or null if its type was cleared and it has none. The row's key finds the
+    // ticket it already made, so a row sent twice, after an answer got lost, never makes two
+    const takeSheetRow = ({ key, ready, values }) => {
+        const made = sql.findBySheetKey.get(String(key));
+        if (made) return made.deleted_at === null ? { id: made.id } : { problem: "its ticket was deleted in the system" };
+        if (!ready) return null;
+        return createFromCells(values ?? {}, null, String(key));
     };
 
     // the Order sheet copied to Google Sheets: the same orders the sheet lists
     const sheetSync = googleSheet?.url && createSheetSync({
         ...googleSheet,
         listOrders: () => loadAnyDay(sql.sheetOrders.all(REPORT_PURPOSE)),
+        listColumns: activeColumns,
+        takeHeaders: takeSheetHeaders,
         applyEdit: takeSheetEdit,
         applyNewRow: takeSheetRow,
     });
@@ -2237,6 +2292,36 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             return send(res, 200, sheetSync ? { ...sheetSync.status(), link: googleSheet.link ?? "" } : { state: "off" });
         }
 
+        // a new row on the Order sheet makes a ticket once it has a customer's name, a type of order and an invoice number
+        if (method === "POST" && path === "/admin/order-sheet") {
+            const body = await readBody(req);
+            if (typeof body !== "object" || body === null || Array.isArray(body)) return send(res, 400, { message: "Invalid row." });
+            const { id, problem } = createFromCells(body, me);
+            if (problem) return send(res, 400, { message: `No ticket made: ${problem}` });
+            return send(res, 201, loadAnyDay([sql.findById.get(id)])[0]);
+        }
+
+        // the sheet's own columns, the same on the page and in the Google sheet; taking one off leaves its cells, and it
+        // stays where the Google sheet has it, no longer synced, until it's added again
+        if (path === "/admin/order-sheet/columns") {
+            if (method === "GET") return send(res, 200, activeColumns());
+            if (method === "POST") {
+                const body = await readBody(req);
+                const name = typeof body?.name === "string" ? body.name : "";
+                const problem = columnNameProblem(name);
+                if (problem) return send(res, 400, { message: problem });
+                const known = sql.findSheetColumn.get(columnKey(name));
+                if (known && known.removed_at === null) return send(res, 409, { message: `The sheet already has a column named ${known.name}.` });
+                const { id, key, name: saved } = addSheetColumn(name);
+                return send(res, 201, { id, key, name: saved });
+            }
+        }
+        const columnMatch = path.match(/^\/admin\/order-sheet\/columns\/(\d+)$/);
+        if (method === "DELETE" && columnMatch) {
+            const { changes } = sql.removeSheetColumn.run(new Date().toISOString(), Number(columnMatch[1]));
+            return changes ? send(res, 204) : send(res, 404, { message: "Column not found." });
+        }
+
         // the Order sheet's cells, shared by every sales staff member; by id, since an earlier day's order can be filled
         // in too
         const sheetMatch = path.match(/^\/admin\/order-sheet\/(\d+)$/);
@@ -2247,8 +2332,11 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
                 return send(res, 404, { message: "Order not found." });
             }
             const body = await readBody(req);
-            if (!validSheet(body)) return send(res, 400, { message: "Invalid order sheet change." });
-            saveSheetCells(order, body, me);
+            if (typeof body !== "object" || body === null || Array.isArray(body) || !Object.keys(body).length) {
+                return send(res, 400, { message: "Invalid order sheet change." });
+            }
+            const problem = saveSheetCells(order, body, me);
+            if (problem) return send(res, 400, { message: `Not saved: ${problem}` });
             return send(res, 200, loadAnyDay([sql.findById.get(order.id)])[0]);
         }
 
