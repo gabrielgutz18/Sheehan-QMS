@@ -37,10 +37,18 @@ export const updateOrder = (queueNum, order) => http.put(`/admin/orders/${encode
 // repeat every day
 export const listOrderSheet = (options) => http.get("/admin/order-sheet", options);
 
-// saves cells of one of the Order sheet's orders, from any day, only the ones given: { runner?, receiver?,
-// paymentStatus?, team? } → the order, as listOrderSheet has it; a save that changes something is kept as an edit,
-// like updateOrder
+// saves cells of one of the Order sheet's orders, from any day, only the ones given: any of the sheetValues in
+// src/admin/data/sheetColumns.js, or a column's key, as text → the order, as listOrderSheet has it; a save that changes
+// something is kept as an edit, like updateOrder
 export const updateOrderSheet = (id, cells) => http.patch(`/admin/order-sheet/${encodeURIComponent(id)}`, cells);
+
+// a new row on the Order sheet, as the same cells → its ticket, as listOrderSheet has it
+export const createOrderSheetRow = (cells) => http.post("/admin/order-sheet", cells);
+
+// the columns people added to the Order sheet → [{ id, key, name }]; taking one off keeps its cells, for if it's added again
+export const listSheetColumns = (options) => http.get("/admin/order-sheet/columns", options);
+export const addSheetColumn = (name) => http.post("/admin/order-sheet/columns", { name });
+export const removeSheetColumn = (id) => http.delete(`/admin/order-sheet/columns/${encodeURIComponent(id)}`);
 
 // how the Order sheet's copy in Google Sheets is doing → { state: "off" } where no sheet is set up, or { state:
 // "waiting" | "saving" | "saved" | "failed", savedAt (when the sheet last took some rows, or null), error, link }

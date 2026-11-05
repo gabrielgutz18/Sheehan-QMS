@@ -17,6 +17,11 @@ const DETAIL_LABELS = {
     pickupDate: "Pick-up date",
     priority: "Priority order",
     tbaPriority: "TBA priority order",
+    // typed over on the Order sheet
+    assistedBy: "Assisted by",
+    loadingTimeIn: "Loading time in",
+    loadingTimeOut: "Loading time out",
+    doubleCheckedBy: "Double checked by",
 };
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });

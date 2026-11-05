@@ -1,7 +1,6 @@
 // the Order sheet on Customer order: every order from every day with all its details, shared by every sales staff member
-// like a spreadsheet; the runner and receiver are filled in there (no longer on the Order tab), and the sales team can be
-// changed there too, one cell at a time, each change kept as an edit with who saved it; the payment status shows there,
-// but only the cashier changes it
+// like a spreadsheet: every cell but the date, queue number and status, one at a time, each change kept as an edit with who
+// saved it; a new row makes a ticket, and anyone can add a column of their own
 // run: npm test -- --test-name-pattern="order sheet"
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, test } from 'node:test';
@@ -68,7 +67,7 @@ describe("order sheet", () => {
         app.assertDatabaseHas("orders", { queue_num: 1, runner: "Boy Reyes", receiver: "Liza Cruz" });
     });
 
-    test("the sales team is picked from its list and can be taken off; the payment status is the cashier's", async () => {
+    test("the sales team is picked from its list and can be taken off", async () => {
         const id = await takeOrder();
         const maria = await app.actingAsSales();
 
@@ -80,8 +79,7 @@ describe("order sheet", () => {
         assert.equal(noTeam.team, undefined);
 
         (await sheet(maria, id, { team: "Roofings" })).assertStatus(400);
-        for (const paymentStatus of ["Paid", "Cash on hand", ""]) (await sheet(maria, id, { paymentStatus })).assertStatus(400);
-        app.assertDatabaseHas("orders", { queue_num: 1, payment_status: "", team: "" });
+        app.assertDatabaseHas("orders", { queue_num: 1, team: "" });
     });
 
     test("one cell is saved at a time, so two people on the same order don't overwrite each other", async () => {
@@ -222,6 +220,198 @@ describe("order sheet", () => {
         (await sheet(loading, id, { runner: "Someone" })).assertStatus(403);
         (await sheet(app.client(), id, { runner: "Someone" })).assertStatus(401);
         app.assertDatabaseHas("orders", { queue_num: 1, runner: "Boy Reyes" });
+    });
+
+    describe("every cell but the date, number and status", () => {
+        test("the terms change like they do on the Cashier page, in any capitals, and can't be cleared", async () => {
+            const id = await takeOrder();
+            const maria = await app.actingAsSales("Maria Santos");
+
+            const saved = (await sheet(maria, id, { terms: "vale" })).assertStatus(200).body;
+            assert.equal(saved.paymentStatus, "Vale");
+            assert.deepEqual(saved.edits[0].changes, ["paymentStatus"]);
+
+            const [listed] = (await maria.get("/admin/payments")).assertStatus(200).body;
+            assert.deepEqual([listed.paymentStatus, listed.paymentChange.by.name], ["Vale", "Maria Santos"]);
+
+            assert.match((await sheet(maria, id, { terms: "" })).assertStatus(400).body.message, /not cleared/);
+            assert.match((await sheet(maria, id, { terms: "Maybe" })).assertStatus(400).body.message, /isn't one of the terms/);
+            app.assertDatabaseHas("orders", { id, payment_status: "Vale" });
+        });
+
+        test("the customer, salesman and times change, and the name can't be emptied", async () => {
+            const id = await takeOrder();
+            const maria = await app.actingAsSales();
+
+            const saved = (await sheet(maria, id, { customer: "  Pedro Cruz ", salesman: "Ana", salesTimeIn: "0734H", salesTimeOut: "9:05" })).assertStatus(200).body;
+
+            assert.deepEqual([saved.name, saved.salesman, saved.salesTimeIn, saved.salesTimeOut], ["Pedro Cruz", "Ana", "07:34", "09:05"]);
+            assert.deepEqual(saved.edits[0].changes, ["name", "salesman", "salesTimeIn", "salesTimeOut"]);
+            (await sheet(maria, id, { customer: " " })).assertStatus(400);
+            (await sheet(maria, id, { salesTimeIn: "2560H" })).assertStatus(400);
+            assert.equal((await sheet(maria, id, { salesTimeOut: "" })).assertStatus(200).body.salesTimeOut, undefined);
+        });
+
+        test("invoices go under their column with its type, and one already there keeps its own", async () => {
+            const id = await takeOrder({
+                purpose: "Hardwares, Steel",
+                invoices: [{ invoiceNo: "1", type: "Hardwares" }, { invoiceNo: "2", type: "Steel" }],
+            });
+            const maria = await app.actingAsSales();
+            const invoices = (order) => order.invoices.map(({ invoiceNo, type }) => [invoiceNo, type]);
+
+            const added = (await sheet(maria, id, { construction: "1\n2, 3" })).assertStatus(200).body;
+            assert.deepEqual(invoices(added), [["1", "Hardwares"], ["2", "Steel"], ["3", "Steel"]]);
+            assert.deepEqual(added.edits[0].changes, ["invoices"]);
+
+            const removed = (await sheet(maria, id, { construction: "2" })).assertStatus(200).body;
+            assert.deepEqual(invoices(removed), [["2", "Steel"]]);
+        });
+
+        test("an invoice can't go to a department the ticket doesn't have, or be in twice, and the last one can't go", async () => {
+            const id = await takeOrder();
+            const maria = await app.actingAsSales();
+
+            assert.match((await sheet(maria, id, { tba: "9" })).assertStatus(400).body.message, /invoice 9 is under TBA/);
+            assert.match((await sheet(maria, id, { roofing: "5, 5" })).assertStatus(400).body.message, /in twice/);
+            assert.match((await sheet(maria, id, { roofing: "" })).assertStatus(400).body.message, /at least one invoice/);
+            app.assertDatabaseCount("order_edits", 0);
+        });
+
+        test("an invoice under Others takes the ticket's first type", async () => {
+            const id = await takeOrder();
+            const maria = await app.actingAsSales();
+
+            const saved = (await sheet(maria, id, { others: "7" })).assertStatus(200).body;
+
+            assert.deepEqual(saved.invoices.map(({ invoiceNo, type }) => [invoiceNo, type]), [["2223", "Roofings"], ["7", "Roofings"]]);
+        });
+
+        test("the type of order changes, in the list's order, but can't leave an invoice behind", async () => {
+            const id = await takeOrder();
+            const maria = await app.actingAsSales();
+
+            assert.equal((await sheet(maria, id, { purpose: "steel, roofings" })).assertStatus(200).body.purpose, "Roofings, Steel");
+            assert.match((await sheet(maria, id, { purpose: "Steel" })).assertStatus(400).body.message, /invoice 2223 is for Roofings/);
+            (await sheet(maria, id, { purpose: "" })).assertStatus(400);
+            (await sheet(maria, id, { purpose: "Customer Report" })).assertStatus(400);
+            app.assertDatabaseHas("orders", { id, purpose: "Roofings, Steel" });
+        });
+
+        test("typing over what the system works out shows in its place, and clearing it goes back, with the real path untouched", async () => {
+            const id = await takeOrder();
+            const maria = await app.actingAsSales();
+
+            const typed = (await sheet(maria, id, { assistedBy: "Someone", loadingTimeIn: "8:15", doubleCheckedBy: "Ana" })).assertStatus(200).body;
+            assert.deepEqual(typed.sheetCells, { assistedBy: "Someone", loadingTimeIn: "0815H", doubleCheckedBy: "Ana" });
+            assert.deepEqual(typed.edits[0].changes, ["assistedBy", "loadingTimeIn", "doubleCheckedBy"]);
+            assert.equal(typed.servedBy, undefined);
+            assert.equal(typed.handedOver, undefined);
+
+            (await sheet(maria, id, { loadingTimeIn: "2560H" })).assertStatus(400);
+            const cleared = (await sheet(maria, id, { assistedBy: "", loadingTimeIn: "", doubleCheckedBy: "" })).assertStatus(200).body;
+            assert.equal(cleared.sheetCells, undefined);
+        });
+
+        test("the date, number and status can't be changed", async () => {
+            const id = await takeOrder();
+            const maria = await app.actingAsSales();
+
+            for (const key of ["date", "que", "status"]) (await sheet(maria, id, { [key]: "x" })).assertStatus(400);
+            app.assertDatabaseHas("orders", { id, status: "pending", queue_num: 1 });
+        });
+    });
+
+    describe("a new row", () => {
+        const row = (overrides = {}) => ({ customer: "New Customer", purpose: "Roofings", roofing: "450000", ...overrides });
+
+        test("becomes a ticket in line, with a time in, under the person who typed it", async () => {
+            const maria = await app.actingAsSales("Maria Santos");
+
+            const created = (await maria.post("/admin/order-sheet", row({ terms: "vale", team: "giga", runner: "Boy" }))).assertStatus(201).body;
+
+            assert.deepEqual([created.name, created.purpose, created.status, created.isToday], ["New Customer", "Roofings", "pending", true]);
+            assert.deepEqual([created.paymentStatus, created.team, created.runner], ["Vale", "GIGA", "Boy"]);
+            assert.match(created.salesTimeIn, /^\d{2}:\d{2}$/);
+            assert.deepEqual(created.edits.map((e) => [e.by.name, e.changes]), [["Maria Santos", ["paymentStatus"]]]);
+            assert.equal((await maria.get("/admin/orders")).assertStatus(200).body.length, 1);
+        });
+
+        test("keeps the cells of its own columns, and what's typed over what the system works out", async () => {
+            const maria = await app.actingAsSales();
+            const { key } = (await maria.post("/admin/order-sheet/columns", { name: "Truck" })).assertStatus(201).body;
+
+            const created = (await maria.post("/admin/order-sheet", row({ [key]: "Isuzu", assistedBy: "Ana" }))).assertStatus(201).body;
+
+            assert.deepEqual(created.sheetCells, { [key]: "Isuzu", assistedBy: "Ana" });
+        });
+
+        test("a row that's missing something makes no ticket, and says why", async () => {
+            const maria = await app.actingAsSales();
+
+            assert.match((await maria.post("/admin/order-sheet", row({ customer: "" }))).assertStatus(400).body.message, /^No ticket made: the customer's name/);
+            assert.match((await maria.post("/admin/order-sheet", row({ purpose: "" }))).assertStatus(400).body.message, /type of order is empty/);
+            assert.match((await maria.post("/admin/order-sheet", row({ roofing: "" }))).assertStatus(400).body.message, /no invoice number/);
+            app.assertDatabaseCount("orders", 0);
+        });
+
+        test("only for those who work on the sheet", async () => {
+            (await (await app.actingAsLoading()).post("/admin/order-sheet", row())).assertStatus(403);
+            (await app.client().post("/admin/order-sheet", row())).assertStatus(401);
+            app.assertDatabaseCount("orders", 0);
+        });
+    });
+
+    describe("a column of their own", () => {
+        test("is added, filled in on each order, and shows for everyone", async () => {
+            const id = await takeOrder();
+            const maria = await app.actingAsSales("Maria Santos");
+            const ana = await app.actingAsSales("Ana Reyes");
+
+            const added = (await maria.post("/admin/order-sheet/columns", { name: " Plate no: " })).assertStatus(201).body;
+            assert.equal(added.key, "c:PLATE NO");
+
+            assert.deepEqual((await ana.get("/admin/order-sheet/columns")).assertStatus(200).body.map((c) => c.id), [added.id]);
+            const saved = (await sheet(ana, id, { [added.key]: "ABC 123" })).assertStatus(200).body;
+            assert.equal(saved.sheetCells[added.key], "ABC 123");
+            assert.deepEqual(saved.edits[0].changes, [added.name]);
+            const [listed] = (await maria.get("/admin/order-sheet")).assertStatus(200).body;
+            assert.equal(listed.sheetCells[added.key], "ABC 123");
+        });
+
+        test("can't be named like one of the sheet's own, or twice, or have no name", async () => {
+            const maria = await app.actingAsSales();
+
+            for (const name of ["", "  ", "x".repeat(41), "Runner", "date", "TIME IN", "APP ID", 5]) {
+                (await maria.post("/admin/order-sheet/columns", { name })).assertStatus(400);
+            }
+            (await maria.post("/admin/order-sheet/columns", { name: "Truck" })).assertStatus(201);
+            (await maria.post("/admin/order-sheet/columns", { name: "TRUCK:" })).assertStatus(409);
+        });
+
+        test("taken off, its cells can't be filled in; added again, they're back", async () => {
+            const id = await takeOrder();
+            const maria = await app.actingAsSales();
+            const { id: columnId, key } = (await maria.post("/admin/order-sheet/columns", { name: "Truck" })).assertStatus(201).body;
+            (await sheet(maria, id, { [key]: "Isuzu" })).assertStatus(200);
+
+            (await maria.delete(`/admin/order-sheet/columns/${columnId}`)).assertStatus(204);
+            (await maria.delete(`/admin/order-sheet/columns/${columnId}`)).assertStatus(404);
+            assert.deepEqual((await maria.get("/admin/order-sheet/columns")).assertStatus(200).body, []);
+            (await sheet(maria, id, { [key]: "Fuso" })).assertStatus(400);
+
+            (await maria.post("/admin/order-sheet/columns", { name: "truck" })).assertStatus(201);
+            const [listed] = (await maria.get("/admin/order-sheet")).assertStatus(200).body;
+            assert.equal(listed.sheetCells[key], "Isuzu");
+        });
+
+        test("only for those who work on the sheet", async () => {
+            const loading = await app.actingAsLoading();
+            (await loading.get("/admin/order-sheet/columns")).assertStatus(403);
+            (await loading.post("/admin/order-sheet/columns", { name: "Truck" })).assertStatus(403);
+            (await loading.delete("/admin/order-sheet/columns/1")).assertStatus(403);
+            (await app.client().get("/admin/order-sheet/columns")).assertStatus(401);
+        });
     });
 
     test("updating the ticket from the Order tab keeps the runner and receiver from the sheet", async () => {

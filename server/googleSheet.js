@@ -1,37 +1,17 @@
 // the Order sheet copied to Google Sheets, laid out like the loading schedule sales keeps there: every few seconds the
 // orders that changed are sent to the Google Apps Script web app (tools/google-apps-script/orderSheet.gs), which adds
 // or updates their rows in the spreadsheet; Google can't reach the server on the company network, so the server sends,
-// and it's the server that asks, just as often, for the team, runner and receiver people typed in the sheet, which go
-// back to the order (only those three, the cells the Order sheet itself lets sales fill in), and for new rows with
-// CREATE TICKET ticked, which become tickets
+// and it's the server that asks, just as often, for what people typed in the sheet, which goes back to the order (every
+// column but DATE, QUE and STATUS, which run the queue), for new rows, which become tickets once they have a TYPE OF
+// ORDER, and for columns people added, which join the Order sheet
 // set GOOGLE_SHEET_URL (the web app's /exec link) and GOOGLE_SHEET_TOKEN (the script's SYNC_TOKEN) in .env to turn it on
-import { assistedBy, invoicesByColumn, sheetDate, sheetTime } from '../src/admin/data/sheetColumns.js';
+import { sheetDate, sheetValues } from '../src/admin/data/sheetColumns.js';
 import { whereNow } from '../src/admin/data/orderStage.js';
 import formatQueueNum, { markOf } from '../src/data/queueNum.js';
 
 // rows per request, so one request stays well inside Apps Script's time limit on the first sync of a large sheet
 const CHUNK = 300;
 const REQUEST_TIMEOUT_MS = 60 * 1000;
-
-const pad2 = (n) => String(n).padStart(2, "0");
-// a moment (ISO 8601) as the schedule writes a time, by the server's clock: "0734H"; "" for none
-const clockTime = (iso) => {
-    if (!iso) return "";
-    const d = new Date(iso);
-    return `${pad2(d.getHours())}${pad2(d.getMinutes())}H`;
-};
-
-// when the last of the order's areas finished loading, once every one has; an order loaded before areas were kept
-// has only when loading pressed Done
-const loadedAt = (order) => {
-    const areas = order.areas ?? [];
-    if (!areas.length) return order.loaded?.at;
-    return areas.every((area) => area.loaded) ? areas.map((area) => area.loaded.at).toSorted().at(-1) : undefined;
-};
-
-// who checked the items again: the 2nd checker of each column, each name once
-const doubleCheckedBy = (checkers = {}) =>
-    [...new Set(Object.values(checkers).map(([, second = ""]) => second.trim()).filter(Boolean))].join(", ");
 
 // where an order goes on the sheet: every regular order first, then all the priority orders together below them, then
 // all the TBA priority ones, whatever their day, so a day doesn't split them up; oldest first within each group, in
@@ -41,50 +21,35 @@ export const sortKey = (order) =>
     `${GROUPS[markOf(order)]} ${order.date} ${String(order.queueNum).padStart(4, "0")}`;
 
 // an order from the Order sheet (toHistory's shape) as one row of the Google sheet, { [column key]: text }; id is
-// how the script finds the row again, and several invoice numbers in a column go one above the other; a priority
-// order's QUE is just its mark, "*", and a TBA priority one's "**", in place of the number
-export const sheetRow = (order) => {
-    const invoices = invoicesByColumn(order);
-    const stacked = (key) => invoices[key].join("\n");
-    return {
-        id: String(order.id),
-        date: sheetDate(order.createdAt),
-        que: markOf(order) || formatQueueNum(order.queueNum, order.purpose),
-        team: order.team ?? "",
-        salesman: order.salesman ?? "",
-        assistedBy: assistedBy(order),
-        customer: order.name,
-        roofing: stacked("roofing"),
-        construction: stacked("construction"),
-        tba: stacked("tba"),
-        chassis: stacked("chassis"),
-        others: stacked("others"),
-        terms: order.paymentStatus ?? "",
-        salesTimeIn: sheetTime(order.salesTimeIn),
-        salesTimeOut: sheetTime(order.salesTimeOut),
-        runner: order.runner ?? "",
-        receiver: order.receiver ?? "",
-        // in to loading when sales handed them over, out when the last area finished
-        loadingTimeIn: clockTime(order.handedOver?.at),
-        loadingTimeOut: clockTime(loadedAt(order)),
-        status: whereNow(order, { named: false }),
-        doubleCheckedBy: doubleCheckedBy(order.checkers),
-        purpose: order.purpose ?? "",
-        sortKey: sortKey(order),
-    };
-};
+// how the script finds the row again; a priority order's QUE is just its mark, "*", and a TBA priority one's "**", in
+// place of the number; columns: the ones people added, [{ key, name }]
+export const sheetRow = (order, columns = []) => ({
+    id: String(order.id),
+    date: sheetDate(order.createdAt),
+    que: markOf(order) || formatQueueNum(order.queueNum, order.purpose),
+    status: whereNow(order, { named: false }),
+    ...sheetValues(order),
+    ...Object.fromEntries(columns.map(({ key }) => [key, order.sheetCells?.[key] ?? ""])),
+    sortKey: sortKey(order),
+});
 
 // keeps the Google sheet up to date: every intervalMs, listOrders() (the Order sheet's orders) is turned into rows and
 // the ones that changed since the last time are sent, oldest first so new rows are added in order; orders that are
 // gone (deleted) are taken out of the sheet. The first sync after a start sends every row (the script only rewrites
 // the ones that differ) and the ids to keep, so an order deleted while the server was off goes too
-// applyEdit({ id, key, value }): takes one cell typed in the sheet, and answers why it can't, or "" once it has; each
-// sync starts with these, so the rows sent after them already have them, which tells the script they've been dealt with;
-// an edit whose rows don't get there is simply asked for and taken again, and taking it twice changes nothing
-// applyNewRow({ key, ticked, values }): makes the ticket for a new row in the sheet, and answers { id }, { problem } or
+// applyEdit({ id, key, value }): takes one cell typed in the sheet, and answers why it can't, "" once it has, or null for
+// one that has nowhere to go (an order or a column that's gone); each sync starts with these, so the rows sent after them
+// already have them; each row says which of its cells were taken, so the script writes them the way the app keeps them
+// ("giga" becomes GIGA); an edit whose rows don't get there is simply asked for and taken again, and taking it twice
+// changes nothing
+// applyNewRow({ key, ready, values }): makes the ticket for a new row in the sheet, and answers { id }, { problem } or
 // null for nothing to do; its row is told which ticket it became before any rows go, or the rows would add that ticket
 // to the sheet a second time; if that fails, nothing else goes this time, and the key finds the same ticket on the retry
-export function createSheetSync({ url, token, listOrders, applyEdit, applyNewRow, intervalMs = 15000, fetch = globalThis.fetch, log = console }) {
+// listColumns(): the columns people added, [{ key, name }]; takeHeaders(headers): the sheet's other columns, [{ key, name
+// }], join them, and it answers the list as it is now; any of those the sheet doesn't have yet are added to it
+export function createSheetSync({
+    url, token, listOrders, listColumns = () => [], takeHeaders, applyEdit, applyNewRow, intervalMs = 15000, fetch = globalThis.fetch, log = console,
+}) {
     // id -> the row as last sent (JSON)
     const sent = new Map();
     let firstSync = true;
@@ -99,6 +64,8 @@ export function createSheetSync({ url, token, listOrders, applyEdit, applyNewRow
     let toldRefused = new Set();
     // whether the log has said the script needs its new version, so it says so once
     let toldOldScript = false;
+    // the cells taken from the sheet on this sync, by order id: { [order id]: { [key]: what was typed } }
+    let took = new Map();
 
     const request = async (payload) => {
         const res = await fetch(url, {
@@ -133,15 +100,25 @@ export function createSheetSync({ url, token, listOrders, applyEdit, applyNewRow
     // the person who typed it will see it, and stays there until it's fixed; asking happens on every sync, even with
     // nothing to send, and isn't a save, so it doesn't move the status or its time
     const takeEdits = async () => {
-        const { edits, newRows } = await request({ pull: true });
+        took = new Map();
+        const { edits, newRows, headers } = await request({ pull: true });
         // a version of the script from before edits came back: the rows still go, so it's only worth a line in the log
         if (!edits) {
             if (!toldOldScript) log.log("Google sheet: edits typed in the sheet can't come back until the script's new version is deployed");
             toldOldScript = true;
             return;
         }
+
+        // the columns first, so what's typed in a new one has somewhere to go, and the rows that follow can fill it in
+        if (takeHeaders && headers) {
+            const inSheet = new Set(headers.map(({ key }) => key));
+            const missing = takeHeaders(headers).filter(({ key }) => !inSheet.has(key));
+            if (missing.length) await post({ columns: missing.map(({ name }) => name) });
+        }
+
         const refused = edits.flatMap((edit) => {
             const problem = applyEdit(edit);
+            if (problem === "") took.set(String(edit.id), { ...took.get(String(edit.id)), [edit.key]: edit.value });
             return problem ? [{ id: edit.id, key: edit.key, value: edit.value, problem }] : [];
         });
         const made = [];
@@ -155,7 +132,8 @@ export function createSheetSync({ url, token, listOrders, applyEdit, applyNewRow
         // the new tickets' rows first, so they're on the sheet by the time the rows that follow are compared with it
         if (made.length) {
             const orders = new Map(listOrders().map((order) => [order.id, order]));
-            const created = made.filter(({ id }) => orders.has(id)).map(({ key, id }) => ({ key, row: sheetRow(orders.get(id)) }));
+            const columns = listColumns();
+            const created = made.filter(({ id }) => orders.has(id)).map(({ key, id }) => ({ key, row: sheetRow(orders.get(id), columns) }));
             if (created.length) await post({ created });
         }
 
@@ -180,13 +158,15 @@ export function createSheetSync({ url, token, listOrders, applyEdit, applyNewRow
         try {
             if (applyEdit) await takeEdits();
 
+            const columns = listColumns();
             const rows = listOrders()
                 .toSorted((a, b) => a.date.localeCompare(b.date) || a.queueNum - b.queueNum)
-                .map(sheetRow);
-            const changed = rows.filter((row) => sent.get(row.id) !== JSON.stringify(row));
+                .map((order) => sheetRow(order, columns));
+            // a row with a cell just taken goes even if the order came out the same, so the cell is tidied
+            const changed = rows.filter((row) => took.has(row.id) || sent.get(row.id) !== JSON.stringify(row));
             for (let i = 0; i < changed.length; i += CHUNK) {
                 const chunk = changed.slice(i, i + CHUNK);
-                await post({ rows: chunk });
+                await post({ rows: chunk.map((row) => (took.has(row.id) ? { ...row, took: took.get(row.id) } : row)) });
                 for (const row of chunk) sent.set(row.id, JSON.stringify(row));
             }
 

@@ -2045,13 +2045,17 @@
   padding: 16px 12px;
 }
 
-/* the Order sheet, laid out like the loading schedule in Google Sheets: a black heading row that stays in view under
-   the top bar, thin grid lines and short rows; the columns have set shares that add up to the page's width, so nothing
-   scrolls sideways and long text wraps inside its cell, except what must stay on one line (a queue code, a date, a
-   time or an invoice number), whose column widens to fit it and takes the room from the others; the cells staff fill
-   in (team, terms, runner, receiver) have a cream tint */
+/* the Order sheet, laid out like the loading schedule in Google Sheets: a black heading row that stays in view, thin
+   grid lines and short rows; it has too many columns for a page, so like a spreadsheet it scrolls inside its frame, both
+   ways, with the date and queue number pinned on the left so you can always see which row you're on; the columns have
+   set widths, and long text wraps inside its cell, except what must stay on one line (a queue code, a date, a time or
+   an invoice number), whose column widens to fit it; every cell staff can
+   change has a cream tint, which leaves only the date, queue number and status white */
 .sheet-frame {
   min-width: 0;
+  max-height: calc(100vh - var(--bar-h) - 32px);
+  overflow: auto;
+  border-top: 1px solid #d4d4d0;
 }
 
 .sheet-table {
@@ -2060,6 +2064,8 @@
   --sheet-num: clamp(9px, calc((100vw - 300px) * 0.0103), 12px);
   --sheet-head: clamp(8.5px, calc((100vw - 300px) * 0.0089), 10px);
   width: 100%;
+  /* wide enough that no heading or number is squeezed, and wider again for each column people added */
+  min-width: calc(1820px + var(--sheet-added, 0) * 110px);
   border-collapse: separate;
   border-spacing: 0;
   font-size: var(--sheet-num);
@@ -2067,21 +2073,40 @@
   border-left: 1px solid #d4d4d0;
 }
 
-/* each column's share of the width, left to right as on the schedule; together they make 100%, each wide enough for
-   its longest number or heading word at the sizes above */
-.sheet-table .c-date { width: 6.25%; }
-.sheet-table .c-que { width: 4%; }
-.sheet-table .c-team { width: 6%; }
-/* the salesman is one typed surname that can't wrap, CORONACION; the others wrap between names or are typed into */
-.sheet-table .c-salesman { width: 7.5%; }
-.sheet-table .c-person { width: 5.5%; }
-.sheet-table .c-customer { width: 8.8%; }
-.sheet-table .c-invoice { width: 6.15%; }
-.sheet-table .c-construction { width: 6.5%; }
-.sheet-table .c-others { width: 5.75%; }
-.sheet-table .c-terms { width: 6%; }
-.sheet-table .c-time { width: 4.25%; }
-.sheet-table .c-status { width: 5.75%; }
+/* each column's width, left to right as on the schedule; together they make the table's min-width above */
+.sheet-table .c-date { width: 80px; }
+.sheet-table .c-que { width: 64px; }
+.sheet-table .c-team { width: 70px; }
+.sheet-table .c-salesman { width: 100px; }
+.sheet-table .c-person { width: 90px; }
+.sheet-table .c-customer { width: 160px; }
+.sheet-table .c-invoice { width: 86px; }
+.sheet-table .c-type { width: 110px; }
+.sheet-table .c-terms { width: 80px; }
+.sheet-table .c-time { width: 64px; }
+.sheet-table .c-custom { width: 110px; }
+.sheet-table .c-status { width: 110px; }
+
+/* the date and queue number stay in view as the sheet scrolls sideways */
+.sheet-table .sheet-date,
+.sheet-table thead th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+
+.sheet-table .sheet-que,
+.sheet-table thead th:nth-child(2) {
+  position: sticky;
+  left: 80px;
+  z-index: 1;
+  border-right: 2px solid #b9b9b3;
+}
+
+.sheet-table thead th:first-child,
+.sheet-table thead th:nth-child(2) {
+  z-index: 3;
+}
 
 .sheet-table th,
 .sheet-table td {
@@ -2098,7 +2123,7 @@
 
 .sheet-table thead th {
   position: sticky;
-  top: var(--bar-h);
+  top: 0;
   z-index: 2;
   padding: 8px 2px;
   font-size: var(--sheet-head);
@@ -2186,8 +2211,11 @@
   font-variant-numeric: tabular-nums;
 }
 
-.sheet-invoices span {
-  display: block;
+.sheet-invoices .sheet-cell {
+  white-space: pre;
+}
+
+.sheet-time .sheet-cell {
   white-space: nowrap;
 }
 
@@ -2212,8 +2240,112 @@
   border-radius: 0;
 }
 
+/* a cell as plain text until it's clicked: a long name wraps and the column fits it; it keeps the lines of several
+   invoice numbers */
+.sheet-cell {
+  display: block;
+  width: 100%;
+  min-height: 34px;
+  padding: 5px 3px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  text-transform: inherit;
+  white-space: pre-line;
+  background: none;
+  border: 0;
+  cursor: text;
+}
+
+.sheet-cell:hover {
+  background-color: var(--field-bg);
+}
+
 .sheet-input {
-  padding: 0 3px;
+  height: auto;
+  min-height: 34px;
+  padding: 5px 3px;
+  line-height: inherit;
+  text-transform: inherit;
+  overflow: hidden;
+  resize: none;
+}
+
+/* a row being added, before it's a ticket */
+.sheet-new-row > * {
+  background: #fff4d6;
+}
+
+.sheet-tool-row {
+  display: flex;
+  gap: 8px;
+}
+
+.sheet-tool-row .sheet-tool {
+  flex: 1;
+  white-space: nowrap;
+}
+
+/* Add row, Add column and the small buttons that go with them */
+.sheet-tool {
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: inherit;
+  background: #ffffff;
+  border: 1px solid #c9c9c4;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.sheet-tool:hover:not(:disabled) {
+  background-color: var(--field-bg);
+}
+
+.sheet-tool:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.sheet-new-column {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.sheet-new-column label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sheet-new-column input {
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 13px;
+  border: 1px solid #c9c9c4;
+  border-radius: 6px;
+}
+
+/* takes an added column off, in its heading */
+.sheet-column-remove {
+  display: block;
+  margin: 2px auto 0;
+  padding: 0 4px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  color: #ffffff;
+  background: none;
+  border: 0;
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.sheet-column-remove:hover {
+  opacity: 1;
 }
 
 /* a small caret instead of the browser's wide one, so the choice still fits a narrow column */
@@ -2258,21 +2390,6 @@
   margin-top: 4px;
   font-size: 11px;
   color: var(--text-muted);
-}
-
-/* on a phone the sheet can't fit: there it scrolls sideways inside its frame instead */
-@media (max-width: 760px) {
-  .sheet-frame {
-    overflow-x: auto;
-  }
-
-  .sheet-table {
-    min-width: 960px;
-  }
-
-  .sheet-table thead th {
-    top: 0;
-  }
 }
 
 /* the form lays itself out by its own width, which the board takes from */

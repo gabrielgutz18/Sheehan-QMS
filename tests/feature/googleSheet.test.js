@@ -105,7 +105,7 @@ describe("Google sheet", () => {
             // an earlier day's marked orders join their groups, rather than staying with that day
             order({ id: 7, queueNum: 9, date: "2026-10-28", priority: true }),
             order({ id: 8, queueNum: 8, date: "2026-10-28", tbaPriority: true }),
-        ].map(sheetRow);
+        ].map((o) => sheetRow(o));
 
         const sorted = rows.toSorted((a, b) => a.sortKey.localeCompare(b.sortKey));
 
@@ -114,6 +114,18 @@ describe("Google sheet", () => {
             ["7", "*"], ["3", "*"], ["5", "*"],
             ["8", "**"], ["2", "**"], ["4", "**"],
         ]);
+    });
+
+    test("what's typed over a cell the system works out shows in its place, and added columns are in the row", () => {
+        const row = sheetRow(order({
+            servedBy: { id: 2, name: "BELULIA" },
+            sheetCells: { assistedBy: "Typed Name", loadingTimeIn: "0900H", "c:PLATE NO": "ABC 123" },
+        }), [{ key: "c:PLATE NO", name: "Plate no" }, { key: "c:TRUCK", name: "Truck" }]);
+
+        assert.equal(row.assistedBy, "Typed Name");
+        assert.equal(row.loadingTimeIn, "0900H");
+        assert.equal(row["c:PLATE NO"], "ABC 123");
+        assert.equal(row["c:TRUCK"], "");
     });
 
     test("loading's times: in when sales handed them over, out once every area is loaded", () => {
@@ -305,6 +317,8 @@ describe("Google sheet", () => {
 
             assert.deepEqual(app.requests[0], { token: "t", pull: true });
             assert.equal(app.requests[1].rows[0].runner, "TYPED");
+            // with what was typed, so the script knows it's been taken
+            assert.deepEqual(app.requests[1].rows[0].took, { runner: "TYPED" });
         });
 
         test("asking for edits isn't a save: the status and its time don't move", async () => {
@@ -457,10 +471,10 @@ describe("Google sheet", () => {
                 assert.match(refused[1].problem, /60/);
             });
 
-            test("only those three cells can come back, whatever the sheet sends", async (t) => {
+            test("what isn't one of the sheet's columns can't come back, whatever the sheet sends", async (t) => {
                 const { row, type, refused } = await withEdits(t);
 
-                await type({ key: "name", value: "Someone Else" }, { key: "paymentStatus", value: "Paid" });
+                await type({ key: "name", value: "Someone Else" }, { key: "date", value: "Jan-01-20" });
 
                 const order = await row();
                 assert.equal(order.name, "Juan Dela Cruz");

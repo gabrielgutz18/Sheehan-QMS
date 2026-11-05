@@ -282,6 +282,20 @@ erDiagram
         TEXT invoice_no
         TEXT type "type of order it's for, e.g. Roofings; '' on older tickets"
     }
+    sheet_columns {
+        INTEGER id PK
+        TEXT key UK "c: and the name in capitals, how the page and the Google sheet find the same column"
+        TEXT name "as first typed"
+        TEXT created_at
+        TEXT removed_at "taken off the sheet, or NULL; its cells are kept"
+    }
+
+    sheet_cells {
+        INTEGER order_id PK "orders.id, cascade"
+        TEXT cell PK "a column's key, or assistedBy, loadingTimeIn, loadingTimeOut, doubleCheckedBy"
+        TEXT value
+    }
+
     order_edits {
         INTEGER id PK
         INTEGER order_id FK "orders.id, cascade"
@@ -356,6 +370,7 @@ The relationships, as SQLite reports them (`PRAGMA foreign_key_list`):
 | `order_invoices.order_id` | `orders.id` | cascade: the invoices go with the order | [`011_order_invoices.sql`](../server/migrations/011_order_invoices.sql) |
 | `order_edits.order_id` | `orders.id` | cascade: the edits go with the order | [`017_order_edits.sql`](../server/migrations/017_order_edits.sql) |
 | `order_edits.user_id` | `users.id` | — (accounts are switched off, never deleted, so edits stay); empty for an edit typed in the Google sheet, since [`033_google_sheet_edits.sql`](../server/migrations/033_google_sheet_edits.sql) | same |
+| `sheet_cells.order_id` | `orders.id` | cascade: the cells go with the order | [`035_sheet_cells.sql`](../server/migrations/035_sheet_cells.sql) |
 | `serves.order_id` | `orders.id` | cascade | [`003_staff_accounts.sql:29-36`](../server/migrations/003_staff_accounts.sql#L29-L36) |
 | `serves.user_id` | `users.id` | — (accounts are switched off, never deleted, so points stay) | same |
 | `sessions.user_id` | `users.id` | cascade | [`003_staff_accounts.sql:18-22`](../server/migrations/003_staff_accounts.sql#L18-L22) |
@@ -371,7 +386,9 @@ Orders are never deleted from the app. Delete only sets `deleted_at`, so the cas
 |---|---|---|---|
 | `orders` | one row per ticket; [`034_sheet_tickets.sql`](../server/migrations/034_sheet_tickets.sql) adds `sheet_key`, so a row in the Google sheet can only ever make one ticket | `insertOrder` (L334), `setSheetKey`, `updateOrder` (L335), `setStatus` (L336), `deleteOrder` (L345), `restoreSameDay` / `restoreToToday` (L384-393) | `findOrder`, `findById`, `dayOrders` (L346-348), `serving` / `upcoming` (L349-354), `history` (L373), stats (L356-371) |
 | `order_invoices` | the invoices of each order, with their type of order | `saveInvoices()` → `deleteInvoices` + `insertInvoice` | `orderInvoices`, `dayInvoices`, `invoicesFor` |
-| `order_edits` | every save on Customer order or the Order sheet that changed something, and every team, runner or receiver typed in the Google sheet: who (no one for the Google sheet), their sales team then, what changed, when | `insertEdit`, in `PUT /admin/orders/:queueNum` when `changedDetails()` finds a change, and in `saveSheetCells()` | `orderEdits`, `dayEdits`, `editsFor` → `edits` on each order (`toEdit()`) |
+| `order_edits` | every save on Customer order or the Order sheet that changed something, and every cell typed in the Google sheet: who (no one for the Google sheet), their sales team then, what changed, when | `insertEdit`, in `PUT /admin/orders/:queueNum` when `changedDetails()` finds a change, and in `saveSheetCells()` | `orderEdits`, `dayEdits`, `editsFor` → `edits` on each order (`toEdit()`) |
+| `sheet_columns` | the columns people added to the Order sheet, on the page or in the Google sheet ([`035_sheet_cells.sql`](../server/migrations/035_sheet_cells.sql)) | `insertSheetColumn`, `restoreSheetColumn`, `removeSheetColumn` | `sheetColumns`, `findSheetColumn` |
+| `sheet_cells` | what's typed in those columns, and over the cells the system works out, per order; a cleared cell has no row | `setSheetCell`, `clearSheetCell`, in `saveSheetCells()` and `createFromCells()` | `orderSheetCells`, `sheetCellsFor` → `sheetCells` on each order on the Order sheet |
 | `order_items` | the lines of each order | `saveItems()` → `deleteItems` + `insertItem` (L493-496) | `orderItems`, `dayItems` (L396-399), `itemsFor` (L380), stats joins |
 | `queue_counters` | last number given out each day | `nextQueueNum` (L330-333), on a new order and on a restore from an earlier day | same statement (`RETURNING last_num`) |
 | `users` | staff accounts and their profiles | built-in admin (L461-463), `insertUser` (L417), `updateUser` (L421), `updateProfile` (L426), `setPhoto` (L431) | `findUser` (L415), `findSession` join (L405), `ORDER_ROW` join (L313), `listUsers` (L432) |

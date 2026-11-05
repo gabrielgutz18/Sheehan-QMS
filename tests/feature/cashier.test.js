@@ -111,10 +111,10 @@ describe("cashier", () => {
         const [order] = (await cashier.get("/admin/payments")).assertStatus(200).body;
 
         assert.equal(order.paymentChange.by.name, "Rosa Bayad");
-        // sales can't change it on the sheet
-        (await maria.patch(`/admin/order-sheet/${id}`, { paymentStatus: "COD" })).assertStatus(400);
+        // and the terms on the sheet count as the change they are
+        (await maria.patch(`/admin/order-sheet/${id}`, { terms: "COD" })).assertStatus(200);
         const [again] = (await cashier.get("/admin/payments")).assertStatus(200).body;
-        assert.deepEqual([again.paymentStatus, again.paymentChange.by.name], ["Paid", "Rosa Bayad"]);
+        assert.deepEqual([again.paymentStatus, again.paymentChange.by.name], ["COD", "Maria Santos"]);
     });
 
     test("an earlier day's order is changed by its id, not today's order with the same number", async () => {
@@ -232,7 +232,7 @@ describe("cashier", () => {
         app.assertDatabaseCount("order_edits", 3);
     });
 
-    test("the Order sheet doesn't take the payment status", async () => {
+    test("the Order sheet changes the payment status through its Terms cell, not by the field's own name", async () => {
         const id = await takeOrder();
         const maria = await app.actingAsSales("Maria Santos");
 

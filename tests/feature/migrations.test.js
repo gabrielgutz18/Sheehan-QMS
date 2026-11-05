@@ -591,3 +591,19 @@ test("rebuilding users for chassis accounts keeps every account, sign-in, last s
         db.close();
     }
 });
+test("035 adds the sheet's own columns and typed cells, and an order's cells go with it", () => {
+    const db = openDatabase(dataDir);
+    try {
+        db.exec("PRAGMA foreign_keys = ON");
+        const { lastInsertRowid: id } = db.prepare(`INSERT INTO orders (queue_date, queue_num, name, purpose, status, created_at)
+            VALUES ('2026-11-05', 1, 'Ana', 'Steel', 'pending', '2026-11-05T01:00:00Z')`).run();
+        db.prepare("INSERT INTO sheet_columns (key, name, created_at) VALUES ('c:TRUCK', 'Truck', '2026-11-05T01:00:00Z')").run();
+        db.prepare("INSERT INTO sheet_cells (order_id, cell, value) VALUES (?, 'c:TRUCK', 'Isuzu')").run(id);
+
+        assert.throws(() => db.prepare("INSERT INTO sheet_columns (key, name, created_at) VALUES ('c:TRUCK', 'truck', 'x')").run());
+        db.prepare("DELETE FROM orders WHERE id = ?").run(id);
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sheet_cells").get().n, 0);
+    } finally {
+        db.close();
+    }
+});
