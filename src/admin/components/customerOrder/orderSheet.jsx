@@ -162,8 +162,8 @@ export default function OrderSheet({ onOpen }) {
                 <p className="admin-empty">{orders.length === 0 ? "No orders yet." : "No orders match."}</p>
             ) : (
                 <div className="sheet-frame">
-                    {/* fixed column widths (see .sheet-table col), so the sheet fills the page and never scrolls sideways;
-                        long text wraps inside its cell instead */}
+                    {/* each column has its share of the width (see .sheet-table col), so the sheet fills the page and never
+                        scrolls sideways; long text wraps inside its cell, and a long queue code widens its column */}
                     <table className="sheet-table">
                         <colgroup>
                             <col className="c-date" />

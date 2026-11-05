@@ -2046,9 +2046,10 @@
 }
 
 /* the Order sheet, laid out like the loading schedule in Google Sheets: a black heading row that stays in view under
-   the top bar, thin grid lines and short rows; the columns have fixed widths that add up to the page's width, so
-   nothing scrolls sideways and long text wraps inside its cell; the cells staff fill in (team, terms, runner,
-   receiver) have a cream tint */
+   the top bar, thin grid lines and short rows; the columns have set shares that add up to the page's width, so nothing
+   scrolls sideways and long text wraps inside its cell, except what must stay on one line (a queue code, a date, a
+   time or an invoice number), whose column widens to fit it and takes the room from the others; the cells staff fill
+   in (team, terms, runner, receiver) have a cream tint */
 .sheet-frame {
   min-width: 0;
 }
@@ -2059,7 +2060,6 @@
   --sheet-num: clamp(9px, calc((100vw - 300px) * 0.0103), 12px);
   --sheet-head: clamp(8.5px, calc((100vw - 300px) * 0.0089), 10px);
   width: 100%;
-  table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
   font-size: var(--sheet-num);
@@ -2088,7 +2088,9 @@
   padding: 5px 3px;
   text-align: left;
   vertical-align: middle;
-  overflow-wrap: break-word;
+  /* anywhere, not break-word: a long customer name or heading wraps in its cell instead of widening the column and
+     pushing the sheet off the page */
+  overflow-wrap: anywhere;
   background: #ffffff;
   border-right: 1px solid #d4d4d0;
   border-bottom: 1px solid #d4d4d0;
@@ -2149,6 +2151,13 @@
 
 .sheet-table td.sheet-caps {
   font-size: calc(var(--sheet-num) * 0.95);
+  /* a surname stays whole, CORONACION, and its column widens to fit, even when a long queue code has taken some room */
+  overflow-wrap: break-word;
+}
+
+/* a ticket for many types of order has a long code, RASTBR 03: it stays whole, and its column widens to fit */
+.sheet-que {
+  white-space: nowrap;
 }
 
 /* dates, times and invoice numbers never break: half a number on the next line would read as another one */

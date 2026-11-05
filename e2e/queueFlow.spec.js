@@ -367,6 +367,46 @@ test('an order sales takes fills in its ticket, date and time in on the Order sh
     await theirs.close();
 });
 
+test('a long queue code stays whole on the Order sheet: its column widens, without the sheet scrolling sideways', async ({ page }) => {
+    const customer = `Long Code ${Date.now()}`;
+
+    // a small office screen, where the columns are at their narrowest
+    await page.setViewportSize({ width: 1366, height: 768 });
+    await page.goto('/staff/customer-order');
+    await signIn(page, ADMIN.username, ADMIN.password);
+    await expect(page.getByRole('heading', { name: 'Customer order' })).toBeVisible();
+
+    // a long code, one letter or two for each type of order on the ticket
+    await page.getByRole('textbox', { name: 'Customer name' }).fill(customer);
+    await page.getByRole('button', { name: /^Type of order/ }).click();
+    for (const type of ['Roofings', 'Roofings Accessories', 'Steel', 'Hardwares', 'Tire', 'Battery']) {
+        await page.getByRole('checkbox', { name: type, exact: true }).check();
+    }
+    await page.keyboard.press('Escape');
+    await page.getByLabel('Invoice 1 number').fill(`L${Date.now()}`);
+    await page.getByLabel('Salesman name').fill('CORONACION');
+    await page.getByRole('button', { name: 'Serve', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'New order' })).toBeVisible();
+
+    await page.getByRole('radio', { name: 'Order sheet' }).click();
+    const row = page.getByRole('row').filter({ hasText: customer });
+    await expect(row.locator('.sheet-que-btn')).toHaveText(/^[A-Z]{6,} \d+$/);
+
+    // each on one line and inside its own cell; the column that widened for the code leaves the salesman room too
+    const fits = (cell) => {
+        const range = document.createRange();
+        range.selectNodeContents(cell);
+        const text = range.getBoundingClientRect();
+        return text.height <= parseFloat(getComputedStyle(cell).lineHeight) + 1 && text.right <= cell.getBoundingClientRect().right;
+    };
+    expect(await row.locator('.sheet-que').evaluate(fits)).toBe(true);
+    expect(await row.getByRole('cell', { name: 'CORONACION' }).evaluate(fits)).toBe(true);
+
+    // the rest of the sheet still fits the page
+    const sideways = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(sideways).toBeLessThanOrEqual(0);
+});
+
 test('a cover photo shows on the Dashboard, and a coworker can open that profile from SheeChat', async ({ page, browser }) => {
     const stamp = Date.now();
     const coworker = { username: `e2e-cover-${stamp}`, password: 'e2e-password', name: `Cover ${stamp}`, role: 'sales' };
