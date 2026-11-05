@@ -46,7 +46,7 @@ CI blocks on lint, `npm run typecheck` (non-strict `--checkJs`), `test:coverage`
 
 **Screens update by polling** every few seconds; there are no WebSockets or server-sent events.
 
-**Google Sheets is one-way.** `server/googleSheet.js` pushes changed rows to the Apps Script in `tools/google-apps-script/`, and only when `GOOGLE_SHEET_URL` is set. Sync errors go to the server log and show on the Order sheet (`GET /admin/order-sheet/sync`), along with a button to open the spreadsheet (`GOOGLE_SHEET_LINK`).
+**Google Sheets is mostly one-way.** `server/googleSheet.js` pushes changed rows to the Apps Script in `tools/google-apps-script/`, and only when `GOOGLE_SHEET_URL` is set. Google can't reach the server, so each sync first asks the script for what was typed in Team, Runner and Receiver and saves it to the order, as an edit with no account ("Edited by Google sheet"); a value it can't take gets a note on its cell. A new row with CREATE TICKET ticked becomes a ticket (`server/sheetTicket.js` checks it; `orders.sheet_key` stops one row making two). Every other column only goes to the sheet. Sync errors go to the server log and show on the Order sheet (`GET /admin/order-sheet/sync`), along with a button to open the spreadsheet (`GOOGLE_SHEET_LINK`).
 
 **Printing** runs from the browser (`src/admin/printing/`), optionally through the Python service in `tools/print-service/` on the PC with the printer.
 

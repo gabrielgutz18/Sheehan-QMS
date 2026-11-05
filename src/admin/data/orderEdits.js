@@ -28,5 +28,13 @@ export const editTime = (iso) => {
     return (at.toDateString() === new Date().toDateString() ? timeFormat : dayTimeFormat).format(at);
 };
 
+// a ticket made from a row in the Google sheet lists this in place of a change (server/api.js, CREATED_IN_SHEET)
+const CREATED_IN_SHEET = "createdInSheet";
+export const wasCreatedInSheet = (edit) => edit.changes.includes(CREATED_IN_SHEET);
+
+// how an edit's line starts: "Edited by Maria Santos", or "Created in Google sheet"
+export const editVerb = (edit) => (wasCreatedInSheet(edit) ? "Created in" : "Edited by");
+
 // ["runner", "invoices"] → "Runner, Invoices"
-export const changedDetails = (changes) => changes.map((key) => DETAIL_LABELS[key] ?? key).join(", ");
+export const changedDetails = (changes) =>
+    changes.filter((key) => key !== CREATED_IN_SHEET).map((key) => DETAIL_LABELS[key] ?? key).join(", ");

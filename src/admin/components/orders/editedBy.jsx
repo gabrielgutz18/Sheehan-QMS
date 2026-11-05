@@ -1,18 +1,19 @@
-import { changedDetails, editTime } from '../../data/orderEdits.js';
+import { changedDetails, editTime, editVerb } from '../../data/orderEdits.js';
 import Avatar from '../common/avatar.jsx';
 
 function EditLine({ edit }) {
+    const changed = changedDetails(edit.changes);
     return (
         <>
             <span className="edited-by-tag">
                 <Avatar account={edit.by} size={22} />
                 <span className="served-by-text">
-                    Edited by <strong>{edit.by.name}</strong>
+                    {editVerb(edit)} <strong>{edit.by.name}</strong>
                     {edit.team && <> · {edit.team}</>}
                     <span className="served-by-time"> · {editTime(edit.at)}</span>
                 </span>
             </span>
-            <span className="edited-by-changes">Changed {changedDetails(edit.changes)}</span>
+            {changed && <span className="edited-by-changes">Changed {changed}</span>}
         </>
     );
 }

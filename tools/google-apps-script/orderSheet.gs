@@ -8,8 +8,18 @@
  * them and columns of your own between them. A new row copies the format of the first row under the headers. On an
  * empty tab, the script makes the loading schedule's layout itself.
  *
- * Your edits stay: a cell someone typed over is left alone, even when the order changes in the app. Clear the cell and
- * the app fills it in again. The sheet doesn't send anything back: an edit here doesn't change the order in the app.
+ * TEAM, RUNNER and RECEIVER work both ways: what you type there goes back to the order in the app within a few seconds,
+ * and clearing the cell clears it in the app too. The app then keeps the cell up to date again. A value the app can't
+ * take, like a team that isn't on its list, stays in the cell with a note saying why, and the order doesn't change.
+ *
+ * Every other column only comes from the app: a cell someone typed over is left alone, even when the order changes in
+ * the app, and the order doesn't change. Clear the cell and the app fills it in again.
+ *
+ * A new ticket can start here: in an empty row, fill in the customer's name, the TYPE OF ORDER ("Roofings, Steel") and an
+ * invoice number under its department, then tick CREATE TICKET. Within a few seconds the ticket is in the app with today's
+ * date and next number, and the row is filled in from it. If something's missing or wrong, no ticket is made, a note on
+ * the tick says why, and the ticket is made once it's fixed. The script adds those two columns if the tab doesn't have
+ * them; like any other, they can be moved. A row with no tick is left alone, so a row can be typed in slowly.
  *
  * Setup (once):
  *   1. Open the spreadsheet → Extensions → Apps Script, and paste this file in.
@@ -60,15 +70,31 @@ const COLUMNS = [
     { key: "status", header: "STATUS", width: 110 },
     { key: "doubleCheckedBy", header: "DOUBLE CHECKED BY", width: 110 },
     { key: null, header: "REMARKS", width: 330, align: "left" },
+    // for a ticket started here (see the top of this file): what it's for, and the tick that makes it
+    { key: "purpose", header: "TYPE OF ORDER", also: ["ORDER TYPE"], width: 180, align: "left" },
+    { key: null, header: "CREATE TICKET", width: 80 },
 ];
+const PURPOSE_HEADER = "TYPE OF ORDER";
+const TICK_HEADER = "CREATE TICKET";
 
 // the script's own columns, hidden, added after the sheet's last column if they aren't there: the order's id in the app,
-// where its row goes ("0 2026-10-29 0003": the group, the day, the number; see sortKey in server/googleSheet.js), and
-// what the app last wrote in the row, which is how an edit is told from the app's own value
+// where its row goes ("0 2026-10-29 0003": the group, the day, the number; see sortKey in server/googleSheet.js), what
+// the app last wrote in the row, which is how an edit is told from the app's own value, and the mark on a row typed here
+// that's been sent to become a ticket, so sending it twice can't make two
 const APP_ID = "APP ID";
 const APP_SORT = "APP SORT";
 const APP_LAST = "APP LAST";
-const APP_COLUMNS = [APP_ID, APP_SORT, APP_LAST];
+const APP_NEW = "APP NEW";
+const APP_COLUMNS = [APP_ID, APP_SORT, APP_LAST, APP_NEW];
+
+// the columns that go back to the app when they're typed in: the cells sales fill in on the app's own Order sheet
+const TWO_WAY = ["team", "runner", "receiver"];
+// starts the note on a cell the app couldn't take, which is how the script knows the note is its own to take off
+const REFUSED_NOTE = "Not saved in the system: ";
+// the same for a row that couldn't become a ticket, on its tick
+const NO_TICKET_NOTE = "No ticket made: ";
+// what counts as ticked: the tick itself, or someone typing it on a tab without tick boxes
+const TICKED = /^(TRUE|YES|X)$/i;
 
 const HEADER_BG = "#000000";
 const HEADER_YELLOW = "#ffff00";
@@ -78,7 +104,11 @@ const HEADER_SEARCH_ROWS = 20;
 const SPARE_ROWS = 500;
 
 // the server's rows: { token, rows: [{ id, date, que, ... }] } adds or updates, { token, remove: [ids] } takes deleted
-// orders out, and { token, keep: [ids] } takes out every app row not listed (after the server restarts)
+// orders out, and { token, keep: [ids] } takes out every app row not listed (after the server restarts); Google can't
+// reach the server, so what's typed here goes back in an answer: { token, pull: true } gets { edits: [{ id, key, value }],
+// newRows: [{ key, ticked, values }] }, { token, refused: [{ id, key, problem }] } marks the edits the app couldn't take,
+// { token, refusedRows: [{ key, problem }] } the rows, and { token, created: [{ key, row }] } fills in the rows that became
+// tickets
 function doPost(e) {
     let body;
     try {
@@ -104,6 +134,13 @@ function doPost(e) {
             const keep = new Set(body.keep.map(String));
             result.removed += deleteRowsWhere_(sheet, layout, (id) => !keep.has(id));
         }
+        if (Array.isArray(body.created) && fillCreatedRows_(sheet, layout, body.created)) sortRows_(sheet, layout);
+        if (body.pull) {
+            result.edits = typedEdits_(sheet, layout);
+            result.newRows = ticketRows_(sheet, layout);
+        }
+        if (Array.isArray(body.refused)) markRefused_(sheet, layout, body.refused);
+        if (Array.isArray(body.refusedRows)) markRefusedRows_(sheet, layout, body.refusedRows);
         SpreadsheetApp.flush();
         return reply_(result);
     } catch (err) {
@@ -185,20 +222,39 @@ function layoutOf_(sheet) {
         });
     }
 
-    const app = {};
+    const headerRow = index + 1;
+    const dataRow = headerRow + HEADER_ROWS;
     let last = headers.length;
+
+    // the two columns a ticket started here needs, added to a tab from before them, in the look of its other headers
+    const addVisible = (name) => {
+        last += 1;
+        addColumn_(sheet, headerRow, last, name);
+        sheet.getRange(headerRow, 1).copyFormatToRange(sheet, last, last, headerRow, headerRow);
+        return last;
+    };
+    if (!columns.purpose) columns.purpose = addVisible(PURPOSE_HEADER);
+    let tick = headers.indexOf(normalized_(TICK_HEADER)) + 1;
+    if (!tick) {
+        tick = addVisible(TICK_HEADER);
+        addTicks_(sheet, dataRow, tick);
+    }
+
+    const app = {};
     for (const name of APP_COLUMNS) {
         const at = headers.indexOf(name);
         app[name] = at >= 0 ? at + 1 : (last += 1);
-        if (at < 0) addAppColumn_(sheet, index + 1, app[name], name);
+        if (at < 0) {
+            addColumn_(sheet, headerRow, app[name], name);
+            sheet.hideColumns(app[name]);
+        }
     }
-    return { headerRow: index + 1, dataRow: index + 1 + HEADER_ROWS, width: last, columns, app };
+    return { headerRow, dataRow, width: last, columns, tick, app };
 }
 
-function addAppColumn_(sheet, headerRow, column, name) {
+function addColumn_(sheet, headerRow, column, name) {
     if (column > sheet.getMaxColumns()) sheet.insertColumnsAfter(sheet.getMaxColumns(), column - sheet.getMaxColumns());
     sheet.getRange(headerRow, column).setValue(name);
-    sheet.hideColumns(column);
 }
 
 // the schedule's layout, on an empty tab: black headers in white bold capitals, the time headers yellow, each second
@@ -235,7 +291,14 @@ function layOut_(sheet) {
         .setFontWeights([COLUMNS.map((column) => (column.bold ? "bold" : "normal"))])
         .setFontColors([COLUMNS.map((column) => column.color || "#000000")])
         .setBorder(true, true, true, true, true, true, "#d9d9d9", SpreadsheetApp.BorderStyle.SOLID);
+    addTicks_(sheet, 1 + HEADER_ROWS, COLUMNS.findIndex((column) => column.header === TICK_HEADER) + 1);
     if (!sheet.getFilter()) sheet.getRange(1, 1, sheet.getMaxRows(), COLUMNS.length).createFilter();
+}
+
+// tick boxes down the CREATE TICKET column; they hold FALSE, so they count as filled-in cells, see upsertRows_
+function addTicks_(sheet, first, column) {
+    const count = sheet.getMaxRows() - first + 1;
+    if (count > 0) sheet.getRange(first, column, count, 1).insertCheckboxes();
 }
 
 // the first order row's format on these rows; the first row itself keeps the format it was given
@@ -261,10 +324,137 @@ function mergeRow_(current, last, next) {
     for (const key of Object.keys(next)) {
         const cell = current[key] ?? "";
         if (cell === next[key]) continue;
-        if (last && cell !== "" && cell !== (last[key] ?? "")) kept.push(key);
+        // a two-way cell the app has just taken, in the app's own spelling: "giga" becomes GIGA
+        if (TWO_WAY.includes(key) && sameTyped_(key, cell, next[key])) writes[key] = next[key];
+        else if (last && cell !== "" && cell !== (last[key] ?? "")) kept.push(key);
         else writes[key] = next[key];
     }
     return { writes, kept };
+}
+
+// whether what's in a two-way cell is what the app has: spaces around it don't count, since the app takes them off, and
+// neither do a team's capitals, since the app takes a team in any letters and keeps it in the list's own
+function sameTyped_(key, cell, app) {
+    const clean = (text) => (key === "team" ? text.trim().toUpperCase() : text.trim());
+    return clean(cell) === clean(app);
+}
+
+// what's been typed in the two-way cells since the app last wrote them, [{ id, key, value }], which comes down to a cell
+// that isn't what the app last wrote there; empty counts, as clearing it; a row with none of the app's last values (typed
+// in by hand, or from before they were kept) has nothing to compare with; a note of ours comes off a cell that's right
+// again; one column at a time, since this runs every few seconds and the sheet's other columns aren't needed
+function typedEdits_(sheet, layout) {
+    const count = sheet.getLastRow() - layout.dataRow + 1;
+    if (count <= 0) return [];
+    const column = (at) => sheet.getRange(layout.dataRow, at, count, 1);
+    const read = (at) => column(at).getDisplayValues().map((cells) => cells[0]);
+    const ids = read(layout.app[APP_ID]);
+    const lasts = read(layout.app[APP_LAST]).map(parseLast_);
+
+    const edits = [];
+    for (const key of TWO_WAY) {
+        const at = layout.columns[key];
+        if (!at) continue;
+        const cells = read(at);
+        const notes = column(at).getNotes();
+        ids.forEach((id, i) => {
+            if (!id || !lasts[i]) return;
+            if (!sameTyped_(key, cells[i], lasts[i][key] ?? "")) {
+                edits.push({ id, key, value: cells[i].trim() });
+            } else if (notes[i][0].startsWith(REFUSED_NOTE)) {
+                sheet.getRange(layout.dataRow + i, at).setNote("");
+            }
+        });
+    }
+    // by row, the order they're in on the sheet
+    const rowOf = new Map(ids.map((id, i) => [id, i]));
+    return edits.sort((a, b) => rowOf.get(a.id) - rowOf.get(b.id));
+}
+
+// a note on each cell the app couldn't take, saying why; what was typed stays, for whoever typed it to fix
+function markRefused_(sheet, layout, refused) {
+    const count = sheet.getLastRow() - layout.dataRow + 1;
+    if (count <= 0) return;
+    const ids = sheet.getRange(layout.dataRow, layout.app[APP_ID], count, 1).getDisplayValues().map((cells) => cells[0]);
+    for (const { id, key, problem } of refused) {
+        const i = ids.indexOf(String(id));
+        const at = layout.columns[key];
+        if (i >= 0 && at) sheet.getRange(layout.dataRow + i, at).setNote(`${REFUSED_NOTE}${problem}`);
+    }
+}
+
+// the rows typed here to become tickets, [{ key, ticked, values: { [key]: text } }]: ticked ones with no ticket yet, each
+// given its mark the first time; and any row with a mark, ticked or not, since its ticket may already be made and its
+// answer lost; a note of ours comes off a row that's been unticked
+function ticketRows_(sheet, layout) {
+    const count = sheet.getLastRow() - layout.dataRow + 1;
+    if (count <= 0) return [];
+    const column = (at) => sheet.getRange(layout.dataRow, at, count, 1);
+    const read = (at) => column(at).getDisplayValues().map((cells) => cells[0]);
+    const ids = read(layout.app[APP_ID]);
+    const marks = read(layout.app[APP_NEW]);
+    const ticks = read(layout.tick);
+    const notes = column(layout.tick).getNotes();
+
+    const rows = [];
+    ids.forEach((id, i) => {
+        if (id) return;
+        const at = layout.dataRow + i;
+        const ticked = TICKED.test(ticks[i].trim());
+        if (!ticked && notes[i][0].startsWith(NO_TICKET_NOTE)) sheet.getRange(at, layout.tick).setNote("");
+        if (!ticked && !marks[i]) return;
+        let key = marks[i];
+        if (!key) {
+            key = Utilities.getUuid();
+            sheet.getRange(at, layout.app[APP_NEW]).setValue(key);
+        }
+        const cells = sheet.getRange(at, 1, 1, layout.width).getDisplayValues()[0];
+        const values = {};
+        for (const name of Object.keys(layout.columns)) values[name] = cells[layout.columns[name] - 1];
+        rows.push({ key, ticked, values });
+    });
+    return rows;
+}
+
+// row numbers by the mark on them
+function rowsByMark_(sheet, layout) {
+    const rows = new Map();
+    const count = sheet.getLastRow() - layout.dataRow + 1;
+    if (count <= 0) return rows;
+    sheet.getRange(layout.dataRow, layout.app[APP_NEW], count, 1).getDisplayValues().forEach((cells, i) => {
+        if (cells[0]) rows.set(cells[0], layout.dataRow + i);
+    });
+    return rows;
+}
+
+// a note on the tick of each row that couldn't become a ticket; it stays ticked, so fixing the row is all it takes
+function markRefusedRows_(sheet, layout, refused) {
+    const rows = rowsByMark_(sheet, layout);
+    for (const { key, problem } of refused) {
+        const at = rows.get(String(key));
+        if (at) sheet.getRange(at, layout.tick).setNote(`${NO_TICKET_NOTE}${problem}`);
+    }
+}
+
+// the rows that became tickets, from then on the same as any row the app wrote: every column from the app, its id and
+// the rest of the script's columns, in plain text like the others; a row someone deleted meanwhile is skipped, and the
+// next rows the server sends add it; whether any row needs sorting into its place
+function fillCreatedRows_(sheet, layout, created) {
+    const rows = rowsByMark_(sheet, layout);
+    let filled = false;
+    for (const { key, row } of created) {
+        const at = rows.get(String(key));
+        if (!at) continue;
+        formatLikeFirstRow_(sheet, layout, at, 1);
+        const values = valuesOf_(layout, row);
+        for (const name of Object.keys(values)) sheet.getRange(at, layout.columns[name]).setValue(asText_(values[name]));
+        sheet.getRange(at, layout.app[APP_ID]).setValue(String(row.id));
+        sheet.getRange(at, layout.app[APP_SORT]).setValue(String(row.sortKey ?? ""));
+        sheet.getRange(at, layout.app[APP_LAST]).setValue(JSON.stringify(values));
+        sheet.getRange(at, layout.tick).setValue(false).setNote("");
+        filled = true;
+    }
+    return filled;
 }
 
 // the row as the app has it, { [key]: text }, with only the columns this sheet has
@@ -285,10 +475,14 @@ const parseLast_ = (text) => {
 // each row the server sent: updated in place when the sheet has it, added at the bottom when it doesn't; whether the
 // rows need sorting again
 function upsertRows_(sheet, layout, rows, result) {
-    const lastRow = Math.max(sheet.getLastRow(), layout.dataRow - 1);
-    const existing = lastRow >= layout.dataRow
-        ? sheet.getRange(layout.dataRow, 1, lastRow - layout.dataRow + 1, layout.width).getDisplayValues()
-        : [];
+    const filled = sheet.getLastRow() - layout.dataRow + 1;
+    const allRows = filled > 0 ? sheet.getRange(layout.dataRow, 1, filled, layout.width).getDisplayValues() : [];
+    // Sheets counts an unticked box as a filled-in cell, so the rows below the orders all look filled; new orders go
+    // right after the last row with anything else in it, not at the bottom of the tick boxes
+    let used = allRows.length;
+    while (used > 0 && allRows[used - 1].every((cell, c) => c === layout.tick - 1 || cell === "")) used -= 1;
+    const existing = allRows.slice(0, used);
+    const lastRow = layout.dataRow - 1 + used;
     const idAt = layout.app[APP_ID] - 1;
     // APP ID -> its row (1-based) and what's in it now
     const byId = new Map();
@@ -329,7 +523,9 @@ function upsertRows_(sheet, layout, rows, result) {
         const first = lastRow + 1;
         const needed = first + added.length - 1 - sheet.getMaxRows();
         if (needed > 0) {
-            sheet.insertRowsAfter(sheet.getMaxRows(), needed + SPARE_ROWS);
+            const before = sheet.getMaxRows();
+            sheet.insertRowsAfter(before, needed + SPARE_ROWS);
+            addTicks_(sheet, before + 1, layout.tick);
             stretchFilter_(sheet, layout);
         }
         formatLikeFirstRow_(sheet, layout, first, added.length);

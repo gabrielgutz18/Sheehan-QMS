@@ -31,6 +31,67 @@ const databaseBefore = (upTo) => {
     return db;
 };
 
+// 033 rebuilds order_edits, so an edit typed in the Google sheet can have no staff account
+test("an edit can come with no account, and the edits already kept stay with who saved them", () => {
+    const old = databaseBefore("033");
+    old.exec(`
+        INSERT INTO users (id, username, name, role, password_hash, created_at)
+            VALUES (1, 'maria', 'Maria Santos', 'sales', 'x', '2026-10-20T08:00:00.000Z');
+        INSERT INTO orders (id, queue_date, queue_num, name, purpose, status, created_at)
+            VALUES (5, '2026-10-20', 1, 'Juan Dela Cruz', 'Roofings', 'pending', '2026-10-20T09:00:00.000Z');
+        INSERT INTO order_edits (id, order_id, user_id, sales_team, changes, edited_at)
+            VALUES (7, 5, 1, 'GIGA', '["runner"]', '2026-10-20T09:30:00.000Z');
+    `);
+    assert.throws(() => old.exec(`INSERT INTO order_edits (order_id, user_id, changes, edited_at) VALUES (5, NULL, '[]', 'x')`), /NOT NULL/);
+    old.close();
+
+    const quiet = mock.method(console, "log", () => {});
+    const db = openDatabase(dataDir);
+    quiet.mock.restore();
+
+    try {
+        const kept = db.prepare("SELECT * FROM order_edits WHERE id = 7").get();
+        assert.deepEqual({ ...kept }, {
+            id: 7, order_id: 5, user_id: 1, sales_team: "GIGA", changes: '["runner"]', edited_at: "2026-10-20T09:30:00.000Z",
+        });
+
+        db.prepare(`INSERT INTO order_edits (order_id, user_id, changes, edited_at) VALUES (5, NULL, '["team"]', 'x')`).run();
+
+        // an account given must still be a real one, and the edits still go with their order
+        assert.throws(() => db.prepare(`INSERT INTO order_edits (order_id, user_id, changes, edited_at) VALUES (5, 99, '[]', 'x')`).run(), /FOREIGN KEY/);
+        db.prepare("DELETE FROM orders WHERE id = 5").run();
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM order_edits").get().n, 0);
+        assert.ok(db.prepare("SELECT name FROM sqlite_master WHERE name = 'order_edits_order'").get());
+    } finally {
+        db.close();
+    }
+});
+
+// 034 adds the mark that stops one row of the Google sheet making two tickets
+test("a row of the Google sheet can only be one ticket, and tickets from the app need no mark", () => {
+    const old = databaseBefore("034");
+    old.exec(`
+        INSERT INTO orders (id, queue_date, queue_num, name, purpose, status, created_at)
+            VALUES (5, '2026-10-20', 1, 'Juan Dela Cruz', 'Roofings', 'pending', '2026-10-20T09:00:00.000Z'),
+                   (6, '2026-10-20', 2, 'Ana Reyes', 'Roofings', 'pending', '2026-10-20T09:00:00.000Z'),
+                   (7, '2026-10-20', 3, 'Ben Cruz', 'Roofings', 'pending', '2026-10-20T09:00:00.000Z');
+    `);
+    old.close();
+
+    const quiet = mock.method(console, "log", () => {});
+    const db = openDatabase(dataDir);
+    quiet.mock.restore();
+
+    try {
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM orders WHERE sheet_key IS NULL").get().n, 3);
+        db.prepare("UPDATE orders SET sheet_key = 'row-1' WHERE id = 5").run();
+        assert.throws(() => db.prepare("UPDATE orders SET sheet_key = 'row-1' WHERE id = 6").run(), /UNIQUE/);
+        db.prepare("UPDATE orders SET sheet_key = 'row-2' WHERE id = 6").run();
+    } finally {
+        db.close();
+    }
+});
+
 // 006 rebuilds orders (returning customers) and 007 rebuilds users (loading staff)
 test("rebuilding orders and users keeps every ticket, its items, its point and sign-ins", () => {
     const old = databaseBefore("006");
