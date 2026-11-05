@@ -7,6 +7,11 @@ import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 import vm from 'node:vm';
 
+import { createSheetSync } from '../../server/googleSheet.js';
+import { ticketFromSheet } from '../../server/sheetTicket.js';
+import { changedDetails, editVerb, wasCreatedInSheet } from '../../src/admin/data/orderEdits.js';
+import { bootApp } from '../support/testApp.js';
+
 const TOKEN = "test-token";
 const source = readFileSync(new URL('../../tools/google-apps-script/orderSheet.gs', import.meta.url), 'utf8')
     .replace('const SYNC_TOKEN = "";', `const SYNC_TOKEN = "${TOKEN}";`);
@@ -21,6 +26,7 @@ class FakeSheet {
         this.hidden = [];
         this.copied = [];
         this.plainText = [];
+        this.notes = new Map();
     }
 
     // what the cell shows: a "'" in front only marks it as text
@@ -74,6 +80,16 @@ const fakeRange = (sheet, row, column, rows, columns) => {
     const area = (read) => Array.from({ length: rows }, (_, r) => Array.from({ length: columns }, (__, c) => read(row + r, column + c)));
     const range = new Proxy({
         getDisplayValues: () => area((r, c) => sheet.cell(r, c)),
+        // like the real one, an unticked box holds FALSE, so Sheets counts it as a filled-in cell
+        insertCheckboxes: () => {
+            for (let r = 0; r < rows; r += 1) sheet.write(row + r, column, "FALSE");
+            return range;
+        },
+        getNotes: () => area((r, c) => sheet.notes.get(`${r}:${c}`) ?? ""),
+        setNote: (note) => {
+            sheet.notes.set(`${row}:${column}`, note);
+            return range;
+        },
         getRow: () => row,
         setValue: (value) => {
             sheet.write(row, column, value);
@@ -96,7 +112,8 @@ const fakeRange = (sheet, row, column, rows, columns) => {
         },
         sort: ({ column: by }) => {
             const key = (cells) => cells[by - column] ?? "";
-            const sorted = area((r, c) => sheet.cell(r, c))
+            // like the real one, it moves what's in the cells as it is, a "'" in front too
+            const sorted = area((r, c) => sheet.grid[r - 1]?.[c - 1] ?? "")
                 .sort((a, b) => (key(a) === "") - (key(b) === "") || key(a).localeCompare(key(b)));
             range.setValues(sorted);
         },
@@ -126,7 +143,9 @@ const boot = (...sheets) => {
         return built;
     };
     const logs = [];
+    let marks = 0;
     const context = vm.createContext({
+        Utilities: { getUuid: () => `mark-${marks += 1}` },
         SpreadsheetApp: {
             getActiveSpreadsheet: () => book,
             flush() {},
@@ -152,6 +171,31 @@ const boot = (...sheets) => {
             JSON.parse(context.doPost({ postData: { contents: JSON.stringify({ token, ...payload }) } }).text),
     };
 };
+
+// the script answering the server's own requests, in place of Google
+const bootWithFetch = () => {
+    const script = boot();
+    return {
+        ...script,
+        fetch: async (_url, init) => Response.json(script.post(JSON.parse(init.body))),
+    };
+};
+
+// an order as the server lists it (toHistory's shape), for the sync on the server's side
+const syncedOrder = (id) => ({
+    id,
+    date: "2026-11-04",
+    queueNum: id,
+    name: `Customer ${id}`,
+    purpose: "Roofings",
+    status: "pending",
+    createdAt: new Date(2026, 10, 4, 8, 16).toISOString(),
+    invoices: [],
+    areas: [],
+    team: "GIGA",
+    runner: "Boy Reyes",
+    receiver: "",
+});
 
 const order = (id, overrides = {}) => ({
     id: String(id),
@@ -201,9 +245,9 @@ describe("apps script", () => {
         assert.equal(sheet.cell(2, 7), "Customer 1");
         assert.equal(sheet.cell(2, 8), "449765\n449767");
         // the script's own columns come after the last one, hidden
-        assert.equal(sheet.cell(1, 23), "APP ID");
-        assert.equal(sheet.cell(2, 23), "1");
-        assert.deepEqual(sheet.hidden, [23, 24, 25]);
+        assert.equal(sheet.cell(1, 25), "APP ID");
+        assert.equal(sheet.cell(2, 25), "1");
+        assert.deepEqual(sheet.hidden, [25, 26, 27, 28]);
     });
 
     test("in a sheet with its own format, each value goes under its own header, and its format is left alone", () => {
@@ -333,7 +377,8 @@ describe("apps script", () => {
         const answer = script.post({ rows: [order(1, { que: "*", sortKey: "1 2026-11-04 0001" }), order(2)] });
 
         assert.equal(answer.ok, true, answer.error);
-        assert.equal(sheet.getFilter().getRange().getNumColumns(), 12);
+        // its 9, plus TYPE OF ORDER, CREATE TICKET and the script's 4
+        assert.equal(sheet.getFilter().getRange().getNumColumns(), 15);
         assert.equal(sheet.getFilter().getColumnFilterCriteria(NAME), "only some customers");
         assert.equal(sheet.cell(3, NAME), "Customer 2");
         assert.equal(sheet.cell(4, NAME), "Customer 1");
@@ -367,7 +412,7 @@ describe("apps script", () => {
 
         assert.equal(sheet.cell(3, NAME), "Customer 1");
         assert.equal(sheet.cell(4, NAME), "Typed by hand");
-        assert.equal(sheet.getLastRow(), 4);
+        assert.equal(sheet.cell(5, NAME), "");
     });
 
     test("headers it can't find are skipped, and setup says which", () => {
@@ -412,5 +457,453 @@ describe("apps script", () => {
 
         assert.deepEqual([answer.ok, answer.error], [false, "Wrong token."]);
         assert.equal(sheet.getLastRow(), 2);
+    });
+
+    describe("what's typed in the sheet, going back to the app", () => {
+        // the schedule's own layout, which has the Team, Runner and Receiver columns
+        const TEAM = 3, CUSTOMER = 7, RUNNER_AT = 16, RECEIVER_AT = 17, APP_LAST_AT = 27;
+        const typedOn = () => {
+            const script = boot();
+            script.post({ rows: [order(1), order(2)] });
+            return { script, sheet: script.sheet() };
+        };
+
+        test("nobody typed anything: there's nothing to send back", () => {
+            const { script } = typedOn();
+            assert.deepEqual(script.post({ pull: true }).edits, []);
+        });
+
+        test("it sends back the team, runner and receiver that were typed", () => {
+            const { script, sheet } = typedOn();
+            sheet.write(2, TEAM, "MEGA");
+            sheet.write(3, RUNNER_AT, "  Typed Runner ");
+            sheet.write(3, RECEIVER_AT, "Typed Receiver");
+
+            assert.deepEqual(script.post({ pull: true }).edits, [
+                { id: "1", key: "team", value: "MEGA" },
+                { id: "2", key: "runner", value: "Typed Runner" },
+                { id: "2", key: "receiver", value: "Typed Receiver" },
+            ]);
+        });
+
+        test("a cleared cell goes back too, as an empty one", () => {
+            const { script, sheet } = typedOn();
+            sheet.write(2, RUNNER_AT, "");
+            assert.deepEqual(script.post({ pull: true }).edits, [{ id: "1", key: "runner", value: "" }]);
+        });
+
+        test("only those three go back: a customer name or terms typed over stay in the sheet alone", () => {
+            const { script, sheet } = typedOn();
+            sheet.write(2, CUSTOMER, "Typed Customer");
+            assert.deepEqual(script.post({ pull: true }).edits, []);
+        });
+
+        test("a team in other letters or with spaces around it is the same team", () => {
+            const { script, sheet } = typedOn();
+            sheet.write(2, TEAM, " giga ");
+            assert.deepEqual(script.post({ pull: true }).edits, []);
+        });
+
+        test("a row typed in by hand, or from before the script kept what it wrote, sends nothing", () => {
+            const { script, sheet } = typedOn();
+            sheet.write(4, CUSTOMER, "Typed by hand");
+            sheet.write(4, RUNNER_AT, "Someone");
+            sheet.write(3, APP_LAST_AT, "");
+            sheet.write(3, RUNNER_AT, "Typed on an old row");
+            assert.deepEqual(script.post({ pull: true }).edits, []);
+        });
+
+        test("a sheet with no such column sends nothing for it", () => {
+            const sheet = new FakeSheet("ORDER SHEET", [["CUSTOMER'S NAME", "RUNNER"]]);
+            const script = boot(sheet);
+            script.post({ rows: [order(1)] });
+            sheet.write(2, 2, "Typed Runner");
+            assert.deepEqual(script.post({ pull: true }).edits, [{ id: "1", key: "runner", value: "Typed Runner" }]);
+        });
+
+        test("a refused value gets a note on its cell, and keeps what was typed", () => {
+            const { script, sheet } = typedOn();
+            sheet.write(2, TEAM, "NOT A TEAM");
+
+            script.post({ refused: [{ id: "1", key: "team", problem: "it isn't a sales team" }] });
+
+            assert.match(sheet.notes.get(`2:${TEAM}`), /Not saved in the system: it isn't a sales team/);
+            assert.equal(sheet.cell(2, TEAM), "NOT A TEAM");
+        });
+
+        test("a note about an order that's gone is skipped", () => {
+            const { script } = typedOn();
+            assert.equal(script.post({ refused: [{ id: "99", key: "team", problem: "no" }] }).ok, true);
+        });
+
+        test("the note goes once the cell matches the app again, and a note someone wrote stays", () => {
+            const { script, sheet } = typedOn();
+            sheet.write(2, TEAM, "NOT A TEAM");
+            script.post({ refused: [{ id: "1", key: "team", problem: "it isn't a sales team" }] });
+            sheet.notes.set(`3:${TEAM}`, "their own note");
+
+            sheet.write(2, TEAM, "GIGA");
+            script.post({ pull: true });
+
+            assert.equal(sheet.notes.get(`2:${TEAM}`), "");
+            assert.equal(sheet.notes.get(`3:${TEAM}`), "their own note");
+        });
+
+        // the real script on one side and the real sync on the other, with the app's orders as a plain list
+        describe("with the server's sync", () => {
+            const connected = () => {
+                const script = bootWithFetch();
+                const orders = new Map([[1, syncedOrder(1)], [2, syncedOrder(2)]]);
+                const applied = [];
+                const sync = createSheetSync({
+                    url: "https://example.test/exec", token: TOKEN, log: { log() {}, error() {} },
+                    listOrders: () => [...orders.values()],
+                    fetch: script.fetch,
+                    applyEdit: ({ id, key, value }) => {
+                        if (key === "team" && value === "NOT A TEAM") return "it isn't a sales team";
+                        applied.push([id, key, value]);
+                        // the app keeps a team in the list's own spelling
+                        orders.set(Number(id), { ...orders.get(Number(id)), [key]: key === "team" ? value.toUpperCase() : value });
+                        return "";
+                    },
+                });
+                return { sync, orders, applied, sheet: () => script.sheet() };
+            };
+
+            test("an edit reaches the app once, and the cell then follows the app again", async () => {
+                const { sync, orders, applied, sheet } = connected();
+                await sync.syncOnce();
+
+                sheet().write(2, RUNNER_AT, "Typed Runner");
+                await sync.syncOnce();
+                assert.deepEqual(applied, [["1", "runner", "Typed Runner"]]);
+                assert.equal(orders.get(1).runner, "Typed Runner");
+                assert.equal(sheet().cell(2, RUNNER_AT), "Typed Runner");
+
+                // it isn't taken for a new edit
+                await sync.syncOnce();
+                assert.equal(applied.length, 1);
+
+                // changed in the app afterwards, the cell takes the new value instead of keeping the typed one
+                orders.set(1, { ...orders.get(1), runner: "App Runner" });
+                await sync.syncOnce();
+                assert.equal(sheet().cell(2, RUNNER_AT), "App Runner");
+                assert.equal(applied.length, 1);
+            });
+
+            test("a change made in the app never comes back as an edit from the sheet", async () => {
+                const { sync, orders, applied, sheet } = connected();
+                await sync.syncOnce();
+
+                orders.set(1, { ...orders.get(1), receiver: "App Receiver" });
+                await sync.syncOnce();
+                await sync.syncOnce();
+
+                assert.deepEqual(applied, []);
+                assert.equal(sheet().cell(2, RECEIVER_AT), "App Receiver");
+            });
+
+            test("a cleared cell empties it in the app too, and stays empty", async () => {
+                const { sync, orders, sheet } = connected();
+                await sync.syncOnce();
+
+                sheet().write(2, RUNNER_AT, "");
+                await sync.syncOnce();
+                await sync.syncOnce();
+
+                assert.equal(orders.get(1).runner, "");
+                assert.equal(sheet().cell(2, RUNNER_AT), "");
+            });
+
+            test("a team in other letters is taken as the team, and the cell is tidied", async () => {
+                const { sync, orders, sheet } = connected();
+                await sync.syncOnce();
+
+                sheet().write(2, TEAM, "mega");
+                await sync.syncOnce();
+                await sync.syncOnce();
+
+                assert.equal(orders.get(1).team, "MEGA");
+                assert.equal(sheet().cell(2, TEAM), "MEGA");
+            });
+
+            test("a refused value leaves the app alone and marks the cell, and fixing it clears the mark", async () => {
+                const { sync, orders, applied, sheet } = connected();
+                await sync.syncOnce();
+
+                sheet().write(2, TEAM, "NOT A TEAM");
+                await sync.syncOnce();
+                assert.deepEqual(applied, []);
+                assert.equal(orders.get(1).team, "GIGA");
+                assert.equal(sheet().cell(2, TEAM), "NOT A TEAM");
+                assert.match(sheet().notes.get(`2:${TEAM}`), /it isn't a sales team/);
+
+                sheet().write(2, TEAM, "MEGA");
+                await sync.syncOnce();
+                await sync.syncOnce();
+                assert.equal(orders.get(1).team, "MEGA");
+                assert.equal(sheet().notes.get(`2:${TEAM}`), "");
+            });
+        });
+    });
+
+    describe("a ticket started in the sheet", () => {
+        // the schedule's own layout
+        const DATE_AT = 1, QUE_AT = 2, TEAM_AT = 3, SALESMAN_AT = 4, CUSTOMER_AT = 7, ROOFING_AT = 8, CONSTRUCTION_AT = 9;
+        const TERMS_AT = 13, SALES_IN_AT = 14, RUNNER_AT = 16, TYPE_AT = 23, TICK_AT = 24, APP_ID_AT = 25;
+
+        const until = async (done, what) => {
+            for (let tries = 0; tries < 400; tries += 1) {
+                if (await done()) return;
+                await new Promise((resolve) => setTimeout(resolve, 5));
+            }
+            assert.fail(`never happened: ${what}`);
+        };
+
+        // the real API, syncing every few milliseconds with the real script on a stand-in sheet; breakFetch can make one
+        // request fail, or lose its answer
+        const connected = async (t, breakFetch = () => "") => {
+            const script = bootWithFetch();
+            const fetch = async (url, init) => {
+                const body = JSON.parse(init.body);
+                const broken = breakFetch(body);
+                if (broken === "before") throw new Error("the request never got there");
+                const answer = await script.fetch(url, init);
+                if (broken === "after") throw new Error("the answer got lost");
+                return answer;
+            };
+            const app = await bootApp({ googleSheet: {
+                url: "https://example.test/exec", token: TOKEN, fetch, intervalMs: 5, log: { log() {}, error() {} },
+            } });
+            t.after(() => app.close());
+            const sales = await app.actingAsSales();
+            await until(() => script.sheet(), "the sheet's layout");
+
+            const sheet = () => script.sheet();
+            const rowOf = (name) => sheet().grid.findIndex((cells) => cells[CUSTOMER_AT - 1] === name) + 1;
+            // the first empty row, the way a person would pick one
+            const typeRow = (cells) => {
+                const row = sheet().grid.findIndex((_, i) => i > 0 && !sheet().cell(i + 1, CUSTOMER_AT) && !sheet().cell(i + 1, APP_ID_AT)) + 1;
+                for (const [column, value] of Object.entries(cells)) sheet().write(row, Number(column), value);
+                return row;
+            };
+            const tickets = async () => (await sales.get("/admin/order-sheet")).assertStatus(200).body;
+            const ticketNamed = async (name) => (await tickets()).find((o) => o.name === name);
+            return { app, sales, sheet, rowOf, typeRow, tickets, ticketNamed };
+        };
+        const filled = (name, extra = {}) => ({
+            [CUSTOMER_AT]: name, [TYPE_AT]: "Roofings", [ROOFING_AT]: "450000", [TICK_AT]: "TRUE", ...extra,
+        });
+        // long enough for the sync to have gone round several times
+        const severalSyncs = () => new Promise((resolve) => setTimeout(resolve, 80));
+
+        test("a ticked row becomes a ticket, and the row is filled in from it", async (t) => {
+            const { sheet, rowOf, typeRow, ticketNamed } = await connected(t);
+
+            typeRow(filled("Sheet Customer", {
+                [TYPE_AT]: "steel, roofings", [CONSTRUCTION_AT]: "450001", [ROOFING_AT]: "450000\n450002",
+                [SALESMAN_AT]: "Amado", [TEAM_AT]: "giga", [RUNNER_AT]: "Remz",
+            }));
+            await until(() => ticketNamed("Sheet Customer"), "the ticket");
+
+            const ticket = await ticketNamed("Sheet Customer");
+            // in the list's order and spelling, as every ticket is
+            assert.equal(ticket.purpose, "Roofings, Steel");
+            assert.deepEqual(ticket.invoices.map(({ invoiceNo, type }) => [invoiceNo, type]), [
+                ["450000", "Roofings"], ["450002", "Roofings"], ["450001", "Steel"],
+            ]);
+            assert.equal(ticket.salesman, "Amado");
+            assert.equal(ticket.team, "GIGA");
+            assert.equal(ticket.runner, "Remz");
+            assert.equal(ticket.status, "pending");
+            assert.equal(ticket.isToday, true);
+            assert.match(ticket.salesTimeIn, /^\d{2}:\d{2}$/);
+            assert.equal(ticket.edits[0].by.name, "Google sheet");
+            assert.deepEqual(ticket.edits[0].changes, ["createdInSheet"]);
+
+            await until(() => sheet().cell(rowOf("Sheet Customer"), APP_ID_AT), "the row filled in");
+            const row = rowOf("Sheet Customer");
+            assert.equal(sheet().cell(row, APP_ID_AT), String(ticket.id));
+            assert.equal(sheet().cell(row, QUE_AT), `RS ${String(ticket.queueNum).padStart(2, "0")}`);
+            assert.match(sheet().cell(row, DATE_AT), /^[A-Z][a-z]{2}-\d{2}-\d{2}$/);
+            assert.equal(sheet().cell(row, TEAM_AT), "GIGA");
+            assert.equal(sheet().cell(row, TYPE_AT), "Roofings, Steel");
+            assert.match(sheet().cell(row, SALES_IN_AT), /^\d{4}H$/);
+            assert.equal(sheet().cell(row, TICK_AT), "false");
+        });
+
+        test("one row makes one ticket and stays one row, however many syncs go by", async (t) => {
+            const { sheet, typeRow, tickets, ticketNamed } = await connected(t);
+
+            typeRow(filled("Only Once"));
+            await until(() => ticketNamed("Only Once"), "the ticket");
+            await severalSyncs();
+
+            assert.equal((await tickets()).filter((o) => o.name === "Only Once").length, 1);
+            assert.equal(sheet().grid.filter((cells) => cells[CUSTOMER_AT - 1] === "Only Once").length, 1);
+        });
+
+        test("a row with no tick is left alone, however complete it looks", async (t) => {
+            const { sheet, rowOf, typeRow, tickets } = await connected(t);
+
+            typeRow(filled("Still Typing", { [TICK_AT]: "FALSE" }));
+            await severalSyncs();
+
+            assert.deepEqual(await tickets(), []);
+            assert.equal(sheet().cell(rowOf("Still Typing"), CUSTOMER_AT), "Still Typing");
+            assert.equal(sheet().cell(rowOf("Still Typing"), APP_ID_AT), "");
+        });
+
+        test("a word typed on a tab without tick boxes counts as ticked", async (t) => {
+            const { typeRow, ticketNamed } = await connected(t);
+            typeRow(filled("Typed Yes", { [TICK_AT]: "yes" }));
+            await until(() => ticketNamed("Typed Yes"), "the ticket");
+        });
+
+        test("a wrong row makes no ticket and says why on its tick, and fixing it is all it takes", async (t) => {
+            const { sheet, typeRow, tickets, ticketNamed } = await connected(t);
+
+            const row = typeRow(filled("Needs Fixing", { [TYPE_AT]: "" }));
+            await until(() => sheet().notes.get(`${row}:${TICK_AT}`), "the note");
+            assert.match(sheet().notes.get(`${row}:${TICK_AT}`), /^No ticket made: the type of order is empty/);
+            assert.deepEqual(await tickets(), []);
+
+            sheet().write(row, TYPE_AT, "Roofings");
+            await until(() => ticketNamed("Needs Fixing"), "the ticket");
+            await until(() => sheet().notes.get(`${row}:${TICK_AT}`) === "", "the note gone");
+        });
+
+        test("unticking a wrong row takes its note off", async (t) => {
+            const { sheet, typeRow } = await connected(t);
+
+            const row = typeRow(filled("Changed Mind", { [ROOFING_AT]: "" }));
+            await until(() => sheet().notes.get(`${row}:${TICK_AT}`), "the note");
+
+            sheet().write(row, TICK_AT, "FALSE");
+            await until(() => sheet().notes.get(`${row}:${TICK_AT}`) === "", "the note gone");
+        });
+
+        test("if the answer to the sheet is lost after the ticket is made, no second ticket or row appears", async (t) => {
+            let losses = 2;
+            const { sheet, rowOf, typeRow, tickets, ticketNamed } = await connected(t, (body) => {
+                if (!body.created || losses === 0) return "";
+                losses -= 1;
+                return losses === 1 ? "before" : "after";
+            });
+
+            typeRow(filled("Lost Answer"));
+            await until(() => ticketNamed("Lost Answer"), "the ticket");
+            await until(() => sheet().cell(rowOf("Lost Answer"), APP_ID_AT), "the row filled in");
+            await severalSyncs();
+
+            assert.equal(losses, 0);
+            assert.equal((await tickets()).filter((o) => o.name === "Lost Answer").length, 1);
+            assert.equal(sheet().grid.filter((cells) => cells[CUSTOMER_AT - 1] === "Lost Answer").length, 1);
+        });
+
+        test("a ticket deleted in the app before its row heard back isn't made again", async (t) => {
+            let block = true;
+            const { app, sheet, typeRow, tickets, ticketNamed } = await connected(t, (body) => (body.created && block ? "before" : ""));
+
+            const row = typeRow(filled("Deleted Meanwhile"));
+            await until(() => ticketNamed("Deleted Meanwhile"), "the ticket");
+            const { queueNum } = await ticketNamed("Deleted Meanwhile");
+            (await (await app.actingAsAdmin()).delete(`/admin/orders/${queueNum}`)).assertStatus(204);
+            block = false;
+
+            await until(() => /was deleted/.test(sheet().notes.get(`${row}:${TICK_AT}`) ?? ""), "the note");
+            assert.deepEqual(await tickets(), []);
+        });
+
+        test("terms count as who set the payment, and the mark in QUE makes a priority order", async (t) => {
+            const { sales, typeRow, ticketNamed } = await connected(t);
+
+            typeRow(filled("Priority Paid", { [TERMS_AT]: "paid", [QUE_AT]: "*" }));
+            await until(() => ticketNamed("Priority Paid"), "the ticket");
+
+            const ticket = await ticketNamed("Priority Paid");
+            assert.equal(ticket.paymentStatus, "Paid");
+            assert.equal(ticket.priority, true);
+            const { body: payments } = (await sales.get("/admin/payments")).assertStatus(200);
+            assert.equal(payments.find((o) => o.id === ticket.id).paymentChange.by.name, "Google sheet");
+        });
+
+        test("an order taken in the app afterwards goes right under the rows, not below the empty tick boxes", async (t) => {
+            const { app, rowOf, sheet, typeRow, ticketNamed } = await connected(t);
+
+            typeRow(filled("From The Sheet"));
+            await until(() => ticketNamed("From The Sheet"), "the ticket");
+            (await app.client().post("/orders", {
+                name: "From The App", purpose: "Roofings", orders: [], invoices: [{ invoiceNo: "450009", type: "Roofings" }],
+            })).assertStatus(201);
+            await until(() => rowOf("From The App") > 0, "the app's row");
+
+            assert.equal(rowOf("From The Sheet"), 2);
+            assert.equal(rowOf("From The App"), 3);
+            assert.equal(sheet().cell(3, APP_ID_AT) !== "", true);
+        });
+
+        test("once it's a ticket, its row works like any other: a typed runner goes back", async (t) => {
+            const { sheet, rowOf, typeRow, ticketNamed } = await connected(t);
+
+            typeRow(filled("Then Edited"));
+            await until(async () => rowOf("Then Edited") && sheet().cell(rowOf("Then Edited"), APP_ID_AT), "the row filled in");
+            await severalSyncs();
+
+            sheet().write(rowOf("Then Edited"), RUNNER_AT, "Typed After");
+            await until(async () => (await ticketNamed("Then Edited")).runner === "Typed After", "the runner");
+        });
+
+        describe("reading the row", () => {
+            const row = (overrides) => ({ customer: "Juan", purpose: "Roofings", roofing: "450000", ...overrides });
+
+            test("each invoice takes the type its column has on this ticket", () => {
+                const { order } = ticketFromSheet(row({
+                    purpose: "Hardwares, Battery", roofing: "", construction: "1", tba: "2, 3", others: "4",
+                }));
+                assert.equal(order.purpose, "Hardwares, Battery");
+                assert.deepEqual(order.invoices, [
+                    { invoiceNo: "1", type: "Hardwares" },
+                    { invoiceNo: "2", type: "Battery" },
+                    { invoiceNo: "3", type: "Battery" },
+                    // Others has no type of its own
+                    { invoiceNo: "4", type: "Hardwares" },
+                ]);
+            });
+
+            test("times are read as the sheet writes them, or as a person might", () => {
+                assert.equal(ticketFromSheet(row({ salesTimeIn: "0734H" })).order.salesTimeIn, "07:34");
+                assert.equal(ticketFromSheet(row({ salesTimeOut: "7:34" })).order.salesTimeOut, "07:34");
+                assert.equal(ticketFromSheet(row()).order.salesTimeIn, "");
+            });
+
+            test("two stars are a TBA priority order", () => {
+                const { order } = ticketFromSheet(row({ que: "**" }));
+                assert.deepEqual([order.priority, order.tbaPriority], [false, true]);
+            });
+
+            for (const [what, overrides, problem] of [
+                ["no name", { customer: "  " }, /customer's name is empty/],
+                ["no type", { purpose: "" }, /type of order is empty/],
+                ["a type not on the list", { purpose: "Roofings, Lumber" }, /"Lumber" isn't a type of order/],
+                ["no invoice", { roofing: "" }, /no invoice number/],
+                ["an invoice under another department", { tba: "9" }, /invoice 9 is under TBA.*Tire or Battery/],
+                ["a team not on the list", { team: "ZZZ" }, /"ZZZ" isn't a sales team/],
+                ["terms not on the list", { terms: "Maybe" }, /"Maybe" isn't one of the terms/],
+                ["a time that isn't one", { salesTimeIn: "2560H" }, /"2560H" isn't a time in/],
+            ]) {
+                test(`${what} is refused, with the reason`, () => {
+                    assert.match(ticketFromSheet(row(overrides)).problem, problem);
+                });
+            }
+        });
+
+        test("the order says it was created in the sheet, rather than listing a change", () => {
+            const made = { changes: ["createdInSheet", "paymentStatus"] };
+            assert.equal(wasCreatedInSheet(made), true);
+            assert.equal(editVerb(made), "Created in");
+            assert.equal(changedDetails(made.changes), "Payment status");
+            assert.equal(editVerb({ changes: ["runner"] }), "Edited by");
+        });
     });
 });

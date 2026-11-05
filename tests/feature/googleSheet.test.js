@@ -83,6 +83,7 @@ describe("Google sheet", () => {
             loadingTimeOut: "",
             status: "In line for sales",
             doubleCheckedBy: "",
+            purpose: "Roofings, Steel",
             sortKey: "0 2026-10-29 0003",
         });
     });
@@ -274,6 +275,205 @@ describe("Google sheet", () => {
         await new Promise((resolve) => setTimeout(resolve, 5));
         await sync.syncOnce();
         assert.equal(sync.status().savedAt, savedAt);
+    });
+
+    describe("edits typed in the sheet", () => {
+        // answers each ask for edits with the next list; anything else as usual
+        const webAppWith = (...lists) => {
+            const requests = [];
+            const fetch = async (_url, init) => {
+                const body = JSON.parse(init.body);
+                requests.push(body);
+                return Response.json(body.pull ? { ok: true, edits: lists.shift() ?? [] } : { ok: true });
+            };
+            return { requests, fetch };
+        };
+        const EDIT = { id: "1", key: "runner", value: "TYPED" };
+
+        test("they're taken before the rows go, so the row sent has them in it", async () => {
+            const app = webAppWith([EDIT]);
+            let current = order();
+            const sync = createSheetSync({
+                url: "https://example.test/exec", token: "t", fetch: app.fetch, listOrders: () => [current],
+                applyEdit: ({ key, value }) => {
+                    current = { ...current, [key]: value };
+                    return "";
+                },
+            });
+
+            await sync.syncOnce();
+
+            assert.deepEqual(app.requests[0], { token: "t", pull: true });
+            assert.equal(app.requests[1].rows[0].runner, "TYPED");
+        });
+
+        test("asking for edits isn't a save: the status and its time don't move", async () => {
+            const app = webAppWith();
+            const sync = createSheetSync({
+                url: "https://example.test/exec", token: "t", fetch: app.fetch, listOrders: () => [], applyEdit: () => "",
+            });
+            const first = sync.syncOnce();
+            assert.equal(sync.status().state, "waiting");
+            await first;
+
+            const before = sync.status().savedAt;
+            await new Promise((resolve) => setTimeout(resolve, 5));
+            await sync.syncOnce();
+            assert.equal(sync.status().savedAt, before);
+        });
+
+        test("a refused edit is told to the sheet and logged once, and again if it comes back after being fixed", async () => {
+            const app = webAppWith([EDIT], [EDIT], [], [EDIT]);
+            const log = quietLog();
+            const sync = createSheetSync({
+                url: "https://example.test/exec", token: "t", fetch: app.fetch, listOrders: () => [], log,
+                applyEdit: () => "it's too long",
+            });
+            const refusals = () => app.requests.filter((request) => request.refused);
+
+            await sync.syncOnce();
+            await sync.syncOnce();
+            assert.deepEqual(refusals().map((request) => request.refused), [[{ id: "1", key: "runner", problem: "it's too long" }]]);
+            assert.equal(log.errors.length, 1);
+            assert.match(log.errors[0], /runner of order 1.*it's too long/);
+
+            await sync.syncOnce();
+            await sync.syncOnce();
+            assert.equal(refusals().length, 2);
+        });
+
+        test("if the refusal can't be told to the sheet, it's told on the next try", async () => {
+            const lists = [[EDIT], [EDIT]];
+            let down = true;
+            const told = [];
+            const sync = createSheetSync({
+                url: "https://example.test/exec", token: "t", listOrders: () => [], log: quietLog(), applyEdit: () => "no",
+                fetch: async (_url, init) => {
+                    const body = JSON.parse(init.body);
+                    if (body.pull) return Response.json({ ok: true, edits: lists.shift() ?? [] });
+                    if (body.refused && down) return new Response("Server error", { status: 500 });
+                    if (body.refused) told.push(body.refused);
+                    return Response.json({ ok: true });
+                },
+            });
+
+            await sync.syncOnce();
+            assert.equal(sync.status().state, "failed");
+            down = false;
+            await sync.syncOnce();
+            assert.equal(told.length, 1);
+        });
+
+        test("an older script that sends nothing back still syncs, and the log says to deploy the new one, once", async () => {
+            const app = fakeWebApp();
+            const log = quietLog();
+            const sync = createSheetSync({
+                url: "https://example.test/exec", token: "t", fetch: app.fetch, listOrders: () => [order()], log, applyEdit: () => "",
+            });
+
+            await sync.syncOnce();
+            await sync.syncOnce();
+
+            assert.equal(sync.status().state, "saved");
+            assert.equal(log.errors.length, 1);
+            assert.match(log.errors[0], /deploy/i);
+        });
+
+        test("nothing comes back without something to take the edits", async () => {
+            const app = webAppWith([EDIT]);
+            const sync = createSheetSync({ url: "https://example.test/exec", token: "t", fetch: app.fetch, listOrders: () => [] });
+            await sync.syncOnce();
+            assert.equal(app.requests.some((request) => request.pull), false);
+        });
+
+        describe("in the app", () => {
+            const SALE = {
+                name: "Juan Dela Cruz", purpose: "Roofings", orders: [], salesman: "Maria Santos", team: "GIGA", pickupDate: null,
+                invoices: [{ invoiceNo: "450000", type: "Roofings" }],
+            };
+            // the API with a sheet that hands over these edits on its next ask, then none; syncing every few milliseconds
+            const withEdits = async (t) => {
+                const pending = [];
+                const refused = [];
+                const fetch = async (_url, init) => {
+                    const body = JSON.parse(init.body);
+                    if (body.refused) refused.push(...body.refused);
+                    return Response.json(body.pull ? { ok: true, edits: pending.splice(0) } : { ok: true });
+                };
+                const app = await bootApp({ googleSheet: { url: "https://example.test/exec", token: "t", fetch, log: quietLog(), intervalMs: 5 } });
+                t.after(() => app.close());
+                const sales = await app.actingAsSales();
+                (await app.client().post("/orders", SALE)).assertStatus(201);
+                const { id } = app.db.prepare("SELECT id FROM orders").get();
+                const row = async () => (await sales.get("/admin/order-sheet")).assertStatus(200).body.find((o) => o.id === id);
+                // hands the edits over and waits for two more trips, so they've been dealt with
+                const type = async (...edits) => {
+                    pending.push(...edits.map((edit) => ({ id: String(id), ...edit })));
+                    for (let tries = 0; tries < 200 && pending.length; tries += 1) await new Promise((resolve) => setTimeout(resolve, 5));
+                    await new Promise((resolve) => setTimeout(resolve, 30));
+                };
+                return { row, type, refused, id };
+            };
+
+            test("a typed runner, receiver and team change the order, kept as an edit from the Google sheet", async (t) => {
+                const { row, type } = await withEdits(t);
+
+                await type({ key: "runner", value: "Typed Runner" }, { key: "receiver", value: "Typed Receiver" }, { key: "team", value: "mega" });
+
+                const order = await row();
+                assert.equal(order.runner, "Typed Runner");
+                assert.equal(order.receiver, "Typed Receiver");
+                assert.equal(order.team, "MEGA");
+                assert.equal(order.edits[0].by.name, "Google sheet");
+                assert.equal(order.edits[0].by.id, null);
+                assert.deepEqual(order.edits[0].changes, ["team"]);
+                assert.equal(order.edits.length, 3);
+            });
+
+            test("a value it already has adds no edit, and a cleared cell clears it", async (t) => {
+                const { row, type } = await withEdits(t);
+
+                await type({ key: "runner", value: "Typed Runner" });
+                await type({ key: "runner", value: "Typed Runner" });
+                assert.equal((await row()).edits.length, 1);
+
+                await type({ key: "runner", value: "" });
+                const order = await row();
+                assert.ok(!order.runner);
+                assert.equal(order.edits.length, 2);
+            });
+
+            test("a team that isn't on the list or a name too long is refused, with the reason, and changes nothing", async (t) => {
+                const { row, type, refused, id } = await withEdits(t);
+
+                await type({ key: "team", value: "NOT A TEAM" }, { key: "runner", value: "x".repeat(61) });
+
+                const order = await row();
+                assert.equal(order.team, "GIGA");
+                assert.ok(!order.runner);
+                assert.equal(order.edits, undefined);
+                assert.deepEqual(refused.map((edit) => [edit.id, edit.key]), [[String(id), "team"], [String(id), "runner"]]);
+                assert.match(refused[0].problem, /sales team/);
+                assert.match(refused[1].problem, /60/);
+            });
+
+            test("only those three cells can come back, whatever the sheet sends", async (t) => {
+                const { row, type, refused } = await withEdits(t);
+
+                await type({ key: "name", value: "Someone Else" }, { key: "paymentStatus", value: "Paid" });
+
+                const order = await row();
+                assert.equal(order.name, "Juan Dela Cruz");
+                assert.ok(!order.paymentStatus);
+                assert.equal(refused.length, 2);
+            });
+
+            test("an edit for a deleted order, or one that doesn't exist, is dropped", async (t) => {
+                const { type, refused } = await withEdits(t);
+                await type({ id: "99999", key: "runner", value: "Nobody" });
+                assert.deepEqual(refused, []);
+            });
+        });
     });
 
     describe("on the Order sheet", () => {

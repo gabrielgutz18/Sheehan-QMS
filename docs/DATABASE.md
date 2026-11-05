@@ -251,6 +251,7 @@ erDiagram
         TEXT payment_status "Vale | Paid | Terms, from src/data"
         TEXT team "sales team that served them, e.g. GIGA; '' for none"
         TEXT pickup_date "YYYY-MM-DD a returning customer collects, or NULL"
+        TEXT sheet_key UK "the Google sheet row that made this ticket, or NULL for one taken in the app"
         INTEGER at_loading "1 while the loading crew is serving them"
         TEXT status "pending | serving | returning | done"
         TEXT remarks
@@ -284,7 +285,7 @@ erDiagram
     order_edits {
         INTEGER id PK
         INTEGER order_id FK "orders.id, cascade"
-        INTEGER user_id FK "users.id; who saved it"
+        INTEGER user_id FK "users.id; who saved it; NULL when typed in the Google sheet"
         TEXT sales_team "their sales team when they saved it, or ''"
         TEXT changes "JSON list of what changed, e.g. runner, invoices"
         TEXT edited_at
@@ -354,7 +355,7 @@ The relationships, as SQLite reports them (`PRAGMA foreign_key_list`):
 | `orders.loaded_by` | `users.id` | — | [`016_loaded_by.sql`](../server/migrations/016_loaded_by.sql) |
 | `order_invoices.order_id` | `orders.id` | cascade: the invoices go with the order | [`011_order_invoices.sql`](../server/migrations/011_order_invoices.sql) |
 | `order_edits.order_id` | `orders.id` | cascade: the edits go with the order | [`017_order_edits.sql`](../server/migrations/017_order_edits.sql) |
-| `order_edits.user_id` | `users.id` | — (accounts are switched off, never deleted, so edits stay) | same |
+| `order_edits.user_id` | `users.id` | — (accounts are switched off, never deleted, so edits stay); empty for an edit typed in the Google sheet, since [`033_google_sheet_edits.sql`](../server/migrations/033_google_sheet_edits.sql) | same |
 | `serves.order_id` | `orders.id` | cascade | [`003_staff_accounts.sql:29-36`](../server/migrations/003_staff_accounts.sql#L29-L36) |
 | `serves.user_id` | `users.id` | — (accounts are switched off, never deleted, so points stay) | same |
 | `sessions.user_id` | `users.id` | cascade | [`003_staff_accounts.sql:18-22`](../server/migrations/003_staff_accounts.sql#L18-L22) |
@@ -368,9 +369,9 @@ Orders are never deleted from the app. Delete only sets `deleted_at`, so the cas
 
 | Table | Holds | Written by (`server/api.js`) | Read by |
 |---|---|---|---|
-| `orders` | one row per ticket | `insertOrder` (L334), `updateOrder` (L335), `setStatus` (L336), `deleteOrder` (L345), `restoreSameDay` / `restoreToToday` (L384-393) | `findOrder`, `findById`, `dayOrders` (L346-348), `serving` / `upcoming` (L349-354), `history` (L373), stats (L356-371) |
+| `orders` | one row per ticket; [`034_sheet_tickets.sql`](../server/migrations/034_sheet_tickets.sql) adds `sheet_key`, so a row in the Google sheet can only ever make one ticket | `insertOrder` (L334), `setSheetKey`, `updateOrder` (L335), `setStatus` (L336), `deleteOrder` (L345), `restoreSameDay` / `restoreToToday` (L384-393) | `findOrder`, `findById`, `dayOrders` (L346-348), `serving` / `upcoming` (L349-354), `history` (L373), stats (L356-371) |
 | `order_invoices` | the invoices of each order, with their type of order | `saveInvoices()` → `deleteInvoices` + `insertInvoice` | `orderInvoices`, `dayInvoices`, `invoicesFor` |
-| `order_edits` | every save on Customer order that changed something: who, their sales team then, what changed, when | `insertEdit`, in `PUT /admin/orders/:queueNum` when `changedDetails()` finds a change | `orderEdits`, `dayEdits`, `editsFor` → `edits` on each order (`toEdit()`) |
+| `order_edits` | every save on Customer order or the Order sheet that changed something, and every team, runner or receiver typed in the Google sheet: who (no one for the Google sheet), their sales team then, what changed, when | `insertEdit`, in `PUT /admin/orders/:queueNum` when `changedDetails()` finds a change, and in `saveSheetCells()` | `orderEdits`, `dayEdits`, `editsFor` → `edits` on each order (`toEdit()`) |
 | `order_items` | the lines of each order | `saveItems()` → `deleteItems` + `insertItem` (L493-496) | `orderItems`, `dayItems` (L396-399), `itemsFor` (L380), stats joins |
 | `queue_counters` | last number given out each day | `nextQueueNum` (L330-333), on a new order and on a restore from an earlier day | same statement (`RETURNING last_num`) |
 | `users` | staff accounts and their profiles | built-in admin (L461-463), `insertUser` (L417), `updateUser` (L421), `updateProfile` (L426), `setPhoto` (L431) | `findUser` (L415), `findSession` join (L405), `ORDER_ROW` join (L313), `listUsers` (L432) |

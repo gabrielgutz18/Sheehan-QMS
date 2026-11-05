@@ -12,6 +12,7 @@ import { promisify } from 'node:util';
 import { openDatabase, resolveDataDir, transaction } from './db.js';
 import { clientIp, createRateLimiter } from './rateLimit.js';
 import { createSheetSync } from './googleSheet.js';
+import { ticketFromSheet } from './sheetTicket.js';
 import paymentStatus from '../src/data/paymentStatus.js';
 import teams from '../src/data/teams.js';
 import checkers, { CHECKER_ROUNDS } from '../src/data/checkers.js';
@@ -676,6 +677,8 @@ const SHEET_CELLS = {
     receiver: (value) => typeof value === "string" && value.trim().length <= MAX_RECEIVER,
     team: (value) => value === "" || TEAMS.includes(value),
 };
+// the longest each typed cell takes, for saying so when the Google sheet sends a longer one
+const SHEET_CELL_MAX = { runner: MAX_RUNNER, receiver: MAX_RECEIVER };
 // a save from the sheet: one or more of its cells, nothing else
 const validSheet = (body) =>
     typeof body === "object" && body !== null && !Array.isArray(body) && Object.keys(body).length > 0 &&
@@ -698,10 +701,15 @@ const changedDetails = (row, storedItems, storedInvoices, { orders: items, invoi
 const paymentFrom = (body, staff, stored = "") =>
     (PAYMENT_ON_ORDER.includes(staff?.role) && body.paymentStatus) || stored;
 
+// who an edit with no account is shown as: it was typed in the Google sheet, where nobody signs in to the app
+const GOOGLE_SHEET_EDITOR = "Google sheet";
+// what an edit lists for a ticket made from a row in the Google sheet, so the order can say where it came from
+const CREATED_IN_SHEET = "createdInSheet";
+
 // one save on Customer order that changed something: who saved it, their sales team then (left out for none), what
 // changed and when (ISO 8601)
 const toEdit = (row) => ({
-    by: { id: row.user_id, name: row.name, photo: row.photo },
+    by: { id: row.user_id, name: row.name ?? GOOGLE_SHEET_EDITOR, photo: row.photo },
     ...(row.sales_team && { team: row.sales_team }),
     changes: JSON.parse(row.changes),
     at: row.edited_at,
@@ -859,7 +867,7 @@ const toPayment = (row, invoices, edits, todayDate) => {
         invoices: invoicesOf(invoices),
         ...(row.salesman && { salesman: row.salesman }),
         ...(row.payment_status && { paymentStatus: row.payment_status }),
-        ...(change && { paymentChange: { by: { name: change.name }, at: change.edited_at } }),
+        ...(change && { paymentChange: { by: { name: change.name ?? GOOGLE_SHEET_EDITOR }, at: change.edited_at } }),
     };
 };
 
@@ -939,6 +947,9 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
                 sales_time_out = :salesTimeOut, checkers = :checkers, team = :team, pickup_date = :pickupDate,
                 priority = :priority, tba_priority = :tbaPriority
             WHERE id = :id`),
+        // the ticket a row in the Google sheet already made, and marking one as made from that row
+        findBySheetKey: db.prepare("SELECT id, deleted_at FROM orders WHERE sheet_key = ?"),
+        setSheetKey: db.prepare("UPDATE orders SET sheet_key = ? WHERE id = ?"),
         // the Order sheet's cells; the ones a save leaves out keep what's stored
         updateSheet: db.prepare(`
             UPDATE orders SET runner = :runner, receiver = :receiver, team = :team
@@ -1068,15 +1079,15 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             INSERT INTO order_edits (order_id, user_id, sales_team, changes, edited_at) VALUES (?, ?, ?, ?, ?)`),
         orderEdits: db.prepare(`
             SELECT e.order_id, e.user_id, u.name, u.photo, e.sales_team, e.changes, e.edited_at
-            FROM order_edits e JOIN users u ON u.id = e.user_id
+            FROM order_edits e LEFT JOIN users u ON u.id = e.user_id
             WHERE e.order_id = ? ORDER BY e.id DESC`),
         dayEdits: db.prepare(`
             SELECT e.order_id, e.user_id, u.name, u.photo, e.sales_team, e.changes, e.edited_at
-            FROM order_edits e JOIN users u ON u.id = e.user_id JOIN orders o ON o.id = e.order_id
+            FROM order_edits e LEFT JOIN users u ON u.id = e.user_id JOIN orders o ON o.id = e.order_id
             WHERE o.queue_date = ? ORDER BY e.order_id, e.id DESC`),
         editsFor: db.prepare(`
             SELECT e.order_id, e.user_id, u.name, u.photo, e.sales_team, e.changes, e.edited_at
-            FROM order_edits e JOIN users u ON u.id = e.user_id
+            FROM order_edits e LEFT JOIN users u ON u.id = e.user_id
             WHERE e.order_id IN (SELECT value FROM json_each(?)) ORDER BY e.order_id, e.id DESC`),
         insertInvoice: db.prepare("INSERT INTO order_invoices (order_id, position, invoice_no, type) VALUES (?, ?, ?, ?)"),
         deleteInvoices: db.prepare("DELETE FROM order_invoices WHERE order_id = ?"),
@@ -1325,10 +1336,78 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
         return rows.map((row) => toPayment(row, invoicesByOrder.get(row.id) ?? [], editsByOrder.get(row.id) ?? [], date));
     };
 
+    // an order's cells on the Order sheet saved, each on its own, so two people working on the same order at once don't
+    // overwrite each other's cells; a save that changes something is kept as an edit, the same as a save on Customer
+    // order; editor: who saved it, none for a cell typed in the Google sheet
+    const saveSheetCells = (order, body, editor) => {
+        const cells = {
+            runner: (body.runner ?? order.runner).trim(),
+            receiver: (body.receiver ?? order.receiver).trim(),
+            team: body.team ?? order.team,
+        };
+        const changes = Object.keys(body).filter((key) => cells[key] !== order[EDITABLE_COLUMNS[key]]);
+        transaction(db, () => {
+            sql.updateSheet.run({ ...cells, id: order.id });
+            if (changes.length) {
+                sql.insertEdit.run(order.id, editor?.id ?? null, editor?.team ?? "", JSON.stringify(changes), new Date().toISOString());
+            }
+        });
+    };
+
+    // a cell typed in the Google sheet, held to the same rules as one typed on the Order sheet; why it can't be taken, or
+    // "" when it was; a team in other letters is still that team; an order that's gone has nothing to change, and its
+    // row is on its way out of the sheet
+    const takeSheetEdit = ({ id, key, value }) => {
+        const order = sql.findById.get(Number(id));
+        if (!order || order.deleted_at !== null || order.purpose === REPORT_PURPOSE) return "";
+        if (!Object.hasOwn(SHEET_CELLS, key)) return "only the team, runner and receiver come back from this sheet";
+        const typed = String(value ?? "").trim();
+        const cell = key === "team" ? TEAMS.find((team) => team.toUpperCase() === typed.toUpperCase()) ?? typed : typed;
+        if (!validSheet({ [key]: cell })) {
+            return key === "team" ? `"${typed}" isn't a sales team: ${TEAMS.join(", ")}` : `it's too long: at most ${SHEET_CELL_MAX[key]} letters`;
+        }
+        saveSheetCells(order, { [key]: cell });
+        return "";
+    };
+
+    // a row typed in the Google sheet, sent because CREATE TICKET was ticked or it's been sent before: { id } of its
+    // ticket, { problem } saying why there isn't one, or null if it's been unticked and has none. It joins the line like
+    // a ticket taken on Customer order, with a time in unless one was typed. The row's key finds the ticket it already
+    // made, so a row sent twice, after an answer got lost, never makes two
+    const takeSheetRow = ({ key, ticked, values }) => {
+        const made = sql.findBySheetKey.get(String(key));
+        if (made) return made.deleted_at === null ? { id: made.id } : { problem: "its ticket was deleted in the system" };
+        if (!ticked) return null;
+
+        const { order: body, problem } = ticketFromSheet(values ?? {});
+        if (problem) return { problem };
+        if (!validOrder(body)) return { problem: "a cell is too long, or the same invoice number is in twice" };
+
+        const { orders: items, invoices, ...fields } = pickOrder(body);
+        return transaction(db, () => {
+            const date = today();
+            const { last_num: queueNum } = sql.nextQueueNum.get(date);
+            const now = new Date();
+            const createdAt = now.toISOString();
+            const salesTimeIn = fields.salesTimeIn || localTime(now);
+            const { lastInsertRowid } = sql.insertOrder.run({ ...fields, salesTimeIn, date, queueNum, createdAt });
+            saveItems(lastInsertRowid, items);
+            saveInvoices(lastInsertRowid, invoices);
+            sql.setSheetKey.run(String(key), lastInsertRowid);
+            if (body.paymentStatus) sql.setPayment.run(body.paymentStatus, lastInsertRowid);
+            // the Cashier page shows who set the payment status from an edit listing it
+            const changes = [CREATED_IN_SHEET, ...(body.paymentStatus ? ["paymentStatus"] : [])];
+            sql.insertEdit.run(lastInsertRowid, null, "", JSON.stringify(changes), createdAt);
+            return { id: Number(lastInsertRowid) };
+        });
+    };
+
     // the Order sheet copied to Google Sheets: the same orders the sheet lists
     const sheetSync = googleSheet?.url && createSheetSync({
         ...googleSheet,
         listOrders: () => loadAnyDay(sql.sheetOrders.all(REPORT_PURPOSE)),
+        applyEdit: takeSheetEdit,
+        applyNewRow: takeSheetRow,
     });
     if (sheetSync) sheetSync.start();
 
@@ -2158,9 +2237,8 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             return send(res, 200, sheetSync ? { ...sheetSync.status(), link: googleSheet.link ?? "" } : { state: "off" });
         }
 
-        // the Order sheet's cells, shared by every sales staff member: each cell is saved on its own, so two people
-        // working on the same order at once don't overwrite each other's cells; a save that changes something is kept
-        // as an edit, the same as a save on Customer order; by id, since an earlier day's order can be filled in too
+        // the Order sheet's cells, shared by every sales staff member; by id, since an earlier day's order can be filled
+        // in too
         const sheetMatch = path.match(/^\/admin\/order-sheet\/(\d+)$/);
         if (method === "PATCH" && sheetMatch) {
             const order = sql.findById.get(Number(sheetMatch[1]));
@@ -2170,18 +2248,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
             }
             const body = await readBody(req);
             if (!validSheet(body)) return send(res, 400, { message: "Invalid order sheet change." });
-            const cells = {
-                runner: (body.runner ?? order.runner).trim(),
-                receiver: (body.receiver ?? order.receiver).trim(),
-                team: body.team ?? order.team,
-            };
-            const changes = Object.keys(body).filter((key) => cells[key] !== order[EDITABLE_COLUMNS[key]]);
-            transaction(db, () => {
-                sql.updateSheet.run({ ...cells, id: order.id });
-                if (changes.length) {
-                    sql.insertEdit.run(order.id, me.id, me.team, JSON.stringify(changes), new Date().toISOString());
-                }
-            });
+            saveSheetCells(order, body, me);
             return send(res, 200, loadAnyDay([sql.findById.get(order.id)])[0]);
         }
 

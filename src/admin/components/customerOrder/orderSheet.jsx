@@ -4,7 +4,7 @@ import useOrders from '../../hooks/useOrders.js';
 import { listOrderSheet, updateOrderSheet } from '../../api/adminOrderController.js';
 import GoogleSheetSync from './googleSheetSync.jsx';
 import { STAGES, stageOf, whereNow } from '../../data/orderStage.js';
-import { changedDetails, editTime } from '../../data/orderEdits.js';
+import { changedDetails, editTime, editVerb } from '../../data/orderEdits.js';
 import { INVOICE_COLUMNS, assistedBy, invoicesByColumn, sheetDate, sheetTime } from '../../data/sheetColumns.js';
 import formatQueueNum from '../../../data/queueNum.js';
 import teams from '../../../data/teams.js';
@@ -75,8 +75,8 @@ function StatusCell({ order }) {
         <>
             <span className={`stage-badge is-${stageOf(order)}`} title={whereNow(order)}>{stageLabel(order)}</span>
             {latest && (
-                <span className="sheet-edit" title={`Changed ${changedDetails(latest.changes)}`}>
-                    Edited by <strong>{latest.by.name}</strong>
+                <span className="sheet-edit" title={changedDetails(latest.changes) && `Changed ${changedDetails(latest.changes)}`}>
+                    {editVerb(latest)} <strong>{latest.by.name}</strong>
                     {latest.team && <> · {latest.team}</>} · {editTime(latest.at)}
                 </span>
             )}
@@ -162,8 +162,8 @@ export default function OrderSheet({ onOpen }) {
                 <p className="admin-empty">{orders.length === 0 ? "No orders yet." : "No orders match."}</p>
             ) : (
                 <div className="sheet-frame">
-                    {/* fixed column widths (see .sheet-table col), so the sheet fills the page and never scrolls sideways;
-                        long text wraps inside its cell instead */}
+                    {/* each column has its share of the width (see .sheet-table col), so the sheet fills the page and never
+                        scrolls sideways; long text wraps inside its cell, and a long queue code widens its column */}
                     <table className="sheet-table">
                         <colgroup>
                             <col className="c-date" />
