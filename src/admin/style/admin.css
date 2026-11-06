@@ -1904,23 +1904,63 @@
   padding: 32px 48px;
 }
 
-/* the form: fields on the left, Summary on the right, Serve under both */
+/* the form: one column of short groups, then the bar with Serve at the bottom */
 .sale-form {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
-  gap: 32px 56px;
-  padding: 32px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding: 28px 32px 0;
 }
 
 .sale-fields {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  max-width: 440px;
+  gap: 28px;
+  max-width: 760px;
 }
 
+/* the pick-up date, half as wide as a field in a row */
 .sale-field.is-narrow {
   max-width: 240px;
+}
+
+/* a group of the Order tab: its heading, then its fields; a thin line between groups keeps them apart without boxes */
+.sale-group {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.sale-group + .sale-group {
+  padding-top: 24px;
+  border-top: 1px solid var(--field-border);
+}
+
+.sale-group-title {
+  /* a legend sits on its fieldset's border; floated, it's an ordinary heading inside the group, spaced by its gap */
+  float: left;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* fields side by side: three to a row (salesman, team, payment, then the two times under them), or two (name and
+   type of order); fewer as the form gets narrower */
+.sale-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.sale-row.is-two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .sale-form .has-error {
@@ -2406,13 +2446,17 @@
   overscroll-behavior: contain;
 }
 
-/* too narrow for the Summary beside the fields: it goes under them */
-@container (max-width: 880px) {
-  .sale-form {
-    grid-template-columns: minmax(0, 1fr);
+/* a narrower form: two fields to a row, then one */
+@container (max-width: 700px) {
+  .sale-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .sale-summary-box {
-    min-height: 0;
+}
+
+@container (max-width: 520px) {
+  .sale-row,
+  .sale-row.is-two {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -2698,18 +2742,12 @@
 
 /* Customer order's invoices: a number and its type of order on each row, with × to take one away */
 .invoice-fields {
-  display: flex;
-  flex-direction: column;
   gap: 8px;
-  margin: 0;
-  padding: 0;
-  border: none;
 }
 
-.invoice-fields legend {
-  margin-bottom: 6px;
-  padding: 0;
-  font-weight: 600;
+/* a number is short: the rows stop at the width of two fields */
+.invoice-entry {
+  max-width: 520px;
 }
 
 .invoice-row {
@@ -2790,95 +2828,74 @@
   border-radius: 999px;
 }
 
-.summary-invoices {
-  display: grid;
-  gap: 4px;
-  margin: 2px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
 .sale-summary {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-/* reads like the field labels beside it */
-.sale-summary-title {
-  margin: 0;
-  font-size: 16px;
-}
-
-.sale-summary-box {
-  flex: 1;
-  min-height: 360px;
-  padding: 18px 20px;
-  background: var(--surface-muted);
-  border: 1px solid var(--field-border);
-  border-radius: 10px;
+  min-width: 0;
 }
 
 .sale-summary-ticket {
-  margin: 0 0 14px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--field-border);
-}
-
-.sale-summary-list {
-  display: grid;
-  gap: 12px;
   margin: 0;
-}
-
-.sale-summary-list dt {
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 14px;
   color: var(--text-muted);
 }
 
-.sale-summary-list dd {
-  margin: 0;
-  font-weight: 600;
-  overflow-wrap: anywhere;
+.sale-summary-ticket strong {
+  margin-left: 8px;
+  font-size: 16px;
+  color: var(--text-dark);
 }
 
-.sale-summary-list dd.is-empty {
+/* who, what for and how many invoices, on one line, cut short with ... when it's long */
+.sale-summary-line {
+  margin: 2px 0 0;
+  overflow: hidden;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sale-summary-line.is-empty {
   font-weight: 400;
   color: var(--text-muted);
+  white-space: normal;
 }
 
-.type-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 2px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.type-chips li {
-  padding: 1px 10px;
-  font-size: 14px;
-  background: var(--cream);
-  border: 1px solid var(--cream-border);
-  border-radius: 999px;
-}
-
+/* the bar with Serve: at the bottom of the form, and kept at the bottom of the window while the form is longer than
+   it, so it never has to be scrolled to */
 .sale-actions {
-  grid-column: 1 / -1;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 12px;
-  text-align: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 -32px;
+  padding: 14px 32px;
+  background: #ffffff;
+  border-top: 1px solid var(--field-border);
+  border-radius: 0 0 12px 12px;
 }
 
-.sale-actions .submit-btn,
-.sale-actions .submit-hint {
+.sale-submit {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 16px;
+}
+
+.sale-actions .submit-btn {
+  width: auto;
+  min-width: 160px;
+  height: 48px;
   margin: 0;
+  padding: 0 28px;
+  font-size: 16px;
+}
+
+/* a field reached with Tab, or the first one to fix after Serve, scrolls clear of the top bar (56px) and the Serve bar
+   instead of under them */
+html:has(.sale-actions) {
+  scroll-padding: 80px 0 96px;
 }
 
 /* a ticket that couldn't be opened to edit */
@@ -2892,18 +2909,29 @@
 
 @media (max-width: 760px) {
   .sale-form {
-    grid-template-columns: minmax(0, 1fr);
-    padding: 20px 16px;
+    padding: 20px 16px 0;
   }
-  .sale-fields,
+  .sale-actions {
+    margin: 0 -16px;
+    padding: 12px 16px;
+  }
   .sale-field.is-narrow {
     max-width: none;
   }
-  .sale-summary-box {
-    min-height: 0;
-  }
   .order-panel {
     padding: 24px 16px;
+  }
+}
+
+/* a phone: the summary over Serve, and Serve across the bar */
+@media (max-width: 520px) {
+  .sale-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .sale-submit {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 

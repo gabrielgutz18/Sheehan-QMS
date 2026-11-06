@@ -22,6 +22,21 @@ function Field({ id, label, optional, narrow, error, children }) {
     );
 }
 
+// one group of the Order tab under its own heading (Customer, Sales details, ...), so the form reads as a few short
+// parts instead of one long list; optional: every field in it can be left as it is
+/** @param {{ title: string, optional?: boolean, children: import('react').ReactNode }} props */
+export function SaleGroup({ title, optional, children }) {
+    return (
+        <fieldset className="sale-group">
+            <legend className="sale-group-title">
+                {title}
+                {optional && <span className="field-optional"> (optional)</span>}
+            </legend>
+            {children}
+        </fieldset>
+    );
+}
+
 const errorProps = (id, error) => ({
     "aria-invalid": Boolean(error),
     "aria-describedby": error ? `${id}-error` : undefined,
@@ -84,6 +99,7 @@ export function SaleTabs({ label, tabs, current, onChange }) {
 }
 
 // a time of day, which the field gives as HH:MM (24-hour) whatever way the computer shows it; "" when left blank
+/** @param {FieldProps & { value: string, onChange: (value: string) => void }} props */
 export function SaleTime({ id, label, value, onChange, optional, narrow }) {
     return (
         <Field id={id} label={label} optional={optional} narrow={narrow}>
@@ -209,8 +225,8 @@ export function InvoiceFields({ invoices, types, onChange, onAdd, onRemove, erro
         onChange(invoices.map((invoice) => (invoice.key === key ? { ...invoice, [field]: e.target.value } : invoice)));
 
     return (
-        <fieldset className="invoice-fields">
-            <legend>Invoices</legend>
+        <fieldset className="sale-group invoice-fields">
+            <legend className="sale-group-title">Invoices</legend>
             {invoices.map(({ key, invoiceNo, type }, i) => {
                 const error = errors[key] ?? {};
                 const id = `sale-invoice-${key}`;

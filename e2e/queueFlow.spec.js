@@ -32,6 +32,34 @@ test('a wrong password is refused, and the staff pages stay behind the sign-in',
     await expect(page.getByRole('heading', { name: 'Customer order' })).toBeHidden();
 });
 
+test('Serve stays in view on Customer order, and a stopped Serve puts the cursor on the first field to fix', async ({ page }) => {
+    // a short laptop screen, where the whole form can't fit
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.goto('/staff/customer-order');
+    await signIn(page, ADMIN.username, ADMIN.password);
+    const serve = page.getByRole('button', { name: 'Serve', exact: true });
+    await expect(serve).toBeInViewport();
+    await expect(page.locator('.sale-actions')).toContainText('New ticket');
+
+    // the summary beside Serve fills in as the form is
+    await page.getByRole('button', { name: /^Type of order/ }).click();
+    await page.getByRole('checkbox', { name: 'Roofings', exact: true }).check();
+    await page.getByRole('checkbox', { name: 'Steel', exact: true }).check();
+    await page.keyboard.press('Escape');
+    await page.getByLabel('Invoice 1 number').fill('E2E-2001');
+    await expect(page.locator('.sale-actions')).toContainText('RS --');
+    await expect(page.locator('.sale-actions')).toContainText('Roofings, Steel · 1 invoice');
+
+    // scrolled down to the last group, Serve is still there; pressed with no name, the name field gets the cursor
+    await page.getByText(/^Returning:/).scrollIntoViewIfNeeded();
+    await expect(serve).toBeInViewport();
+    await serve.click();
+    const name = page.getByRole('textbox', { name: 'Customer name' });
+    await expect(name).toBeFocused();
+    await expect(name).toBeInViewport();
+    await expect(page.getByText("Please enter the customer's name.")).toBeVisible();
+});
+
 test('a customer goes from their ticket, through hand-over and loading, with the display following along', async ({ page }) => {
     const customer = `Test Customer ${Date.now()}`;
 
