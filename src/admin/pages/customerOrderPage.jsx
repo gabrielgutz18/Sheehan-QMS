@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import '../../style/customerOrder.css';
 
 import Receipt from '../printing/receipt.jsx';
 import {
-    CheckPicker, InvoiceFields, PriorityField, ReturningField, SaleSelect, SaleTabs, SaleText, SaleTime,
+    CheckPicker, InvoiceFields, PriorityField, ReturningField, SaleGroup, SaleSelect, SaleTabs, SaleText, SaleTime,
 } from '../components/customerOrder/saleFields.jsx';
 import CheckerSection from '../components/customerOrder/checkerSection.jsx';
 import LifeCycleTable from '../components/orderStatus/lifeCycleTable.jsx';
@@ -235,6 +235,14 @@ function OrderDesk({ saved, viewing, onNew }) {
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState("");
     const [tab, setTab] = useState(DESK_TABS[0].id);
+    const formRef = useRef(null);
+    // counts each Serve the form stopped, so the first field to fix gets the focus once it's on screen
+    const [stopped, setStopped] = useState(0);
+
+    useEffect(() => {
+        if (!stopped) return;
+        formRef.current?.querySelector('[aria-invalid="true"], .type-trigger.has-error')?.focus();
+    }, [stopped]);
 
     // fields show before the first Serve and while editing; the ticket shows otherwise
     const showForm = !submitted || editing;
@@ -298,6 +306,7 @@ function OrderDesk({ saved, viewing, onNew }) {
         // every field that can be wrong is on the Order tab, so that's where to look
         if (Object.keys(next).length > 0) {
             setTab("sale-tab-order");
+            setStopped((prev) => prev + 1);
             return;
         }
 
@@ -360,45 +369,59 @@ function OrderDesk({ saved, viewing, onNew }) {
     return (
         <div className="sale-card">
             <SaleTabs label="Customer order" tabs={DESK_TABS} current={tab} onChange={setTab} />
-            <form className="admin-panel sale-form" onSubmit={handleSubmit} noValidate>
+            <form className="admin-panel sale-form" onSubmit={handleSubmit} noValidate ref={formRef}>
+                {/* four short groups, the ones every order needs first: who and what, the invoices, then the sales
+                    details, then the marks most orders never get */}
                 <div id="sale-tab-order-panel" className="sale-fields" role="tabpanel" aria-labelledby="sale-tab-order"
                     hidden={tab !== "sale-tab-order"}>
-                    <SaleText id="sale-name" label="Customer name" maxLength={MAX_NAME}
-                        value={fields.name} onChange={set("name")} error={errors.name} />
-                    {/* a priority order's ticket shows with a "*" in front, "* RS 01"; a TBA priority one's "** T 01" */}
-                    
-                    <CheckPicker id="sale-types" label="Type of order" placeholder="Choose one or more"
-                        names={purpose.map((p) => p.name)}
-                        value={fields.types} onChange={setTypes} error={errors.types} />
+                    <SaleGroup title="Customer">
+                        <div className="sale-row is-two">
+                            <SaleText id="sale-name" label="Customer name" maxLength={MAX_NAME}
+                                value={fields.name} onChange={set("name")} error={errors.name} />
+                            <CheckPicker id="sale-types" label="Type of order" placeholder="Choose one or more"
+                                names={purpose.map((p) => p.name)}
+                                value={fields.types} onChange={setTypes} error={errors.types} />
+                        </div>
+                    </SaleGroup>
+
                     <InvoiceFields invoices={fields.invoices} types={fields.types} errors={errors.invoices}
                         maxLength={MAX_INVOICE} max={MAX_INVOICES}
                         onChange={set("invoices")} onAdd={addInvoice} onRemove={removeInvoice} />
-                    <PriorityField priority={fields.priority} tbaPriority={fields.tbaPriority}
-                    onChange={(marks) => setFields((prev) => ({ ...prev, ...marks }))} />
-                    <SaleText id="sale-salesman" label="Salesman name" narrow maxLength={MAX_SALESMAN}
-                        value={fields.salesman} onChange={set("salesman")} error={errors.salesman} />
-                    {/* the cashier can change it on the Cashier page too; once set it can't be cleared */}
-                    <SaleSelect id="sale-payment" label="Payment status" optional narrow placeholder="Not set yet"
-                        placeholderDisabled={Boolean(submitted?.paymentStatus)}
-                        options={paymentStatus.map((p) => p.type)}
-                        value={fields.paymentStatus} onChange={set("paymentStatus")} />
-                    {/* when the customer came in to sales and when they left it; a sales staff member who leaves the
-                        time in blank gets the time they press Serve (the backend fills it in) */}
-                    <SaleTime id="sale-time-in" label="Time in (sales)" optional narrow
-                        value={fields.salesTimeIn} onChange={set("salesTimeIn")} />
-                    <SaleTime id="sale-time-out" label="Time out (sales)" optional narrow
-                        value={fields.salesTimeOut} onChange={set("salesTimeOut")} />
-                    {/* the sales team serving the customer; handing them over to loading doesn't change it */}
-                    <SaleSelect id="sale-team" label="Sales team" optional narrow placeholder="No team"
-                        options={teamNames}
-                        value={fields.team} onChange={set("team")} />
-                    <ReturningField
-                        returning={fields.returning}
-                        pickupDate={fields.pickupDate}
-                        onReturning={set("returning")}
-                        onPickupDate={set("pickupDate")}
-                        error={errors.pickupDate}
-                    />
+
+                    <SaleGroup title="Sales details">
+                        <div className="sale-row">
+                            <SaleText id="sale-salesman" label="Salesman name" maxLength={MAX_SALESMAN}
+                                value={fields.salesman} onChange={set("salesman")} error={errors.salesman} />
+                            {/* the sales team serving the customer; handing them over to loading doesn't change it */}
+                            <SaleSelect id="sale-team" label="Sales team" optional placeholder="No team"
+                                options={teamNames}
+                                value={fields.team} onChange={set("team")} />
+                            {/* the cashier can change it on the Cashier page too; once set it can't be cleared */}
+                            <SaleSelect id="sale-payment" label="Payment status" optional placeholder="Not set yet"
+                                placeholderDisabled={Boolean(submitted?.paymentStatus)}
+                                options={paymentStatus.map((p) => p.type)}
+                                value={fields.paymentStatus} onChange={set("paymentStatus")} />
+                            {/* when the customer came in to sales and when they left it; a sales staff member who
+                                leaves the time in blank gets the time they press Serve (the backend fills it in) */}
+                            <SaleTime id="sale-time-in" label="Time in (sales)" optional
+                                value={fields.salesTimeIn} onChange={set("salesTimeIn")} />
+                            <SaleTime id="sale-time-out" label="Time out (sales)" optional
+                                value={fields.salesTimeOut} onChange={set("salesTimeOut")} />
+                        </div>
+                    </SaleGroup>
+
+                    {/* a priority order's ticket shows with a "*" in front, "* RS 01"; a TBA priority one's "** T 01" */}
+                    <SaleGroup title="Priority and pick-up" optional>
+                        <PriorityField priority={fields.priority} tbaPriority={fields.tbaPriority}
+                            onChange={(marks) => setFields((prev) => ({ ...prev, ...marks }))} />
+                        <ReturningField
+                            returning={fields.returning}
+                            pickupDate={fields.pickupDate}
+                            onReturning={set("returning")}
+                            onPickupDate={set("pickupDate")}
+                            error={errors.pickupDate}
+                        />
+                    </SaleGroup>
                 </div>
 
                 <div id="sale-tab-checker-panel" role="tabpanel" aria-labelledby="sale-tab-checker"
@@ -422,18 +445,17 @@ function OrderDesk({ saved, viewing, onNew }) {
                     )}
                 </div>
 
-                {/* the preview already shows it all, on the ticket itself */}
-                {tab !== "sale-tab-preview" && <OrderSummary fields={fields} ticket={editing ? submitted : null} />}
-
+                {/* stays at the bottom of the window while the form scrolls, so Serve is always in reach, on every
+                    tab, with the ticket's number and what it's for beside it */}
                 <div className="sale-actions">
-                    {submitError && <p className="field-error" role="alert">{submitError}</p>}
-                    {/* while editing, sending again updates the same ticket */}
-                    <button type="submit" className="submit-btn" disabled={submitting}>
-                        {submitting ? "Sending..." : editing ? "Update" : "Serve"}
-                    </button>
-                    <p className="submit-hint">
-                        The ticket shows once it's {editing ? "updated" : "served"}; print it from there.
-                    </p>
+                    <OrderSummary fields={fields} ticket={editing ? submitted : null} />
+                    <div className="sale-submit">
+                        {submitError && <p className="field-error" role="alert">{submitError}</p>}
+                        {/* while editing, sending again updates the same ticket */}
+                        <button type="submit" className="submit-btn" disabled={submitting}>
+                            {submitting ? "Sending..." : editing ? "Update" : "Serve"}
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>
