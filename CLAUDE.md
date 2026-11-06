@@ -42,7 +42,7 @@ CI blocks on lint, `npm run typecheck` (non-strict `--checkJs`), `test:coverage`
 
 **A ticket's path:** Customer order creates it → My counter hands it over → each department calls, starts and finishes it, one area at a time → Security checks it at the gate → done. `src/data/loadingAreas.js` maps order types to areas and departments, and `DepartmentLine` is the shared page for Loading, TBA, Chassis and Hardware. A customer is in one place at a time, and the server refuses calls that break this.
 
-**Queue numbers restart daily.** `:queueNum` in a route always means today's ticket; `:id` routes work across days (Order sheet, Cashier, history). Tickets are soft-deleted and can be restored; Purge (admins) erases deleted ones for good, after saving a copy of the database, and their points stay (`serves.order_id` becomes NULL).
+**Queue numbers restart daily.** `:queueNum` in a route always means today's ticket; `:id` routes work across days (Order sheet, Cashier, history). Tickets are soft-deleted and can be restored; Purge (admins, and developers on their Deleted tickets page) erases deleted ones for good, after saving a copy of the database, and their points stay (`serves.order_id` becomes NULL).
 
 **Screens update by polling** every few seconds; there are no WebSockets or server-sent events.
 

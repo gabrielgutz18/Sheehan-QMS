@@ -9,12 +9,12 @@ import formatQueueNum from '../../../data/queueNum.js';
 import { readLastRemarks, saveLastRemarks } from '../../data/lastRemarks.js';
 
 // today's tickets as cards with their actions (status, call, view, edit, delete) and the call dialog
-// admins and sales staff can both set the status and edit; only admins call (sales hand customers over and loading
-// calls them) and delete (the backend checks too)
+// admins and sales staff can both set the status, edit and delete (sales, a ticket made by mistake; it can be restored);
+// only admins call (sales hand customers over and loading calls them); the backend checks too
 // Edit opens the ticket on Customer order, e.g. to change its payment status or pick-up day later
 export default function QueueList({ orders, setOrders, loading, error }) {
     const { user } = useAuth();
-    const canDelete = user?.role === "admin";
+    const canDelete = user?.role === "admin" || user?.role === "sales";
     const canCall = user?.role === "admin";
     const [busy, setBusy] = useState(null);
     const [actionError, setActionError] = useState("");
