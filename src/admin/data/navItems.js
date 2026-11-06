@@ -32,6 +32,8 @@ const navItems = [
     { to: "/staff/announcer", label: "Announcer", group: "Display", roles: ["admin"], icon: "M4 9v6h4l5 4V5L8 9zM16 9a3 3 0 0 1 0 6M18.5 6.5a7 7 0 0 1 0 11", blurb: "The voice that calls each number" },
     { to: "/staff/printer", label: "Printer", group: "Display", roles: ["admin"], icon: "M7 9V3h10v6M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M7 14h10v7H7z", blurb: "The receipt printer for tickets" },
     { to: "/staff/account", label: "My account", group: "Account", roles: STAFF, icon: "M20 21v-1a6 6 0 0 0-6-6h-4a6 6 0 0 0-6 6v1M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8", blurb: "Your photo, name and details" },
+    // admins have the same list, with Restore, on Customer order
+    { to: "/staff/deleted-tickets", label: "Deleted tickets", group: "My work", roles: ["developer"], icon: "M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3", blurb: "Purge deleted tickets for good, to free up the database" },
     { to: "/staff/accounts", label: "Accounts", group: "Account", roles: ["admin", "developer"], icon: "M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M9 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6M19 8v6M22 11h-6", blurb: "Staff accounts and their roles" },
     { to: "/staff/message-developer", label: "Message developer", group: "Help", roles: NOT_DEVELOPER, icon: "M4 5h16v11H9l-5 4zM12 8v3M12 13.5h.01", blurb: "Tell the developers when something doesn't go well" },
 ];

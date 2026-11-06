@@ -312,7 +312,8 @@ test('Orders & history shows every ticket as one size of card, and a deleted tic
     await expect(reportCard.getByRole('button', { name: 'Edit', exact: true })).toBeDisabled();
     await expect(fullCard.getByRole('link', { name: /^Edit/ })).toBeVisible();
 
-    // sales see the same cards, without Call and Delete
+    // sales see the same cards, with Delete (for a ticket made by mistake) but without Call; on Deleted, nothing to
+    // pick, since purging is for admins and developers
     const theirs = await browser.newContext();
     const other = await theirs.newPage();
     watch(other);
@@ -321,7 +322,13 @@ test('Orders & history shows every ticket as one size of card, and a deleted tic
     await other.getByRole('radio', { name: 'Orders & history' }).click();
     const theirCard = other.getByRole('listitem').filter({ hasText: full });
     await expect(theirCard.getByRole('link', { name: /^View ticket/ })).toBeVisible();
-    await expect(theirCard.getByRole('button', { name: /^(Call|Delete)/ })).toHaveCount(0);
+    await expect(theirCard.getByRole('button', { name: /^Delete/ })).toBeVisible();
+    await expect(theirCard.getByRole('button', { name: /^Call/ })).toHaveCount(0);
+    await other.getByRole('radio', { name: 'Deleted' }).click();
+    await expect(other.getByRole('radio', { name: 'Deleted' })).toHaveAttribute('aria-checked', 'true');
+    await expect(other.getByText('Loading...')).toHaveCount(0);
+    await expect(other.getByRole('checkbox')).toHaveCount(0);
+    await other.getByRole('radio', { name: 'Today' }).click();
     // sales don't call customers: not with the status either, and not from My counter, where they hand them over
     await expect(theirCard.getByRole('option', { name: 'Now serving' })).toHaveCount(0);
     await other.goto('/staff/counter');
@@ -398,6 +405,55 @@ test('an admin picks several tickets on All tickets to delete them, then purges 
     await page.getByRole('radio', { name: 'All tickets' }).click();
     await page.getByPlaceholder('Search name or ticket no.').fill(`${stamp}`);
     await expect(page.getByText('No tickets found.')).toBeVisible();
+});
+
+test('a developer purges deleted tickets from their Deleted tickets page, with no Restore there', async ({ page, browser }) => {
+    const stamp = Date.now();
+    const name = `Dev Purge ${stamp}`;
+    const developer = { username: `e2e-dev-${stamp}`, password: 'e2e-password', name: `Dev ${stamp}`, role: 'developer' };
+
+    // an admin makes the developer's account and a ticket, and deletes it
+    await page.goto('/staff/customer-order?tab=orders');
+    await signIn(page, ADMIN.username, ADMIN.password);
+    await expect(page.getByRole('heading', { name: 'Customer order' })).toBeVisible();
+    await page.evaluate(async ([ticketName, account]) => {
+        const call = async (method, path, body) => {
+            const res = await fetch(path, {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-Tab-Id': sessionStorage.getItem('tabId'),
+                },
+                body: body && JSON.stringify(body),
+            });
+            if (!res.ok) throw new Error(`${path} failed (${res.status})`);
+            return res.status === 204 ? null : res.json();
+        };
+        const ticket = await call('POST', '/api/orders', { name: ticketName, purpose: 'Steel', invoices: [{ invoiceNo: '7101', type: 'Steel' }] });
+        await call('DELETE', `/api/admin/orders/${ticket.queueNum}`);
+        await call('POST', '/api/admin/users', account);
+    }, [name, developer]);
+
+    const theirs = await browser.newContext();
+    const dev = await theirs.newPage();
+    watch(dev);
+    await dev.goto('/staff/deleted-tickets');
+    await signIn(dev, developer.username, developer.password);
+    await expect(dev.getByRole('heading', { name: 'Deleted tickets' })).toBeVisible();
+    await dev.getByPlaceholder('Search name or ticket no.').fill(`${stamp}`);
+    const card = dev.getByRole('listitem').filter({ hasText: name });
+    await expect(card).toBeVisible();
+    // the queue's buttons aren't theirs
+    await expect(card.getByRole('button', { name: 'Restore' })).toHaveCount(0);
+    await expect(dev.getByRole('button', { name: /Export/ })).toHaveCount(0);
+
+    await card.getByRole('checkbox').check();
+    dev.once('dialog', (confirm) => confirm.accept());
+    await dev.getByRole('button', { name: 'Purge 1 ticket' }).click();
+    await expect(dev.getByRole('status').filter({ hasText: 'Purged 1 ticket.' })).toBeVisible();
+    await expect(card).toHaveCount(0);
+    await theirs.close();
 });
 
 test('an order sales takes fills in its ticket, date and time in on the Order sheet, and Edit keeps the time', async ({ page, browser }) => {

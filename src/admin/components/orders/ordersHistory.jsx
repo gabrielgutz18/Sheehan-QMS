@@ -87,11 +87,16 @@ function TodayOrders() {
 }
 
 // deleted tickets, or every ticket of every day, searched by name, ticket number or day, with Restore
-// admins can also pick several: on All tickets to Delete them (moved to Deleted, and off the Google sheet), and on
-// Deleted to Purge them, erased for good to free up the database
-function TicketHistory({ deleted }) {
+// tickets can be picked several at once: on All tickets to Delete them (moved to Deleted, and off the Google sheet), for
+// admins and sales (a ticket made by mistake), and on Deleted to Purge them, erased for good to free up the database,
+// for admins and developers only
+// the developers have Deleted alone, on their Deleted tickets page: Purge, but no Restore, ticket links or Export,
+// which belong to the queue
+/** @param {{ deleted: boolean }} props */
+export function TicketHistory({ deleted }) {
     const { user } = useAuth();
-    const canPick = user?.role === "admin";
+    const developer = user?.role === "developer";
+    const canPick = deleted ? user?.role === "admin" || developer : user?.role === "admin" || user?.role === "sales";
     const [search, setSearch] = useState("");
     const [query, setQuery] = useState("");
     const [day, setDay] = useState("");
@@ -198,7 +203,7 @@ function TicketHistory({ deleted }) {
                     Any day
                 </button>
             )}
-            <div className="orders-history-export"><OrderExport /></div>
+            {!developer && <div className="orders-history-export"><OrderExport /></div>}
 
             <div className="orders-history-body">
                 {(error || result.error) && <p className="field-error" role="alert">{error || result.error}</p>}
@@ -265,7 +270,7 @@ function TicketHistory({ deleted }) {
                                             {row.restoredAt && <span className="history-note">Restored {formatTime(row.restoredAt)}</span>}
                                         </div>
                                     )}
-                                    actions={(
+                                    actions={developer ? null : (
                                         <>
                                             {/* the same place and size as Restore, to say why there's nothing to restore */}
                                             <button

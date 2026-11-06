@@ -373,14 +373,48 @@ describe("deleting and purging several at once", () => {
         assert.equal(existsSync(join(app.dataDir, "backups")), false);
     });
 
-    test("only admins delete or purge several at once, and the list has to be ticket ids", async () => {
+    test("a developer sees only the deleted tickets and purges them, but can't delete or restore any", async () => {
+        await takeTicket();
+        await takeTicket({ name: "Ana Reyes" });
+        const admin = await app.actingAsAdmin();
+        const dev = await app.actingAsDeveloper();
+        await admin.delete("/admin/orders/1");
+        const [deleted] = (await admin.get("/admin/history?deleted=1")).body;
+        const waitingId = (await admin.get("/admin/history")).body.find((row) => row.queueNum === 2).id;
+
+        (await dev.get("/admin/history")).assertStatus(403);
+        assert.deepEqual((await dev.get("/admin/history?deleted=1")).assertStatus(200).body.map((row) => row.id), [deleted.id]);
+        (await dev.post("/admin/history/delete", { ids: [waitingId] })).assertStatus(403);
+        (await dev.post(`/admin/history/${deleted.id}/restore`)).assertStatus(403);
+
+        assert.deepEqual((await dev.post("/admin/history/purge", { ids: [deleted.id, waitingId] })).assertStatus(200).body, { purged: 1 });
+        app.assertDatabaseMissing("orders", { id: deleted.id });
+        app.assertDatabaseHas("orders", { id: waitingId, deleted_at: null });
+    });
+
+    test("sales delete a ticket made by mistake, one or several at once, and restore it, but never purge", async () => {
+        await takeTicket();
+        await takeTicket({ name: "Not A Customer" });
+        await takeTicket({ name: "Test Order" });
+        const maria = await app.actingAsSales();
+        const ids = (await maria.get("/admin/history")).body.filter((row) => row.queueNum > 1).map((row) => row.id);
+
+        (await maria.delete("/admin/orders/1")).assertStatus(204);
+        assert.deepEqual((await maria.post("/admin/history/delete", { ids })).assertStatus(200).body, { deleted: 2 });
+        assert.deepEqual((await maria.get("/admin/orders")).body, []);
+        const deleted = (await maria.get("/admin/history?deleted=1")).body;
+        assert.equal(deleted.length, 3);
+
+        (await maria.post("/admin/history/purge", { ids: deleted.map((row) => row.id) })).assertStatus(403);
+        app.assertDatabaseCount("orders", 3);
+        (await maria.post(`/admin/history/${deleted[0].id}/restore`)).assertStatus(200);
+    });
+
+    test("the list of tickets has to be ticket ids", async () => {
         await takeTicket();
         const admin = await app.actingAsAdmin();
-        const maria = await app.actingAsSales();
         const [{ id }] = (await admin.get("/admin/history")).body;
 
-        (await maria.post("/admin/history/delete", { ids: [id] })).assertStatus(403);
-        (await maria.post("/admin/history/purge", { ids: [id] })).assertStatus(403);
         for (const ids of [undefined, [], ["1"], [0], [1.5], Array.from({ length: 501 }, (_, i) => i + 1)]) {
             (await admin.post("/admin/history/delete", { ids })).assertStatus(400);
             (await admin.post("/admin/history/purge", { ids })).assertStatus(400);
@@ -432,11 +466,10 @@ describe("who can do what", () => {
         assert.match(signOut.headers.get("set-cookie"), /; Secure; Max-Age=0$/);
     });
 
-    test("sales staff can't call or delete tickets: they hand customers over, and loading calls them", async () => {
+    test("sales staff can't call tickets: they hand customers over, and loading calls them", async () => {
         await takeTicket();
         const maria = await app.actingAsSales();
 
-        (await maria.delete("/admin/orders/1")).assertStatus(403);
         (await maria.post("/admin/orders/1/call")).assertStatus(403);
         // Now serving would put them on the display, the same as calling them
         const refused = (await maria.patch("/admin/orders/1", { status: "serving" })).assertStatus(403).body;

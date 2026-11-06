@@ -23,6 +23,7 @@ import OrderStatusPage from './pages/orderStatusPage.jsx';
 import SecurityPage from './pages/securityPage.jsx';
 import CashierPage from './pages/cashierPage.jsx';
 import ChatPage from './pages/chatPage.jsx';
+import DeletedTicketsPage from './pages/deletedTicketsPage.jsx';
 import MessageDeveloperPage from './pages/messageDeveloperPage.jsx';
 import SheeChatPage from './pages/sheeChatPage.jsx';
 
@@ -66,12 +67,18 @@ export default function AdminApp() {
                             <Route path="chat" element={<ChatPage />} />
                         </Route>
 
+                        {/* purging deleted tickets to free up the database: the developers' own page; admins have the
+                            same list, with Restore, on Customer order */}
+                        <Route element={<ProtectedRoute roles={["admin", "developer"]} />}>
+                            <Route path="deleted-tickets" element={<DeletedTicketsPage />} />
+                        </Route>
+
                         <Route element={<ProtectedRoute roles={["admin", "sales"]} />}>
                             <Route path="customer-order" element={<CustomerOrderPage />} />
                             <Route path="counter" element={<SalesPage />} />
                             {/* Orders and History are the Orders & history tab of Customer order now; their old
                                 addresses open it (sales can set any status there but Now serving, as they don't call;
-                                Call and Delete stay admin-only) */}
+                                Call stays admin-only, and Purge is for admins and developers) */}
                             <Route path="orders" element={<Navigate to="/staff/customer-order?tab=orders" replace />} />
                             <Route path="history" element={<Navigate to="/staff/customer-order?tab=history" replace />} />
                         </Route>

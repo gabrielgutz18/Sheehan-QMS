@@ -182,6 +182,10 @@ const ROLE_ROUTES = {
         ["PATCH", /^\/admin\/orders\/[^/]+$/],
         ["GET", /^\/admin\/history$/],
         ["POST", /^\/admin\/history\/\d+\/restore$/],
+        // a ticket made by mistake (not a real customer) is deleted, one or several at once; it waits on Deleted, where
+        // they can restore it; purging it for good is for admins and developers
+        ["DELETE", /^\/admin\/orders\/[^/]+$/],
+        ["POST", /^\/admin\/history\/delete$/],
         ["GET", /^\/admin\/me\/stats$/],
         ["PUT", /^\/admin\/announcer\/volume$/],
         ...ACCOUNT_ROUTES,
@@ -266,6 +270,10 @@ const ROLE_ROUTES = {
         ["GET", /^\/admin\/developers$/],
         ["GET", /^\/admin\/staff-presence$/],
         ["GET", /^\/admin\/order-status$/],
+        // the Deleted tickets page: the deleted tickets only (the history route checks that), and Purge, to free up the
+        // database; not Delete or Restore, which change the queue
+        ["GET", /^\/admin\/history$/],
+        ["POST", /^\/admin\/history\/purge$/],
         ["GET", /^\/admin\/users$/],
         ["POST", /^\/admin\/users$/],
         ["PATCH", /^\/admin\/users\/\d+$/],
@@ -2593,10 +2601,15 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             const search = (url.searchParams.get("search") ?? "").trim().slice(0, 100);
             const day = url.searchParams.get("day") ?? "";
             if (day && !/^\d{4}-\d{2}-\d{2}$/.test(day)) return send(res, 400, { message: "Pick a valid day." });
+            const deletedOnly = url.searchParams.get("deleted") === "1";
+            // the developers purge deleted tickets, and have no need to see the others
+            if (me.role === "developer" && !deletedOnly) {
+                return send(res, 403, { message: "Developers can only see the deleted tickets." });
+            }
             // "RA 05" or "5" also finds ticket number 5
             const num = Number(search.match(/(\d+)\s*$/)?.[1] ?? -1);
             const rows = sql.history.all({
-                deletedOnly: url.searchParams.get("deleted") === "1" ? 1 : 0,
+                deletedOnly: deletedOnly ? 1 : 0,
                 day,
                 search,
                 like: likePattern(search),
@@ -2615,7 +2628,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             return send(res, 200, { deleted: Number(changes) });
         }
 
-        // Purge (admins only): deleted tickets erased for good, to free up the database; they were already taken off the
+        // Purge (admins and developers): deleted tickets erased for good, to free up the database; they were already taken off the
         // Google sheet when they were deleted. A copy of the database is saved in the backups folder first, and nothing
         // goes if that fails; the file is compacted after, since SQLite doesn't give the space back by itself
         // { ids: [ticket id, ...] } → { purged: how many }; a ticket that isn't deleted is left alone

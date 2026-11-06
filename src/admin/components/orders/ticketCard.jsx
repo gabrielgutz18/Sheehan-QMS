@@ -140,11 +140,11 @@ export function TicketLinks({ order, today = true }) {
 // place, and the longer facts open in See all details
 // day: the ticket's day, on the lists that cover every day; those tickets aren't live, so no "waiting" time
 // status: the status box; statusNote: replaces who has the customer under it; notes: extra lines for the details
-// actions: the buttons
+// actions: the buttons (none, on the developers' Deleted tickets page)
 // picked / onPick: a box by the number to pick the ticket, for Delete or Purge on several at once (admins); left out,
 // there's no box
 /**
- * @param {{ order: any, day?: string, status: any, statusNote?: any, notes?: any, actions: any,
+ * @param {{ order: any, day?: string, status: any, statusNote?: any, notes?: any, actions?: any,
  *   picked?: boolean, onPick?: (picked: boolean) => void }} props
  */
 export default function TicketCard({ order, day, status, statusNote, notes, actions, picked, onPick }) {
@@ -199,7 +199,7 @@ export default function TicketCard({ order, day, status, statusNote, notes, acti
                 </div>
             </dl>
 
-            <div className="ticket-card-actions">{actions}</div>
+            {actions && <div className="ticket-card-actions">{actions}</div>}
 
             {openedAt !== null && (
                 <TicketDialog

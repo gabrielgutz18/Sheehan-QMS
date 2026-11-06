@@ -3715,6 +3715,13 @@ html:has(.sale-actions) {
   color: var(--text-muted);
 }
 
+/* the developers' Deleted tickets page: one line under the title saying what Purge does */
+.deleted-tickets-intro {
+  margin: 6px 0 20px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
 /* picking several tickets on Deleted and All tickets (admins): Select all on the left, and once any are picked, how
    many, Clear and the one action, Delete or Purge, beside it; it stays under the top bar while the cards scroll, so the
    button is still there after picking one far down */
