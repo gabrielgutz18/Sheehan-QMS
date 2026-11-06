@@ -3715,7 +3715,73 @@ html:has(.sale-actions) {
   color: var(--text-muted);
 }
 
+/* picking several tickets on Deleted and All tickets (admins): Select all on the left, and once any are picked, how
+   many, Clear and the one action, Delete or Purge, beside it; it stays under the top bar while the cards scroll, so the
+   button is still there after picking one far down */
+.history-pick-bar {
+  position: sticky;
+  top: calc(var(--bar-h) + 8px);
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  min-height: 52px;
+  margin-bottom: 12px;
+  padding: 8px 14px;
+  background: #ffffff;
+  border: 1px solid var(--field-border);
+  border-radius: 12px;
+}
+
+.history-pick-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.history-pick-count {
+  margin-left: auto;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.history-pick-bar input[type="checkbox"],
+.ticket-card-pick input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--brand-red);
+  cursor: pointer;
+}
+
 /* ---------- ticket cards ---------- */
+
+/* the box to pick a ticket, before its number; its label is the touch area, larger than the box */
+.ticket-card-pick {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin: -8px -6px -8px -10px;
+  cursor: pointer;
+}
+
+/* the number stays by the box, and the day at the far end */
+.ticket-card-pick + .ticket-card-number {
+  margin-right: auto;
+}
+
+.ticket-card.is-picked {
+  border-color: var(--brand-red);
+  box-shadow: 0 0 0 1px var(--brand-red);
+}
 
 /* Orders & history gets wider than the other pages, for more tickets on a big screen */
 .admin-main:has(.orders-history) {

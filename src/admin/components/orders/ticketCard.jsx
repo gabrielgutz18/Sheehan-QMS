@@ -141,17 +141,26 @@ export function TicketLinks({ order, today = true }) {
 // day: the ticket's day, on the lists that cover every day; those tickets aren't live, so no "waiting" time
 // status: the status box; statusNote: replaces who has the customer under it; notes: extra lines for the details
 // actions: the buttons
+// picked / onPick: a box by the number to pick the ticket, for Delete or Purge on several at once (admins); left out,
+// there's no box
 /**
- * @param {{ order: any, day?: string, status: any, statusNote?: any, notes?: any, actions: any }} props
+ * @param {{ order: any, day?: string, status: any, statusNote?: any, notes?: any, actions: any,
+ *   picked?: boolean, onPick?: (picked: boolean) => void }} props
  */
-export default function TicketCard({ order, day, status, statusNote, notes, actions }) {
+export default function TicketCard({ order, day, status, statusNote, notes, actions, picked, onPick }) {
     const [openedAt, setOpenedAt] = useState(null);
     const ticket = formatQueueNum(order.queueNum, order.purpose, order);
 
     return (
-        <li className="ticket-card">
+        <li className={`ticket-card${picked ? " is-picked" : ""}`}>
             <div className="ticket-card-head">
                 <div className="ticket-card-title">
+                    {onPick && (
+                        <label className="ticket-card-pick">
+                            <input type="checkbox" checked={!!picked} onChange={(e) => onPick(e.target.checked)} />
+                            <span className="visually-hidden">Pick ticket {ticket}</span>
+                        </label>
+                    )}
                     <h2 className="ticket-card-number">{ticket}</h2>
                     {day && <span className="ticket-card-day">{day}</span>}
                 </div>

@@ -6,7 +6,7 @@ import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
-import { DB_FILE, resolveDataDir } from './db.js';
+import { DB_FILE, backupStamp, resolveBackupsDir, resolveDataDir } from './db.js';
 
 const KEEP = 14;
 
@@ -17,11 +17,8 @@ if (!existsSync(source)) {
     process.exit(1);
 }
 
-const pad = (n) => String(n).padStart(2, "0");
-const now = new Date();
-const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-const backupsDir = process.env.BACKUP_DIR ? resolveDataDir(process.env.BACKUP_DIR) : join(dataDir, "backups");
-const target = join(backupsDir, stamp);
+const backupsDir = resolveBackupsDir(dataDir, process.env.BACKUP_DIR);
+const target = join(backupsDir, backupStamp(new Date()));
 mkdirSync(target, { recursive: true });
 
 // VACUUM INTO writes a consistent copy even while orders are being saved
