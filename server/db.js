@@ -15,6 +15,16 @@ export const DB_FILE = 'queue.db';
 // (resolved here, not from the working directory, which is System32 when run as a Windows service)
 export const resolveDataDir = (dir) => resolve(PROJECT_ROOT, dir || 'data');
 
+// where backups go: BACKUP_DIR from .env, or backups/ in the data folder
+export const resolveBackupsDir = (dataDir, backupDir) => (backupDir ? resolveDataDir(backupDir) : join(dataDir, 'backups'));
+
+// a backup's folder name by the server's clock, e.g. 2026-11-06_120502; the names sort oldest first, which is how the
+// daily backup knows which ones to remove
+export const backupStamp = (now) => {
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+};
+
 // runs fn inside one transaction: everything is saved, or nothing is
 export function transaction(db, fn) {
     db.exec('BEGIN IMMEDIATE');

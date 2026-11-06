@@ -342,6 +342,64 @@ test('Orders & history shows every ticket as one size of card, and a deleted tic
     await expect(fullCard).toBeVisible();
 });
 
+test('an admin picks several tickets on All tickets to delete them, then purges them for good from Deleted', async ({ page }) => {
+    const stamp = Date.now();
+    const names = [`Purge One ${stamp}`, `Purge Two ${stamp}`, `Purge Three ${stamp}`];
+
+    await page.goto('/staff/customer-order?tab=orders');
+    await signIn(page, ADMIN.username, ADMIN.password);
+    await expect(page.getByRole('heading', { name: 'Customer order' })).toBeVisible();
+    await page.evaluate(async (tickets) => {
+        for (const name of tickets) {
+            const res = await fetch('/api/orders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, purpose: 'Steel', invoices: [{ invoiceNo: '7001', type: 'Steel' }] }),
+            });
+            if (!res.ok) throw new Error(`taking a ticket failed (${res.status})`);
+        }
+    }, names);
+
+    // only this test's tickets are shown, so Select all can't reach anyone else's
+    await page.getByRole('radio', { name: 'Orders & history' }).click();
+    await page.getByRole('radio', { name: 'All tickets' }).click();
+    await page.getByPlaceholder('Search name or ticket no.').fill(`${stamp}`);
+    const cards = page.getByRole('listitem').filter({ hasText: `${stamp}` });
+    await expect(cards).toHaveCount(3);
+
+    // one picked, then all of them
+    await cards.filter({ hasText: names[0] }).getByRole('checkbox').check();
+    await expect(page.getByText('1 ticket picked')).toBeVisible();
+    await page.getByRole('checkbox', { name: 'Select all shown' }).check();
+    page.once('dialog', (confirm) => {
+        expect(confirm.message()).toContain('Delete 3 tickets?');
+        confirm.accept();
+    });
+    await page.getByRole('button', { name: 'Delete 3 tickets' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Deleted 3 tickets.' })).toBeVisible();
+    // deleted, they have nothing left to delete on All tickets, so no box
+    await expect(cards.getByRole('checkbox')).toHaveCount(0);
+
+    await page.getByRole('radio', { name: 'Deleted' }).click();
+    await page.getByPlaceholder('Search name or ticket no.').fill(`${stamp}`);
+    await expect(cards).toHaveCount(3);
+    await page.getByRole('checkbox', { name: 'Select all shown' }).check();
+    // turning it down purges nothing
+    page.once('dialog', (confirm) => confirm.dismiss());
+    await page.getByRole('button', { name: 'Purge 3 tickets' }).click();
+    await expect(cards).toHaveCount(3);
+    page.once('dialog', (confirm) => {
+        expect(confirm.message()).toContain("can't be restored");
+        confirm.accept();
+    });
+    await page.getByRole('button', { name: 'Purge 3 tickets' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Purged 3 tickets.' })).toBeVisible();
+    await expect(cards).toHaveCount(0);
+    await page.getByRole('radio', { name: 'All tickets' }).click();
+    await page.getByPlaceholder('Search name or ticket no.').fill(`${stamp}`);
+    await expect(page.getByText('No tickets found.')).toBeVisible();
+});
+
 test('an order sales takes fills in its ticket, date and time in on the Order sheet, and Edit keeps the time', async ({ page, browser }) => {
     const stamp = Date.now();
     const customer = `Timed Order ${stamp}`;

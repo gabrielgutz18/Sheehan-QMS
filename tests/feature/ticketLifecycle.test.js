@@ -3,6 +3,8 @@
 // sales don't call customers (they hand them over and loading calls them), so the calls here are an admin's
 // run: npm test            only some: npm test -- --test-name-pattern="restoring"
 import assert from 'node:assert/strict';
+import { existsSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, test } from 'node:test';
 import { setTimeout as sleep } from 'node:timers/promises';
 
@@ -314,6 +316,76 @@ describe("deleting and restoring", () => {
         await admin.post("/admin/orders/2/call");
         await admin.patch("/admin/orders/2", { status: "done" });
         app.assertDatabaseCount("serves", 2, { order_id: id });
+    });
+});
+
+describe("deleting and purging several at once", () => {
+    test("an admin deletes the tickets picked, and the ones already deleted keep their time", async () => {
+        await takeTicket();
+        await takeTicket({ name: "Ana Reyes" });
+        await takeTicket({ name: "Ben Cruz" });
+        const admin = await app.actingAsAdmin();
+        await admin.delete("/admin/orders/3");
+        const ids = (await admin.get("/admin/history")).body.map((row) => row.id);
+        const [{ deletedAt: before }] = (await admin.get("/admin/history?deleted=1")).body;
+
+        const { body } = (await admin.post("/admin/history/delete", { ids })).assertStatus(200);
+
+        assert.deepEqual(body, { deleted: 2 });
+        assert.deepEqual((await admin.get("/admin/orders")).body, []);
+        const deleted = (await admin.get("/admin/history?deleted=1")).body;
+        assert.equal(deleted.length, 3);
+        assert.equal(deleted.find((row) => row.queueNum === 3).deletedAt, before);
+    });
+
+    test("purge erases only deleted tickets, saves a copy of the database first, and keeps staff points", async () => {
+        await takeTicket();
+        await takeTicket({ name: "Ana Reyes" });
+        const admin = await app.actingAsAdmin();
+        // ticket 1 is served, earning the admin a point, then deleted; ticket 2 stays in the queue
+        await admin.post("/admin/orders/1/call");
+        await admin.patch("/admin/orders/1", { status: "done" });
+        await admin.delete("/admin/orders/1");
+        const [deleted] = (await admin.get("/admin/history?deleted=1")).body;
+        const [waiting] = (await admin.get("/admin/orders")).body;
+        const waitingId = (await admin.get("/admin/history")).body.find((row) => row.queueNum === waiting.queueNum).id;
+
+        const { body } = (await admin.post("/admin/history/purge", { ids: [deleted.id, waitingId] })).assertStatus(200);
+
+        assert.deepEqual(body, { purged: 1 });
+        app.assertDatabaseMissing("orders", { id: deleted.id });
+        app.assertDatabaseCount("order_items", 0, { order_id: deleted.id });
+        app.assertDatabaseHas("orders", { id: waitingId, deleted_at: null });
+        // the point is still the admin's, with no ticket left to point at
+        app.assertDatabaseCount("serves", 1, { user_id: admin.account.id, order_id: null });
+        assert.equal((await accountIn(admin, admin.account.id)).servedTotal, 1);
+        (await admin.post(`/admin/history/${deleted.id}/restore`)).assertStatus(404);
+        assert.ok(readdirSync(join(app.dataDir, "backups")).some((name) => name.endsWith("_before-purge")));
+    });
+
+    test("purging tickets that aren't deleted does nothing and saves no copy", async () => {
+        await takeTicket();
+        const admin = await app.actingAsAdmin();
+        const [{ id }] = (await admin.get("/admin/history")).body;
+
+        assert.deepEqual((await admin.post("/admin/history/purge", { ids: [id] })).assertStatus(200).body, { purged: 0 });
+        app.assertDatabaseHas("orders", { id });
+        assert.equal(existsSync(join(app.dataDir, "backups")), false);
+    });
+
+    test("only admins delete or purge several at once, and the list has to be ticket ids", async () => {
+        await takeTicket();
+        const admin = await app.actingAsAdmin();
+        const maria = await app.actingAsSales();
+        const [{ id }] = (await admin.get("/admin/history")).body;
+
+        (await maria.post("/admin/history/delete", { ids: [id] })).assertStatus(403);
+        (await maria.post("/admin/history/purge", { ids: [id] })).assertStatus(403);
+        for (const ids of [undefined, [], ["1"], [0], [1.5], Array.from({ length: 501 }, (_, i) => i + 1)]) {
+            (await admin.post("/admin/history/delete", { ids })).assertStatus(400);
+            (await admin.post("/admin/history/purge", { ids })).assertStatus(400);
+        }
+        app.assertDatabaseHas("orders", { id, deleted_at: null });
     });
 });
 

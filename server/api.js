@@ -9,7 +9,7 @@ import { extname, join } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { promisify } from 'node:util';
 
-import { openDatabase, resolveDataDir, transaction } from './db.js';
+import { DB_FILE, backupStamp, openDatabase, resolveBackupsDir, resolveDataDir, transaction } from './db.js';
 import { clientIp, createRateLimiter } from './rateLimit.js';
 import { createSheetSync } from './googleSheet.js';
 import { TYPED_OVER_CELLS, applyCell, cellChanged, columnKey, columnNameProblem, editNameOf, isColumnKey, sheetStateOf } from './sheetCells.js';
@@ -75,6 +75,9 @@ const VIDEO_EXTENSIONS = {
 };
 const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 const HISTORY_LIMIT = 200;
+// the most tickets picked at once on Orders & history, for Delete or Purge: every ticket one page of it can show, and more
+const MAX_PICKED = 500;
+const PICK_TICKETS = "Pick the tickets first.";
 const ANNOUNCER_REPEATS = [1, 2];
 // loading: the loading crew, one shared line for its areas (Roofings, Steel); tba: the TBA department (Tire, Battery),
 // chassis: the Chassis department and hardware: the Hardware department, each the same as loading but for its own area
@@ -363,6 +366,14 @@ const send = (res, status, data, headers = {}) => {
 // Retry-After is in whole seconds
 const tooManyRequests = (res, waitMs, message = TOO_MANY_REQUESTS) =>
     send(res, 429, { message }, { "Retry-After": String(Math.ceil(waitMs / 1000)) });
+
+// the ticket ids picked on Orders & history, once each, or null for a list that isn't one
+const pickedIds = (body) => {
+    const ids = body?.ids;
+    if (!Array.isArray(ids) || ids.length === 0 || ids.length > MAX_PICKED) return null;
+    if (!ids.every((id) => Number.isInteger(id) && id > 0)) return null;
+    return [...new Set(ids)];
+};
 
 const readBody = async (req) => {
     let raw = "";
@@ -906,9 +917,11 @@ const likePattern = (text) => `%${text.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 // adminUsername / adminPassword: the built-in admin from .env, created or updated at every start
 // googleSheet: { url, token } of the Google Apps Script web app the Order sheet is copied to (see server/googleSheet.js);
 // left out, nothing is sent
-/** @param {{ adminUsername: string, adminPassword: string, dataDir?: string, googleSheet?: { url: string, token: string, link?: string } }} options */
-export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }) {
+// backupDir: where backups go (BACKUP_DIR in .env; backups/ in the data folder by default), for the copy saved before a purge
+/** @param {{ adminUsername: string, adminPassword: string, dataDir?: string, backupDir?: string, googleSheet?: { url: string, token: string, link?: string } }} options */
+export function createApi({ adminUsername, adminPassword, dataDir, backupDir, googleSheet }) {
     const dir = resolveDataDir(dataDir);
+    const backupsDir = resolveBackupsDir(dir, backupDir);
     const videosDir = join(dir, "videos");
     const photosDir = join(dir, "photos");
     const chatImagesDir = join(dir, "chat-images");
@@ -1001,6 +1014,12 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
         removePoint: db.prepare("DELETE FROM serves WHERE order_id = ? AND queue_date = ?"),
         // deleted tickets stay in the database for History and are left out everywhere else
         deleteOrder: db.prepare("UPDATE orders SET deleted_at = ? WHERE id = ?"),
+        // tickets picked on Orders & history (a JSON list of ids): Delete leaves the ones already deleted as they are, and
+        // Purge only ever takes deleted ones; their items, invoices, edits, loads and checks go with them, and the points
+        // staff earned on them stay (036)
+        deletePicked: db.prepare("UPDATE orders SET deleted_at = ? WHERE deleted_at IS NULL AND id IN (SELECT value FROM json_each(?))"),
+        countPurgeable: db.prepare("SELECT COUNT(*) AS n FROM orders WHERE deleted_at IS NOT NULL AND id IN (SELECT value FROM json_each(?))"),
+        purgePicked: db.prepare("DELETE FROM orders WHERE deleted_at IS NOT NULL AND id IN (SELECT value FROM json_each(?))"),
         findOrder: db.prepare(`SELECT ${ORDER_ROW} WHERE o.queue_date = ? AND o.queue_num = ? AND o.deleted_at IS NULL`),
         findById: db.prepare(`SELECT ${ORDER_ROW} WHERE o.id = ?`),
         dayOrders: db.prepare(`SELECT ${ORDER_ROW} WHERE o.queue_date = ? AND o.deleted_at IS NULL ORDER BY o.queue_num`),
@@ -2585,6 +2604,42 @@ export function createApi({ adminUsername, adminPassword, dataDir, googleSheet }
                 limit: HISTORY_LIMIT,
             });
             return send(res, 200, loadAnyDay(rows));
+        }
+
+        // several tickets picked on Orders & history at once (admins only): Delete moves them to Deleted, as one ticket's
+        // Delete does, which also takes them off the Google sheet; { ids: [ticket id, ...] } → { deleted: how many }
+        if (method === "POST" && path === "/admin/history/delete") {
+            const ids = pickedIds(await readBody(req));
+            if (!ids) return send(res, 400, { message: PICK_TICKETS });
+            const { changes } = sql.deletePicked.run(new Date().toISOString(), JSON.stringify(ids));
+            return send(res, 200, { deleted: Number(changes) });
+        }
+
+        // Purge (admins only): deleted tickets erased for good, to free up the database; they were already taken off the
+        // Google sheet when they were deleted. A copy of the database is saved in the backups folder first, and nothing
+        // goes if that fails; the file is compacted after, since SQLite doesn't give the space back by itself
+        // { ids: [ticket id, ...] } → { purged: how many }; a ticket that isn't deleted is left alone
+        if (method === "POST" && path === "/admin/history/purge") {
+            const ids = pickedIds(await readBody(req));
+            if (!ids) return send(res, 400, { message: PICK_TICKETS });
+            const list = JSON.stringify(ids);
+            if (sql.countPurgeable.get(list).n === 0) return send(res, 200, { purged: 0 });
+            try {
+                const backup = join(backupsDir, `${backupStamp(new Date())}_before-purge`);
+                mkdirSync(backup, { recursive: true });
+                db.exec(`VACUUM INTO '${join(backup, DB_FILE).replaceAll("'", "''")}'`);
+            } catch (err) {
+                console.error(`Purge: couldn't save a copy of the database first: ${err.message}`);
+                return send(res, 500, { message: "Couldn't save a copy of the database first, so nothing was purged." });
+            }
+            const { changes } = transaction(db, () => sql.purgePicked.run(list));
+            try {
+                db.exec("VACUUM");
+            } catch (err) {
+                // the tickets are gone either way; the space comes back after the next purge
+                console.error(`Purge: couldn't compact the database: ${err.message}`);
+            }
+            return send(res, 200, { purged: Number(changes) });
         }
 
         // back in today's queue as waiting, whether it was deleted or is from an earlier day

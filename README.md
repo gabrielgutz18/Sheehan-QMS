@@ -160,7 +160,7 @@ The app keeps its data in one SQLite file, `queue.db`, in the data folder (`data
 
 Queue numbers start again at 1 every day (by the server's clock). The queue, the display and the admin show today's tickets; earlier days stay in the database as history.
 
-**Deleting and restoring:** Delete on Customer order → Orders & history (Today) doesn't erase a ticket; it moves it to Deleted on the same tab. Restore there puts it back in today's queue as waiting: a ticket from today keeps its number, one from an earlier day gets today's next number (History still shows the number it had first).
+**Deleting and restoring:** Delete on Customer order → Orders & history (Today) doesn't erase a ticket; it moves it to Deleted on the same tab. Restore there puts it back in today's queue as waiting: a ticket from today keeps its number, one from an earlier day gets today's next number (History still shows the number it had first). Admins can also tick several tickets: on All tickets, **Delete** moves them all to Deleted; on Deleted, **Purge** erases them for good to free up the database. A copy of the database is saved in the backups folder first, and staff keep the points they earned on them.
 
 **Changing the tables:** add the next numbered file to `server/migrations/`, e.g. `002_add_counter_column.sql`. On the next start, the server runs every file it hasn't run yet, in order, and records it in `schema_migrations`. Existing data is kept. Never edit a migration that has already run; add a new one instead.
 
@@ -241,6 +241,8 @@ All paths are relative to `VITE_API_URL` (default `/api`).
 | DELETE | `/admin/orders/:queueNum`| admin | moves the ticket to Deleted on Orders & history → `204`                       |
 | GET    | `/admin/history`         | staff | `?search=&day=YYYY-MM-DD&deleted=1` → tickets from any day, with `id` |
 | POST   | `/admin/history/:id/restore` | staff | → the ticket, back in today's queue as waiting        |
+| POST   | `/admin/history/delete`  | admin | `{ ids: [id, ...] }` (up to 500) moves the tickets to Deleted, and off the Google sheet → `{ deleted }` (ones already deleted aren't counted) |
+| POST   | `/admin/history/purge`   | admin | `{ ids: [id, ...] }` (up to 500) erases deleted tickets for good, after saving a copy of the database in the backups folder; staff points stay; a ticket that isn't deleted is left alone → `{ purged }`; `500` and nothing purged if the copy can't be saved |
 | GET    | `/admin/me/stats`        | staff | `?period=day\|week\|month\|year` → your customers served  |
 | PUT    | `/admin/announcer/volume`| staff | `{ volume: 0–1 }` → announcer settings                    |
 | GET    | `/admin/users`           | admin, developer | → staff accounts with customers served                    |

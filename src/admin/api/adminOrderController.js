@@ -86,3 +86,9 @@ export const listHistory = ({ search = "", day = "", deleted = false } = {}, opt
 
 // puts a ticket back in today's queue as waiting; one from an earlier day gets today's next number
 export const restoreOrder = (id) => http.post(`/admin/history/${encodeURIComponent(id)}/restore`);
+
+// tickets picked on Orders & history (admins only), by id, up to 500 at once
+// delete: moves them to Deleted (and off the Google sheet), as one ticket's Delete does → { deleted: how many }
+// purge: erases deleted ones for good, after saving a copy of the database; staff points stay → { purged: how many }
+export const deleteOrders = (ids) => http.post("/admin/history/delete", { ids });
+export const purgeOrders = (ids) => http.post("/admin/history/purge", { ids });

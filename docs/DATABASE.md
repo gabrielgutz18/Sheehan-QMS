@@ -348,7 +348,7 @@ erDiagram
     }
     serves {
         INTEGER id PK
-        INTEGER order_id FK "orders.id, cascade"
+        INTEGER order_id FK "orders.id, NULL once purged"
         INTEGER user_id FK "users.id"
         TEXT queue_date "the visit"
         TEXT served_at
@@ -371,8 +371,8 @@ The relationships, as SQLite reports them (`PRAGMA foreign_key_list`):
 | `order_edits.order_id` | `orders.id` | cascade: the edits go with the order | [`017_order_edits.sql`](../server/migrations/017_order_edits.sql) |
 | `order_edits.user_id` | `users.id` | — (accounts are switched off, never deleted, so edits stay); empty for an edit typed in the Google sheet, since [`033_google_sheet_edits.sql`](../server/migrations/033_google_sheet_edits.sql) | same |
 | `sheet_cells.order_id` | `orders.id` | cascade: the cells go with the order | [`035_sheet_cells.sql`](../server/migrations/035_sheet_cells.sql) |
-| `serves.order_id` | `orders.id` | cascade | [`003_staff_accounts.sql:29-36`](../server/migrations/003_staff_accounts.sql#L29-L36) |
-| `serves.user_id` | `users.id` | — (accounts are switched off, never deleted, so points stay) | same |
+| `serves.order_id` | `orders.id` | set to NULL: a purged ticket's points stay with the staff member | [`036_points_outlive_tickets.sql`](../server/migrations/036_points_outlive_tickets.sql) (was cascade in [`003`](../server/migrations/003_staff_accounts.sql#L29-L36)) |
+| `serves.user_id` | `users.id` | — (accounts are switched off, never deleted, so points stay) | [`003_staff_accounts.sql`](../server/migrations/003_staff_accounts.sql#L29-L36) |
 | `sessions.user_id` | `users.id` | cascade | [`003_staff_accounts.sql:18-22`](../server/migrations/003_staff_accounts.sql#L18-L22) |
 | `orders.queue_date` ↔ `queue_counters.queue_date` | — | not a foreign key; matched by date | [`001_init.sql:32-35`](../server/migrations/001_init.sql#L32-L35) |
 
@@ -596,6 +596,8 @@ restoreToToday: db.prepare(`
         deleted_at = NULL, restored_at = ?, status = 'pending', called_at = NULL, remarks = '', served_by = NULL
     WHERE id = ?`),
 ```
+
+**Delete and Purge several at once** (admins, Orders & history): on All tickets, the tickets picked are deleted the same way (`deletePicked`, `POST /admin/history/delete`), which also takes them off the Google sheet. On Deleted, Purge erases the picked tickets for good (`purgePicked`, `POST /admin/history/purge`); only rows with `deleted_at` set are ever purged. Their `order_items`, `order_invoices`, `order_edits`, `order_loads`, `security_checks`, `google_sheet_edits` and `sheet_cells` rows go with them by cascade. Their `serves` rows stay, with `order_id` set to NULL ([`036`](../server/migrations/036_points_outlive_tickets.sql)), so staff totals don't change. Before anything goes, a copy of the database is saved as `<BACKUP_DIR>/<date_time>_before-purge/queue.db` (backups/ in the data folder by default), and nothing is purged if that fails. `VACUUM` then shrinks the file, since SQLite doesn't give the space back by itself.
 
 ### 5.6 Signing in → `users` and `sessions`
 
@@ -881,13 +883,13 @@ GROUP BY u.id
 ORDER BY total_points DESC;
 ```
 
-**Every point and the ticket it came from** (`serves` → `users` and `orders`)
+**Every point and the ticket it came from** (`serves` → `users` and `orders`; a purged ticket's point has no ticket, so its number and customer are empty)
 
 ```sql
 SELECT s.served_at, u.name AS staff, s.queue_date AS visit, o.queue_num, o.name AS customer
 FROM serves s
 JOIN users u ON u.id = s.user_id
-JOIN orders o ON o.id = s.order_id
+LEFT JOIN orders o ON o.id = s.order_id
 ORDER BY s.served_at DESC;
 ```
 

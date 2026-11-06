@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 
 import useOrders from '../../hooks/useOrders.js';
-import { listHistory, restoreOrder } from '../../api/adminOrderController.js';
+import { useAuth } from '../../auth/authContext.js';
+import { deleteOrders, listHistory, purgeOrders, restoreOrder } from '../../api/adminOrderController.js';
 import orderStatus from '../../data/orderStatus.js';
 import formatQueueNum from '../../../data/queueNum.js';
 import QueueList from './queueList.jsx';
@@ -17,6 +18,8 @@ const ORDER_VIEWS = [
 
 // wait for a pause in typing before searching
 const SEARCH_DELAY_MS = 300;
+
+const tickets = (n) => (n === 1 ? "1 ticket" : `${n} tickets`);
 
 const statusLabel = (value) => orderStatus.find((s) => s.value === value)?.label ?? value;
 
@@ -84,7 +87,11 @@ function TodayOrders() {
 }
 
 // deleted tickets, or every ticket of every day, searched by name, ticket number or day, with Restore
+// admins can also pick several: on All tickets to Delete them (moved to Deleted, and off the Google sheet), and on
+// Deleted to Purge them, erased for good to free up the database
 function TicketHistory({ deleted }) {
+    const { user } = useAuth();
+    const canPick = user?.role === "admin";
     const [search, setSearch] = useState("");
     const [query, setQuery] = useState("");
     const [day, setDay] = useState("");
@@ -95,6 +102,9 @@ function TicketHistory({ deleted }) {
     const [restoring, setRestoring] = useState(null);
     const [error, setError] = useState("");
     const [notice, setNotice] = useState("");
+    // ids of the tickets picked; only the ones still shown count, so a new search never acts on hidden ones
+    const [picked, setPicked] = useState(() => new Set());
+    const [acting, setActing] = useState(false);
 
     useEffect(() => {
         const id = setTimeout(() => setQuery(search.trim()), SEARCH_DELAY_MS);
@@ -112,6 +122,42 @@ function TicketHistory({ deleted }) {
     }, [key, deleted, query, day]);
 
     const loading = result.key !== key;
+
+    // on All tickets a deleted ticket has nothing to delete, so it has no box
+    const pickable = canPick && !loading ? result.rows.filter((row) => deleted || !row.deletedAt) : [];
+    const chosen = pickable.filter((row) => picked.has(row.id));
+    const allPicked = chosen.length > 0 && chosen.length === pickable.length;
+
+    const pick = (id, on) => setPicked((prev) => {
+        const next = new Set(prev);
+        if (on) next.add(id);
+        else next.delete(id);
+        return next;
+    });
+    const pickAll = (on) => setPicked(on ? new Set(pickable.map((row) => row.id)) : new Set());
+
+    // Delete on All tickets, Purge on Deleted, for the tickets picked
+    const actOnPicked = async () => {
+        const count = tickets(chosen.length);
+        const question = deleted
+            ? `Purge ${count} for good? They're erased from the system and can't be restored. Staff points stay, and a copy of the database is saved first.`
+            : `Delete ${count}? They leave the queue, the display and the Google sheet, and can be restored from the Deleted tab.`;
+        if (!window.confirm(question)) return;
+        setActing(true);
+        setError("");
+        setNotice("");
+        try {
+            const ids = chosen.map((row) => row.id);
+            if (deleted) setNotice(`Purged ${tickets((await purgeOrders(ids)).purged)}.`);
+            else setNotice(`Deleted ${tickets((await deleteOrders(ids)).deleted)}. They're on the Deleted tab.`);
+            setPicked(new Set());
+            setVersion((v) => v + 1);
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setActing(false);
+        }
+    };
 
     const restore = async (row) => {
         const before = formatQueueNum(row.queueNum, row.purpose, row);
@@ -158,6 +204,35 @@ function TicketHistory({ deleted }) {
                 {(error || result.error) && <p className="field-error" role="alert">{error || result.error}</p>}
                 {notice && <p className="admin-notice" role="status">{notice}</p>}
 
+                {pickable.length > 0 && (
+                    <div className="history-pick-bar">
+                        <label className="history-pick-all">
+                            <input
+                                type="checkbox"
+                                checked={allPicked}
+                                ref={(box) => {
+                                    if (box) box.indeterminate = chosen.length > 0 && !allPicked;
+                                }}
+                                onChange={(e) => pickAll(e.target.checked)}
+                            />
+                            Select all shown
+                        </label>
+                        {chosen.length > 0 && (
+                            <>
+                                <span className="history-pick-count">{tickets(chosen.length)} picked</span>
+                                <button type="button" className="admin-btn" onClick={() => pickAll(false)} disabled={acting}>
+                                    Clear
+                                </button>
+                                <button type="button" className="admin-btn admin-btn-danger" onClick={actOnPicked} disabled={acting}>
+                                    {acting
+                                        ? deleted ? "Purging..." : "Deleting..."
+                                        : `${deleted ? "Purge" : "Delete"} ${tickets(chosen.length)}`}
+                                </button>
+                            </>
+                        )}
+                    </div>
+                )}
+
                 {loading ? (
                     <p className="ticket-cards-empty">Loading...</p>
                 ) : result.rows.length === 0 ? (
@@ -166,10 +241,13 @@ function TicketHistory({ deleted }) {
                     <ul className="ticket-cards">
                         {result.rows.map((row) => {
                             const inQueue = row.isToday && !row.deletedAt;
+                            const canPickRow = pickable.includes(row);
                             return (
                                 <TicketCard
                                     key={row.id}
                                     order={row}
+                                    picked={canPickRow && picked.has(row.id)}
+                                    onPick={canPickRow ? (on) => pick(row.id, on) : undefined}
                                     day={row.isToday ? "Today" : formatDay(row.date)}
                                     status={row.deletedAt ? (
                                         <span className="ticket-card-status is-deleted">Deleted</span>

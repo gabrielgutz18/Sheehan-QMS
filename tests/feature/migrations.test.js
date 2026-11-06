@@ -607,3 +607,39 @@ test("035 adds the sheet's own columns and typed cells, and an order's cells go 
         db.close();
     }
 });
+
+// 036 rebuilds serves, so a point stays when Purge erases the ticket it was for
+test("036 keeps every point, and a purged ticket's point stays with no ticket", () => {
+    const old = databaseBefore("036");
+    old.exec(`
+        INSERT INTO users (id, username, name, role, password_hash, created_at)
+            VALUES (1, 'maria', 'Maria Santos', 'sales', 'x', '2026-10-20T08:00:00.000Z');
+        INSERT INTO orders (id, queue_date, queue_num, name, purpose, status, created_at, served_by)
+            VALUES (5, '2026-11-05', 1, 'Ana', 'Steel', 'done', '2026-11-05T01:00:00Z', 1);
+        INSERT INTO serves (id, order_id, user_id, queue_date, served_at)
+            VALUES (9, 5, 1, '2026-11-05', '2026-11-05T01:30:00Z');
+    `);
+    old.close();
+
+    const db = openDatabase(dataDir);
+    try {
+        assert.deepEqual({ ...db.prepare("SELECT order_id, user_id, queue_date FROM serves WHERE id = 9").get() },
+            { order_id: 5, user_id: 1, queue_date: "2026-11-05" });
+
+        // a checked order: its gate check points back at it, and goes with it
+        db.prepare("INSERT INTO security_checks (id, order_id, user_id, result, checked_at) VALUES (3, 5, 1, 'verified', 'x')").run();
+        db.prepare("UPDATE orders SET security_check_id = 3, deleted_at = 'x' WHERE id = 5").run();
+        db.prepare("DELETE FROM orders WHERE id = 5").run();
+
+        assert.equal(db.prepare("SELECT order_id FROM serves WHERE id = 9").get().order_id, null);
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM security_checks").get().n, 0);
+        // a ticket's visit can still only earn one point
+        const { lastInsertRowid: id } = db.prepare(`INSERT INTO orders (queue_date, queue_num, name, purpose, status, created_at)
+            VALUES ('2026-11-06', 1, 'Ben', 'Steel', 'done', 'x')`).run();
+        const addPoint = db.prepare("INSERT INTO serves (order_id, user_id, queue_date, served_at) VALUES (?, 1, '2026-11-06', 'x')");
+        addPoint.run(id);
+        assert.throws(() => addPoint.run(id));
+    } finally {
+        db.close();
+    }
+});
