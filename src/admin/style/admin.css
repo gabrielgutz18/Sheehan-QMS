@@ -4262,6 +4262,37 @@ html:has(.sale-actions) {
   border-radius: 8px;
 }
 
+/* the red bar under the top bar while the server can't be reached; it stays in view while the page scrolls */
+.connection-bar {
+  position: sticky;
+  top: var(--bar-h);
+  z-index: 9;
+  margin: 0;
+  padding: 10px 20px;
+  font-size: 15px;
+  line-height: 1.4;
+  color: #ffffff;
+  background: var(--brand-red);
+}
+
+/* on a department page: whether this computer chimes when a customer is handed over */
+.chime-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.chime-toggle input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--brand-red);
+  cursor: pointer;
+}
+
 .video-columns {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
@@ -4532,4 +4563,10 @@ html:has(.sale-actions) {
 .hint[data-hint]:focus-within::after {
   opacity: 1;
   visibility: visible;
+}
+
+/* the tabs of a page that holds a few others, e.g. Display & printer, above the open one */
+.page-tabs {
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--cream-border);
 }

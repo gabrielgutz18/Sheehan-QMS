@@ -8,6 +8,8 @@ import QuickLinks from '../components/dashboard/quickLinks.jsx';
 import ProfileSummary from '../components/accounts/profileSummary.jsx';
 import LiveQueue from '../components/dashboard/liveQueue.jsx';
 import InChargeTable from '../components/dashboard/inChargeTable.jsx';
+import LifeCycleTable from '../components/orderStatus/lifeCycleTable.jsx';
+import { BOARD_ON_DASHBOARD } from '../data/navItems.js';
 
 // every staff member's Dashboard: the live queue (how many are being served and in line, the next number, and the
 // tickets themselves) beside their own profile, and who is in charge of each customer in progress; admins also get
@@ -33,6 +35,9 @@ export default function DashboardPage() {
                 </section>
 
                 <InChargeTable />
+
+                {/* the loading crews and inventory see where every customer is right here, not on a page of its own */}
+                {BOARD_ON_DASHBOARD.includes(user.role) && <LifeCycleTable heading="h2" />}
 
                 {isAdmin ? (
                     <>

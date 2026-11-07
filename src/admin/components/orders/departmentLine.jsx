@@ -1,6 +1,8 @@
 import { useState } from 'react';
 
 import useOrders from '../../hooks/useOrders.js';
+import useActionNote from '../../hooks/useActionNote.js';
+import useNewCustomerAlert from '../../hooks/useNewCustomerAlert.js';
 import { useAuth } from '../../auth/authContext.js';
 import { callAtLoading, finishAtLoading, sendBackFromLoading, startLoading } from '../../api/loadingController.js';
 import CallDialog from './callDialog.jsx';
@@ -75,15 +77,28 @@ export default function DepartmentLine({ department }) {
     // the department's part is finished, latest first
     const doneHere = handedOver.filter((o) => !departmentStillNeeds(o, department)).reverse();
 
-    const start = (o, area) => run(o, () => startLoading(department, o.queueNum, area || undefined));
+    const [note, showNote] = useActionNote();
+    const [chimeOn, setChimeOn] = useNewCustomerAlert({
+        waitingIds: waiting.map((o) => String(o.queueNum)),
+        servingIds: servingHere.map((o) => String(o.queueNum)),
+        callable: waiting.filter((o) => o.status !== "serving").length,
+        loading,
+        label,
+    });
+
+    const start = (o, area) =>
+        run(o, () => startLoading(department, o.queueNum, area || undefined), `Started ${ticketOf(o)} at ${area || label}.`);
 
     const replace = (saved) => setOrders((prev) => prev.map((o) => (o.queueNum === saved.queueNum ? saved : o)));
 
-    const run = async (order, action) => {
+    // done: the note that says it worked
+    const run = async (order, action, done) => {
         setBusy(order.queueNum);
         setActionError("");
+        showNote("");
         try {
             replace(await action());
+            showNote(done);
         } catch (err) {
             setActionError(err.message);
         } finally {
@@ -101,8 +116,10 @@ export default function DepartmentLine({ department }) {
         const { queueNum } = calling;
         setBusy(queueNum);
         setCallError("");
+        showNote("");
         try {
             replace(await callAtLoading(department, queueNum, remarks, area));
+            showNote(`Called ${ticketOf(calling)}${area ? ` to ${area}` : ""}.`);
             setCalling(null);
         } catch (err) {
             setCallError(err.message);
@@ -119,6 +136,7 @@ export default function DepartmentLine({ department }) {
             </div>
 
             {(error || actionError) && <p className="field-error" role="alert">{actionError || error}</p>}
+            {note && <p className="admin-notice" role="status">✓ {note}</p>}
 
             <div className="queue-columns">
                 <div className="admin-panel">
@@ -147,9 +165,9 @@ export default function DepartmentLine({ department }) {
                                     department={department}
                                     busy={busy === o.queueNum}
                                     onStart={(area) => start(o, area)}
-                                    onFinish={() => run(o, () => finishAtLoading(department, o.queueNum))}
+                                    onFinish={() => run(o, () => finishAtLoading(department, o.queueNum), `${ticketOf(o)} done at ${o.loadingArea || here}.`)}
                                     onCallAgain={() => openCall(o)}
-                                    onSendBack={() => run(o, () => sendBackFromLoading(department, o.queueNum))}
+                                    onSendBack={() => run(o, () => sendBackFromLoading(department, o.queueNum), `${ticketOf(o)} sent back to waiting.`)}
                                 />
                             ))}
                         </ul>
@@ -157,7 +175,13 @@ export default function DepartmentLine({ department }) {
                 </div>
 
                 <div className="admin-panel">
-                    <h2>Waiting for {here} ({waiting.length})</h2>
+                    <div className="counter-head">
+                        <h2>Waiting for {here} ({waiting.length})</h2>
+                        <label className="chime-toggle">
+                            <input type="checkbox" checked={chimeOn} onChange={(e) => setChimeOn(e.target.checked)} />
+                            Chime when a customer is handed over
+                        </label>
+                    </div>
                     {loading ? (
                         <p className="admin-empty">Loading...</p>
                     ) : waiting.length === 0 ? (

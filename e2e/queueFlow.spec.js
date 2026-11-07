@@ -133,12 +133,18 @@ test('a customer goes from their ticket, through hand-over and loading, with the
     await page.getByRole('listitem').filter({ hasText: customer }).getByRole('button', { name: 'Hand over to loading' }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'Hand over to loading' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
+    // a short note says it worked
+    await expect(page.getByRole('status').filter({ hasText: /handed over to loading\.$/ })).toBeVisible();
+
+    // loading's browser tab counts who can be called, so the crew sees it from another tab
+    await page.goto('/staff/loading');
+    await expect(page).toHaveTitle(/^\(\d+\) Loading$/);
 
     // loading calls them, and the display headlines them
-    await page.goto('/staff/loading');
     await page.getByRole('listitem').filter({ hasText: customer }).getByRole('button', { name: 'Call', exact: true }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'Call now' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
+    await expect(page.getByRole('status').filter({ hasText: /^✓ Called / })).toBeVisible();
     await expect(nowServing.getByText(customer)).toBeVisible();
 
     // the truck arrives and the crew finishes, so the customer leaves the display
@@ -151,8 +157,48 @@ test('a customer goes from their ticket, through hand-over and loading, with the
     await expect(ticket.getByRole('button', { name: 'Call again' })).toHaveCount(0);
     await ticket.getByRole('button', { name: 'Done at Roofings' }).click();
     await expect(page.getByRole('button', { name: 'Done at Roofings' })).toBeHidden();
+    await expect(page.getByRole('status').filter({ hasText: /done at Roofings\.$/ })).toBeVisible();
     await expect(nowServing.getByText(customer)).toBeHidden();
     await expect(upNext.getByText(customer)).toBeHidden();
+});
+
+test('a red bar says so when the server can\'t be reached, and goes away by itself once it can', async ({ page }) => {
+    await page.goto('/staff/loading');
+    await signIn(page, ADMIN.username, ADMIN.password);
+    await expect(page.getByRole('heading', { name: 'Loading', exact: true })).toBeVisible();
+    const bar = page.getByRole('alert').filter({ hasText: 'Connection lost.' });
+    await expect(bar).toBeHidden();
+
+    // the network drops: the next refresh can't get through
+    await page.route('**/api/**', (route) => route.abort('internetdisconnected'));
+    await expect(bar).toBeVisible({ timeout: 15000 });
+
+    // and comes back
+    await page.unroute('**/api/**');
+    await expect(bar).toBeHidden({ timeout: 15000 });
+});
+
+test('the display and printer settings are one menu item, and SheeChat holds Message developer, with old links still working', async ({ page }) => {
+    await page.goto('/staff');
+    await signIn(page, ADMIN.username, ADMIN.password);
+    const menu = page.getByRole('navigation', { name: 'Admin' });
+    await expect(menu.getByRole('link', { name: 'Display & printer' })).toBeVisible();
+    await expect(menu.getByRole('link', { name: 'Printer', exact: true })).toHaveCount(0);
+    await expect(menu.getByRole('link', { name: 'Message developer' })).toHaveCount(0);
+
+    // an old address opens its tab
+    await page.goto('/staff/printer');
+    await expect(page).toHaveURL(/\/staff\/display\?tab=printer$/);
+    await expect(page.getByRole('tab', { name: 'Printer' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('heading', { name: 'Receipt printer' })).toBeVisible();
+    await page.getByRole('tab', { name: 'Announcer' }).click();
+    await expect(page.getByRole('heading', { name: 'Call announcements' })).toBeVisible();
+
+    await page.goto('/staff/message-developer');
+    await expect(page).toHaveURL(/\/staff\/sheechat\?tab=developer$/);
+    await expect(page.getByRole('heading', { name: 'Message developer' })).toBeVisible();
+    await page.getByRole('tab', { name: 'Staff' }).click();
+    await expect(page.getByRole('heading', { name: 'SheeChat' })).toBeVisible();
 });
 
 test('a message pops up in the corner of any page, and clicking it opens the conversation', async ({ page, browser }) => {

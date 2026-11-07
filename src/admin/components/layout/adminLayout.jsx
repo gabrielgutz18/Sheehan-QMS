@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { matchPath, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 
+import { isServerReachable, onConnectionChange } from '../../../api/http.js';
 import Clock from '../../../components/clock.jsx';
 import { useAuth } from '../../auth/authContext.js';
 import { ROLE_LABELS } from '../../auth/roles.js';
-import { NAV_GROUPS, navFor, withFolders } from '../../data/navItems.js';
+import { BOARD_ON_DASHBOARD, NAV_GROUPS, navFor, withFolders } from '../../data/navItems.js';
 import useMediaQuery from '../../hooks/useMediaQuery.js';
 import useMessageToasts from '../../hooks/useMessageToasts.js';
 import MessageToasts from '../chat/messageToasts.jsx';
@@ -22,6 +23,20 @@ const CHEVRON_ICON = "M9 6l6 6-6 6";
 // the red dot for messages nobody has opened yet
 function UnreadDot() {
     return <span className="admin-unread-dot" role="img" aria-label="Unread messages" />;
+}
+
+// a red bar under the top bar while the server can't be reached: every list on the staff pages only changes by asking
+// the server again every few seconds, so without it a frozen screen looks just like a quiet one; it goes away by
+// itself once the server answers again
+function ConnectionBar() {
+    const reachable = useSyncExternalStore(onConnectionChange, isServerReachable);
+    if (reachable) return null;
+    return (
+        <p className="connection-bar" role="alert">
+            <strong>Connection lost.</strong> This screen isn't updating. Check the network cable or Wi-Fi; it carries on
+            by itself once the connection is back.
+        </p>
+    );
 }
 
 // one sidebar link; onNavigate puts the sliding sidebar away on narrow screens; unread: show the red dot on it
@@ -77,11 +92,12 @@ export default function AdminLayout() {
     const [collapsed, setCollapsed] = useState(false);
     const { pathname } = useLocation();
     const boardDocks = useMediaQuery(BOARD_DOCKS);
-    // the Order status board is already on the page: the loading crews' Order status page, the Security page (the
-    // board with what each customer bought), or beside Customer order in a window wide enough for it; everywhere else
-    // the top bar's drawer opens it
+    // the Order status board is already on the page: the developers' Order status page, the loading crews' Dashboard,
+    // the Security page (the board with what each customer bought), or beside Customer order in a window wide enough
+    // for it; everywhere else the top bar's drawer opens it
     const boardOnPage = pathname === "/staff/order-status" || pathname === "/staff/security" ||
-        (pathname === "/staff/customer-order" && boardDocks);
+        (pathname === "/staff/customer-order" && boardDocks) ||
+        (pathname === "/staff" && BOARD_ON_DASHBOARD.includes(user?.role));
 
     const links = navFor(user?.role);
     // the page open now, named in the top bar
@@ -168,6 +184,8 @@ export default function AdminLayout() {
                         {!boardOnPage && <OrderStatusDrawer />}
                     </div>
                 </header>
+
+                <ConnectionBar />
 
                 <main className="admin-main">
                     <Outlet />

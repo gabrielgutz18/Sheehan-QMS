@@ -8,9 +8,7 @@ import { ROLE_LABELS } from './auth/roles.js';
 import AdminLayout from './components/layout/adminLayout.jsx';
 import LoginPage from './pages/loginPage.jsx';
 import DashboardPage from './pages/dashboardPage.jsx';
-import VideoPage from './pages/videoPage.jsx';
-import PrinterPage from './pages/printerPage.jsx';
-import AnnouncerPage from './pages/announcerPage.jsx';
+import DisplaySettingsPage from './pages/displaySettingsPage.jsx';
 import SalesPage from './pages/salesPage.jsx';
 import CustomerOrderPage from './pages/customerOrderPage.jsx';
 import AccCreation from './pages/accCreation.jsx';
@@ -24,8 +22,7 @@ import SecurityPage from './pages/securityPage.jsx';
 import CashierPage from './pages/cashierPage.jsx';
 import ChatPage from './pages/chatPage.jsx';
 import DeletedTicketsPage from './pages/deletedTicketsPage.jsx';
-import MessageDeveloperPage from './pages/messageDeveloperPage.jsx';
-import SheeChatPage from './pages/sheeChatPage.jsx';
+import MessagesPage from './pages/messagesPage.jsx';
 
 // every kind of staff account but the developers, who are written to from Message developer and have no Dashboard
 const NOT_DEVELOPER = ["admin", "sales", "loading", "tba", "chassis", "hardware", "security", "cashier", "inventory"];
@@ -57,8 +54,9 @@ export default function AdminApp() {
                             when something doesn't go well */}
                         <Route element={<ProtectedRoute roles={NOT_DEVELOPER} />}>
                             <Route index element={<DashboardPage />} />
-                            <Route path="sheechat" element={<SheeChatPage />} />
-                            <Route path="message-developer" element={<MessageDeveloperPage />} />
+                            {/* SheeChat has Message developer as its second tab */}
+                            <Route path="sheechat" element={<MessagesPage />} />
+                            <Route path="message-developer" element={<Navigate to="/staff/sheechat?tab=developer" replace />} />
                         </Route>
 
                         {/* the developers: answering what staff write, with no rights in the queue beyond the Order
@@ -122,9 +120,12 @@ export default function AdminApp() {
                         </Route>
 
                         <Route element={<ProtectedRoute roles={["admin"]} />}>
-                            <Route path="video" element={<VideoPage />} />
-                            <Route path="printer" element={<PrinterPage />} />
-                            <Route path="announcer" element={<AnnouncerPage />} />
+                            {/* the display's video and announcer and the receipt printer, as tabs of one page; the old
+                                addresses open their tab */}
+                            <Route path="display" element={<DisplaySettingsPage />} />
+                            <Route path="video" element={<Navigate to="/staff/display?tab=video" replace />} />
+                            <Route path="announcer" element={<Navigate to="/staff/display?tab=announcer" replace />} />
+                            <Route path="printer" element={<Navigate to="/staff/display?tab=printer" replace />} />
                         </Route>
 
                         {/* the developers make and fix staff accounts too, but not admin ones */}
