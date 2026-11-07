@@ -453,7 +453,9 @@ describe("who can do what", () => {
         const plain = await signIn("http");
 
         assert.equal(secure.status, 200);
-        assert.match(secure.headers.get("set-cookie"), /; Secure$/);
+        // the tab's cookie and the browser's kept one alike
+        assert.equal(secure.headers.getSetCookie().length, 2);
+        for (const line of secure.headers.getSetCookie()) assert.match(line, /; Secure(; Max-Age=\d+)?$/);
         assert.equal(plain.status, 200);
         assert.doesNotMatch(plain.headers.get("set-cookie"), /Secure/);
         // signing out over HTTPS clears the Secure cookie

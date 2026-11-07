@@ -731,6 +731,58 @@
   border-radius: 8px;
 }
 
+/* the sign-in password box, with the show/hide eye sitting inside its right edge */
+.password-field {
+  position: relative;
+  display: flex;
+}
+
+.password-field input {
+  flex: 1;
+  min-width: 0;
+  padding-right: 84px;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.password-toggle:hover {
+  color: var(--text-dark);
+}
+
+.password-toggle:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -3px;
+}
+
+/* phones and iPads zoom the whole page in when a box's text is under 16px, so the sign-in boxes use 16px */
+.login-card .admin-field input {
+  font-size: 16px;
+}
+
+.caps-lock-warning {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #b45309;
+}
+
 .admin-field select {
   height: 44px;
   padding: 0 8px;
@@ -4439,4 +4491,45 @@ html:has(.sale-actions) {
   .admin-topbar-end {
     gap: 10px;
   }
+}
+
+/* a hint that pops up over a button on hover or keyboard focus (data-hint on the wrapper), e.g. who made a ticket over
+   My counter's Hand over; a grayed-out button lets the hover through to the wrapper, so its hint still shows */
+.hint {
+  position: relative;
+  display: inline-flex;
+}
+
+.hint > button:disabled {
+  pointer-events: none;
+}
+
+.hint[data-hint]::after {
+  content: attr(data-hint);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  /* lined up with the button's right edge, so it never runs off the right of a phone's screen */
+  right: 0;
+  z-index: 5;
+  width: max-content;
+  max-width: min(280px, 80vw);
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: #ffffff;
+  white-space: normal;
+  background: #1f2937;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s ease;
+  pointer-events: none;
+}
+
+.hint[data-hint]:hover::after,
+.hint[data-hint]:focus-within::after {
+  opacity: 1;
+  visibility: visible;
 }

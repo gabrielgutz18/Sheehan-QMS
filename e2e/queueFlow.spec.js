@@ -18,7 +18,7 @@ test.afterEach(() => {
 
 const signIn = async (page, username, password) => {
     await page.getByLabel('Username').fill(username);
-    await page.getByLabel('Password').fill(password);
+    await page.getByLabel('Password', { exact: true }).fill(password);
     await page.getByRole('button', { name: 'Sign in' }).click();
 };
 
@@ -28,8 +28,29 @@ test('a wrong password is refused, and the staff pages stay behind the sign-in',
 
     await signIn(page, ADMIN.username, 'not-the-password');
 
-    await expect(page.getByRole('alert')).toHaveText('Incorrect username or password.');
+    await expect(page.getByRole('alert')).toContainText('Incorrect username or password.');
     await expect(page.getByRole('heading', { name: 'Customer order' })).toBeHidden();
+
+    // the empty password box gets the cursor back, and the eye shows what's typed in it
+    const passwordBox = page.getByLabel('Password', { exact: true });
+    await expect(passwordBox).toBeFocused();
+    await expect(passwordBox).toHaveAttribute('type', 'password');
+    await page.getByRole('button', { name: 'Show password' }).click();
+    await expect(passwordBox).toHaveAttribute('type', 'text');
+    await expect(page.getByRole('button', { name: 'Hide password' })).toBeVisible();
+});
+
+test('a new tab of the same browser carries on signed in, with no sign-in page', async ({ page }) => {
+    await page.goto('/staff/customer-order');
+    await signIn(page, ADMIN.username, ADMIN.password);
+    await expect(page.getByRole('heading', { name: 'Customer order' })).toBeVisible();
+
+    // a second tab of the same browser opens straight onto the staff pages, with no sign-in
+    const second = await page.context().newPage();
+    watch(second);
+    await second.goto('/staff/customer-order');
+    await expect(second.getByRole('heading', { name: 'Customer order' })).toBeVisible();
+    await second.close();
 });
 
 test('Serve stays in view on Customer order, and a stopped Serve puts the cursor on the first field to fix', async ({ page }) => {
@@ -58,6 +79,27 @@ test('Serve stays in view on Customer order, and a stopped Serve puts the cursor
     await expect(name).toBeFocused();
     await expect(name).toBeInViewport();
     await expect(page.getByText("Please enter the customer's name.")).toBeVisible();
+});
+
+test('a half-filled order is still there after going to another page and back, until Start over', async ({ page }) => {
+    await page.goto('/staff/customer-order');
+    await signIn(page, ADMIN.username, ADMIN.password);
+    await page.getByRole('textbox', { name: 'Customer name' }).fill('Draft Customer');
+    await page.getByLabel('Invoice 1 number').fill('E2E-DRAFT-1');
+
+    // off to the Dashboard and back through the menu: the form comes back as it was left
+    await page.getByRole('link', { name: 'Dashboard' }).click();
+    await page.getByRole('link', { name: 'Customer order' }).click();
+    await expect(page.getByRole('textbox', { name: 'Customer name' })).toHaveValue('Draft Customer');
+    await expect(page.getByLabel('Invoice 1 number')).toHaveValue('E2E-DRAFT-1');
+
+    // Start over empties it, and it stays empty the next time round
+    await page.getByRole('button', { name: 'Start over' }).click();
+    await expect(page.getByRole('textbox', { name: 'Customer name' })).toHaveValue('');
+    await page.getByRole('link', { name: 'Dashboard' }).click();
+    await page.getByRole('link', { name: 'Customer order' }).click();
+    await expect(page.getByRole('textbox', { name: 'Customer name' })).toHaveValue('');
+    await expect(page.getByRole('button', { name: 'Start over' })).toBeHidden();
 });
 
 test('a customer goes from their ticket, through hand-over and loading, with the display following along', async ({ page }) => {
@@ -333,7 +375,17 @@ test('Orders & history shows every ticket as one size of card, and a deleted tic
     await expect(theirCard.getByRole('option', { name: 'Now serving' })).toHaveCount(0);
     await other.goto('/staff/counter');
     const atCounter = other.getByRole('listitem').filter({ hasText: full });
-    await expect(atCounter.getByRole('button', { name: /^Hand over/ })).toBeVisible();
+    // the admin made this ticket, so its hand-over is theirs, and hovering it says so; sales can Assist the customer,
+    // which lets them hand it over themselves
+    const handOverButton = atCounter.getByRole('button', { name: /^Hand over/ });
+    await expect(handOverButton).toBeDisabled();
+    await expect(atCounter.getByText('ticket by')).toBeVisible();
+    await expect(atCounter.locator('.hint')).toHaveAttribute('data-hint', /^This order is created by .+\. Press Assist/);
+    await atCounter.getByRole('button', { name: 'Assist', exact: true }).click();
+    await expect(atCounter.getByText('Assisted by')).toBeVisible();
+    await expect(handOverButton).toBeEnabled();
+    await atCounter.getByRole('button', { name: 'Stop assisting' }).click();
+    await expect(atCounter.getByRole('button', { name: 'Assist', exact: true })).toBeVisible();
     await expect(other.getByRole('button', { name: /^(Call|Serve|Recall)/ })).toHaveCount(0);
     await theirs.close();
 

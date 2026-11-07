@@ -27,11 +27,18 @@ const tabId = (() => {
 })();
 
 export class HttpError extends Error {
-    constructor(status, message, data) {
+    /**
+     * @param {number} status
+     * @param {string} message
+     * @param {any} [data]
+     * @param {number | null} [retryAfter] seconds the server asked us to wait, on a 429
+     */
+    constructor(status, message, data, retryAfter = null) {
         super(message);
         this.name = "HttpError";
         this.status = status;
         this.data = data;
+        this.retryAfter = retryAfter;
     }
 }
 
@@ -101,7 +108,8 @@ async function request(method, path, body, { signal, timeout = TIMEOUT_MS, heade
     if (!res.ok) {
         if (res.status === 401) unauthorizedListeners.forEach((listener) => listener());
         const message = data?.message ?? `Request failed (${res.status})`;
-        throw new HttpError(res.status, message, data);
+        const retryAfter = Number.parseInt(res.headers.get("Retry-After") ?? "", 10);
+        throw new HttpError(res.status, message, data, Number.isFinite(retryAfter) ? retryAfter : null);
     }
     return data;
 }
