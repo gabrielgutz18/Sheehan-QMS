@@ -28,11 +28,12 @@ test('a wrong password is refused, and the staff pages stay behind the sign-in',
 
     await signIn(page, ADMIN.username, 'not-the-password');
 
-    await expect(page.getByRole('alert')).toHaveText('Incorrect username or password.');
+    await expect(page.getByRole('alert')).toContainText('Incorrect username or password.');
     await expect(page.getByRole('heading', { name: 'Customer order' })).toBeHidden();
 
-    // the eye shows what's typed in the password box
+    // the empty password box gets the cursor back, and the eye shows what's typed in it
     const passwordBox = page.getByLabel('Password', { exact: true });
+    await expect(passwordBox).toBeFocused();
     await expect(passwordBox).toHaveAttribute('type', 'password');
     await page.getByRole('button', { name: 'Show password' }).click();
     await expect(passwordBox).toHaveAttribute('type', 'text');

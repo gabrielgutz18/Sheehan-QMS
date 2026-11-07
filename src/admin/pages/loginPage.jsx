@@ -1,14 +1,24 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router';
 
 import { useAuth } from '../auth/authContext.js';
 import { homeFor } from '../auth/roles.js';
 import logo from '../../assets/SheehanLogo.png';
 
-// never echo back which part was wrong, so usernames can't be guessed
+// how long a locked-out computer has to wait, in words; the server says it in seconds
+const waitInWords = (seconds) => {
+    if (!seconds) return "a few minutes";
+    if (seconds <= 60) return "about a minute";
+    return `about ${Math.ceil(seconds / 60)} minutes`;
+};
+
+// never echo back which part was wrong, so usernames can't be guessed; but do say what to try next,
+// since most wrong passwords are Caps Lock or a forgotten one an admin can reset
 const loginErrorMessage = (err) => {
-    if (err.status === 401) return "Incorrect username or password.";
-    if (err.status === 429) return "Too many attempts. Please wait a moment and try again.";
+    if (err.status === 401) {
+        return "Incorrect username or password. Check that Caps Lock is off, or ask an admin to reset your password.";
+    }
+    if (err.status === 429) return `Too many tries from this computer. Please wait ${waitInWords(err.retryAfter)}, then try again.`;
     return err.message;
 };
 
@@ -36,6 +46,8 @@ export default function LoginPage() {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
+    const [capsLock, setCapsLock] = useState(false);
+    const passwordRef = useRef(/** @type {HTMLInputElement | null} */ (null));
     const [error, setError] = useState("");
     const [submitting, setSubmitting] = useState(false);
 
@@ -61,6 +73,8 @@ export default function LoginPage() {
         } catch (err) {
             setError(loginErrorMessage(err));
             setPassword("");
+            // the cursor goes straight back to the empty password box, ready to type it again
+            passwordRef.current?.focus();
         } finally {
             setSubmitting(false);
         }
@@ -89,18 +103,22 @@ export default function LoginPage() {
                     />
                 </label>
 
-                {/* a div, not a wrapping label, so the button's words don't become part of the box's name */}
+                {/* a div, not a wrapping label, so the button's and warning's words don't become part of the box's name */}
                 <div className="admin-field">
                     <label htmlFor="login-password">Password</label>
                     <span className="password-field">
                         <input
                             id="login-password"
+                            ref={passwordRef}
                             type={showPassword ? "text" : "password"}
                             name="password"
                             autoComplete="current-password"
                             maxLength={128}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
+                            onKeyDown={(e) => setCapsLock(e.getModifierState("CapsLock"))}
+                            onKeyUp={(e) => setCapsLock(e.getModifierState("CapsLock"))}
+                            onBlur={() => setCapsLock(false)}
                         />
                         {/* a word beside the eye, since not everyone knows what the eye means */}
                         <button
@@ -113,6 +131,10 @@ export default function LoginPage() {
                             <span className="visually-hidden"> password</span>
                         </button>
                     </span>
+                    {/* always there (just empty) so screen readers notice when the words appear */}
+                    <p className="caps-lock-warning" aria-live="polite">
+                        {capsLock ? "Caps Lock is on, so capital and small letters are swapped" : ""}
+                    </p>
                 </div>
 
                 {error && <p className="field-error" role="alert">{error}</p>}
