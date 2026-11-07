@@ -27,6 +27,7 @@ import EditedBy from '../components/orders/editedBy.jsx';
 import OrderSheet from '../components/customerOrder/orderSheet.jsx';
 import OrdersHistory from '../components/orders/ordersHistory.jsx';
 import PrintFunc from '../printing/printFunc.jsx';
+import { clearOrderDraft, readOrderDraft, saveOrderDraft } from '../data/orderDraft.js';
 
 // must match the backend (server/api.js)
 const MAX_NAME = 100;
@@ -83,6 +84,22 @@ const fieldsFor = (saved, salesman) => ({
     priority: Boolean(saved?.priority),
     tbaPriority: Boolean(saved?.tbaPriority),
 });
+
+// a new order's form as sales left it a moment ago (see orderDraft.js), on top of a blank one so a field added since
+// still has its start; each invoice row gets a fresh key, since the keys it was saved with may be in use again
+const fieldsFromDraft = (draft, salesman) => ({
+    ...fieldsFor(null, salesman),
+    ...draft,
+    invoices: draft.invoices?.length
+        ? draft.invoices.map((invoice) => invoiceRow(invoice.invoiceNo ?? "", invoice.type ?? ""))
+        : [invoiceRow()],
+});
+
+// whether nothing's been filled in yet: the form as a blank one starts, leaving out the invoice rows' keys
+const sameFields = (a, b) => {
+    const plain = (fields) => JSON.stringify({ ...fields, invoices: fields.invoices.map(({ invoiceNo, type }) => ({ invoiceNo, type })) });
+    return plain(a) === plain(b);
+};
 
 // what Serve sends: the form as it is now; submitted is the ticket being edited, if any
 // the runner and receiver are left out: they're filled in on the Order sheet, and Update keeps them as they are
@@ -228,9 +245,36 @@ export default function CustomerOrderPage() {
 // saved: a ticket opened to edit, or null for a new order; viewing: show the saved ticket instead, to print it again
 function OrderDesk({ saved, viewing, onNew }) {
     const { user } = useAuth();
-    const [fields, setFields] = useState(() => fieldsFor(saved, user?.name ?? ""));
+    const userId = user?.id;
+    // a new order picks up where it was left if sales went to another page and came back within the minute
+    const [draft] = useState(() => (saved ? null : readOrderDraft(userId)));
+    const [fields, setFields] = useState(() =>
+        draft ? fieldsFromDraft(draft, user?.name ?? "") : fieldsFor(saved, user?.name ?? ""));
+    const [restored, setRestored] = useState(Boolean(draft));
     const [errors, setErrors] = useState(/** @type {Record<string, any>} */ ({}));
     const [submitted, setSubmitted] = useState(saved);
+
+    // keep a new order's form while it's being filled in, and stamp it again as the page is left, so the minute
+    // counts from then; once it's served there's nothing to keep (an opened ticket is saved already, so it's left be)
+    // a form nobody has typed in isn't kept, so it never comes back with the note below
+    const salesman = user?.name ?? "";
+    useEffect(() => {
+        if (saved) return undefined;
+        if (submitted || sameFields(fields, fieldsFor(null, salesman))) {
+            clearOrderDraft(userId);
+            return undefined;
+        }
+        saveOrderDraft(userId, fields);
+        return () => saveOrderDraft(userId, fields);
+    }, [saved, submitted, fields, userId, salesman]);
+
+    // Start over on the note about a kept order: a blank form, as if the page had just opened
+    const startOver = () => {
+        clearOrderDraft(userId);
+        setFields(fieldsFor(null, salesman));
+        setErrors({});
+        setRestored(false);
+    };
     const [editing, setEditing] = useState(Boolean(saved) && !viewing);
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState("");
@@ -374,6 +418,12 @@ function OrderDesk({ saved, viewing, onNew }) {
                     details, then the marks most orders never get */}
                 <div id="sale-tab-order-panel" className="sale-fields" role="tabpanel" aria-labelledby="sale-tab-order"
                     hidden={tab !== "sale-tab-order"}>
+                    {restored && !submitted && (
+                        <p className="tab-hint" role="status">
+                            This is the order you were filling in before you left the page.{" "}
+                            <button type="button" className="admin-btn" onClick={startOver}>Start over</button>
+                        </p>
+                    )}
                     <SaleGroup title="Customer">
                         <div className="sale-row is-two">
                             <SaleText id="sale-name" label="Customer name" maxLength={MAX_NAME}

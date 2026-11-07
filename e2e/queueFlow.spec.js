@@ -60,6 +60,27 @@ test('Serve stays in view on Customer order, and a stopped Serve puts the cursor
     await expect(page.getByText("Please enter the customer's name.")).toBeVisible();
 });
 
+test('a half-filled order is still there after going to another page and back, until Start over', async ({ page }) => {
+    await page.goto('/staff/customer-order');
+    await signIn(page, ADMIN.username, ADMIN.password);
+    await page.getByRole('textbox', { name: 'Customer name' }).fill('Draft Customer');
+    await page.getByLabel('Invoice 1 number').fill('E2E-DRAFT-1');
+
+    // off to the Dashboard and back through the menu: the form comes back as it was left
+    await page.getByRole('link', { name: 'Dashboard' }).click();
+    await page.getByRole('link', { name: 'Customer order' }).click();
+    await expect(page.getByRole('textbox', { name: 'Customer name' })).toHaveValue('Draft Customer');
+    await expect(page.getByLabel('Invoice 1 number')).toHaveValue('E2E-DRAFT-1');
+
+    // Start over empties it, and it stays empty the next time round
+    await page.getByRole('button', { name: 'Start over' }).click();
+    await expect(page.getByRole('textbox', { name: 'Customer name' })).toHaveValue('');
+    await page.getByRole('link', { name: 'Dashboard' }).click();
+    await page.getByRole('link', { name: 'Customer order' }).click();
+    await expect(page.getByRole('textbox', { name: 'Customer name' })).toHaveValue('');
+    await expect(page.getByRole('button', { name: 'Start over' })).toBeHidden();
+});
+
 test('a customer goes from their ticket, through hand-over and loading, with the display following along', async ({ page }) => {
     const customer = `Test Customer ${Date.now()}`;
 
