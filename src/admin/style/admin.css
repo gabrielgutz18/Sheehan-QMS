@@ -4564,3 +4564,9 @@ html:has(.sale-actions) {
   opacity: 1;
   visibility: visible;
 }
+
+/* the tabs of a page that holds a few others, e.g. Display & printer, above the open one */
+.page-tabs {
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--cream-border);
+}

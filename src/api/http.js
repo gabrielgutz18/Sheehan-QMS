@@ -76,7 +76,7 @@ export function onConnectionChange(listener) {
 // what to say when the server sent no message of its own; in plain words, since staff can't do anything with a code
 const fallbackMessage = (status) =>
     status >= 500
-        ? "Something went wrong on the server. Please try again, and if it keeps happening, tell the developers on Message developer."
+        ? "Something went wrong on the server. Please try again, and if it keeps happening, tell the developers on SheeChat's Message developer tab."
         : `That didn't work (error ${status}). Please try again.`;
 
 // a File/Blob body is sent as-is (uploads); anything else goes as JSON

@@ -2794,7 +2794,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             if (badRequest) send(res, 400, { message: "Bad request." });
             // staff read this, so it says what they can do; the details are in the server's log for the developers
             else send(res, 500, {
-                message: "Something went wrong on the server. Please try again, and if it keeps happening, tell the developers on Message developer.",
+                message: "Something went wrong on the server. Please try again, and if it keeps happening, tell the developers on SheeChat's Message developer tab.",
             });
         });
     };

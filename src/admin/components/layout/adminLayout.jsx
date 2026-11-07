@@ -5,7 +5,7 @@ import { isServerReachable, onConnectionChange } from '../../../api/http.js';
 import Clock from '../../../components/clock.jsx';
 import { useAuth } from '../../auth/authContext.js';
 import { ROLE_LABELS } from '../../auth/roles.js';
-import { NAV_GROUPS, navFor, withFolders } from '../../data/navItems.js';
+import { BOARD_ON_DASHBOARD, NAV_GROUPS, navFor, withFolders } from '../../data/navItems.js';
 import useMediaQuery from '../../hooks/useMediaQuery.js';
 import useMessageToasts from '../../hooks/useMessageToasts.js';
 import MessageToasts from '../chat/messageToasts.jsx';
@@ -92,11 +92,12 @@ export default function AdminLayout() {
     const [collapsed, setCollapsed] = useState(false);
     const { pathname } = useLocation();
     const boardDocks = useMediaQuery(BOARD_DOCKS);
-    // the Order status board is already on the page: the loading crews' Order status page, the Security page (the
-    // board with what each customer bought), or beside Customer order in a window wide enough for it; everywhere else
-    // the top bar's drawer opens it
+    // the Order status board is already on the page: the developers' Order status page, the loading crews' Dashboard,
+    // the Security page (the board with what each customer bought), or beside Customer order in a window wide enough
+    // for it; everywhere else the top bar's drawer opens it
     const boardOnPage = pathname === "/staff/order-status" || pathname === "/staff/security" ||
-        (pathname === "/staff/customer-order" && boardDocks);
+        (pathname === "/staff/customer-order" && boardDocks) ||
+        (pathname === "/staff" && BOARD_ON_DASHBOARD.includes(user?.role));
 
     const links = navFor(user?.role);
     // the page open now, named in the top bar
