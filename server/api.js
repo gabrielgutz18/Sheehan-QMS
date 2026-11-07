@@ -3,22 +3,31 @@
 // (see server/db.js), and an uploaded display video next to it in videos/, so nothing is lost on restart
 // ten roles: admins can do everything; sales, loading, TBA, chassis, hardware, security, cashier, inventory and developer staff only what
 // ROLE_ROUTES lists for them
-import { createHash, randomBytes, scrypt, scryptSync, timingSafeEqual } from 'node:crypto';
-import { createReadStream, createWriteStream, mkdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { extname, join } from 'node:path';
-import { pipeline } from 'node:stream/promises';
-import { promisify } from 'node:util';
+import { createHash, randomBytes, scrypt, scryptSync, timingSafeEqual } from "node:crypto";
+import { createReadStream, createWriteStream, mkdirSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { extname, join } from "node:path";
+import { pipeline } from "node:stream/promises";
+import { promisify } from "node:util";
 
-import { DB_FILE, backupStamp, openDatabase, resolveBackupsDir, resolveDataDir, transaction } from './db.js';
-import { clientIp, createRateLimiter } from './rateLimit.js';
-import { createSheetSync } from './googleSheet.js';
-import { TYPED_OVER_CELLS, applyCell, cellChanged, columnKey, columnNameProblem, editNameOf, isColumnKey, sheetStateOf } from './sheetCells.js';
-import { ticketFromSheet } from './sheetTicket.js';
-import paymentStatus from '../src/data/paymentStatus.js';
-import teams from '../src/data/teams.js';
-import checkers, { CHECKER_ROUNDS } from '../src/data/checkers.js';
-import { splitList } from '../src/data/list.js';
-import { DEPARTMENTS, areasFor, departmentHas, departmentOf } from '../src/data/loadingAreas.js';
+import { DB_FILE, backupStamp, openDatabase, resolveBackupsDir, resolveDataDir, transaction } from "./db.js";
+import { clientIp, createRateLimiter } from "./rateLimit.js";
+import { createSheetSync } from "./googleSheet.js";
+import {
+    TYPED_OVER_CELLS,
+    applyCell,
+    cellChanged,
+    columnKey,
+    columnNameProblem,
+    editNameOf,
+    isColumnKey,
+    sheetStateOf,
+} from "./sheetCells.js";
+import { ticketFromSheet } from "./sheetTicket.js";
+import paymentStatus from "../src/data/paymentStatus.js";
+import teams from "../src/data/teams.js";
+import checkers, { CHECKER_ROUNDS } from "../src/data/checkers.js";
+import { splitList } from "../src/data/list.js";
+import { DEPARTMENTS, areasFor, departmentHas, departmentOf } from "../src/data/loadingAreas.js";
 
 const SESSION_COOKIE = "sid";
 // each browser tab signs in on its own: the page sends its tab's id (X-Tab-Id) and the session cookie is named
@@ -30,9 +39,15 @@ const sessionCookieName = (req) => {
 };
 // over HTTPS (nginx with deploy/nginx-https.conf says so in X-Forwarded-Proto) the cookie is also Secure, so the
 // browser never sends it over plain http; without HTTPS it can't be, or no one could sign in
-const cookieFlags = (req) => `HttpOnly; SameSite=Strict; Path=/${req.headers["x-forwarded-proto"] === "https" ? "; Secure" : ""}`;
-const readCookies = (req) => Object.fromEntries(
-    (req.headers.cookie ?? "").split(/;\s*/).filter((c) => c.includes("=")).map((c) => [c.slice(0, c.indexOf("=")), c.slice(c.indexOf("=") + 1)]));
+const cookieFlags = (req) =>
+    `HttpOnly; SameSite=Strict; Path=/${req.headers["x-forwarded-proto"] === "https" ? "; Secure" : ""}`;
+const readCookies = (req) =>
+    Object.fromEntries(
+        (req.headers.cookie ?? "")
+            .split(/;\s*/)
+            .filter((c) => c.includes("="))
+            .map((c) => [c.slice(0, c.indexOf("=")), c.slice(c.indexOf("=") + 1)]),
+    );
 // like Facebook, a sign-in lasts until Sign out: it only ends after a week without using the app, and 30 days after
 // signing in, when the password is asked for again
 const SESSION_IDLE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -100,7 +115,18 @@ const ANNOUNCER_REPEATS = [1, 2];
 // (src/data/loadingAreas.js); security: the guards at the gate, the last stage, who check what each customer leaves
 // with; cashier: who changes how each order is paid; inventory: the inventory department, with no work page of its own
 // yet; developer: the team that builds the app, who answer staff on the Chat page when something doesn't go well
-const ROLES = ["admin", "sales", "loading", "tba", "chassis", "hardware", "security", "cashier", "inventory", "developer"];
+const ROLES = [
+    "admin",
+    "sales",
+    "loading",
+    "tba",
+    "chassis",
+    "hardware",
+    "security",
+    "cashier",
+    "inventory",
+    "developer",
+];
 const NO_SUCH_ROLE = "Pick admin, sales, loading, TBA, chassis, hardware, security, cashier, inventory or developer.";
 // a developer makes and changes accounts on Accounts too, but not admin ones, so they can't give themselves everything
 const ADMINS_ONLY = "Only an admin can make or change an admin account.";
@@ -270,11 +296,7 @@ const ROLE_ROUTES = {
     // the inventory department: no work page of its own yet, so the Order status board, where every customer is today
     // (with none of the sales details), SheeChat, Message developer and their own account; nothing they can call,
     // change or save in the queue
-    inventory: [
-        ["GET", /^\/admin\/order-status$/],
-        ...ACCOUNT_ROUTES,
-        ...MESSAGE_ROUTES,
-    ],
+    inventory: [["GET", /^\/admin\/order-status$/], ...ACCOUNT_ROUTES, ...MESSAGE_ROUTES],
     // the developers: the Chat page, answering what staff write from Message developer; the Order status board; and
     // Accounts, to make and fix staff accounts (not admin ones); nothing in the queue they can call, change or save
     developer: [
@@ -299,7 +321,8 @@ const ROLE_ROUTES = {
         ...ACCOUNT_ROUTES,
     ],
 };
-const roleMay = (role, method, path) => (ROLE_ROUTES[role] ?? []).some(([m, route]) => m === method && route.test(path));
+const roleMay = (role, method, path) =>
+    (ROLE_ROUTES[role] ?? []).some(([m, route]) => m === method && route.test(path));
 
 // passwords are stored as scrypt$<salt>$<hash>, with a new random salt for each
 const scryptAsync = promisify(scrypt);
@@ -346,11 +369,12 @@ const MY_PERIODS = {
         const last = Math.max(18, ...hoursWithData);
         return Array.from({ length: last - first + 1 }, (_, i) => pad2(first + i));
     },
-    week: () => Array.from({ length: 7 }, (_, i) => {
-        const d = startOfWeek();
-        d.setDate(d.getDate() + i);
-        return localDate(d);
-    }),
+    week: () =>
+        Array.from({ length: 7 }, (_, i) => {
+            const d = startOfWeek();
+            d.setDate(d.getDate() + i);
+            return localDate(d);
+        }),
     month: () => {
         const now = new Date();
         const days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
@@ -377,12 +401,13 @@ const STATS_PERIODS = {
     },
     week: () => Array.from({ length: 7 }, (_, i) => localDate(daysAgo(6 - i))),
     month: () => Array.from({ length: 30 }, (_, i) => localDate(daysAgo(29 - i))),
-    year: () => Array.from({ length: 12 }, (_, i) => {
-        const d = new Date();
-        d.setDate(1);
-        d.setMonth(d.getMonth() - (11 - i));
-        return monthKey(d);
-    }),
+    year: () =>
+        Array.from({ length: 12 }, (_, i) => {
+            const d = new Date();
+            d.setDate(1);
+            d.setMonth(d.getMonth() - (11 - i));
+            return monthKey(d);
+        }),
 };
 
 const send = (res, status, data, headers = {}) => {
@@ -461,9 +486,10 @@ const validVideoUrl = (url) => {
 const sendVideoFile = (req, res, path, type) => {
     const total = statSync(path, { throwIfNoEntry: false })?.size;
     if (total === undefined) return send(res, 404, { message: "No uploaded video." });
-    const stream = (options) => pipeline(createReadStream(path, options), res).catch(() => {
-        // the screen stopped watching part-way; nothing to do
-    });
+    const stream = (options) =>
+        pipeline(createReadStream(path, options), res).catch(() => {
+            // the screen stopped watching part-way; nothing to do
+        });
 
     const range = req.headers.range?.match(/^bytes=(\d*)-(\d*)$/);
     if (!range || (!range[1] && !range[2])) {
@@ -490,23 +516,42 @@ const sendVideoFile = (req, res, path, type) => {
 // an order lists 1-50 items, or none when it has invoices (the invoices list them);
 // a customer report (REPORT_PURPOSE) has no items, only the concern
 const validOrder = (body) =>
-    typeof body.name === "string" && body.name.trim() && body.name.length <= 100 &&
-    typeof body.purpose === "string" && body.purpose.length <= MAX_PURPOSE &&
-    validSale(body) && validInvoices(body.invoices, splitList(body.purpose)) &&
+    typeof body.name === "string" &&
+    body.name.trim() &&
+    body.name.length <= 100 &&
+    typeof body.purpose === "string" &&
+    body.purpose.length <= MAX_PURPOSE &&
+    validSale(body) &&
+    validInvoices(body.invoices, splitList(body.purpose)) &&
     (body.purpose === REPORT_PURPOSE ? validReport(body) : validItems(body.orders, body.invoices?.length > 0));
 
 // the invoices from Customer order, up to MAX_INVOICES: each has a number (no number twice) and the type of order
 // it's for, one of the order's own types
 const validInvoices = (invoices = [], types) =>
-    Array.isArray(invoices) && invoices.length <= MAX_INVOICES &&
-    invoices.every((i) => typeof i === "object" && i !== null && hasText(i.invoiceNo) &&
-        i.invoiceNo.trim().length <= MAX_INVOICE && types.includes(i.type)) &&
+    Array.isArray(invoices) &&
+    invoices.length <= MAX_INVOICES &&
+    invoices.every(
+        (i) =>
+            typeof i === "object" &&
+            i !== null &&
+            hasText(i.invoiceNo) &&
+            i.invoiceNo.trim().length <= MAX_INVOICE &&
+            types.includes(i.type),
+    ) &&
     new Set(invoices.map((i) => i.invoiceNo.trim().toLowerCase())).size === invoices.length;
 
 const validItems = (items = [], invoiced) =>
-    Array.isArray(items) && (items.length > 0 || invoiced) && items.length <= 50 &&
-    items.every((o) => typeof o.item === "string" && o.item.length <= 100 && Number.isInteger(o.qty) && o.qty > 0 &&
-        (o.color === undefined || ROOFING_COLORS.includes(o.color)));
+    Array.isArray(items) &&
+    (items.length > 0 || invoiced) &&
+    items.length <= 50 &&
+    items.every(
+        (o) =>
+            typeof o.item === "string" &&
+            o.item.length <= 100 &&
+            Number.isInteger(o.qty) &&
+            o.qty > 0 &&
+            (o.color === undefined || ROOFING_COLORS.includes(o.color)),
+    );
 
 const hasText = (value) => typeof value === "string" && value.trim() !== "";
 const optionalText = (value, max) => value === undefined || (typeof value === "string" && value.trim().length <= max);
@@ -526,16 +571,26 @@ const validDay = (day) => {
 // with its 1st and 2nd checker
 const validCheckers = (value) =>
     value === undefined ||
-    (typeof value === "object" && value !== null && !Array.isArray(value) &&
-        Object.entries(value).every(([column, names]) =>
-            CHECKER_COLUMNS.includes(column) && Array.isArray(names) && names.length <= CHECKER_ROUNDS.length &&
-            names.every((name) => optionalText(name, MAX_CHECKER))));
+    (typeof value === "object" &&
+        value !== null &&
+        !Array.isArray(value) &&
+        Object.entries(value).every(
+            ([column, names]) =>
+                CHECKER_COLUMNS.includes(column) &&
+                Array.isArray(names) &&
+                names.length <= CHECKER_ROUNDS.length &&
+                names.every((name) => optionalText(name, MAX_CHECKER)),
+        ));
 
 // the checkers as stored: JSON with only the columns that have a name, each with its 1st and 2nd checker; "" for none
 const storedCheckers = (value = {}) => {
-    const filled = CHECKER_COLUMNS
-        .map((column) => /** @type {[string, string[]]} */ ([column, CHECKER_ROUNDS.map((_, i) => value[column]?.[i]?.trim() ?? "")]))
-        .filter(([, names]) => names.some(Boolean));
+    const filled = CHECKER_COLUMNS.map(
+        (column) =>
+            /** @type {[string, string[]]} */ ([
+                column,
+                CHECKER_ROUNDS.map((_, i) => value[column]?.[i]?.trim() ?? ""),
+            ]),
+    ).filter(([, names]) => names.some(Boolean));
     return filled.length ? JSON.stringify(Object.fromEntries(filled)) : "";
 };
 
@@ -545,26 +600,47 @@ const storedCheckers = (value = {}) => {
 // ("**"), never both; the payment status and the marks are only kept from an admin or sales staff member (see
 // paymentFrom)
 const validSale = ({
-    salesman, runner, receiver, salesTimeIn, salesTimeOut, checkers: checkerNames, team, paymentStatus: payment, pickupDate,
-    priority, tbaPriority,
+    salesman,
+    runner,
+    receiver,
+    salesTimeIn,
+    salesTimeOut,
+    checkers: checkerNames,
+    team,
+    paymentStatus: payment,
+    pickupDate,
+    priority,
+    tbaPriority,
 }) =>
-    optionalText(salesman, MAX_SALESMAN) && optionalText(runner, MAX_RUNNER) && optionalText(receiver, MAX_RECEIVER) &&
-    optionalTime(salesTimeIn) && optionalTime(salesTimeOut) && validCheckers(checkerNames) &&
-    optionalPick(team, TEAMS) && optionalPick(payment, PAYMENT_STATUSES) &&
+    optionalText(salesman, MAX_SALESMAN) &&
+    optionalText(runner, MAX_RUNNER) &&
+    optionalText(receiver, MAX_RECEIVER) &&
+    optionalTime(salesTimeIn) &&
+    optionalTime(salesTimeOut) &&
+    validCheckers(checkerNames) &&
+    optionalPick(team, TEAMS) &&
+    optionalPick(payment, PAYMENT_STATUSES) &&
     (pickupDate === undefined || pickupDate === null || validDay(pickupDate)) &&
     (priority === undefined || typeof priority === "boolean") &&
-    (tbaPriority === undefined || typeof tbaPriority === "boolean") && !(priority && tbaPriority);
+    (tbaPriority === undefined || typeof tbaPriority === "boolean") &&
+    !(priority && tbaPriority);
 
 const validReport = ({ concern, orders }) =>
-    typeof concern === "string" && concern.trim() !== "" && concern.trim().length <= MAX_CONCERN &&
+    typeof concern === "string" &&
+    concern.trim() !== "" &&
+    concern.trim().length <= MAX_CONCERN &&
     (orders === undefined || (Array.isArray(orders) && orders.length === 0));
 
 // call announcements on the display; the front end fills in defaults (src/sound/sound.js)
 const validAnnouncer = (s) =>
     typeof s.enabled === "boolean" &&
-    typeof s.voice === "string" && s.voice.length <= 200 &&
-    typeof s.lang === "string" && s.lang.length <= 35 &&
-    typeof s.rate === "number" && s.rate >= 0.5 && s.rate <= 1.5 &&
+    typeof s.voice === "string" &&
+    s.voice.length <= 200 &&
+    typeof s.lang === "string" &&
+    s.lang.length <= 35 &&
+    typeof s.rate === "number" &&
+    s.rate >= 0.5 &&
+    s.rate <= 1.5 &&
     validVolume(s.volume) &&
     ANNOUNCER_REPEATS.includes(s.repeat);
 
@@ -574,7 +650,8 @@ function validVolume(volume) {
 }
 
 const validName = (name) => typeof name === "string" && name.trim().length >= 1 && name.trim().length <= 60;
-const validPassword = (password) => typeof password === "string" && password.length >= MIN_PASSWORD && password.length <= 128;
+const validPassword = (password) =>
+    typeof password === "string" && password.length >= MIN_PASSWORD && password.length <= 128;
 
 // My account: the name in parts, plus employee ID and department
 const NAME_PART_MAX = 40;
@@ -631,8 +708,14 @@ const imageCaption = (url) => {
 // profile photos: the accepted types, and how each file must start, so only real pictures are kept
 const PHOTO_TYPES = {
     "image/jpeg": { ext: ".jpg", isIt: (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
-    "image/png": { ext: ".png", isIt: (b) => b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) },
-    "image/webp": { ext: ".webp", isIt: (b) => b.toString("ascii", 0, 4) === "RIFF" && b.toString("ascii", 8, 12) === "WEBP" },
+    "image/png": {
+        ext: ".png",
+        isIt: (b) => b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
+    },
+    "image/webp": {
+        ext: ".webp",
+        isIt: (b) => b.toString("ascii", 0, 4) === "RIFF" && b.toString("ascii", 8, 12) === "WEBP",
+    },
 };
 const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
 const photoType = (file) => Object.keys(PHOTO_TYPES).find((type) => PHOTO_TYPES[type].ext === extname(file));
@@ -681,8 +764,21 @@ const toProfile = (row, now) => ({
 // the keys besides orders and invoices are the insertOrder / updateOrder parameters; the payment status isn't one of
 // them: it's saved on its own (see paymentFrom), so the edit says who set it
 const pickOrder = ({
-    name, purpose, orders: items = [], invoices = [], concern, salesman, runner, receiver, salesTimeIn, salesTimeOut,
-    checkers: checkerNames, team, pickupDate, priority, tbaPriority,
+    name,
+    purpose,
+    orders: items = [],
+    invoices = [],
+    concern,
+    salesman,
+    runner,
+    receiver,
+    salesTimeIn,
+    salesTimeOut,
+    checkers: checkerNames,
+    team,
+    pickupDate,
+    priority,
+    tbaPriority,
 }) => {
     const isReport = purpose === REPORT_PURPOSE;
     return {
@@ -708,9 +804,19 @@ const pickOrder = ({
 // the details a save on Customer order can change, each with its column in orders; items and invoices are compared
 // on their own, and so is the payment status (see paymentFrom)
 const EDITABLE_COLUMNS = {
-    name: "name", purpose: "purpose", concern: "concern", salesman: "salesman", runner: "runner", receiver: "receiver",
-    salesTimeIn: "sales_time_in", salesTimeOut: "sales_time_out", checkers: "checkers", team: "team",
-    pickupDate: "pickup_date", priority: "priority", tbaPriority: "tba_priority",
+    name: "name",
+    purpose: "purpose",
+    concern: "concern",
+    salesman: "salesman",
+    runner: "runner",
+    receiver: "receiver",
+    salesTimeIn: "sales_time_in",
+    salesTimeOut: "sales_time_out",
+    checkers: "checkers",
+    team: "team",
+    pickupDate: "pickup_date",
+    priority: "priority",
+    tbaPriority: "tba_priority",
 };
 const itemsOf = (rows) => rows.map(({ item, qty, color }) => ({ item, qty, ...(color && { color }) }));
 const invoicesOf = (rows) => rows.map(({ invoice_no, type }) => ({ invoiceNo: invoice_no, type }));
@@ -757,9 +863,13 @@ const areasOf = (row) => {
 // where a finished order is with the security check at the gate: "waiting" for a guard, then "verified", or
 // "reported" (something missing, over the quantity or stolen); left out for one that doesn't need it (yet)
 const securityOf = (row) =>
-    row.security_check_id !== null ? (row.check_result === "verified" ? "verified" : "reported")
-    : row.security_pending === 1 ? "waiting"
-    : undefined;
+    row.security_check_id !== null
+        ? row.check_result === "verified"
+            ? "verified"
+            : "reported"
+        : row.security_pending === 1
+          ? "waiting"
+          : undefined;
 // how the order is getting on with loading and the security check, for every page that shows it; loadingArea is the
 // area the loading crew has the customer at right now, and loadingStartedAt when they pressed Loading there (ISO
 // 8601; left out while the customer is only called): until that area is done no other area can take them
@@ -781,14 +891,15 @@ const progressOf = (row) => ({
     }),
 });
 // this visit's security check: the result, the guard's note (for a report), who checked it and when (ISO 8601)
-const checkOf = (row) => row.security_check_id !== null && {
-    securityCheck: {
-        result: row.check_result,
-        ...(row.check_note && { note: row.check_note }),
-        by: { name: row.checked_by_name },
-        at: row.checked_at,
-    },
-};
+const checkOf = (row) =>
+    row.security_check_id !== null && {
+        securityCheck: {
+            result: row.check_result,
+            ...(row.check_note && { note: row.check_note }),
+            by: { name: row.checked_by_name },
+            at: row.checked_at,
+        },
+    };
 
 // a stored order in the shape the front end expects
 const toOrder = (row, items, invoices, edits = []) => ({
@@ -830,7 +941,9 @@ const toOrder = (row, items, invoices, edits = []) => ({
         handedOver: { by: { id: row.handed_over_by, name: row.handed_over_by_name }, at: row.handed_over_at },
     }),
     // the staff member serving it, or who served it; photo is for their avatar (see photoUrl in the front end)
-    ...(row.served_by !== null && { servedBy: { id: row.served_by, name: row.served_by_name, photo: row.served_by_photo } }),
+    ...(row.served_by !== null && {
+        servedBy: { id: row.served_by, name: row.served_by_name, photo: row.served_by_photo },
+    }),
     // the staff member who made the ticket, the only one in sales who can hand it over; left out for the kiosk's, a
     // Google sheet row's and older tickets, which anyone in sales can
     ...(row.created_by !== null && { createdBy: { id: row.created_by, name: row.created_by_name } }),
@@ -867,7 +980,9 @@ const toStatus = (row) => ({
     ...(row.team && { team: row.team }),
     ...(row.at_loading === 1 && { atLoading: true }),
     ...(row.handed_over_by !== null && { handedOver: true }),
-    ...(row.served_by !== null && { servedBy: { id: row.served_by, name: row.served_by_name, photo: row.served_by_photo } }),
+    ...(row.served_by !== null && {
+        servedBy: { id: row.served_by, name: row.served_by_name, photo: row.served_by_photo },
+    }),
     ...(row.pickup_date && { pickupDate: row.pickup_date }),
     ...(row.priority === 1 && { priority: true }),
     ...(row.tba_priority === 1 && { tbaPriority: true }),
@@ -968,11 +1083,19 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
     const db = openDatabase(dir);
 
     // one set per API, so each test (and each restart) starts with a clean slate
-    const limiters = Object.fromEntries(Object.entries(RATE_LIMITS).map(([name, options]) => [name, createRateLimiter({
-        ...options,
-        // once per computer per window, so the log shows who is flooding the server without filling up with it
-        onLimit: (ip) => console.warn(`Rate limit (${name}): ${ip} went over ${options.limit} in ${options.windowMs / 1000}s`),
-    })]));
+    const limiters = Object.fromEntries(
+        Object.entries(RATE_LIMITS).map(([name, options]) => [
+            name,
+            createRateLimiter({
+                ...options,
+                // once per computer per window, so the log shows who is flooding the server without filling up with it
+                onLimit: (ip) =>
+                    console.warn(
+                        `Rate limit (${name}): ${ip} went over ${options.limit} in ${options.windowMs / 1000}s`,
+                    ),
+            }),
+        ]),
+    );
 
     const sql = {
         nextQueueNum: db.prepare(`
@@ -1006,7 +1129,9 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         restoreSheetColumn: db.prepare("UPDATE sheet_columns SET removed_at = NULL WHERE id = ?"),
         removeSheetColumn: db.prepare("UPDATE sheet_columns SET removed_at = ? WHERE id = ? AND removed_at IS NULL"),
         orderSheetCells: db.prepare("SELECT cell, value FROM sheet_cells WHERE order_id = ?"),
-        sheetCellsFor: db.prepare("SELECT order_id, cell, value FROM sheet_cells WHERE order_id IN (SELECT value FROM json_each(?))"),
+        sheetCellsFor: db.prepare(
+            "SELECT order_id, cell, value FROM sheet_cells WHERE order_id IN (SELECT value FROM json_each(?))",
+        ),
         setSheetCell: db.prepare(`
             INSERT INTO sheet_cells (order_id, cell, value) VALUES (?, ?, ?)
             ON CONFLICT (order_id, cell) DO UPDATE SET value = excluded.value`),
@@ -1029,7 +1154,9 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         // the guard's check at the gate: kept for good, and this visit's until the order is reopened
         insertCheck: db.prepare(`
             INSERT INTO security_checks (order_id, user_id, result, note, checked_at, returned_to) VALUES (?, ?, ?, ?, ?, ?)`),
-        setCheck: db.prepare("UPDATE orders SET security_pending = 0, security_check_id = ?, return_check_id = NULL WHERE id = ?"),
+        setCheck: db.prepare(
+            "UPDATE orders SET security_pending = 0, security_check_id = ?, return_check_id = NULL WHERE id = ?",
+        ),
         // a report sends the order back from the gate to one of its areas: back in line for that area, which loads
         // it again (its load is taken off), with the other areas still loaded and the sales point left alone
         returnToArea: db.prepare(`
@@ -1056,12 +1183,22 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         // tickets picked on Orders & history (a JSON list of ids): Delete leaves the ones already deleted as they are, and
         // Purge only ever takes deleted ones; their items, invoices, edits, loads and checks go with them, and the points
         // staff earned on them stay (036)
-        deletePicked: db.prepare("UPDATE orders SET deleted_at = ? WHERE deleted_at IS NULL AND id IN (SELECT value FROM json_each(?))"),
-        countPurgeable: db.prepare("SELECT COUNT(*) AS n FROM orders WHERE deleted_at IS NOT NULL AND id IN (SELECT value FROM json_each(?))"),
-        purgePicked: db.prepare("DELETE FROM orders WHERE deleted_at IS NOT NULL AND id IN (SELECT value FROM json_each(?))"),
-        findOrder: db.prepare(`SELECT ${ORDER_ROW} WHERE o.queue_date = ? AND o.queue_num = ? AND o.deleted_at IS NULL`),
+        deletePicked: db.prepare(
+            "UPDATE orders SET deleted_at = ? WHERE deleted_at IS NULL AND id IN (SELECT value FROM json_each(?))",
+        ),
+        countPurgeable: db.prepare(
+            "SELECT COUNT(*) AS n FROM orders WHERE deleted_at IS NOT NULL AND id IN (SELECT value FROM json_each(?))",
+        ),
+        purgePicked: db.prepare(
+            "DELETE FROM orders WHERE deleted_at IS NOT NULL AND id IN (SELECT value FROM json_each(?))",
+        ),
+        findOrder: db.prepare(
+            `SELECT ${ORDER_ROW} WHERE o.queue_date = ? AND o.queue_num = ? AND o.deleted_at IS NULL`,
+        ),
         findById: db.prepare(`SELECT ${ORDER_ROW} WHERE o.id = ?`),
-        dayOrders: db.prepare(`SELECT ${ORDER_ROW} WHERE o.queue_date = ? AND o.deleted_at IS NULL ORDER BY o.queue_num`),
+        dayOrders: db.prepare(
+            `SELECT ${ORDER_ROW} WHERE o.queue_date = ? AND o.deleted_at IS NULL ORDER BY o.queue_num`,
+        ),
         // the Order sheet: every day's orders, newest day first and in number order within a day; Customer Reports are
         // concerns, not orders, so they're left out
         sheetOrders: db.prepare(`
@@ -1102,7 +1239,9 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             SELECT substr(queue_date, 1, 7) AS bucket, purpose, COUNT(*) AS orders FROM orders
             WHERE deleted_at IS NULL AND purpose != :report AND queue_date BETWEEN :from AND :to
             GROUP BY bucket, purpose`),
-        servedOn: db.prepare("SELECT COUNT(*) AS n FROM orders WHERE queue_date = ? AND status = 'done' AND deleted_at IS NULL"),
+        servedOn: db.prepare(
+            "SELECT COUNT(*) AS n FROM orders WHERE queue_date = ? AND status = 'done' AND deleted_at IS NULL",
+        ),
         // History: any day, deleted only or all, by name or number; deleted ones newest-deleted first
         history: db.prepare(`
             SELECT ${ORDER_ROW}
@@ -1154,14 +1293,18 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             SELECT e.order_id, e.user_id, u.name, u.photo, e.sales_team, e.changes, e.edited_at
             FROM order_edits e LEFT JOIN users u ON u.id = e.user_id
             WHERE e.order_id IN (SELECT value FROM json_each(?)) ORDER BY e.order_id, e.id DESC`),
-        insertInvoice: db.prepare("INSERT INTO order_invoices (order_id, position, invoice_no, type) VALUES (?, ?, ?, ?)"),
+        insertInvoice: db.prepare(
+            "INSERT INTO order_invoices (order_id, position, invoice_no, type) VALUES (?, ?, ?, ?)",
+        ),
         deleteInvoices: db.prepare("DELETE FROM order_invoices WHERE order_id = ?"),
         orderInvoices: db.prepare("SELECT invoice_no, type FROM order_invoices WHERE order_id = ? ORDER BY position"),
         dayInvoices: db.prepare(`
             SELECT v.order_id, v.invoice_no, v.type FROM order_invoices v JOIN orders o ON o.id = v.order_id
             WHERE o.queue_date = ? ORDER BY v.order_id, v.position`),
         getSetting: db.prepare("SELECT value FROM settings WHERE key = ?"),
-        setSetting: db.prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value"),
+        setSetting: db.prepare(
+            "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+        ),
         deleteSetting: db.prepare("DELETE FROM settings WHERE key = ?"),
         insertSession: db.prepare("INSERT INTO sessions (sid_hash, user_id, expires, created_at) VALUES (?, ?, ?, ?)"),
         touchSession: db.prepare("UPDATE sessions SET expires = ? WHERE sid_hash = ?"),
@@ -1181,7 +1324,9 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         insertUser: db.prepare(`
             INSERT INTO users (username, name, first_name, surname, role, sales_team, password_hash, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`),
-        resetBuiltInAdmin: db.prepare("UPDATE users SET role = 'admin', disabled_at = NULL, password_hash = ? WHERE id = ?"),
+        resetBuiltInAdmin: db.prepare(
+            "UPDATE users SET role = 'admin', disabled_at = NULL, password_hash = ? WHERE id = ?",
+        ),
         updateUser: db.prepare(`
             UPDATE users SET name = :name, first_name = :firstName, surname = :surname, role = :role,
                 sales_team = :team, disabled_at = :disabledAt, password_hash = :passwordHash
@@ -1211,7 +1356,9 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             FROM messages m JOIN users u ON u.id = m.sender_id
             WHERE m.staff_id = ? ORDER BY m.id`),
         // image: the picture's file name in chat-images/, or null for a text message
-        insertMessage: db.prepare("INSERT INTO messages (staff_id, sender_id, body, image, sent_at) VALUES (?, ?, ?, ?, ?)"),
+        insertMessage: db.prepare(
+            "INSERT INTO messages (staff_id, sender_id, body, image, sent_at) VALUES (?, ?, ?, ?, ?)",
+        ),
         // a picture sent in the chat, and whose conversation it's in, for /chat-images/<id>
         findMessageImage: db.prepare("SELECT staff_id, image FROM messages WHERE id = ? AND image IS NOT NULL"),
         findMessage: db.prepare(`
@@ -1219,8 +1366,12 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             FROM messages m JOIN users u ON u.id = m.sender_id WHERE m.id = ?`),
         // opening the conversation reads what the other side wrote: the staff member the developers' answers, a
         // developer what the staff member wrote
-        readAnswers: db.prepare("UPDATE messages SET read_at = ? WHERE staff_id = ? AND sender_id != staff_id AND read_at IS NULL"),
-        readQuestions: db.prepare("UPDATE messages SET read_at = ? WHERE staff_id = ? AND sender_id = staff_id AND read_at IS NULL"),
+        readAnswers: db.prepare(
+            "UPDATE messages SET read_at = ? WHERE staff_id = ? AND sender_id != staff_id AND read_at IS NULL",
+        ),
+        readQuestions: db.prepare(
+            "UPDATE messages SET read_at = ? WHERE staff_id = ? AND sender_id = staff_id AND read_at IS NULL",
+        ),
         // the Chat page's list: everyone who has a conversation, the newest message first, with how many of theirs
         // no developer has read yet
         listChats: db.prepare(`
@@ -1237,14 +1388,20 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             FROM direct_messages d JOIN users u ON u.id = d.sender_id
             WHERE (d.sender_id = :me AND d.recipient_id = :other) OR (d.sender_id = :other AND d.recipient_id = :me)
             ORDER BY d.id`),
-        insertDm: db.prepare("INSERT INTO direct_messages (sender_id, recipient_id, body, image, sent_at) VALUES (?, ?, ?, ?, ?)"),
+        insertDm: db.prepare(
+            "INSERT INTO direct_messages (sender_id, recipient_id, body, image, sent_at) VALUES (?, ?, ?, ?, ?)",
+        ),
         findDm: db.prepare(`
             SELECT d.id, d.sender_id, d.recipient_id, d.body, d.image, d.sent_at, d.read_at, u.name, u.role, u.photo
             FROM direct_messages d JOIN users u ON u.id = d.sender_id WHERE d.id = ?`),
         // a picture sent on SheeChat, and who it's between, for /sheechat-images/<id>
-        findDmImage: db.prepare("SELECT sender_id, recipient_id, image FROM direct_messages WHERE id = ? AND image IS NOT NULL"),
+        findDmImage: db.prepare(
+            "SELECT sender_id, recipient_id, image FROM direct_messages WHERE id = ? AND image IS NOT NULL",
+        ),
         // opening a conversation reads what the other person sent you: (read_at, sender, recipient)
-        readDms: db.prepare("UPDATE direct_messages SET read_at = ? WHERE sender_id = ? AND recipient_id = ? AND read_at IS NULL"),
+        readDms: db.prepare(
+            "UPDATE direct_messages SET read_at = ? WHERE sender_id = ? AND recipient_id = ? AND read_at IS NULL",
+        ),
         // everyone :me has a conversation with, the newest message first, with how many of theirs :me hasn't read
         listDmChats: db.prepare(`
             SELECT u.id, u.name, u.role, u.photo, u.disabled_at, d.body AS last_body, d.image IS NOT NULL AS last_image,
@@ -1313,7 +1470,17 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
     // the admin from .env always exists, as an enabled admin with the .env password, so nobody is locked out
     const builtIn = sql.findUser.get(adminUsername);
     if (builtIn) sql.resetBuiltInAdmin.run(hashPasswordSync(adminPassword), builtIn.id);
-    else sql.insertUser.run(adminUsername, adminUsername, adminUsername, "", "admin", "", hashPasswordSync(adminPassword), new Date().toISOString());
+    else
+        sql.insertUser.run(
+            adminUsername,
+            adminUsername,
+            adminUsername,
+            "",
+            "admin",
+            "",
+            hashPasswordSync(adminPassword),
+            new Date().toISOString(),
+        );
 
     const toUser = (row) => ({
         ...toMe(row),
@@ -1341,36 +1508,70 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
      * @param {any} user
      * @param {{ calledAt?: number, remarks?: string, servedBy?: number, atLoading?: number, loadedBy?: number, loadingArea?: string, finishedArea?: string }} [changes]
      */
-    const changeStatus = (order, status, user, {
-        calledAt = order.called_at, remarks = order.remarks, servedBy, atLoading, loadedBy, loadingArea, finishedArea,
-    } = {}) =>
+    const changeStatus = (
+        order,
+        status,
+        user,
+        {
+            calledAt = order.called_at,
+            remarks = order.remarks,
+            servedBy,
+            atLoading,
+            loadedBy,
+            loadingArea,
+            finishedArea,
+        } = {},
+    ) =>
         transaction(db, () => {
             const handedOver = order.handed_over_by !== null;
-            const server = servedBy !== undefined ? servedBy
-                : status === "pending" || status === "returning" ? null
-                : status === "serving" ? (order.status === "serving" ? order.served_by : user.id)
-                : handedOver ? order.handed_over_by
-                : order.served_by ?? user.id;
+            const server =
+                servedBy !== undefined
+                    ? servedBy
+                    : status === "pending" || status === "returning"
+                      ? null
+                      : status === "serving"
+                        ? order.status === "serving"
+                            ? order.served_by
+                            : user.id
+                        : handedOver
+                          ? order.handed_over_by
+                          : (order.served_by ?? user.id);
             const loading = atLoading ?? (status === "serving" && server === order.served_by ? order.at_loading : 0);
             const stillDone = order.status === "done" && status === "done";
-            const loader = stillDone ? order.loaded_by
-                : status !== "done" || !handedOver ? null
-                : loadedBy ?? (order.at_loading === 1 ? order.served_by : null);
+            const loader = stillDone
+                ? order.loaded_by
+                : status !== "done" || !handedOver
+                  ? null
+                  : (loadedBy ?? (order.at_loading === 1 ? order.served_by : null));
             const loadedAt = stillDone ? order.loaded_at : loader === null ? null : new Date().toISOString();
             // the area loading called them to, while they're there, and when Loading was pressed there: kept while
             // they stay at that area, cleared once they leave it or are called to another
-            const area = loading === 1 ? loadingArea ?? order.loading_area : "";
-            const startedAt = loading === 1 && order.at_loading === 1 && area === order.loading_area
-                ? order.loading_started_at : null;
+            const area = loading === 1 ? (loadingArea ?? order.loading_area) : "";
+            const startedAt =
+                loading === 1 && order.at_loading === 1 && area === order.loading_area
+                    ? order.loading_started_at
+                    : null;
             // a finished order waits for the security check once a visit; a Customer Report has nothing to check
-            const securityPending = stillDone ? order.security_pending
-                : status === "done" && order.purpose !== REPORT_PURPOSE ? 1 : 0;
+            const securityPending = stillDone
+                ? order.security_pending
+                : status === "done" && order.purpose !== REPORT_PURPOSE
+                  ? 1
+                  : 0;
             const reopened = order.status === "done" && status !== "done";
             sql.setStatus.run({
-                status, calledAt, remarks, servedBy: server, atLoading: loading, loadedBy: loader, loadedAt,
-                loadingArea: area, loadingStartedAt: startedAt, securityPending,
+                status,
+                calledAt,
+                remarks,
+                servedBy: server,
+                atLoading: loading,
+                loadedBy: loader,
+                loadedAt,
+                loadingArea: area,
+                loadingStartedAt: startedAt,
+                securityPending,
                 securityCheckId: stillDone ? order.security_check_id : null,
-                returnCheckId: reopened ? null : order.return_check_id, id: order.id,
+                returnCheckId: reopened ? null : order.return_check_id,
+                id: order.id,
             });
             if (finishedArea) sql.addLoad.run(order.id, finishedArea, user.id, new Date().toISOString());
             // reopening a finished order starts the visit over: every area loaded again, and a new security check
@@ -1382,7 +1583,8 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
 
     // today's ticket with this number, as a database row
     const findToday = (queueNum) => sql.findOrder.get(today(), queueNum);
-    const loadOrder = (row) => toOrder(row, sql.orderItems.all(row.id), sql.orderInvoices.all(row.id), sql.orderEdits.all(row.id));
+    const loadOrder = (row) =>
+        toOrder(row, sql.orderItems.all(row.id), sql.orderInvoices.all(row.id), sql.orderEdits.all(row.id));
     // tickets from any day, as database rows, in toHistory's shape, their items, invoices and edits fetched together
     const loadAnyDay = (rows) => {
         const ids = JSON.stringify(rows.map((r) => r.id));
@@ -1391,8 +1593,16 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         const editsByOrder = Map.groupBy(sql.editsFor.all(ids), (e) => e.order_id);
         const cellsByOrder = Map.groupBy(sql.sheetCellsFor.all(ids), (c) => c.order_id);
         const date = today();
-        return rows.map((row) => toHistory(row, itemsByOrder.get(row.id) ?? [],
-            invoicesByOrder.get(row.id) ?? [], editsByOrder.get(row.id) ?? [], date, cellsByOrder.get(row.id) ?? []));
+        return rows.map((row) =>
+            toHistory(
+                row,
+                itemsByOrder.get(row.id) ?? [],
+                invoicesByOrder.get(row.id) ?? [],
+                editsByOrder.get(row.id) ?? [],
+                date,
+                cellsByOrder.get(row.id) ?? [],
+            ),
+        );
     };
     // the same, in toPayment's shape, for the Cashier page
     const loadPayments = (rows) => {
@@ -1400,7 +1610,9 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         const invoicesByOrder = Map.groupBy(sql.invoicesFor.all(ids), (i) => i.order_id);
         const editsByOrder = Map.groupBy(sql.editsFor.all(ids), (e) => e.order_id);
         const date = today();
-        return rows.map((row) => toPayment(row, invoicesByOrder.get(row.id) ?? [], editsByOrder.get(row.id) ?? [], date));
+        return rows.map((row) =>
+            toPayment(row, invoicesByOrder.get(row.id) ?? [], editsByOrder.get(row.id) ?? [], date),
+        );
     };
 
     // the columns on the Order sheet now, [{ id, key, name }]
@@ -1418,7 +1630,8 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
     // name can't be used; answers the list as it is now
     const takeSheetHeaders = (headers) => {
         for (const { key, name } of headers) {
-            if (columnKey(name) === key && !columnNameProblem(name) && !sql.findSheetColumn.get(key)) addSheetColumn(name);
+            if (columnKey(name) === key && !columnNameProblem(name) && !sql.findSheetColumn.get(key))
+                addSheetColumn(name);
         }
         return activeColumns();
     };
@@ -1428,7 +1641,12 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
     // they're saved; a save that changes something is kept as an edit, the same as a save on Customer order; editor: who
     // saved it, none for a cell typed in the Google sheet
     const saveSheetCells = (order, body, editor) => {
-        const before = sheetStateOf(order, sql.orderInvoices.all(order.id), sql.orderItems.all(order.id).length, sql.orderSheetCells.all(order.id));
+        const before = sheetStateOf(
+            order,
+            sql.orderInvoices.all(order.id),
+            sql.orderItems.all(order.id).length,
+            sql.orderSheetCells.all(order.id),
+        );
         const after = structuredClone(before);
         const columns = activeColumns();
         const columnKeys = columns.map(({ key }) => key);
@@ -1438,12 +1656,23 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         }
         const changed = Object.keys(body).filter((key) => cellChanged(before, after, key));
         if (!changed.length) return "";
-        const changes = [...new Set(changed.map((key) => (isColumnKey(key) ? columns.find((c) => c.key === key).name : editNameOf(key))))];
+        const changes = [
+            ...new Set(
+                changed.map((key) => (isColumnKey(key) ? columns.find((c) => c.key === key).name : editNameOf(key))),
+            ),
+        ];
 
         transaction(db, () => {
             sql.updateSheet.run({
-                name: after.customer, purpose: after.purpose, salesman: after.salesman, runner: after.runner, receiver: after.receiver,
-                team: after.team, salesTimeIn: after.salesTimeIn, salesTimeOut: after.salesTimeOut, id: order.id,
+                name: after.customer,
+                purpose: after.purpose,
+                salesman: after.salesman,
+                runner: after.runner,
+                receiver: after.receiver,
+                team: after.team,
+                salesTimeIn: after.salesTimeIn,
+                salesTimeOut: after.salesTimeOut,
+                id: order.id,
             });
             if (after.terms !== before.terms) sql.setPayment.run(after.terms, order.id);
             if (changes.includes("invoices")) saveInvoices(order.id, after.invoices);
@@ -1452,7 +1681,13 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                 if (Object.hasOwn(after.cells, key)) sql.setSheetCell.run(order.id, key, after.cells[key]);
                 else sql.clearSheetCell.run(order.id, key);
             }
-            sql.insertEdit.run(order.id, editor?.id ?? null, editor?.team ?? "", JSON.stringify(changes), new Date().toISOString());
+            sql.insertEdit.run(
+                order.id,
+                editor?.id ?? null,
+                editor?.team ?? "",
+                JSON.stringify(changes),
+                new Date().toISOString(),
+            );
         });
         return "";
     };
@@ -1491,8 +1726,14 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             const now = new Date();
             const createdAt = now.toISOString();
             const salesTimeIn = fields.salesTimeIn || localTime(now);
-            const { lastInsertRowid } = sql.insertOrder.run({ ...fields, salesTimeIn, date, queueNum, createdAt,
-                createdBy: editor?.id ?? null });
+            const { lastInsertRowid } = sql.insertOrder.run({
+                ...fields,
+                salesTimeIn,
+                date,
+                queueNum,
+                createdAt,
+                createdBy: editor?.id ?? null,
+            });
             saveItems(lastInsertRowid, items);
             saveInvoices(lastInsertRowid, invoices);
             for (const [key, value] of Object.entries(extra.cells)) sql.setSheetCell.run(lastInsertRowid, key, value);
@@ -1500,7 +1741,14 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             if (body.paymentStatus) sql.setPayment.run(body.paymentStatus, lastInsertRowid);
             // the Cashier page shows who set the payment status from an edit listing it
             const changes = [...(editor ? [] : [CREATED_IN_SHEET]), ...(body.paymentStatus ? ["paymentStatus"] : [])];
-            if (changes.length) sql.insertEdit.run(lastInsertRowid, editor?.id ?? null, editor?.team ?? "", JSON.stringify(changes), createdAt);
+            if (changes.length)
+                sql.insertEdit.run(
+                    lastInsertRowid,
+                    editor?.id ?? null,
+                    editor?.team ?? "",
+                    JSON.stringify(changes),
+                    createdAt,
+                );
             return { id: Number(lastInsertRowid) };
         });
     };
@@ -1510,20 +1758,23 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
     // ticket it already made, so a row sent twice, after an answer got lost, never makes two
     const takeSheetRow = ({ key, ready, values }) => {
         const made = sql.findBySheetKey.get(String(key));
-        if (made) return made.deleted_at === null ? { id: made.id } : { problem: "its ticket was deleted in the system" };
+        if (made)
+            return made.deleted_at === null ? { id: made.id } : { problem: "its ticket was deleted in the system" };
         if (!ready) return null;
         return createFromCells(values ?? {}, null, String(key));
     };
 
     // the Order sheet copied to Google Sheets: the same orders the sheet lists
-    const sheetSync = googleSheet?.url && createSheetSync({
-        ...googleSheet,
-        listOrders: () => loadAnyDay(sql.sheetOrders.all(REPORT_PURPOSE)),
-        listColumns: activeColumns,
-        takeHeaders: takeSheetHeaders,
-        applyEdit: takeSheetEdit,
-        applyNewRow: takeSheetRow,
-    });
+    const sheetSync =
+        googleSheet?.url &&
+        createSheetSync({
+            ...googleSheet,
+            listOrders: () => loadAnyDay(sql.sheetOrders.all(REPORT_PURPOSE)),
+            listColumns: activeColumns,
+            takeHeaders: takeSheetHeaders,
+            applyEdit: takeSheetEdit,
+            applyNewRow: takeSheetRow,
+        });
     if (sheetSync) sheetSync.start();
 
     const saveItems = (orderId, items) => {
@@ -1552,13 +1803,17 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
     const setVideo = (next) => {
         const previous = getVideo();
         writeSetting("video", next);
-        if (previous?.kind === "file" && previous.file !== next?.file) rmSync(join(videosDir, previous.file), { force: true });
+        if (previous?.kind === "file" && previous.file !== next?.file)
+            rmSync(join(videosDir, previous.file), { force: true });
     };
 
     // what the display gets: the link, or a version stamp that busts the cache after a new upload
-    const publicVideo = (video) => !video ? null
-        : video.kind === "url" ? { kind: "url", url: video.url }
-        : { kind: "file", name: video.name, version: video.version };
+    const publicVideo = (video) =>
+        !video
+            ? null
+            : video.kind === "url"
+              ? { kind: "url", url: video.url }
+              : { kind: "file", name: video.name, version: video.version };
 
     // replaces an account's profile photo (or removes it with null), deleting the old file
     const setPhoto = (userId, file) => {
@@ -1640,7 +1895,9 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
     const sheeChatKey = (a, b) => `sheechat:${Math.min(a, b)}:${Math.max(a, b)}`;
     const noteTyping = (conversation, account) => {
         if (!typingNow.has(conversation)) typingNow.set(conversation, new Map());
-        typingNow.get(conversation).set(account.id, { id: account.id, name: account.name, until: Date.now() + TYPING_MS });
+        typingNow
+            .get(conversation)
+            .set(account.id, { id: account.id, name: account.name, until: Date.now() + TYPING_MS });
     };
     // their message arrived, so they've stopped
     const stopTyping = (conversation, userId) => typingNow.get(conversation)?.delete(userId);
@@ -1727,7 +1984,8 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         if (method === "GET" && path === "/auth/me" && !getSession(req)) {
             const kept = sessionFor(readCookies(req)[KEPT_COOKIE]);
             const as = url.searchParams.get("as");
-            if (!kept || (as !== null && as !== String(kept.user.id))) return send(res, 401, { message: "Please sign in." });
+            if (!kept || (as !== null && as !== String(kept.user.id)))
+                return send(res, 401, { message: "Please sign in." });
             seen(kept.user.id);
             return send(res, 200, kept.user, { "Set-Cookie": tabCookies(req, kept.sid) });
         }
@@ -1755,14 +2013,27 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                 // its number and day, unless they typed one; it can still be changed or cleared with Edit
                 const salesTimeIn = fields.salesTimeIn || (staff?.role === "sales" ? localTime(now) : "");
                 // whoever is signed in made the ticket, and only they (or an admin) hand the customer over; the kiosk's has no maker
-                const { lastInsertRowid } = sql.insertOrder.run({ ...fields, ...marks, salesTimeIn, date, queueNum, createdAt,
-                    createdBy: staff?.id ?? null });
+                const { lastInsertRowid } = sql.insertOrder.run({
+                    ...fields,
+                    ...marks,
+                    salesTimeIn,
+                    date,
+                    queueNum,
+                    createdAt,
+                    createdBy: staff?.id ?? null,
+                });
                 saveItems(lastInsertRowid, items);
                 saveInvoices(lastInsertRowid, invoices);
                 // kept as an edit too, so the Cashier page shows who set it
                 if (payment) {
                     sql.setPayment.run(payment, lastInsertRowid);
-                    sql.insertEdit.run(lastInsertRowid, staff.id, staff.team, JSON.stringify(["paymentStatus"]), createdAt);
+                    sql.insertEdit.run(
+                        lastInsertRowid,
+                        staff.id,
+                        staff.team,
+                        JSON.stringify(["paymentStatus"]),
+                        createdAt,
+                    );
                 }
                 return loadOrder(sql.findOrder.get(date, queueNum));
             });
@@ -1777,12 +2048,19 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                 // calledAt lets the display replay its animation when the same number is called again
                 // priority: the ticket shows as "* RS 01"; tbaPriority: as "** T 01"
                 serving: sql.serving.all(date).map((o) => ({
-                    queueNum: o.queue_num, name: o.name, purpose: o.purpose, remarks: o.remarks, calledAt: o.called_at,
+                    queueNum: o.queue_num,
+                    name: o.name,
+                    purpose: o.purpose,
+                    remarks: o.remarks,
+                    calledAt: o.called_at,
                     ...(o.priority === 1 && { priority: true }),
                     ...(o.tba_priority === 1 && { tbaPriority: true }),
                 })),
                 upcoming: sql.upcoming.all(date).map((o) => ({
-                    queueNum: o.queue_num, name: o.name, purpose: o.purpose, ...(o.status === "returning" && { returning: true }),
+                    queueNum: o.queue_num,
+                    name: o.name,
+                    purpose: o.purpose,
+                    ...(o.status === "returning" && { returning: true }),
                     ...(o.priority === 1 && { priority: true }),
                     ...(o.tba_priority === 1 && { tbaPriority: true }),
                 })),
@@ -1804,7 +2082,11 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         const session = getSession(req);
         if (path.startsWith("/auth/") || path.startsWith("/admin/")) {
             if (!session) return send(res, 401, { message: "Please sign in." });
-            if (path.startsWith("/admin/") && session.user.role !== "admin" && !roleMay(session.user.role, method, path)) {
+            if (
+                path.startsWith("/admin/") &&
+                session.user.role !== "admin" &&
+                !roleMay(session.user.role, method, path)
+            ) {
                 return send(res, 403, { message: "Only an admin can do that." });
             }
         }
@@ -1840,7 +2122,8 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             const viewers = allSessions(req);
             if (viewers.length === 0) return send(res, 401, { message: "Please sign in." });
             const message = sql.findMessageImage.get(Number(chatImageMatch[1]));
-            const allowed = message && viewers.some(({ user }) => user.role === "developer" || user.id === message.staff_id);
+            const allowed =
+                message && viewers.some(({ user }) => user.role === "developer" || user.id === message.staff_id);
             const file = allowed ? join(chatImagesDir, message.image) : null;
             const stats = file ? statSync(file, { throwIfNoEntry: false }) : undefined;
             if (!stats) return send(res, 404, { message: "No picture." });
@@ -1862,7 +2145,9 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             const viewers = allSessions(req);
             if (viewers.length === 0) return send(res, 401, { message: "Please sign in." });
             const message = sql.findDmImage.get(Number(dmImageMatch[1]));
-            const allowed = message && viewers.some(({ user }) => user.id === message.sender_id || user.id === message.recipient_id);
+            const allowed =
+                message &&
+                viewers.some(({ user }) => user.id === message.sender_id || user.id === message.recipient_id);
             const file = allowed ? join(chatImagesDir, message.image) : null;
             const stats = file ? statSync(file, { throwIfNoEntry: false }) : undefined;
             if (!stats) return send(res, 404, { message: "No picture." });
@@ -1884,7 +2169,10 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             sql.deleteSession.run(session.sidHash);
             const keptToo = readCookies(req)[KEPT_COOKIE] === session.sid;
             return send(res, 204, undefined, {
-                "Set-Cookie": [clearCookie(req, sessionCookieName(req)), ...(keptToo ? [clearCookie(req, KEPT_COOKIE)] : [])],
+                "Set-Cookie": [
+                    clearCookie(req, sessionCookieName(req)),
+                    ...(keptToo ? [clearCookie(req, KEPT_COOKIE)] : []),
+                ],
             });
         }
 
@@ -1937,7 +2225,8 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             return send(res, 200, readSetting("announcer"));
         }
 
-        if (method === "GET" && path === "/admin/users") return send(res, 200, sql.listUsers.all({ today: today(), now: Date.now() }).map(toUser));
+        if (method === "GET" && path === "/admin/users")
+            return send(res, 200, sql.listUsers.all({ today: today(), now: Date.now() }).map(toUser));
 
         // admins and developers get here (see ROLE_ROUTES); new accounts are usually sales staff
         if (method === "POST" && path === "/admin/users") {
@@ -1947,15 +2236,34 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                 return send(res, 400, { message: "Usernames are 3–32 letters, numbers, dots, dashes or underscores." });
             }
             if (!validName(name)) return send(res, 400, { message: "Enter the staff member's name." });
-            if (!validPassword(password)) return send(res, 400, { message: `Passwords need at least ${MIN_PASSWORD} characters.` });
+            if (!validPassword(password))
+                return send(res, 400, { message: `Passwords need at least ${MIN_PASSWORD} characters.` });
             if (!ROLES.includes(role)) return send(res, 400, { message: NO_SUCH_ROLE });
             if (!optionalPick(team, TEAMS)) return send(res, 400, { message: NO_SUCH_TEAM });
             if (sql.findUser.get(username.trim())) return send(res, 409, { message: "That username is taken." });
             // they can add a middle name, employee ID and department themselves on My account
             const [firstName, surname] = splitName(name);
-            const { lastInsertRowid } = sql.insertUser.run(username.trim(), name.trim(), firstName, surname, role, team,
-                await hashPassword(password), new Date().toISOString());
-            return send(res, 201, toUser({ ...sql.findUserById.get(lastInsertRowid), served_total: 0, served_today: 0, serving_now: 0, signed_in: 0 }));
+            const { lastInsertRowid } = sql.insertUser.run(
+                username.trim(),
+                name.trim(),
+                firstName,
+                surname,
+                role,
+                team,
+                await hashPassword(password),
+                new Date().toISOString(),
+            );
+            return send(
+                res,
+                201,
+                toUser({
+                    ...sql.findUserById.get(lastInsertRowid),
+                    served_total: 0,
+                    served_today: 0,
+                    serving_now: 0,
+                    signed_in: 0,
+                }),
+            );
         }
 
         // { name?, role?, team?, password?, disabled? }; team is "" for none
@@ -1997,8 +2305,10 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                 changes.disabledAt = body.disabled ? new Date().toISOString() : null;
             }
             if (body.password !== undefined) {
-                if (isBuiltIn(account)) return send(res, 400, { message: "This admin's password is set in the server's .env file." });
-                if (!validPassword(body.password)) return send(res, 400, { message: `Passwords need at least ${MIN_PASSWORD} characters.` });
+                if (isBuiltIn(account))
+                    return send(res, 400, { message: "This admin's password is set in the server's .env file." });
+                if (!validPassword(body.password))
+                    return send(res, 400, { message: `Passwords need at least ${MIN_PASSWORD} characters.` });
                 changes.passwordHash = await hashPassword(body.password);
             }
             sql.updateUser.run({ ...changes, id: account.id });
@@ -2006,7 +2316,14 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             if (changes.passwordHash !== account.password_hash || changes.role !== account.role || changes.disabledAt) {
                 sql.deleteUserSessions.run(account.id, session.sidHash);
             }
-            return send(res, 200, sql.listUsers.all({ today: today(), now: Date.now() }).map(toUser).find((u) => u.id === account.id));
+            return send(
+                res,
+                200,
+                sql.listUsers
+                    .all({ today: today(), now: Date.now() })
+                    .map(toUser)
+                    .find((u) => u.id === account.id),
+            );
         }
 
         // Message developer: your own conversation with the developers, oldest first; opening it reads their answers
@@ -2030,7 +2347,13 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             if (me.role === "developer") return send(res, 403, { message: "Answer staff on the Chat page." });
             const saved = await saveChatImage(req, url, me.id);
             if (!saved.file) return send(res, saved.status, { message: saved.message });
-            const { lastInsertRowid } = sql.insertMessage.run(me.id, me.id, saved.body, saved.file, new Date().toISOString());
+            const { lastInsertRowid } = sql.insertMessage.run(
+                me.id,
+                me.id,
+                saved.body,
+                saved.file,
+                new Date().toISOString(),
+            );
             stopTyping(`staff:${me.id}`, me.id);
             return send(res, 201, toMessage(sql.findMessage.get(lastInsertRowid)));
         }
@@ -2053,29 +2376,46 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                 image: row.image !== null,
                 sentAt: row.sent_at,
                 unread: row.unread,
-                from: { id: row.from_id, name: row.name, role: row.role, photo: row.photo, disabled: row.disabled_at !== null },
+                from: {
+                    id: row.from_id,
+                    name: row.name,
+                    role: row.role,
+                    photo: row.photo,
+                    disabled: row.disabled_at !== null,
+                },
             });
-            const unread = me.role === "developer"
-                ? sql.unreadQuestions.all().map(toUnread("staff"))
-                : [...sql.unreadDms.all(me.id).map(toUnread("sheechat")), ...sql.unreadAnswers.all(me.id).map(toUnread("developer"))];
-            return send(res, 200, unread.toSorted((a, b) => b.sentAt.localeCompare(a.sentAt)));
+            const unread =
+                me.role === "developer"
+                    ? sql.unreadQuestions.all().map(toUnread("staff"))
+                    : [
+                          ...sql.unreadDms.all(me.id).map(toUnread("sheechat")),
+                          ...sql.unreadAnswers.all(me.id).map(toUnread("developer")),
+                      ];
+            return send(
+                res,
+                200,
+                unread.toSorted((a, b) => b.sentAt.localeCompare(a.sentAt)),
+            );
         }
 
         // who's online: every account but switched-off ones, online ones first, then by name; online while signed in
         // and seen in the last ONLINE_MS; lastSeen (ms) is when they last used the app, or null if they never have
         const presence = () => {
             const now = Date.now();
-            return sql.listPresence.all({ now }).map((row) => ({
-                id: row.id,
-                name: row.name,
-                firstName: row.first_name,
-                surname: row.surname,
-                role: row.role,
-                department: row.department,
-                photo: row.photo,
-                online: isOnline(row, now),
-                lastSeen: row.last_seen,
-            })).toSorted((a, b) => Number(b.online) - Number(a.online));
+            return sql.listPresence
+                .all({ now })
+                .map((row) => ({
+                    id: row.id,
+                    name: row.name,
+                    firstName: row.first_name,
+                    surname: row.surname,
+                    role: row.role,
+                    department: row.department,
+                    photo: row.photo,
+                    online: isOnline(row, now),
+                    lastSeen: row.last_seen,
+                }))
+                .toSorted((a, b) => Number(b.online) - Number(a.online));
         };
 
         // SheeChat, for every role but the developers (ROLE_ROUTES leaves them out too; they have the Chat page)
@@ -2085,21 +2425,35 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
 
         // SheeChat's list: everyone you have a conversation with, newest first, with how many of theirs you haven't read
         if (method === "GET" && path === "/admin/sheechat") {
-            return send(res, 200, sql.listDmChats.all({ me: me.id }).map((row) => ({
-                with: { id: row.id, name: row.name, role: row.role, photo: row.photo, disabled: row.disabled_at !== null },
-                last: {
-                    body: row.last_body,
-                    image: Boolean(row.last_image),
-                    sentAt: row.last_at,
-                    mine: Boolean(row.last_mine),
-                },
-                unread: row.unread,
-            })));
+            return send(
+                res,
+                200,
+                sql.listDmChats.all({ me: me.id }).map((row) => ({
+                    with: {
+                        id: row.id,
+                        name: row.name,
+                        role: row.role,
+                        photo: row.photo,
+                        disabled: row.disabled_at !== null,
+                    },
+                    last: {
+                        body: row.last_body,
+                        image: Boolean(row.last_image),
+                        sentAt: row.last_at,
+                        mine: Boolean(row.last_mine),
+                    },
+                    unread: row.unread,
+                })),
+            );
         }
 
         // SheeChat's People list: every other staff member but the developers, online first, to start a conversation
         if (method === "GET" && path === "/admin/sheechat/people") {
-            return send(res, 200, presence().filter((account) => account.role !== "developer" && account.id !== me.id));
+            return send(
+                res,
+                200,
+                presence().filter((account) => account.role !== "developer" && account.id !== me.id),
+            );
         }
 
         // the person on the other side of a SheeChat conversation: any staff member but a developer or yourself
@@ -2139,7 +2493,8 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
 
             if (method === "POST") {
                 // an earlier conversation with someone switched off can still be read, but not added to
-                if (other.disabled_at !== null) return send(res, 409, { message: `${other.name}'s account is switched off.` });
+                if (other.disabled_at !== null)
+                    return send(res, 409, { message: `${other.name}'s account is switched off.` });
                 let body;
                 let image = null;
                 if (dmMatch[2]) {
@@ -2148,7 +2503,8 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                     ({ body, file: image } = saved);
                 } else {
                     body = messageBody(await readBody(req));
-                    if (!body) return send(res, 400, { message: `Write a message of up to ${MAX_MESSAGE} characters.` });
+                    if (!body)
+                        return send(res, 400, { message: `Write a message of up to ${MAX_MESSAGE} characters.` });
                 }
                 const { lastInsertRowid } = sql.insertDm.run(me.id, other.id, body, image, new Date().toISOString());
                 stopTyping(sheeChatKey(me.id, other.id), me.id);
@@ -2158,30 +2514,48 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
 
         // the developer team, for Message developer and the Chat page's chat heads
         if (method === "GET" && path === "/admin/developers") {
-            return send(res, 200, presence().filter((account) => account.role === "developer"));
+            return send(
+                res,
+                200,
+                presence().filter((account) => account.role === "developer"),
+            );
         }
 
         // the Chat page's Staff list, the developers' only: everyone else, for the page to group by department
         if (method === "GET" && path === "/admin/staff-presence") {
             if (me.role !== "developer") return send(res, 403, { message: "Only a developer can do that." });
-            return send(res, 200, presence().filter((account) => account.role !== "developer"));
+            return send(
+                res,
+                200,
+                presence().filter((account) => account.role !== "developer"),
+            );
         }
 
         // the Chat page, the developers' only (an admin writes to them from Message developer like everyone else):
         // everyone who has written, newest first
         if (method === "GET" && path === "/admin/chats") {
             if (me.role !== "developer") return send(res, 403, { message: "Only a developer can do that." });
-            return send(res, 200, sql.listChats.all().map((row) => ({
-                staff: { id: row.id, name: row.name, role: row.role, photo: row.photo, disabled: row.disabled_at !== null },
-                last: {
-                    body: row.last_body,
-                    image: Boolean(row.last_image),
-                    sentAt: row.last_at,
-                    fromStaff: Boolean(row.last_from_staff),
-                    from: { id: row.last_from_id, name: row.last_from_name },
-                },
-                unread: row.unread,
-            })));
+            return send(
+                res,
+                200,
+                sql.listChats.all().map((row) => ({
+                    staff: {
+                        id: row.id,
+                        name: row.name,
+                        role: row.role,
+                        photo: row.photo,
+                        disabled: row.disabled_at !== null,
+                    },
+                    last: {
+                        body: row.last_body,
+                        image: Boolean(row.last_image),
+                        sentAt: row.last_at,
+                        fromStaff: Boolean(row.last_from_staff),
+                        from: { id: row.last_from_id, name: row.last_from_name },
+                    },
+                    unread: row.unread,
+                })),
+            );
         }
 
         // one staff member's conversation, which opening reads; POST { body } answers them
@@ -2221,7 +2595,13 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             if (!staff || staff.role === "developer") return send(res, 404, { message: "Staff member not found." });
             const saved = await saveChatImage(req, url, me.id);
             if (!saved.file) return send(res, saved.status, { message: saved.message });
-            const { lastInsertRowid } = sql.insertMessage.run(staff.id, me.id, saved.body, saved.file, new Date().toISOString());
+            const { lastInsertRowid } = sql.insertMessage.run(
+                staff.id,
+                me.id,
+                saved.body,
+                saved.file,
+                new Date().toISOString(),
+            );
             stopTyping(`staff:${staff.id}`, me.id);
             return send(res, 201, toMessage(sql.findMessage.get(lastInsertRowid)));
         }
@@ -2247,7 +2627,9 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                 return send(res, 400, { message: `Middle names can be up to ${NAME_PART_MAX} characters.` });
             }
             if (profile.employeeId && !EMPLOYEE_ID.test(profile.employeeId)) {
-                return send(res, 400, { message: "Employee IDs are up to 30 letters, numbers, dots, dashes or slashes." });
+                return send(res, 400, {
+                    message: "Employee IDs are up to 30 letters, numbers, dots, dashes or slashes.",
+                });
             }
             if (profile.employeeId && sql.employeeIdTaken.get(profile.employeeId, me.id)) {
                 return send(res, 409, { message: "That employee ID belongs to another account." });
@@ -2299,7 +2681,12 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             };
             const range = {
                 day: [starts.today, starts.today],
-                week: [starts.week, localDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 6 - ((now.getDay() + 6) % 7)))],
+                week: [
+                    starts.week,
+                    localDate(
+                        new Date(now.getFullYear(), now.getMonth(), now.getDate() + 6 - ((now.getDay() + 6) % 7)),
+                    ),
+                ],
                 month: [starts.month, localDate(new Date(now.getFullYear(), now.getMonth() + 1, 0))],
                 year: [starts.year, `${now.getFullYear()}-12-31`],
             }[period];
@@ -2322,10 +2709,25 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             const itemsByOrder = Map.groupBy(sql.dayItems.all(date), (item) => item.order_id);
             const invoicesByOrder = Map.groupBy(sql.dayInvoices.all(date), (invoice) => invoice.order_id);
             const editsByOrder = Map.groupBy(sql.dayEdits.all(date), (edit) => edit.order_id);
-            const rows = sql.dayOrders.all(date).filter((row) => !DEPARTMENTS[me.role] ||
-                (row.handed_over_by !== null && departmentHas(me.role, areasFor(row.purpose))));
-            return send(res, 200, rows.map((row) => toOrder(row, itemsByOrder.get(row.id) ?? [],
-                invoicesByOrder.get(row.id) ?? [], editsByOrder.get(row.id) ?? [])));
+            const rows = sql.dayOrders
+                .all(date)
+                .filter(
+                    (row) =>
+                        !DEPARTMENTS[me.role] ||
+                        (row.handed_over_by !== null && departmentHas(me.role, areasFor(row.purpose))),
+                );
+            return send(
+                res,
+                200,
+                rows.map((row) =>
+                    toOrder(
+                        row,
+                        itemsByOrder.get(row.id) ?? [],
+                        invoicesByOrder.get(row.id) ?? [],
+                        editsByOrder.get(row.id) ?? [],
+                    ),
+                ),
+            );
         }
 
         // the Order status board: all of today's orders for every staff member, a loading crew's included, so anyone
@@ -2341,8 +2743,11 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             const itemsByOrder = Map.groupBy(sql.dayItems.all(date), (item) => item.order_id);
             const invoicesByOrder = Map.groupBy(sql.dayInvoices.all(date), (invoice) => invoice.order_id);
             const rows = sql.dayOrders.all(date).filter((row) => row.purpose !== REPORT_PURPOSE);
-            return send(res, 200, rows.map((row) =>
-                toSecurity(row, itemsByOrder.get(row.id) ?? [], invoicesByOrder.get(row.id) ?? [])));
+            return send(
+                res,
+                200,
+                rows.map((row) => toSecurity(row, itemsByOrder.get(row.id) ?? [], invoicesByOrder.get(row.id) ?? [])),
+            );
         }
 
         // call (or call again) a ticket: it becomes the headline on the display with the admin's remarks
@@ -2368,11 +2773,17 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         if (method === "POST" && handOverMatch) {
             const order = findToday(Number(decodeURIComponent(handOverMatch[1])));
             if (!order) return send(res, 404, { message: "Order not found." });
-            if (order.handed_over_by !== null) return send(res, 409, { message: "This customer is already with loading." });
+            if (order.handed_over_by !== null)
+                return send(res, 409, { message: "This customer is already with loading." });
             if (order.status === "done") return send(res, 409, { message: "This order is already done." });
             // the customer is the ticket maker's, or, while they're away, whoever pressed Assist for them; an admin can
             // still do it, e.g. when the maker has gone home
-            if (me.role !== "admin" && order.created_by !== null && order.created_by !== me.id && order.assisted_by !== me.id) {
+            if (
+                me.role !== "admin" &&
+                order.created_by !== null &&
+                order.created_by !== me.id &&
+                order.assisted_by !== me.id
+            ) {
                 return send(res, 403, {
                     message: `This order is created by ${order.created_by_name}. Press Assist to hand this customer over yourself.`,
                 });
@@ -2394,12 +2805,15 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             if (!order) return send(res, 404, { message: "Order not found." });
             if (method === "DELETE") {
                 if (order.assisted_by !== null && order.assisted_by !== me.id && me.role !== "admin") {
-                    return send(res, 403, { message: `Only ${order.assisted_by_name} can stop assisting this customer.` });
+                    return send(res, 403, {
+                        message: `Only ${order.assisted_by_name} can stop assisting this customer.`,
+                    });
                 }
                 sql.setAssist.run(null, order.id);
                 return send(res, 200, loadOrder(findToday(order.queue_num)));
             }
-            if (order.handed_over_by !== null) return send(res, 409, { message: "This customer is already with loading." });
+            if (order.handed_over_by !== null)
+                return send(res, 409, { message: "This customer is already with loading." });
             if (order.status === "done") return send(res, 409, { message: "This order is already done." });
             if (order.created_by === me.id) {
                 return send(res, 409, { message: "This is your own ticket: hand the customer over when you're done." });
@@ -2420,13 +2834,18 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         // how the sheet's copy in Google Sheets is doing, and the link staff open it with (GOOGLE_SHEET_LINK); it stays
         // behind sign-in, since the spreadsheet has customers' names; "off" where no sheet is set up, like a test PC
         if (method === "GET" && path === "/admin/order-sheet/sync") {
-            return send(res, 200, sheetSync ? { ...sheetSync.status(), link: googleSheet.link ?? "" } : { state: "off" });
+            return send(
+                res,
+                200,
+                sheetSync ? { ...sheetSync.status(), link: googleSheet.link ?? "" } : { state: "off" },
+            );
         }
 
         // a new row on the Order sheet makes a ticket once it has a customer's name, a type of order and an invoice number
         if (method === "POST" && path === "/admin/order-sheet") {
             const body = await readBody(req);
-            if (typeof body !== "object" || body === null || Array.isArray(body)) return send(res, 400, { message: "Invalid row." });
+            if (typeof body !== "object" || body === null || Array.isArray(body))
+                return send(res, 400, { message: "Invalid row." });
             const { id, problem } = createFromCells(body, me);
             if (problem) return send(res, 400, { message: `No ticket made: ${problem}` });
             return send(res, 201, loadAnyDay([sql.findById.get(id)])[0]);
@@ -2442,7 +2861,8 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                 const problem = columnNameProblem(name);
                 if (problem) return send(res, 400, { message: problem });
                 const known = sql.findSheetColumn.get(columnKey(name));
-                if (known && known.removed_at === null) return send(res, 409, { message: `The sheet already has a column named ${known.name}.` });
+                if (known && known.removed_at === null)
+                    return send(res, 409, { message: `The sheet already has a column named ${known.name}.` });
                 const { id, key, name: saved } = addSheetColumn(name);
                 return send(res, 201, { id, key, name: saved });
             }
@@ -2491,7 +2911,13 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             if (body.paymentStatus !== order.payment_status) {
                 transaction(db, () => {
                     sql.setPayment.run(body.paymentStatus, order.id);
-                    sql.insertEdit.run(order.id, me.id, me.team, JSON.stringify(["paymentStatus"]), new Date().toISOString());
+                    sql.insertEdit.run(
+                        order.id,
+                        me.id,
+                        me.team,
+                        JSON.stringify(["paymentStatus"]),
+                        new Date().toISOString(),
+                    );
                 });
             }
             return send(res, 200, loadPayments([sql.findById.get(order.id)])[0]);
@@ -2565,9 +2991,10 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             const order = findToday(Number(decodeURIComponent(queueNum)));
             if (!order) return send(res, 404, { message: "Order not found." });
             const body = await readBody(req);
-            if (order.handed_over_by === null) return send(res, 409, { message: "Sales hasn't handed this customer over yet." });
-            const servingHere = order.status === "serving" && order.at_loading === 1 &&
-                departmentOf(order.loading_area) === department;
+            if (order.handed_over_by === null)
+                return send(res, 409, { message: "Sales hasn't handed this customer over yet." });
+            const servingHere =
+                order.status === "serving" && order.at_loading === 1 && departmentOf(order.loading_area) === department;
             // the order is loaded in each of its areas in turn (src/data/loadingAreas.js); these are the ones left,
             // and the ones of them this department works
             const loaded = JSON.parse(order.loads_json).map(({ area }) => area);
@@ -2576,9 +3003,12 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             const loadingAt = servingHere && order.loading_started_at ? order.loading_area || label : null;
 
             if (action === "start") {
-                if (order.status === "done") return send(res, 409, { message: `${label} has already finished this order.` });
+                if (order.status === "done")
+                    return send(res, 409, { message: `${label} has already finished this order.` });
                 if (order.status === "serving" && !servingHere) {
-                    return send(res, 409, { message: `Please wait until ${order.served_by_name ?? "the other counter"} finishes.` });
+                    return send(res, 409, {
+                        message: `Please wait until ${order.served_by_name ?? "the other counter"} finishes.`,
+                    });
                 }
                 if (loadingAt) return send(res, 409, { message: `${loadingAt} is already loading this truck.` });
                 if (!departmentHas(department, areasLeft)) {
@@ -2587,20 +3017,28 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                 // the area the truck is at: the one they were called to, or the next one, unless the crew picks another
                 const { area = (servingHere && order.loading_area) || (leftHere[0] ?? "") } = body;
                 if (leftHere.length > 0 && !leftHere.includes(area)) {
-                    return send(res, 400, { message: `Load it at an area this order still needs: ${leftHere.join(", ")}.` });
+                    return send(res, 400, {
+                        message: `Load it at an area this order still needs: ${leftHere.join(", ")}.`,
+                    });
                 }
                 // not called there yet: they're at that area now, and the display says so
                 if (!servingHere || area !== order.loading_area) {
                     changeStatus(order, "serving", me, {
-                        calledAt: Date.now(), remarks: area ? `Please proceed to ${area}` : "", servedBy: me.id, atLoading: 1,
+                        calledAt: Date.now(),
+                        remarks: area ? `Please proceed to ${area}` : "",
+                        servedBy: me.id,
+                        atLoading: 1,
                         loadingArea: area,
                     });
                 }
                 sql.startLoading.run(new Date().toISOString(), order.id);
             } else if (action === "call") {
-                if (order.status === "done") return send(res, 409, { message: `${label} has already finished this order.` });
+                if (order.status === "done")
+                    return send(res, 409, { message: `${label} has already finished this order.` });
                 if (order.status === "serving" && !servingHere) {
-                    return send(res, 409, { message: `Please wait until ${order.served_by_name ?? "the other counter"} finishes.` });
+                    return send(res, 409, {
+                        message: `Please wait until ${order.served_by_name ?? "the other counter"} finishes.`,
+                    });
                 }
                 // an order from before the areas has none left, and is the loading crew's
                 if (!departmentHas(department, areasLeft)) {
@@ -2612,20 +3050,30 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                     return send(res, 400, { message: `Remarks must be ${MAX_REMARKS} characters or fewer.` });
                 }
                 if (leftHere.length > 0 && !leftHere.includes(area)) {
-                    return send(res, 400, { message: `Call them to an area this order still needs: ${leftHere.join(", ")}.` });
+                    return send(res, 400, {
+                        message: `Call them to an area this order still needs: ${leftHere.join(", ")}.`,
+                    });
                 }
                 if (loadingAt && area !== order.loading_area) {
-                    return send(res, 409, { message: `${loadingAt} is loading this truck. Please wait until it finishes.` });
+                    return send(res, 409, {
+                        message: `${loadingAt} is loading this truck. Please wait until it finishes.`,
+                    });
                 }
                 changeStatus(order, "serving", me, {
-                    calledAt: Date.now(), remarks: remarks.trim(), servedBy: me.id, atLoading: 1, loadingArea: area,
+                    calledAt: Date.now(),
+                    remarks: remarks.trim(),
+                    servedBy: me.id,
+                    atLoading: 1,
+                    loadingArea: area,
                 });
             } else {
                 if (!servingHere) return send(res, 409, { message: `${label} isn't serving this customer.` });
                 if (action === "back") changeStatus(order, "pending", me);
                 else if (!loadingAt) {
                     const at = order.loading_area || label;
-                    return send(res, 409, { message: `Press Start loading at ${at} once the truck is there, then Done when it's loaded.` });
+                    return send(res, 409, {
+                        message: `Press Start loading at ${at} once the truck is there, then Done when it's loaded.`,
+                    });
                 } else {
                     // Done finishes the area they were called to: the order waits for its next area, here or at the
                     // other department, or, once every area is loaded, it's done and goes on to the security check
@@ -2650,9 +3098,11 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             if (order.security_check_id !== null) {
                 return send(res, 409, { message: `${order.checked_by_name} has already checked this order.` });
             }
-            if (order.security_pending !== 1) return send(res, 409, { message: "This order isn't at the security check yet." });
+            if (order.security_pending !== 1)
+                return send(res, 409, { message: "This order isn't at the security check yet." });
             const { result, note = "", returnTo = "" } = await readBody(req);
-            if (!SECURITY_RESULTS.includes(result)) return send(res, 400, { message: "Pick verified, missing, over or stolen." });
+            if (!SECURITY_RESULTS.includes(result))
+                return send(res, 400, { message: "Pick verified, missing, over or stolen." });
             if (typeof note !== "string" || note.trim().length > MAX_SECURITY_NOTE) {
                 return send(res, 400, { message: `Notes must be ${MAX_SECURITY_NOTE} characters or fewer.` });
             }
@@ -2663,12 +3113,20 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             const areas = order.handed_over_by === null ? [] : areasFor(order.purpose);
             if (returnTo !== "" && (result === "verified" || !areas.includes(returnTo))) {
                 return send(res, 400, {
-                    message: areas.length ? `Send it back to one of its areas: ${areas.join(", ")}.` : "This order has no area to send it back to.",
+                    message: areas.length
+                        ? `Send it back to one of its areas: ${areas.join(", ")}.`
+                        : "This order has no area to send it back to.",
                 });
             }
             transaction(db, () => {
-                const { lastInsertRowid } = sql.insertCheck.run(order.id, me.id, result, note.trim(),
-                    new Date().toISOString(), returnTo);
+                const { lastInsertRowid } = sql.insertCheck.run(
+                    order.id,
+                    me.id,
+                    result,
+                    note.trim(),
+                    new Date().toISOString(),
+                    returnTo,
+                );
                 if (!returnTo) return sql.setCheck.run(lastInsertRowid, order.id);
                 sql.returnToArea.run({ check: lastInsertRowid, id: order.id });
                 sql.clearLoad.run(order.id, returnTo);
@@ -2684,9 +3142,12 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             const period = url.searchParams.get("period") ?? "week";
             if (!STATS_PERIODS[period]) return send(res, 400, { message: "Pick day, week, month or year." });
             const to = today();
-            const from = { day: to, week: localDate(daysAgo(6)), month: localDate(daysAgo(29)) }[period]
-                ?? `${STATS_PERIODS.year()[0]}-01`;
-            const query = { day: sql.statsByHour, week: sql.statsByDay, month: sql.statsByDay, year: sql.statsByMonth }[period];
+            const from =
+                { day: to, week: localDate(daysAgo(6)), month: localDate(daysAgo(29)) }[period] ??
+                `${STATS_PERIODS.year()[0]}-01`;
+            const query = { day: sql.statsByHour, week: sql.statsByDay, month: sql.statsByDay, year: sql.statsByMonth }[
+                period
+            ];
             const rows = query.all({ from, to, report: REPORT_PURPOSE });
 
             const keys = STATS_PERIODS[period](rows.map((r) => Number(r.bucket)));
@@ -2697,7 +3158,13 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                 slot.total += orders;
                 for (const type of splitList(purpose)) slot.orders[type] = (slot.orders[type] ?? 0) + orders;
             }
-            return send(res, 200, { period, from, to, buckets: [...buckets.values()], servedToday: sql.servedOn.get(to).n });
+            return send(res, 200, {
+                period,
+                from,
+                to,
+                buckets: [...buckets.values()],
+                servedToday: sql.servedOn.get(to).n,
+            });
         }
 
         // ?search=name or number&day=YYYY-MM-DD&deleted=1 → newest first, up to HISTORY_LIMIT
@@ -2747,7 +3214,9 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                 db.exec(`VACUUM INTO '${join(backup, DB_FILE).replaceAll("'", "''")}'`);
             } catch (err) {
                 console.error(`Purge: couldn't save a copy of the database first: ${err.message}`);
-                return send(res, 500, { message: "Couldn't save a copy of the database first, so nothing was purged." });
+                return send(res, 500, {
+                    message: "Couldn't save a copy of the database first, so nothing was purged.",
+                });
             }
             const { changes } = transaction(db, () => sql.purgePicked.run(list));
             try {
@@ -2793,9 +3262,11 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             if (res.headersSent) return;
             if (badRequest) send(res, 400, { message: "Bad request." });
             // staff read this, so it says what they can do; the details are in the server's log for the developers
-            else send(res, 500, {
-                message: "Something went wrong on the server. Please try again, and if it keeps happening, tell the developers on SheeChat's Message developer tab.",
-            });
+            else
+                send(res, 500, {
+                    message:
+                        "Something went wrong on the server. Please try again, and if it keeps happening, tell the developers on SheeChat's Message developer tab.",
+                });
         });
     };
     handler.dataDir = dir;
