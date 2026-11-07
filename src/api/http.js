@@ -52,6 +52,33 @@ export function onUnauthorized(listener) {
     };
 }
 
+// whether the server answered the last request; the staff pages put up a bar while it doesn't, since their lists only
+// change by asking again every few seconds and would otherwise sit there looking up to date
+let reachable = true;
+const connectionListeners = new Set();
+
+const setReachable = (now) => {
+    if (now === reachable) return;
+    reachable = now;
+    connectionListeners.forEach((listener) => listener());
+};
+
+export const isServerReachable = () => reachable;
+
+/** @param {() => void} listener */
+export function onConnectionChange(listener) {
+    connectionListeners.add(listener);
+    return () => {
+        connectionListeners.delete(listener);
+    };
+}
+
+// what to say when the server sent no message of its own; in plain words, since staff can't do anything with a code
+const fallbackMessage = (status) =>
+    status >= 500
+        ? "Something went wrong on the server. Please try again, and if it keeps happening, tell the developers on Message developer."
+        : `That didn't work (error ${status}). Please try again.`;
+
 // a File/Blob body is sent as-is (uploads); anything else goes as JSON
 /**
  * @param {string} method
@@ -85,6 +112,7 @@ async function request(method, path, body, { signal, timeout = TIMEOUT_MS, heade
         });
     } catch (err) {
         if (signal?.aborted) throw err;
+        setReachable(false);
         if (controller.signal.aborted) {
             throw new HttpError(0, "The server took too long to respond. Please try again.");
         }
@@ -95,6 +123,7 @@ async function request(method, path, body, { signal, timeout = TIMEOUT_MS, heade
         signal?.removeEventListener("abort", abortFromCaller);
     }
 
+    setReachable(true);
     const text = await res.text();
     let data = null;
     if (text) {
@@ -107,7 +136,7 @@ async function request(method, path, body, { signal, timeout = TIMEOUT_MS, heade
 
     if (!res.ok) {
         if (res.status === 401) unauthorizedListeners.forEach((listener) => listener());
-        const message = data?.message ?? `Request failed (${res.status})`;
+        const message = data?.message ?? fallbackMessage(res.status);
         const retryAfter = Number.parseInt(res.headers.get("Retry-After") ?? "", 10);
         throw new HttpError(res.status, message, data, Number.isFinite(retryAfter) ? retryAfter : null);
     }

@@ -155,6 +155,22 @@ test('a customer goes from their ticket, through hand-over and loading, with the
     await expect(upNext.getByText(customer)).toBeHidden();
 });
 
+test('a red bar says so when the server can\'t be reached, and goes away by itself once it can', async ({ page }) => {
+    await page.goto('/staff/loading');
+    await signIn(page, ADMIN.username, ADMIN.password);
+    await expect(page.getByRole('heading', { name: 'Loading', exact: true })).toBeVisible();
+    const bar = page.getByRole('alert').filter({ hasText: 'Connection lost.' });
+    await expect(bar).toBeHidden();
+
+    // the network drops: the next refresh can't get through
+    await page.route('**/api/**', (route) => route.abort('internetdisconnected'));
+    await expect(bar).toBeVisible({ timeout: 15000 });
+
+    // and comes back
+    await page.unroute('**/api/**');
+    await expect(bar).toBeHidden({ timeout: 15000 });
+});
+
 test('a message pops up in the corner of any page, and clicking it opens the conversation', async ({ page, browser }) => {
     const stamp = Date.now();
     const sender = { username: `e2e-sales-${stamp}`, password: 'e2e-password', name: `Sales ${stamp}`, role: 'sales' };

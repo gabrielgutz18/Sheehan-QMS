@@ -4262,6 +4262,19 @@ html:has(.sale-actions) {
   border-radius: 8px;
 }
 
+/* the red bar under the top bar while the server can't be reached; it stays in view while the page scrolls */
+.connection-bar {
+  position: sticky;
+  top: var(--bar-h);
+  z-index: 9;
+  margin: 0;
+  padding: 10px 20px;
+  font-size: 15px;
+  line-height: 1.4;
+  color: #ffffff;
+  background: var(--brand-red);
+}
+
 .video-columns {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
