@@ -882,3 +882,81 @@ test("a cover photo shows on the Dashboard, and a coworker can open that profile
 
     await theirs.close();
 });
+
+test("a Hardware account finds the order it loaded on its History tab, one day at a time", async ({
+    page,
+    browser,
+}) => {
+    const stamp = Date.now();
+    const customer = `HW ${stamp}`;
+    const invoice = `H-${stamp}`;
+    const crew = { username: `e2e-hw-${stamp}`, password: "e2e-password", name: `Hardware ${stamp}`, role: "hardware" };
+
+    // an admin makes the account, takes the order and hands it over
+    await page.goto("/staff/counter");
+    await signIn(page, ADMIN.username, ADMIN.password);
+    await expect(page.getByRole("heading", { name: "My counter" })).toBeVisible();
+    await page.evaluate(
+        async ([account, order]) => {
+            const post = async (path, body) => {
+                const res = await fetch(path, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Requested-With": "XMLHttpRequest",
+                        "X-Tab-Id": sessionStorage.getItem("tabId"),
+                    },
+                    body: JSON.stringify(body),
+                });
+                if (!res.ok) throw new Error(`${path} failed (${res.status})`);
+                return res.json();
+            };
+            await post("/api/admin/users", account);
+            const { queueNum } = await post("/api/orders", order);
+            await post(`/api/admin/orders/${queueNum}/handover`, {});
+        },
+        [
+            crew,
+            {
+                name: customer,
+                purpose: "Hardwares",
+                invoices: [{ invoiceNo: invoice, type: "Hardwares" }],
+                salesman: "Test Salesman",
+            },
+        ],
+    );
+
+    // the Hardware account loads it: called, the truck at the area, Done
+    const theirs = await browser.newContext();
+    const hardware = await theirs.newPage();
+    watch(hardware);
+    await hardware.goto("/staff/hardware");
+    await signIn(hardware, crew.username, crew.password);
+    const ticket = hardware.getByRole("listitem").filter({ hasText: customer });
+    await ticket.getByRole("button", { name: "Call", exact: true }).click();
+    await hardware.getByRole("dialog").getByRole("button", { name: "Call now" }).click();
+    await ticket.getByRole("button", { name: "Start loading at Hardware" }).click();
+    await ticket.getByRole("button", { name: "Done at Hardware" }).click();
+    await expect(hardware.getByRole("status").filter({ hasText: /done at Hardware\.$/ })).toBeVisible();
+
+    // History, today only: the order, its invoice and who loaded it
+    await hardware.getByRole("tab", { name: "History" }).click();
+    await hardware.getByRole("radio", { name: "One day" }).click();
+    const row = hardware.getByRole("listitem").filter({ hasText: customer });
+    await expect(row.getByText(invoice)).toBeVisible();
+    await expect(row.getByText(crew.name)).toBeVisible();
+
+    // a search that finds nothing says so, and the filter is still there after a reload
+    await hardware.getByRole("searchbox", { name: "Search" }).fill(`nobody-${stamp}`);
+    await expect(hardware.getByText(`No orders match "nobody-${stamp}".`)).toBeVisible();
+    await hardware.reload();
+    await expect(hardware.getByRole("radio", { name: "One day" })).toHaveAttribute("aria-checked", "true");
+    await expect(hardware.getByRole("searchbox", { name: "Search" })).toHaveValue(`nobody-${stamp}`);
+
+    // crews use phones at the areas: Range's two dates and the search fit a phone's width, with no sideways scroll
+    await hardware.setViewportSize({ width: 375, height: 800 });
+    await hardware.getByRole("radio", { name: "Range" }).click();
+    await expect(hardware.getByLabel("From")).toBeVisible();
+    expect(await hardware.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await theirs.close();
+});

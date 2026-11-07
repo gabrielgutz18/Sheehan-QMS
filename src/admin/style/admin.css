@@ -3749,6 +3749,15 @@ html:has(.sale-actions) {
     min-width: 0;
 }
 
+/* a department's History tab: the list, All / One day / Range, the days and the search, wrapping on a phone */
+.department-history-filters {
+    margin-bottom: 16px;
+}
+
+.department-history-more {
+    margin-top: 12px;
+}
+
 .history-field {
     display: flex;
     align-items: center;
