@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import useOrders from '../hooks/useOrders.js';
+import useActionNote from '../hooks/useActionNote.js';
 import { useAuth } from '../auth/authContext.js';
 import { assistOrder, callOrder, handOverOrder, stopAssisting, updateOrderStatus } from '../api/adminOrderController.js';
 import CallDialog from '../components/orders/callDialog.jsx';
@@ -28,6 +29,8 @@ import TicketDialog from '../components/orders/ticketDialog.jsx';
 // sees, and can then hand them over to the department themselves
 
 const ticketOf = (o) => formatQueueNum(o.queueNum, o.purpose, o);
+// the note after Done, Back to waiting or Returning, e.g. "A-12 is done."
+const STATUS_NOTES = { done: "is done", pending: "is back to waiting", returning: "is back in line as returning" };
 // Served today lists this many of the latest; the rest are counted under it
 const SERVED_SHOWN = 5;
 // when this person finished with them here: handed over to loading, or marked Done
@@ -42,6 +45,7 @@ export default function SalesPage() {
     const orders = allOrders.filter((o) => !o.handedOver);
     const [busy, setBusy] = useState(null);
     const [actionError, setActionError] = useState("");
+    const [note, showNote] = useActionNote();
     const [calling, setCalling] = useState(null);
     const [callError, setCallError] = useState("");
     const [handingOver, setHandingOver] = useState(null);
@@ -87,8 +91,10 @@ export default function SalesPage() {
     const setStatus = async (order, status) => {
         setBusy(order.queueNum);
         setActionError("");
+        showNote("");
         try {
             replace(await updateOrderStatus(order.queueNum, status));
+            showNote(`${ticketOf(order)} ${STATUS_NOTES[status] ?? "updated"}.`);
             // Done gives a point and leaving Done takes it back
             if (status === "done" || order.status === "done") setStatsVersion((v) => v + 1);
         } catch (err) {
@@ -108,8 +114,10 @@ export default function SalesPage() {
         const { queueNum } = calling;
         setBusy(queueNum);
         setCallError("");
+        showNote("");
         try {
             replace(await callOrder(queueNum, remarks));
+            showNote(`Called ${ticketOf(calling)}.`);
             saveLastRemarks(remarks);
             setLastRemarks(remarks);
             setCalling(null);
@@ -143,8 +151,10 @@ export default function SalesPage() {
         const { queueNum } = handingOver;
         setBusy(queueNum);
         setHandOverError("");
+        showNote("");
         try {
             replace(await handOverOrder(queueNum));
+            showNote(`${ticketOf(handingOver)} handed over to ${handOverTo(handingOver.purpose)}.`);
             setStatsVersion((v) => v + 1);
             setHandingOver(null);
         } catch (err) {
@@ -162,6 +172,7 @@ export default function SalesPage() {
             </div>
 
             {(error || actionError) && <p className="field-error" role="alert">{actionError || error}</p>}
+            {note && <p className="admin-notice" role="status">✓ {note}</p>}
 
             <div className="queue-columns">
                 {(canCall || mine.length > 0) && (

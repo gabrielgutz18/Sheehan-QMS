@@ -133,12 +133,18 @@ test('a customer goes from their ticket, through hand-over and loading, with the
     await page.getByRole('listitem').filter({ hasText: customer }).getByRole('button', { name: 'Hand over to loading' }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'Hand over to loading' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
+    // a short note says it worked
+    await expect(page.getByRole('status').filter({ hasText: /handed over to loading\.$/ })).toBeVisible();
+
+    // loading's browser tab counts who can be called, so the crew sees it from another tab
+    await page.goto('/staff/loading');
+    await expect(page).toHaveTitle(/^\(\d+\) Loading$/);
 
     // loading calls them, and the display headlines them
-    await page.goto('/staff/loading');
     await page.getByRole('listitem').filter({ hasText: customer }).getByRole('button', { name: 'Call', exact: true }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'Call now' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
+    await expect(page.getByRole('status').filter({ hasText: /^✓ Called / })).toBeVisible();
     await expect(nowServing.getByText(customer)).toBeVisible();
 
     // the truck arrives and the crew finishes, so the customer leaves the display
@@ -151,6 +157,7 @@ test('a customer goes from their ticket, through hand-over and loading, with the
     await expect(ticket.getByRole('button', { name: 'Call again' })).toHaveCount(0);
     await ticket.getByRole('button', { name: 'Done at Roofings' }).click();
     await expect(page.getByRole('button', { name: 'Done at Roofings' })).toBeHidden();
+    await expect(page.getByRole('status').filter({ hasText: /done at Roofings\.$/ })).toBeVisible();
     await expect(nowServing.getByText(customer)).toBeHidden();
     await expect(upNext.getByText(customer)).toBeHidden();
 });

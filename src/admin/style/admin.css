@@ -4275,6 +4275,24 @@ html:has(.sale-actions) {
   background: var(--brand-red);
 }
 
+/* on a department page: whether this computer chimes when a customer is handed over */
+.chime-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.chime-toggle input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--brand-red);
+  cursor: pointer;
+}
+
 .video-columns {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
