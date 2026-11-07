@@ -78,6 +78,10 @@ describe("department history", () => {
         await handOver(maria, 1);
         await handOver(maria, 3);
         (await admin.delete("/admin/orders/3")).assertStatus(204);
+        // a Customer Report has no areas, so only the report rule keeps it off Roofings even once it's handed over
+        app.db
+            .prepare("UPDATE orders SET handed_over_by = ?, handed_over_at = ? WHERE purpose = 'Customer Report'")
+            .run(maria.account.id, new Date().toISOString());
 
         const rows = await rowsOf(admin, "hardware");
         assert.deepEqual(
@@ -262,6 +266,40 @@ describe("department history", () => {
             ["OLD-1"],
         );
         assert.deepEqual(await rowsOf(pedro, "loading", "?list=Steel"), []);
+    });
+
+    test("an R order isn't under Steel and an S order isn't under Roofings", async () => {
+        await takeOrder({ purpose: "Roofings", invoices: [{ invoiceNo: "R-5", type: "Roofings" }] });
+        await takeOrder({ purpose: "Steel", invoices: [{ invoiceNo: "S-6", type: "Steel" }] });
+        const maria = await app.actingAsSales();
+        const pedro = await app.actingAsLoading();
+        await handOver(maria, 1);
+        await handOver(maria, 2);
+
+        assert.deepEqual(await numbersOf(pedro, "loading", "?list=Roofings"), [1]);
+        assert.deepEqual(await numbersOf(pedro, "loading", "?list=Steel"), [2]);
+    });
+
+    test("a load saved before each area kept its own still says who loaded it", async () => {
+        await takeOrder({ purpose: "Roofings", invoices: [{ invoiceNo: "R-7", type: "Roofings" }] });
+        await takeOrder({ purpose: "Chassis", invoices: [{ invoiceNo: "C-8", type: "Chassis" }] });
+        const maria = await app.actingAsSales();
+        const pedro = await app.actingAsLoading();
+        const carlos = await app.actingAsChassis();
+        await handOver(maria, 1);
+        await handOver(maria, 2);
+        await load(pedro, "loading", 1, "Roofings");
+        await load(carlos, "chassis", 2, "Chassis");
+        // before areas had loads of their own only the order's Done was kept; and Chassis was loaded at TBA before it
+        // had its own department
+        app.db.prepare("DELETE FROM order_loads WHERE area = 'Roofings'").run();
+        app.db.prepare("UPDATE order_loads SET area = 'TBA' WHERE area = 'Chassis'").run();
+
+        const [roofings] = await rowsOf(pedro, "loading");
+        assert.equal(roofings.loaded?.by.name, "Pedro Garcia");
+        const [chassis] = await rowsOf(carlos, "chassis");
+        assert.equal(chassis.loaded?.by.name, "Carlos Tsasis");
+        assert.equal(chassis.loaded?.by.id, carlos.account.id);
     });
 
     test("an unknown list is refused", async () => {

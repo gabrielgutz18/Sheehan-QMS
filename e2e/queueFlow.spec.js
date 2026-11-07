@@ -883,21 +883,13 @@ test("a cover photo shows on the Dashboard, and a coworker can open that profile
     await theirs.close();
 });
 
-test("a Hardware account finds the order it loaded on its History tab, one day at a time", async ({
-    page,
-    browser,
-}) => {
-    const stamp = Date.now();
-    const customer = `HW ${stamp}`;
-    const invoice = `H-${stamp}`;
-    const crew = { username: `e2e-hw-${stamp}`, password: "e2e-password", name: `Hardware ${stamp}`, role: "hardware" };
-
-    // an admin makes the account, takes the order and hands it over
+// an admin signs in, makes a department account (crew) and takes an order that is handed over to it at once
+const handOverToNewCrew = async (page, crew, order) => {
     await page.goto("/staff/counter");
     await signIn(page, ADMIN.username, ADMIN.password);
     await expect(page.getByRole("heading", { name: "My counter" })).toBeVisible();
     await page.evaluate(
-        async ([account, order]) => {
+        async ([account, ticket]) => {
             const post = async (path, body) => {
                 const res = await fetch(path, {
                     method: "POST",
@@ -912,19 +904,29 @@ test("a Hardware account finds the order it loaded on its History tab, one day a
                 return res.json();
             };
             await post("/api/admin/users", account);
-            const { queueNum } = await post("/api/orders", order);
+            const { queueNum } = await post("/api/orders", ticket);
             await post(`/api/admin/orders/${queueNum}/handover`, {});
         },
-        [
-            crew,
-            {
-                name: customer,
-                purpose: "Hardwares",
-                invoices: [{ invoiceNo: invoice, type: "Hardwares" }],
-                salesman: "Test Salesman",
-            },
-        ],
+        [crew, order],
     );
+};
+
+test("a Hardware account finds the order it loaded on its History tab, one day at a time", async ({
+    page,
+    browser,
+}) => {
+    const stamp = Date.now();
+    const customer = `HW ${stamp}`;
+    const invoice = `H-${stamp}`;
+    const crew = { username: `e2e-hw-${stamp}`, password: "e2e-password", name: `Hardware ${stamp}`, role: "hardware" };
+
+    // an admin makes the account, takes the order and hands it over
+    await handOverToNewCrew(page, crew, {
+        name: customer,
+        purpose: "Hardwares",
+        invoices: [{ invoiceNo: invoice, type: "Hardwares" }],
+        salesman: "Test Salesman",
+    });
 
     // the Hardware account loads it: called, the truck at the area, Done
     const theirs = await browser.newContext();
@@ -958,5 +960,61 @@ test("a Hardware account finds the order it loaded on its History tab, one day a
     await hardware.getByRole("radio", { name: "Range" }).click();
     await expect(hardware.getByLabel("From")).toBeVisible();
     expect(await hardware.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await theirs.close();
+});
+
+test("the History tab never shows another filter's orders after a failed read, and says which day had none", async ({
+    page,
+    browser,
+}) => {
+    const stamp = Date.now();
+    const customer = `HW fail ${stamp}`;
+    const crew = {
+        username: `e2e-hwf-${stamp}`,
+        password: "e2e-password",
+        name: `Hardware F ${stamp}`,
+        role: "hardware",
+    };
+    await handOverToNewCrew(page, crew, {
+        name: customer,
+        purpose: "Hardwares",
+        invoices: [{ invoiceNo: `HF-${stamp}`, type: "Hardwares" }],
+        salesman: "Test Salesman",
+    });
+
+    const theirs = await browser.newContext();
+    const hardware = await theirs.newPage();
+    watch(hardware);
+    await hardware.goto("/staff/hardware");
+    await signIn(hardware, crew.username, crew.password);
+    await hardware.getByRole("tab", { name: "History" }).click();
+    // the order is on Line too, so wait for History's own list before looking for it
+    await expect(hardware.getByRole("heading", { name: "Hardware history" })).toBeVisible();
+    const row = hardware.getByRole("listitem").filter({ hasText: customer });
+    await expect(row).toBeVisible();
+
+    // the server fails while they search (it answers, but with an error): the error shows, and All's orders don't stay
+    // under it as if they were the search's, nor does a "No orders match" that was never checked
+    await hardware.route("**/api/admin/department-history/**", (route) =>
+        route.fulfill({
+            status: 500,
+            contentType: "application/json",
+            body: JSON.stringify({ message: "Something went wrong." }),
+        }),
+    );
+    await hardware.getByRole("searchbox", { name: "Search" }).fill(`nobody-${stamp}`);
+    await expect(hardware.getByRole("alert").filter({ hasText: "Something went wrong." })).toBeVisible();
+    // checked once, not retried: the error and whatever list is under it come in the same render, and a retried check
+    // could pass in the moment "Loading..." stands in for both
+    expect(await row.count()).toBe(0);
+    expect(await hardware.getByText("No orders match").count()).toBe(0);
+    expect(await hardware.getByRole("button", { name: "Show more" }).count()).toBe(0);
+
+    // back again: a Range with only its From day is that one day, and says so
+    await hardware.unroute("**/api/admin/department-history/**");
+    await hardware.getByRole("searchbox", { name: "Search" }).fill("");
+    await hardware.getByRole("radio", { name: "Range" }).click();
+    await hardware.getByLabel("From").fill("2001-01-01");
+    await expect(hardware.getByText("No Hardware orders were handed over on Jan 1, 2001.")).toBeVisible();
     await theirs.close();
 });

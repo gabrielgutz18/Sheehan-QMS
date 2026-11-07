@@ -45,6 +45,8 @@ const emptyText = (list, show, day, from, to, search) => {
         const [first, last] = from <= to ? [from, to] : [to, from];
         return `No ${list} orders were handed over between ${formatDay(first)} and ${formatDay(last)}.`;
     }
+    // a Range with one end filled in is that one day, as the server reads it
+    if (show === "range" && (from || to)) return `No ${list} orders were handed over on ${formatDay(from || to)}.`;
     return `No ${list} orders have been handed over yet.`;
 };
 
@@ -83,7 +85,7 @@ export default function DepartmentHistory({ department }) {
     const days = daysOf(show, day, from, to);
     const key = JSON.stringify([list.name, days, query]);
     // the rows and the filter they were read for, so a new filter shows "Loading..." until they match; a failed read
-    // keeps the rows there were
+    // shows only its error: the rows there were belong to another filter, and nothing was read to say there are none
     const [result, setResult] = useState({ key: null, rows: [], more: false, error: "" });
     const [moreBusy, setMoreBusy] = useState(false);
 
@@ -96,7 +98,9 @@ export default function DepartmentHistory({ department }) {
             { signal: controller.signal },
         )
             .then(({ rows, more }) => setResult({ key, rows, more, error: "" }))
-            .catch((err) => !controller.signal.aborted && setResult((prev) => ({ ...prev, key, error: err.message })));
+            .catch(
+                (err) => !controller.signal.aborted && setResult({ key, rows: [], more: false, error: err.message }),
+            );
         return () => controller.abort();
     }, [department, key, list.name, query]);
 
@@ -200,7 +204,7 @@ export default function DepartmentHistory({ department }) {
                 {loading ? (
                     <p className="admin-empty">Loading...</p>
                 ) : result.rows.length === 0 ? (
-                    <p className="admin-empty">{emptyText(list.name, show, day, from, to, query)}</p>
+                    !result.error && <p className="admin-empty">{emptyText(list.name, show, day, from, to, query)}</p>
                 ) : (
                     <ul className="counter-list">
                         {result.rows.map((row) => (

@@ -1039,13 +1039,18 @@ const toPayment = (row, invoices, edits, todayDate) => {
 };
 
 // one order on a department's History tab, with only the list's part of it: the list's invoices (and untyped ones,
-// from older tickets, which could be anyone's), who loaded the list's area (orders.loaded_by for an order from before
-// the areas), and the guard's report that sent it back, when it was to this area; nothing about payment or sales
+// from older tickets, which could be anyone's), who loaded the list's area, and the guard's report that sent it back,
+// when it was to this area; nothing about payment or sales
+// an older order whose loads weren't kept area by area (from before the areas, or a Chassis order loaded at TBA before
+// Chassis had its own department) has none for its areas now: who pressed its last Done (orders.loaded_by) is who
+// loaded it; a send-back or a reopen clears that too, so it never says loaded when it isn't
 const toDepartmentRow = (row, invoices, list) => {
     const areaLoad = row.area_load ? JSON.parse(row.area_load) : null;
+    const areas = areasFor(row.purpose);
+    const olderLoads = !JSON.parse(row.load_areas).some((area) => areas.includes(area));
     const loaded = areaLoad
         ? { by: { id: areaLoad.id, name: areaLoad.name }, at: areaLoad.at }
-        : row.no_areas === 1 && row.loaded_by !== null
+        : olderLoads && row.loaded_by !== null
           ? { by: { id: row.loaded_by, name: row.loaded_by_name }, at: row.loaded_at }
           : null;
     return {
@@ -1303,8 +1308,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                 (SELECT json_object('id', ol.loaded_by, 'name', lu.name, 'at', ol.loaded_at)
                     FROM order_loads ol JOIN users lu ON lu.id = ol.loaded_by
                     WHERE ol.order_id = o.id AND ol.area = :area) AS area_load,
-                NOT EXISTS (SELECT 1 FROM json_each(:allTypes) t
-                    WHERE ', ' || o.purpose || ', ' LIKE '%, ' || t.value || ', %') AS no_areas,
+                (SELECT json_group_array(ol.area) FROM order_loads ol WHERE ol.order_id = o.id) AS load_areas,
                 rc.returned_to AS return_area, rc.result AS return_result, rc.note AS return_note,
                 rc.checked_at AS returned_at, ru.name AS returned_by_name
             FROM orders o
