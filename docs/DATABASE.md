@@ -221,6 +221,8 @@ erDiagram
     users ||--o{ serves : "earns points"
     users |o--o{ orders : "is serving (served_by)"
     users |o--o{ orders : "handed over to loading (handed_over_by)"
+    users |o--o{ orders : "made the ticket (created_by)"
+    users |o--o{ orders : "is assisting (assisted_by)"
     users |o--o{ orders : "finished loading (loaded_by)"
     users ||--o{ order_edits : "saved a change"
     orders ||--o{ order_edits : "has edits"
@@ -264,6 +266,8 @@ erDiagram
         INTEGER served_by FK "users.id"
         INTEGER handed_over_by FK "users.id; NULL while still with sales"
         TEXT handed_over_at
+        INTEGER created_by FK "users.id; who made the ticket, NULL for the kiosk's"
+        INTEGER assisted_by FK "users.id; Assist on My counter, else NULL"
         INTEGER loaded_by FK "users.id; who pressed Done at loading, else NULL"
         TEXT loaded_at
     }
@@ -368,6 +372,8 @@ The relationships, as SQLite reports them (`PRAGMA foreign_key_list`):
 | `orders.served_by` | `users.id` | — | [`003_staff_accounts.sql:25`](../server/migrations/003_staff_accounts.sql#L25) |
 | `orders.handed_over_by` | `users.id` | — | [`010_loading_handover.sql`](../server/migrations/010_loading_handover.sql) |
 | `orders.loaded_by` | `users.id` | — | [`016_loaded_by.sql`](../server/migrations/016_loaded_by.sql) |
+| `orders.created_by` | `users.id` | — | [`037_ticket_maker_and_assist.sql`](../server/migrations/037_ticket_maker_and_assist.sql) |
+| `orders.assisted_by` | `users.id` | — | [`037_ticket_maker_and_assist.sql`](../server/migrations/037_ticket_maker_and_assist.sql) |
 | `order_invoices.order_id` | `orders.id` | cascade: the invoices go with the order | [`011_order_invoices.sql`](../server/migrations/011_order_invoices.sql) |
 | `order_edits.order_id` | `orders.id` | cascade: the edits go with the order | [`017_order_edits.sql`](../server/migrations/017_order_edits.sql) |
 | `order_edits.user_id` | `users.id` | — (accounts are switched off, never deleted, so edits stay); empty for an edit typed in the Google sheet, since [`033_google_sheet_edits.sql`](../server/migrations/033_google_sheet_edits.sql) | same |
@@ -385,7 +391,7 @@ Orders are never deleted from the app. Delete only sets `deleted_at`, so the cas
 
 | Table | Holds | Written by (`server/api.js`) | Read by |
 |---|---|---|---|
-| `orders` | one row per ticket; [`034_sheet_tickets.sql`](../server/migrations/034_sheet_tickets.sql) adds `sheet_key`, so a row in the Google sheet can only ever make one ticket | `insertOrder` (L334), `setSheetKey`, `updateOrder` (L335), `setStatus` (L336), `deleteOrder` (L345), `restoreSameDay` / `restoreToToday` (L384-393) | `findOrder`, `findById`, `dayOrders` (L346-348), `serving` / `upcoming` (L349-354), `history` (L373), stats (L356-371) |
+| `orders` | one row per ticket; [`034_sheet_tickets.sql`](../server/migrations/034_sheet_tickets.sql) adds `sheet_key`, so a row in the Google sheet can only ever make one ticket; [`037_ticket_maker_and_assist.sql`](../server/migrations/037_ticket_maker_and_assist.sql) adds `created_by`, the staff member signed in when the ticket was made (NULL for the kiosk, a Google sheet row and older tickets), the only one in sales who can hand it over, and `assisted_by`, someone else in sales helping the customer while the maker is away (`setAssist`, `POST`/`DELETE /admin/orders/:queueNum/assist`; a restore clears it) | `insertOrder` (L334), `setSheetKey`, `updateOrder` (L335), `setStatus` (L336), `deleteOrder` (L345), `restoreSameDay` / `restoreToToday` (L384-393) | `findOrder`, `findById`, `dayOrders` (L346-348), `serving` / `upcoming` (L349-354), `history` (L373), stats (L356-371) |
 | `order_invoices` | the invoices of each order, with their type of order | `saveInvoices()` → `deleteInvoices` + `insertInvoice` | `orderInvoices`, `dayInvoices`, `invoicesFor` |
 | `order_edits` | every save on Customer order or the Order sheet that changed something, and every cell typed in the Google sheet: who (no one for the Google sheet), their sales team then, what changed, when | `insertEdit`, in `PUT /admin/orders/:queueNum` when `changedDetails()` finds a change, and in `saveSheetCells()` | `orderEdits`, `dayEdits`, `editsFor` → `edits` on each order (`toEdit()`) |
 | `sheet_columns` | the columns people added to the Order sheet, on the page or in the Google sheet ([`035_sheet_cells.sql`](../server/migrations/035_sheet_cells.sql)) | `insertSheetColumn`, `restoreSheetColumn`, `removeSheetColumn` | `sheetColumns`, `findSheetColumn` |

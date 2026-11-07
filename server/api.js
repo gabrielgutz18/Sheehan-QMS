@@ -190,8 +190,11 @@ const ROLE_ROUTES = {
         ["DELETE", /^\/admin\/order-sheet\/columns\/\d+$/],
         // whether the sheet's copy in Google Sheets is saving or failing, shown on the sheet with a button to open it
         ["GET", /^\/admin\/order-sheet\/sync$/],
-        // sales don't call customers: after the ticket and the talk they hand them over, and the department calls them
+        // sales don't call customers: after the ticket and the talk they hand them over, and the department calls them;
+        // only the ticket's maker does, or whoever pressed Assist to take the customer while the maker is away
         ["POST", /^\/admin\/orders\/[^/]+\/handover$/],
+        ["POST", /^\/admin\/orders\/[^/]+\/assist$/],
+        ["DELETE", /^\/admin\/orders\/[^/]+\/assist$/],
         // the Cashier page, the same as the cashier's: changing how each order is paid
         ["GET", /^\/admin\/payments$/],
         ["PATCH", /^\/admin\/payments\/\d+$/],
@@ -828,6 +831,13 @@ const toOrder = (row, items, invoices, edits = []) => ({
     }),
     // the staff member serving it, or who served it; photo is for their avatar (see photoUrl in the front end)
     ...(row.served_by !== null && { servedBy: { id: row.served_by, name: row.served_by_name, photo: row.served_by_photo } }),
+    // the staff member who made the ticket, the only one in sales who can hand it over; left out for the kiosk's, a
+    // Google sheet row's and older tickets, which anyone in sales can
+    ...(row.created_by !== null && { createdBy: { id: row.created_by, name: row.created_by_name } }),
+    // another sales staff member helping the customer while the ticket's maker is away (Assist on My counter)
+    ...(row.assisted_by !== null && {
+        assistedBy: { id: row.assisted_by, name: row.assisted_by_name, photo: row.assisted_by_photo },
+    }),
     // when they marked it Done (ISO 8601)
     ...(row.status === "done" && row.served_at && { servedAt: row.served_at }),
     // the loading staff member who finished loading a handed-over order, and when they pressed Done (ISO 8601; left
@@ -917,6 +927,7 @@ const toHistory = (row, items, invoices, edits, todayDate, cells = []) => ({
 // the areas loading has finished so far, as JSON ([{ area, by, at }], see areasOf), this visit's security check
 // with the guard who did it, and the report that last sent it back to an area, with its guard
 const ORDER_ROW = `o.*, u.name AS served_by_name, u.photo AS served_by_photo, h.name AS handed_over_by_name,
+    cu.name AS created_by_name, au.name AS assisted_by_name, au.photo AS assisted_by_photo,
     l.name AS loaded_by_name, l.photo AS loaded_by_photo, s.served_at,
     (SELECT json_group_array(json_object('area', ol.area, 'by', lu.name, 'at', ol.loaded_at))
         FROM order_loads ol JOIN users lu ON lu.id = ol.loaded_by WHERE ol.order_id = o.id) AS loads_json,
@@ -926,6 +937,8 @@ const ORDER_ROW = `o.*, u.name AS served_by_name, u.photo AS served_by_photo, h.
     FROM orders o
     LEFT JOIN users u ON u.id = o.served_by
     LEFT JOIN users h ON h.id = o.handed_over_by
+    LEFT JOIN users cu ON cu.id = o.created_by
+    LEFT JOIN users au ON au.id = o.assisted_by
     LEFT JOIN users l ON l.id = o.loaded_by
     LEFT JOIN serves s ON s.order_id = o.id AND s.queue_date = o.queue_date AND s.user_id = o.served_by
     LEFT JOIN security_checks sc ON sc.id = o.security_check_id
@@ -969,9 +982,9 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         // payment_status is left to its '' (none yet) and to setPayment: Customer order's and the Cashier page's
         insertOrder: db.prepare(`
             INSERT INTO orders (queue_date, queue_num, name, purpose, concern, salesman, runner, receiver,
-                sales_time_in, sales_time_out, checkers, team, pickup_date, priority, tba_priority, created_at)
+                sales_time_in, sales_time_out, checkers, team, pickup_date, priority, tba_priority, created_at, created_by)
             VALUES (:date, :queueNum, :name, :purpose, :concern, :salesman, :runner, :receiver,
-                :salesTimeIn, :salesTimeOut, :checkers, :team, :pickupDate, :priority, :tbaPriority, :createdAt)`),
+                :salesTimeIn, :salesTimeOut, :checkers, :team, :pickupDate, :priority, :tbaPriority, :createdAt, :createdBy)`),
         updateOrder: db.prepare(`
             UPDATE orders SET name = :name, purpose = :purpose, concern = :concern,
                 salesman = :salesman, runner = :runner, receiver = :receiver, sales_time_in = :salesTimeIn,
@@ -1031,6 +1044,8 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             UPDATE orders SET handed_over_by = :user, handed_over_at = :at, status = 'pending', remarks = '',
                 served_by = NULL, at_loading = 0
             WHERE id = :id`),
+        // Assist on My counter, and Stop assisting
+        setAssist: db.prepare("UPDATE orders SET assisted_by = ? WHERE id = ?"),
         // a point for the staff member who served this visit; reopening the ticket takes it back
         addPoint: db.prepare(`
             INSERT INTO serves (order_id, user_id, queue_date, served_at) VALUES (?, ?, ?, ?)
@@ -1107,7 +1122,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             UPDATE orders SET deleted_at = NULL, restored_at = ?, status = 'pending', called_at = NULL, remarks = '',
                 served_by = NULL, at_loading = 0, handed_over_by = NULL, handed_over_at = NULL, loaded_by = NULL,
                 loaded_at = NULL, loading_area = '', loading_started_at = NULL, security_pending = 0,
-                security_check_id = NULL, return_check_id = NULL
+                security_check_id = NULL, return_check_id = NULL, assisted_by = NULL
             WHERE id = ?`),
         restoreToToday: db.prepare(`
             UPDATE orders SET
@@ -1116,7 +1131,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                 deleted_at = NULL, restored_at = ?, status = 'pending', called_at = NULL, remarks = '', served_by = NULL,
                 at_loading = 0, handed_over_by = NULL, handed_over_at = NULL, loaded_by = NULL, loaded_at = NULL,
                 loading_area = '', loading_started_at = NULL, security_pending = 0, security_check_id = NULL,
-                return_check_id = NULL
+                return_check_id = NULL, assisted_by = NULL
             WHERE id = ?`),
         insertItem: db.prepare("INSERT INTO order_items (order_id, position, item, qty, color) VALUES (?, ?, ?, ?, ?)"),
         deleteItems: db.prepare("DELETE FROM order_items WHERE order_id = ?"),
@@ -1476,7 +1491,8 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             const now = new Date();
             const createdAt = now.toISOString();
             const salesTimeIn = fields.salesTimeIn || localTime(now);
-            const { lastInsertRowid } = sql.insertOrder.run({ ...fields, salesTimeIn, date, queueNum, createdAt });
+            const { lastInsertRowid } = sql.insertOrder.run({ ...fields, salesTimeIn, date, queueNum, createdAt,
+                createdBy: editor?.id ?? null });
             saveItems(lastInsertRowid, items);
             saveInvoices(lastInsertRowid, invoices);
             for (const [key, value] of Object.entries(extra.cells)) sql.setSheetCell.run(lastInsertRowid, key, value);
@@ -1738,7 +1754,9 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                 // sales taking the order means the customer is at sales now, so the ticket gets its time in along with
                 // its number and day, unless they typed one; it can still be changed or cleared with Edit
                 const salesTimeIn = fields.salesTimeIn || (staff?.role === "sales" ? localTime(now) : "");
-                const { lastInsertRowid } = sql.insertOrder.run({ ...fields, ...marks, salesTimeIn, date, queueNum, createdAt });
+                // whoever is signed in made the ticket, and only they (or an admin) hand the customer over; the kiosk's has no maker
+                const { lastInsertRowid } = sql.insertOrder.run({ ...fields, ...marks, salesTimeIn, date, queueNum, createdAt,
+                    createdBy: staff?.id ?? null });
                 saveItems(lastInsertRowid, items);
                 saveInvoices(lastInsertRowid, invoices);
                 // kept as an edit too, so the Cashier page shows who set it
@@ -2352,11 +2370,44 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             if (!order) return send(res, 404, { message: "Order not found." });
             if (order.handed_over_by !== null) return send(res, 409, { message: "This customer is already with loading." });
             if (order.status === "done") return send(res, 409, { message: "This order is already done." });
+            // the customer is the ticket maker's, or, while they're away, whoever pressed Assist for them; an admin can
+            // still do it, e.g. when the maker has gone home
+            if (me.role !== "admin" && order.created_by !== null && order.created_by !== me.id && order.assisted_by !== me.id) {
+                return send(res, 403, {
+                    message: `This order is created by ${order.created_by_name}. Press Assist to hand this customer over yourself.`,
+                });
+            }
             const at = new Date().toISOString();
             transaction(db, () => {
                 sql.handOver.run({ user: me.id, at, id: order.id });
                 sql.addPoint.run(order.id, order.served_by ?? me.id, order.queue_date, at);
             });
+            return send(res, 200, loadOrder(findToday(order.queue_num)));
+        }
+
+        // Assist: someone else in sales takes over a customer while the ticket's maker is away from their counter;
+        // everyone sees who it is, and they can hand the customer over too. One person assists at a time, and Stop
+        // assisting (by them, or an admin) frees the customer for someone else
+        const assistMatch = path.match(/^\/admin\/orders\/([^/]+)\/assist$/);
+        if ((method === "POST" || method === "DELETE") && assistMatch) {
+            const order = findToday(Number(decodeURIComponent(assistMatch[1])));
+            if (!order) return send(res, 404, { message: "Order not found." });
+            if (method === "DELETE") {
+                if (order.assisted_by !== null && order.assisted_by !== me.id && me.role !== "admin") {
+                    return send(res, 403, { message: `Only ${order.assisted_by_name} can stop assisting this customer.` });
+                }
+                sql.setAssist.run(null, order.id);
+                return send(res, 200, loadOrder(findToday(order.queue_num)));
+            }
+            if (order.handed_over_by !== null) return send(res, 409, { message: "This customer is already with loading." });
+            if (order.status === "done") return send(res, 409, { message: "This order is already done." });
+            if (order.created_by === me.id) {
+                return send(res, 409, { message: "This is your own ticket: hand the customer over when you're done." });
+            }
+            if (order.assisted_by !== null && order.assisted_by !== me.id) {
+                return send(res, 409, { message: `${order.assisted_by_name} is already assisting this customer.` });
+            }
+            sql.setAssist.run(me.id, order.id);
             return send(res, 200, loadOrder(findToday(order.queue_num)));
         }
 

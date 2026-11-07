@@ -644,6 +644,30 @@ test("036 keeps every point, and a purged ticket's point stays with no ticket", 
     }
 });
 
+// 037 adds who made each ticket and who is assisting its customer; a ticket from before has no maker, so anyone in
+// sales still hands it over
+test("037 leaves the tickets already taken with no maker and no one assisting", () => {
+    const old = databaseBefore("037");
+    old.exec(`
+        INSERT INTO users (id, username, name, role, password_hash, created_at)
+            VALUES (1, 'maria', 'Maria Santos', 'sales', 'x', '2026-10-20T08:00:00.000Z');
+        INSERT INTO orders (id, queue_date, queue_num, name, purpose, status, created_at)
+            VALUES (5, '2026-11-06', 1, 'Ana', 'Steel', 'pending', '2026-11-06T01:00:00Z');
+    `);
+    old.close();
+
+    const db = openDatabase(dataDir);
+    try {
+        assert.deepEqual({ ...db.prepare("SELECT created_by, assisted_by FROM orders WHERE id = 5").get() },
+            { created_by: null, assisted_by: null });
+        db.prepare("UPDATE orders SET created_by = 1, assisted_by = 1 WHERE id = 5").run();
+        assert.deepEqual({ ...db.prepare("SELECT created_by, assisted_by FROM orders WHERE id = 5").get() },
+            { created_by: 1, assisted_by: 1 });
+    } finally {
+        db.close();
+    }
+});
+
 // 038 makes sign-ins last a week from last use, up to 30 days from signing in; one open from before was made to last
 // 8 hours, so it started 8 hours before it ends
 test("038 dates the sign-ins already open from when they began", () => {
