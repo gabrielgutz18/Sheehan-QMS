@@ -3,6 +3,7 @@ import SentBackNote from './sentBackNote.jsx';
 import ServedBy from './servedBy.jsx';
 import { areasToStart, proceedTo, startLoadingLabel } from '../../data/loadingAreas.js';
 import formatQueueNum from '../../../data/queueNum.js';
+import { workOf } from '../../../data/loadingAreas.js';
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
 
@@ -12,7 +13,7 @@ function AreaSteps({ order }) {
     const areas = order.areas ?? [];
     if (areas.length === 0) return null;
     return (
-        <ol className="serving-areas" aria-label="Areas to load">
+        <ol className="serving-areas" aria-label="The order's areas">
             {areas.map(({ name, loaded }) => {
                 const now = !loaded && name === order.loadingArea;
                 return (
@@ -38,6 +39,8 @@ function AreaSteps({ order }) {
 export default function ServingCard({ order, department, busy, onStart, onFinish, onCallAgain, onSendBack }) {
     const { loadingArea, loadingStartedAt, remarks } = order;
     const isLoading = Boolean(loadingStartedAt);
+    // the words for the area they're at, or the one they'll start at: loading a truck, or preparing at Hardware
+    const work = workOf(isLoading ? loadingArea : areasToStart(order, department)[0]);
     // the usual "Please proceed to Roofings" only repeats the area, so only a message someone changed shows
     const message = remarks && remarks !== proceedTo(loadingArea) ? remarks : "";
 
@@ -74,8 +77,8 @@ export default function ServingCard({ order, department, busy, onStart, onFinish
             <div className="serving-actions">
                 <p className="serving-next">
                     {isLoading
-                        ? `Press Done${loadingArea ? ` at ${loadingArea}` : ""} when it's fully loaded.`
-                        : "Press Start loading once the truck is at the area."}
+                        ? `Press Done${loadingArea ? ` at ${loadingArea}` : ""} when it's ${work.finished}.`
+                        : `Press Start ${work.doing} ${work.startWhen}.`}
                 </p>
                 <div className="serving-main-actions">
                     {isLoading ? (

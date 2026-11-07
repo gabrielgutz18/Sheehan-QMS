@@ -1,4 +1,4 @@
-import { departmentOf } from '../../data/loadingAreas.js';
+import { capitalized, departmentOf, workOf } from '../../data/loadingAreas.js';
 
 // where a customer is with their order, for the Order status board and the Security page:
 //   line      in line for a sales counter (waiting, or a returning customer)
@@ -42,9 +42,10 @@ export const whereNow = (order, { named = true } = {}) => {
             return `At sales${who}`;
         case "loading": {
             // a sales counter can call a customer back after handing them over
-            // "Loading at Roofings" once the truck is there and the crew has started loading it
+            // "Loading at Roofings" once the truck is there and the crew has started loading it ("Preparing at Hardware")
             if (order.status === "serving") {
-                const at = `${order.loadingStartedAt ? "Loading at" : "At"} ${order.loadingArea ?? "loading"}`;
+                const doing = capitalized(workOf(order.loadingArea).doing);
+                const at = `${order.loadingStartedAt ? `${doing} at` : "At"} ${order.loadingArea ?? "loading"}`;
                 return `${order.atLoading ? at : "Back at sales"}${who}`;
             }
             const [next] = areasLeft(order);

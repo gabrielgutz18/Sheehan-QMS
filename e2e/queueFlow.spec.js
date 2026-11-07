@@ -911,7 +911,7 @@ const handOverToNewCrew = async (page, crew, order) => {
     );
 };
 
-test("a Hardware account finds the order it loaded on its History tab, one day at a time", async ({
+test("a Hardware account finds the order it prepared on its History tab, one day at a time", async ({
     page,
     browser,
 }) => {
@@ -928,7 +928,7 @@ test("a Hardware account finds the order it loaded on its History tab, one day a
         salesman: "Test Salesman",
     });
 
-    // the Hardware account loads it: called, the truck at the area, Done
+    // the Hardware account prepares it: called, started (Hardware says preparing, not loading), Done
     const theirs = await browser.newContext();
     const hardware = await theirs.newPage();
     watch(hardware);
@@ -937,16 +937,18 @@ test("a Hardware account finds the order it loaded on its History tab, one day a
     const ticket = hardware.getByRole("listitem").filter({ hasText: customer });
     await ticket.getByRole("button", { name: "Call", exact: true }).click();
     await hardware.getByRole("dialog").getByRole("button", { name: "Call now" }).click();
-    await ticket.getByRole("button", { name: "Start loading at Hardware" }).click();
+    await expect(ticket.getByText("Press Start preparing when you start getting the items ready.")).toBeVisible();
+    await ticket.getByRole("button", { name: "Start preparing at Hardware" }).click();
     await ticket.getByRole("button", { name: "Done at Hardware" }).click();
     await expect(hardware.getByRole("status").filter({ hasText: /done at Hardware\.$/ })).toBeVisible();
 
-    // History, today only: the order, its invoice and who loaded it
+    // History, today only: the order, its invoice and who prepared it
     await hardware.getByRole("tab", { name: "History" }).click();
     await hardware.getByRole("radio", { name: "One day" }).click();
     const row = hardware.getByRole("listitem").filter({ hasText: customer });
     await expect(row.getByText(invoice)).toBeVisible();
     await expect(row.getByText(crew.name)).toBeVisible();
+    await expect(row.getByText("Prepared at Hardware")).toBeVisible();
 
     // a search that finds nothing says so, and the filter is still there after a reload
     await hardware.getByRole("searchbox", { name: "Search" }).fill(`nobody-${stamp}`);

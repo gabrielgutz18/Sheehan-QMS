@@ -20,8 +20,42 @@ const loadingAreas = [
     { name: "Steel", types: ["Steel"], department: "loading" },
     { name: "TBA", types: ["Tire", "Battery"], department: "tba" },
     { name: "Chassis", types: ["Chassis"], department: "chassis" },
-    { name: "Hardware", types: ["Hardwares"], department: "hardware" },
+    // Hardware hands small items over the counter, not onto a truck, so its crew prepares the order (WORK below)
+    { name: "Hardware", types: ["Hardwares"], department: "hardware", work: "preparing" },
 ];
+
+// how the pages and the server word an area's work: a truck is loaded at Roofings, Steel, TBA and Chassis, but at
+// Hardware the crew gets the items ready, so it's "Start preparing at Hardware", "Prepared by Juan" there; only the
+// words differ, the steps (Call, Start, Done) and the records are the same
+// verb: "Load it at an area ..."; doing: "Loading at Roofings", "Start loading"; done: "Loaded by", "Not loaded"; what:
+// what the crew is working on, in "Roofings is loading this truck"; startWhen: when to press Start; finished: when to
+// press Done
+const WORK = {
+    loading: {
+        verb: "load",
+        doing: "loading",
+        done: "loaded",
+        what: "this truck",
+        startWhen: "once the truck is at the area",
+        finished: "fully loaded",
+    },
+    preparing: {
+        verb: "prepare",
+        doing: "preparing",
+        done: "prepared",
+        what: "this order",
+        startWhen: "when you start getting the items ready",
+        finished: "ready",
+    },
+};
+
+// an area's words (WORK); the loading ones for an order from before the areas ("") or an unknown area
+/** @param {string | null | undefined} area */
+export const workOf = (area) => WORK[loadingAreas.find(({ name }) => name === area)?.work ?? "loading"];
+
+// "Loaded", "Prepared": the start of a sentence
+/** @param {string} word */
+export const capitalized = (word) => word.charAt(0).toUpperCase() + word.slice(1);
 
 // the areas an order is loaded in, in turn: ["Roofings", "Steel"]; [] for a Customer Report
 export const areasFor = (purpose) => {

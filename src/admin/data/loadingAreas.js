@@ -1,4 +1,4 @@
-import loadingAreas, { areasFor, departmentHas, departmentOf, departmentWord } from '../../data/loadingAreas.js';
+import loadingAreas, { areasFor, departmentHas, departmentOf, departmentWord, workOf } from '../../data/loadingAreas.js';
 
 // where a department's crew sends a customer it calls: one-tap "Please proceed to …" messages in the Loading, TBA and
 // Hardware pages' call dialog (the message can still be changed before calling); the areas are departments of the
@@ -22,12 +22,12 @@ export const areasLeft = (order) => (order.areas ?? []).filter((area) => !area.l
 export const areasLeftIn = (order, department) => areasLeft(order).filter((area) => departmentOf(area) === department);
 
 // the areas a crew can start loading at, the one the customer was called to first; [""] for an order from before the
-// areas, which has just the one Start loading
+// areas, which has just the one Start loading; the button says Start preparing at Hardware (workOf)
 export const areasToStart = (order, department) => {
     const left = areasLeftIn(order, department);
     return left.length ? [...left].sort((a, b) => Number(b === order.loadingArea) - Number(a === order.loadingArea)) : [""];
 };
-export const startLoadingLabel = (area) => (area ? `Start loading at ${area}` : "Start loading");
+export const startLoadingLabel = (area) => `Start ${workOf(area).doing}${area ? ` at ${area}` : ""}`;
 
 // whether a department has a part in the order (one of its areas, or, for the loading crew, an order from before the
 // areas), and whether any of it is still to do while the order isn't done

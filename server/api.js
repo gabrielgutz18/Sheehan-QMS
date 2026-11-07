@@ -29,10 +29,12 @@ import checkers, { CHECKER_ROUNDS } from "../src/data/checkers.js";
 import { splitList } from "../src/data/list.js";
 import loadingAreas, {
     DEPARTMENTS,
+    capitalized,
     areasFor,
     departmentHas,
     departmentOf,
     historyListsOf,
+    workOf,
 } from "../src/data/loadingAreas.js";
 
 const SESSION_COOKIE = "sid";
@@ -3091,6 +3093,8 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             const areasLeft = areasFor(order.purpose).filter((area) => !loaded.includes(area));
             const leftHere = areasLeft.filter((area) => departmentOf(area) === department);
             const loadingAt = servingHere && order.loading_started_at ? order.loading_area || label : null;
+            // how the messages word it: a truck loaded at Roofings, an order prepared at Hardware
+            const work = workOf(loadingAt ?? order.loading_area ?? leftHere[0]);
 
             if (action === "start") {
                 if (order.status === "done")
@@ -3100,7 +3104,8 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                         message: `Please wait until ${order.served_by_name ?? "the other counter"} finishes.`,
                     });
                 }
-                if (loadingAt) return send(res, 409, { message: `${loadingAt} is already loading this truck.` });
+                if (loadingAt)
+                    return send(res, 409, { message: `${loadingAt} is already ${work.doing} ${work.what}.` });
                 if (!departmentHas(department, areasLeft)) {
                     return send(res, 409, { message: `There's nothing left for ${label} on this order.` });
                 }
@@ -3108,7 +3113,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                 const { area = (servingHere && order.loading_area) || (leftHere[0] ?? "") } = body;
                 if (leftHere.length > 0 && !leftHere.includes(area)) {
                     return send(res, 400, {
-                        message: `Load it at an area this order still needs: ${leftHere.join(", ")}.`,
+                        message: `${capitalized(workOf(leftHere[0]).verb)} it at an area this order still needs: ${leftHere.join(", ")}.`,
                     });
                 }
                 // not called there yet: they're at that area now, and the display says so
@@ -3146,7 +3151,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                 }
                 if (loadingAt && area !== order.loading_area) {
                     return send(res, 409, {
-                        message: `${loadingAt} is loading this truck. Please wait until it finishes.`,
+                        message: `${loadingAt} is ${work.doing} ${work.what}. Please wait until it finishes.`,
                     });
                 }
                 changeStatus(order, "serving", me, {
@@ -3162,7 +3167,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                 else if (!loadingAt) {
                     const at = order.loading_area || label;
                     return send(res, 409, {
-                        message: `Press Start loading at ${at} once the truck is there, then Done when it's loaded.`,
+                        message: `Press Start ${work.doing} at ${at} ${work.startWhen}, then Done when it's ${work.finished}.`,
                     });
                 } else {
                     // Done finishes the area they were called to: the order waits for its next area, here or at the

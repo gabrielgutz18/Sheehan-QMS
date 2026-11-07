@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router";
 
 import { departmentHistory } from "../../api/loadingController.js";
 import { resultLabel } from "../../data/securityCheck.js";
-import { DEPARTMENTS, historyListsOf } from "../../../data/loadingAreas.js";
+import { DEPARTMENTS, capitalized, historyListsOf, workOf } from "../../../data/loadingAreas.js";
 import formatQueueNum from "../../../data/queueNum.js";
 
 // a department's History tab (department: "loading", "tba", "chassis" or "hardware"): every order sales handed over to
@@ -184,6 +184,8 @@ export default function DepartmentHistory({ department }) {
     };
 
     const loadedCount = result.rows.filter((row) => row.loaded).length;
+    // "loaded" at Roofings, "prepared" at Hardware
+    const { done } = workOf(list.area);
 
     return (
         <section className="admin-page dept-history">
@@ -286,7 +288,7 @@ export default function DepartmentHistory({ department }) {
                     <>
                         <p className="dept-history-summary" role="status">
                             <strong>{plural(result.rows.length, `${list.name} order`)}</strong>
-                            {result.more && " shown, more below"} · {loadedCount} loaded at {list.area}
+                            {result.more && " shown, more below"} · {loadedCount} {done} at {list.area}
                         </p>
                         {byDay(result.rows).map(({ day: date, rows }) => (
                             <section key={date} className="dept-history-day" aria-label={formatDay(date)}>
@@ -327,7 +329,7 @@ export default function DepartmentHistory({ department }) {
                                                     <>
                                                         <span className="dept-history-status is-loaded">
                                                             <CheckIcon />
-                                                            Loaded at {list.area}
+                                                            {capitalized(done)} at {list.area}
                                                         </span>
                                                         <span>
                                                             {row.loaded.by.name} · {formatTime(row.loaded.at)}
@@ -336,7 +338,7 @@ export default function DepartmentHistory({ department }) {
                                                 ) : (
                                                     <span className="dept-history-status is-waiting">
                                                         <ClockIcon />
-                                                        Not loaded at {list.area}
+                                                        Not {done} at {list.area}
                                                     </span>
                                                 )}
                                             </div>

@@ -1,6 +1,7 @@
 import { INVOICE_COLUMNS, invoicesByColumn } from '../../data/sheetColumns.js';
 import { resultLabel } from '../../data/securityCheck.js';
 import { colorLabel } from '../../../data/roofingColors.js';
+import { workOf } from '../../../data/loadingAreas.js';
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
 const timeOf = (iso) => timeFormat.format(new Date(iso));
@@ -43,7 +44,7 @@ export default function OrderProducts({ order }) {
             )}
             {loadedAreas.map(({ name, loaded }) => (
                 <p key={name} className="order-products-loaded">
-                    {name}: loaded by {loaded.by.name} · {timeOf(loaded.at)}
+                    {name}: {workOf(name).done} by {loaded.by.name} · {timeOf(loaded.at)}
                 </p>
             ))}
             {loadedAreas.length === 0 && order.loaded && (
