@@ -75,6 +75,11 @@ export const callOrder = (queueNum, remarks) =>
 // keeps its sales team, and it counts as the customer served
 export const handOverOrder = (queueNum) => http.post(`/admin/orders/${encodeURIComponent(queueNum)}/handover`);
 
+// another sales staff member takes the customer while the ticket's maker is away, and can then hand them over; and
+// Stop assisting, which gives the hand-over back to the maker
+export const assistOrder = (queueNum) => http.post(`/admin/orders/${encodeURIComponent(queueNum)}/assist`);
+export const stopAssisting = (queueNum) => http.delete(`/admin/orders/${encodeURIComponent(queueNum)}/assist`);
+
 // takes the ticket out of the queue and moves it to History, where it can be restored
 export const deleteOrder = (queueNum) => http.delete(`/admin/orders/${encodeURIComponent(queueNum)}`);
 

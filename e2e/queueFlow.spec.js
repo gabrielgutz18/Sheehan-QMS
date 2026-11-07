@@ -375,7 +375,17 @@ test('Orders & history shows every ticket as one size of card, and a deleted tic
     await expect(theirCard.getByRole('option', { name: 'Now serving' })).toHaveCount(0);
     await other.goto('/staff/counter');
     const atCounter = other.getByRole('listitem').filter({ hasText: full });
-    await expect(atCounter.getByRole('button', { name: /^Hand over/ })).toBeVisible();
+    // the admin made this ticket, so its hand-over is theirs, and hovering it says so; sales can Assist the customer,
+    // which lets them hand it over themselves
+    const handOverButton = atCounter.getByRole('button', { name: /^Hand over/ });
+    await expect(handOverButton).toBeDisabled();
+    await expect(atCounter.getByText('ticket by')).toBeVisible();
+    await expect(atCounter.locator('.hint')).toHaveAttribute('data-hint', /^This order is created by .+\. Press Assist/);
+    await atCounter.getByRole('button', { name: 'Assist', exact: true }).click();
+    await expect(atCounter.getByText('Assisted by')).toBeVisible();
+    await expect(handOverButton).toBeEnabled();
+    await atCounter.getByRole('button', { name: 'Stop assisting' }).click();
+    await expect(atCounter.getByRole('button', { name: 'Assist', exact: true })).toBeVisible();
     await expect(other.getByRole('button', { name: /^(Call|Serve|Recall)/ })).toHaveCount(0);
     await theirs.close();
 

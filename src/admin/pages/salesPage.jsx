@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import useOrders from '../hooks/useOrders.js';
 import { useAuth } from '../auth/authContext.js';
-import { callOrder, handOverOrder, updateOrderStatus } from '../api/adminOrderController.js';
+import { assistOrder, callOrder, handOverOrder, stopAssisting, updateOrderStatus } from '../api/adminOrderController.js';
 import CallDialog from '../components/orders/callDialog.jsx';
 import HandOverDialog from '../components/counter/handOverDialog.jsx';
 import MyStats from '../components/counter/myStats.jsx';
@@ -13,6 +13,7 @@ import { inLine } from '../data/orderStatus.js';
 import formatQueueNum from '../../data/queueNum.js';
 import Greetings from '../components/common/greetings.jsx';
 import ServedBy from '../components/orders/servedBy.jsx';
+import Avatar from '../components/common/avatar.jsx';
 import OrderDetails from '../components/orders/orderDetails.jsx';
 import TicketDialog from '../components/orders/ticketDialog.jsx';
 
@@ -22,6 +23,9 @@ import TicketDialog from '../components/orders/ticketDialog.jsx';
 // sales don't call customers: after the ticket and the talk with the customer, Hand over sends them on to the Loading
 // (or Hardware) page, where that crew calls them (it counts as a customer served, and the order keeps its sales team),
 // and they leave this counter's lists; admins can still call and serve them here
+// a customer belongs to whoever made their ticket on Customer order: only they hand them over (admins can too), and
+// while they're away from their counter someone else in sales presses Assist to take the customer, which everyone
+// sees, and can then hand them over to the department themselves
 
 const ticketOf = (o) => formatQueueNum(o.queueNum, o.purpose, o);
 // Served today lists this many of the latest; the rest are counted under it
@@ -61,6 +65,23 @@ export default function SalesPage() {
     // looked up in the live queue, so the dialog follows the ticket; it closes if the ticket is deleted
     const viewed = viewing && orders.find((o) => o.queueNum === viewing.queueNum);
 
+    // the ticket's maker or whoever is assisting the customer, or anyone for a ticket with no maker (the kiosk's, a
+    // Google sheet row's); the server checks it too
+    const canHandOver = (o) => user.role === "admin" || !o.createdBy || o.createdBy.id === user.id ||
+        o.assistedBy?.id === user.id;
+    // the hint over Hand over: who made the ticket, and what lets someone else hand the customer over
+    const handOverHint = (o) => {
+        if (!o.createdBy) return "";
+        const mine = o.createdBy.id === user.id;
+        const made = `This order is created by ${mine ? "you" : o.createdBy.name}.`;
+        if (mine || user.role === "admin") return made;
+        if (o.assistedBy?.id === user.id) return `${made} You're assisting, so you can hand it over to ${handOverTo(o.purpose)}.`;
+        if (o.assistedBy) return `${made} ${o.assistedBy.name} is assisting this customer.`;
+        return `${made} Press Assist to hand it over to ${handOverTo(o.purpose)} yourself.`;
+    };
+    // someone else's ticket that nobody is assisting yet
+    const canAssist = (o) => Boolean(o.createdBy) && o.createdBy.id !== user.id && !o.assistedBy;
+
     const replace = (saved) => setOrders((prev) => prev.map((o) => (o.queueNum === saved.queueNum ? saved : o)));
 
     const setStatus = async (order, status) => {
@@ -94,6 +115,19 @@ export default function SalesPage() {
             setCalling(null);
         } catch (err) {
             setCallError(err.message);
+        } finally {
+            setBusy(null);
+        }
+    };
+
+    // Assist, or Stop assisting when it's this person helping them
+    const toggleAssist = async (order) => {
+        setBusy(order.queueNum);
+        setActionError("");
+        try {
+            replace(await (order.assistedBy?.id === user.id ? stopAssisting : assistOrder)(order.queueNum));
+        } catch (err) {
+            setActionError(err.message);
         } finally {
             setBusy(null);
         }
@@ -170,15 +204,17 @@ export default function SalesPage() {
                                             >
                                                 Done
                                             </button>
-                                            <button
-                                                type="button"
-                                                className="admin-btn"
-                                                disabled={busy === o.queueNum}
-                                                aria-haspopup="dialog"
-                                                onClick={() => openHandOver(o)}
-                                            >
-                                                Hand over to {handOverTo(o.purpose)}
-                                            </button>
+                                            <span className="hint" data-hint={handOverHint(o) || undefined}>
+                                                <button
+                                                    type="button"
+                                                    className="admin-btn"
+                                                    disabled={busy === o.queueNum || !canHandOver(o)}
+                                                    aria-haspopup="dialog"
+                                                    onClick={() => openHandOver(o)}
+                                                >
+                                                    Hand over to {handOverTo(o.purpose)}
+                                                </button>
+                                            </span>
                                             {canCall && (
                                                 <button type="button" className="admin-btn" disabled={busy === o.queueNum} onClick={() => openCall(o)}>
                                                     Recall
@@ -230,7 +266,24 @@ export default function SalesPage() {
                                             {o.name}
                                             {o.status === "returning" && <span className="history-badge status-returning returning-tag">Returning</span>}
                                         </span>
-                                        <span className="counter-meta">{o.purpose}</span>
+                                        <span className="counter-meta">
+                                            {o.purpose}
+                                            {o.createdBy && (
+                                                <span id={`made-by-${o.queueNum}`}>
+                                                    {" · "}
+                                                    {o.createdBy.id === user.id ? "your ticket" : `ticket by ${o.createdBy.name}`}
+                                                    {!canHandOver(o) && ", who hands them over (or Assist)"}
+                                                </span>
+                                            )}
+                                        </span>
+                                        {o.assistedBy && (
+                                            <span className="served-by">
+                                                <Avatar account={o.assistedBy} size={22} />
+                                                <span className="served-by-text">
+                                                    Assisted by <strong>{o.assistedBy.id === user.id ? "you" : o.assistedBy.name}</strong>
+                                                </span>
+                                            </span>
+                                        )}
                                     </div>
                                     <div className="row-actions">
                                         <button
@@ -242,16 +295,31 @@ export default function SalesPage() {
                                         >
                                             View
                                         </button>
-                                        {/* after the ticket and the talk: the department calls them from here on */}
-                                        <button
-                                            type="button"
-                                            className="admin-btn admin-btn-primary"
-                                            disabled={busy === o.queueNum}
-                                            aria-haspopup="dialog"
-                                            onClick={() => openHandOver(o)}
-                                        >
-                                            Hand over to {handOverTo(o.purpose)}
-                                        </button>
+                                        {/* after the ticket and the talk: the department calls them from here on; grayed
+                                            out for someone else's ticket until you Assist, with who made it on hover */}
+                                        <span className="hint" data-hint={handOverHint(o) || undefined}>
+                                            <button
+                                                type="button"
+                                                className="admin-btn admin-btn-primary"
+                                                disabled={busy === o.queueNum || !canHandOver(o)}
+                                                aria-haspopup="dialog"
+                                                aria-describedby={o.createdBy ? `made-by-${o.queueNum}` : undefined}
+                                                onClick={() => openHandOver(o)}
+                                            >
+                                                Hand over to {handOverTo(o.purpose)}
+                                            </button>
+                                        </span>
+                                        {/* the maker is away: take the customer, and hand them over yourself */}
+                                        {(canAssist(o) || o.assistedBy?.id === user.id) && (
+                                            <button
+                                                type="button"
+                                                className="admin-btn"
+                                                disabled={busy === o.queueNum}
+                                                onClick={() => toggleAssist(o)}
+                                            >
+                                                {o.assistedBy ? "Stop assisting" : "Assist"}
+                                            </button>
+                                        )}
                                         {/* nothing to load, e.g. a concern settled at the counter */}
                                         <button
                                             type="button"
