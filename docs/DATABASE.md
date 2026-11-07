@@ -236,6 +236,8 @@ erDiagram
     security_checks |o--o| orders : "this visit's check (security_check_id)"
     security_checks |o--o| orders : "sent it back to an area (return_check_id)"
     queue_counters ||..o{ orders : "gives queue_num for that queue_date"
+    users ||--o{ concerns : "reported (staff_id)"
+    users |o--o{ concerns : "made the last status change (status_by)"
 
     orders {
         INTEGER id PK
@@ -324,6 +326,20 @@ erDiagram
         TEXT returned_to "the area a report sent it back to, or empty"
         TEXT checked_at
     }
+    concerns {
+        INTEGER id PK
+        INTEGER staff_id FK "users.id, cascade; who reported it"
+        TEXT kind "bug | concern | feature"
+        TEXT area "bug: the page; concern: the topic key; feature: the department"
+        TEXT details "what happened, or what they'd like"
+        TEXT extra "feature: how it would help; '' otherwise"
+        TEXT impact "blocking | slow | minor, or for a feature high | medium | low"
+        TEXT status "open | in_progress | done | declined"
+        TEXT status_note "the developer's note with the last change"
+        INTEGER status_by FK "users.id, NULL on delete; the developer who made the last change"
+        TEXT created_at
+        TEXT updated_at
+    }
     queue_counters {
         TEXT queue_date PK
         INTEGER last_num
@@ -380,6 +396,9 @@ The relationships, as SQLite reports them (`PRAGMA foreign_key_list`):
 | `sheet_cells.order_id` | `orders.id` | cascade: the cells go with the order | [`035_sheet_cells.sql`](../server/migrations/035_sheet_cells.sql) |
 | `serves.order_id` | `orders.id` | set to NULL: a purged ticket's points stay with the staff member | [`036_points_outlive_tickets.sql`](../server/migrations/036_points_outlive_tickets.sql) (was cascade in [`003`](../server/migrations/003_staff_accounts.sql#L29-L36)) |
 | `serves.user_id` | `users.id` | — (accounts are switched off, never deleted, so points stay) | [`003_staff_accounts.sql`](../server/migrations/003_staff_accounts.sql#L29-L36) |
+| `concerns.staff_id` | `users.id` | cascade: a report goes with the account (accounts are switched off, never deleted) | [`039_concerns.sql`](../server/migrations/039_concerns.sql) |
+| `concerns.status_by` | `users.id` | set to NULL | same |
+| `messages.concern_id` | `concerns.id` | set to NULL: the card and status messages stay in the chat | same |
 | `sessions.user_id` | `users.id` | cascade | [`003_staff_accounts.sql:18-22`](../server/migrations/003_staff_accounts.sql#L18-L22) |
 | `orders.queue_date` ↔ `queue_counters.queue_date` | — | not a foreign key; matched by date | [`001_init.sql:32-35`](../server/migrations/001_init.sql#L32-L35) |
 
@@ -401,6 +420,7 @@ Orders are never deleted from the app. Delete only sets `deleted_at`, so the cas
 | `users` | staff accounts and their profiles | built-in admin (L461-463), `insertUser` (L417), `updateUser` (L421), `updateProfile` (L426), `setPhoto` (L431) | `findUser` (L415), `findSession` join (L405), `ORDER_ROW` join (L313), `listUsers` (L432) |
 | `sessions` | who is signed in; [`038_lasting_sign_ins.sql`](../server/migrations/038_lasting_sign_ins.sql) adds `created_at`, for the 30-day limit | `insertSession`, `touchSession` (pushes `expires` back as the app is used), `deleteSession`, `deleteExpiredSessions`, `deleteUserSessions` | `findSession` |
 | `serves` | the points | `addPoint` / `removePoint` (L340-343), from `changeStatus()` (L478-487), and `addPoint` on Hand over to loading (the point is the sales counter's; the crews finishing or reopening the order leave it alone) | `listUsers` (L432-437), `myTotals` / `myByHour` / `myByDay` / `myByMonth` (L440-455) |
+| `concerns` | the reports staff send through the three buttons on Message developer (a bug, a system concern or a feature for their department) and where each stands; [`039_concerns.sql`](../server/migrations/039_concerns.sql) also adds `kind` (`text`, `report` or `status`) and `concern_id` to `messages`, so each report has a card message from the staff member and each status change a message from the developer, which count as unread like any other | `insertConcern` + `insertMessage` in `POST /admin/concerns`; `setConcernStatus` + `insertMessage` in `PATCH /admin/concerns/:id`, each in one `transaction()` | `listConcerns` (the Chat page's Reports), `findConcern`, and the `concern` on report and status messages (`threadMessages`, `findMessage`) |
 | `settings` | display video and announcer settings, as JSON | `writeSetting()` (L502) | `readSetting()` (L498) |
 | `schema_migrations` | which migration files have run | `migrate()` in `server/db.js` | `migrate()` |
 

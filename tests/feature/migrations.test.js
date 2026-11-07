@@ -687,3 +687,32 @@ test("038 dates the sign-ins already open from when they began", () => {
         db.close();
     }
 });
+
+// 039 adds concern reports: the messages already sent stay plain text messages, linked to no report
+test("039 keeps every message as a text message with no report, and adds the reports table", () => {
+    const old = databaseBefore("039");
+    old.exec(`
+        INSERT INTO users (id, username, name, role, password_hash, created_at)
+            VALUES (1, 'maria', 'Maria Santos', 'sales', 'x', '2026-10-20T08:00:00.000Z');
+        INSERT INTO messages (id, staff_id, sender_id, body, sent_at) VALUES (4, 1, 1, 'The printer is stuck.', 'x');
+    `);
+    old.close();
+
+    const quiet = mock.method(console, "log", () => {});
+    const db = openDatabase(dataDir);
+    quiet.mock.restore();
+    try {
+        assert.deepEqual({ ...db.prepare("SELECT body, kind, concern_id FROM messages WHERE id = 4").get() },
+            { body: "The printer is stuck.", kind: "text", concern_id: null });
+        db.prepare(`
+            INSERT INTO concerns (staff_id, kind, area, details, impact, created_at, updated_at)
+            VALUES (1, 'bug', 'Loading', 'Start does nothing', 'blocking', 'x', 'x')`).run();
+        assert.deepEqual({ ...db.prepare("SELECT status, status_note, extra, status_by FROM concerns").get() },
+            { status: "open", status_note: "", extra: "", status_by: null });
+        assert.throws(() => db.exec(`
+            INSERT INTO concerns (staff_id, kind, area, details, impact, created_at, updated_at)
+            VALUES (1, 'wish', 'x', 'x', 'low', 'x', 'x')`), /CHECK/);
+    } finally {
+        db.close();
+    }
+});

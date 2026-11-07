@@ -834,3 +834,299 @@
     animation: none;
   }
 }
+
+/* concern reports: the three buttons on Message developer that start the guided chat */
+.concern-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.concern-start {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.concern-icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+
+/* the bot's messages sit in the middle, apart from people's */
+.chat-message.chat-bot-message {
+  align-self: center;
+  max-width: min(92%, 520px);
+}
+
+.chat-bot-bubble {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 4px 8px;
+  padding: 8px 12px;
+  color: var(--text-dark);
+  background: #ffffff;
+  border: 1px dashed var(--field-border);
+  border-radius: 12px;
+}
+
+.chat-bot-bubble .chat-body {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+.chat-bot-bubble time {
+  flex-basis: 100%;
+  padding-left: 26px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.chat-bot-icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  color: var(--primary);
+}
+
+/* the choices over the box while a report is answered, with Skip and Cancel at the end */
+.concern-choices {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.concern-choices-label {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.concern-choice-list {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.concern-choice {
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dark);
+  background: #ffffff;
+  border: 1px solid var(--field-border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.concern-choice:hover {
+  background: var(--brand-tint);
+  border-color: var(--brand-tint-border);
+}
+
+.concern-choice:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.concern-choices-end {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.chat-compose textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* a report's card in the thread, and the summary before it's sent */
+.concern-card,
+.concern-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.concern-summary {
+  width: 100%;
+  padding: 12px;
+  background: #ffffff;
+  border: 1px solid var(--field-border);
+  border-radius: 12px;
+}
+
+.concern-summary .admin-btn {
+  align-self: flex-start;
+}
+
+.concern-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.concern-card-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-weight: 700;
+}
+
+.concern-card-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.concern-card-facts div {
+  display: flex;
+  gap: 4px;
+}
+
+.concern-card-facts dt {
+  color: var(--text-muted);
+}
+
+.concern-card-facts dt::after {
+  content: ":";
+}
+
+.concern-card-facts dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.concern-card-details,
+.concern-card-note {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.concern-card-note {
+  padding: 6px 8px;
+  font-size: 13px;
+  background: var(--surface-muted);
+  border-radius: 6px;
+}
+
+.concern-card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--field-border);
+}
+
+.concern-card-actions textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 14px;
+  resize: vertical;
+  background: var(--field-bg);
+  border: 1px solid var(--field-border);
+  border-radius: 6px;
+}
+
+.concern-card-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* where a report stands */
+.concern-status {
+  display: inline-block;
+  padding: 1px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  border-radius: 999px;
+}
+
+.concern-status.is-open {
+  color: #1e40af;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.concern-status.is-in_progress {
+  color: #92400e;
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.concern-status.is-done {
+  color: #166534;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.concern-status.is-declined {
+  color: #52525b;
+  background: #f4f4f5;
+  border-color: #e4e4e7;
+}
+
+/* the Chat page's Reports: filters on top, then one row a report */
+.report-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.report-filters {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.report-department {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.report-department select {
+  padding: 6px 8px;
+  font: inherit;
+  color: var(--text-dark);
+  background: var(--field-bg);
+  border: 1px solid var(--field-border);
+  border-radius: 6px;
+}
+
+.report-row {
+  align-items: flex-start;
+}
+
+.report-row .chat-list-name {
+  align-items: center;
+}
+
+/* the main button is full width elsewhere in the admin; on a report it's as wide as its words */
+.concern-card-buttons .admin-btn,
+.concern-summary .admin-btn {
+  width: auto;
+}
