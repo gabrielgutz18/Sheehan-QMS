@@ -40,6 +40,19 @@ test('a wrong password is refused, and the staff pages stay behind the sign-in',
     await expect(page.getByRole('button', { name: 'Hide password' })).toBeVisible();
 });
 
+test('a new tab of the same browser carries on signed in, with no sign-in page', async ({ page }) => {
+    await page.goto('/staff/customer-order');
+    await signIn(page, ADMIN.username, ADMIN.password);
+    await expect(page.getByRole('heading', { name: 'Customer order' })).toBeVisible();
+
+    // a second tab of the same browser opens straight onto the staff pages, with no sign-in
+    const second = await page.context().newPage();
+    watch(second);
+    await second.goto('/staff/customer-order');
+    await expect(second.getByRole('heading', { name: 'Customer order' })).toBeVisible();
+    await second.close();
+});
+
 test('Serve stays in view on Customer order, and a stopped Serve puts the cursor on the first field to fix', async ({ page }) => {
     // a short laptop screen, where the whole form can't fit
     await page.setViewportSize({ width: 1280, height: 720 });

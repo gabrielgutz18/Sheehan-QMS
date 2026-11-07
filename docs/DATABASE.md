@@ -344,7 +344,8 @@ erDiagram
     sessions {
         TEXT sid_hash PK "SHA-256 of the cookie"
         INTEGER user_id FK "users.id, cascade"
-        INTEGER expires
+        INTEGER expires "a week after last use, at most created_at + 30 days"
+        INTEGER created_at "when they signed in (ms)"
     }
     serves {
         INTEGER id PK
@@ -392,7 +393,7 @@ Orders are never deleted from the app. Delete only sets `deleted_at`, so the cas
 | `order_items` | the lines of each order | `saveItems()` → `deleteItems` + `insertItem` (L493-496) | `orderItems`, `dayItems` (L396-399), `itemsFor` (L380), stats joins |
 | `queue_counters` | last number given out each day | `nextQueueNum` (L330-333), on a new order and on a restore from an earlier day | same statement (`RETURNING last_num`) |
 | `users` | staff accounts and their profiles | built-in admin (L461-463), `insertUser` (L417), `updateUser` (L421), `updateProfile` (L426), `setPhoto` (L431) | `findUser` (L415), `findSession` join (L405), `ORDER_ROW` join (L313), `listUsers` (L432) |
-| `sessions` | who is signed in | `insertSession` (L403), `deleteSession`, `deleteExpiredSessions`, `deleteUserSessions` (L410-413) | `findSession` (L405) |
+| `sessions` | who is signed in; [`038_lasting_sign_ins.sql`](../server/migrations/038_lasting_sign_ins.sql) adds `created_at`, for the 30-day limit | `insertSession`, `touchSession` (pushes `expires` back as the app is used), `deleteSession`, `deleteExpiredSessions`, `deleteUserSessions` | `findSession` |
 | `serves` | the points | `addPoint` / `removePoint` (L340-343), from `changeStatus()` (L478-487), and `addPoint` on Hand over to loading (the point is the sales counter's; the crews finishing or reopening the order leave it alone) | `listUsers` (L432-437), `myTotals` / `myByHour` / `myByDay` / `myByMonth` (L440-455) |
 | `settings` | display video and announcer settings, as JSON | `writeSetting()` (L502) | `readSetting()` (L498) |
 | `schema_migrations` | which migration files have run | `migrate()` in `server/db.js` | `migrate()` |
@@ -614,18 +615,21 @@ if (method === "POST" && path === "/auth/login") {
     const user = toMe(account);
     const sid = randomBytes(32).toString("hex");
     sql.deleteExpiredSessions.run(Date.now());
-    sql.insertSession.run(sha256(sid), account.id, Date.now() + SESSION_TTL_MS);
+    const now = Date.now();
+    sql.insertSession.run(sha256(sid), account.id, now + SESSION_IDLE_MS, now);
     return send(res, 200, user, {
-        // no Max-Age: the browser forgets it when it closes, so the next person on a shared PC signs in
-        // themselves; the server still ends it after SESSION_TTL_MS
-        "Set-Cookie": `${sessionCookieName(req)}=${sid}; HttpOnly; SameSite=Strict; Path=/`,
+        // this tab's cookie, and the browser's kept one, so a new tab or the browser opened again carries on
+        // signed in as them until Sign out or the sign-in runs out
+        "Set-Cookie": [...tabCookies(req, sid), setCookie(req, KEPT_COOKIE, sid, SESSION_MAX_MS)],
     });
 }
 ```
 
 The browser keeps the random `sid` in an `HttpOnly` cookie named after the browser tab (`sid_<tab id>`, see below); the database keeps only its SHA-256 (`sessions.sid_hash`) and the account (`sessions.user_id`). `toMe()` turns the account row into what the pages get: name, role and the My account details, never the password hash.
 
-**One sign-in per browser tab.** Every request from the pages carries the tab's id (`X-Tab-Id`, kept in the tab's `sessionStorage`), and the server reads only the cookie named after that tab. So a second tab or window of the same browser starts signed out, and two people can't end up sharing one sign-in on a shared PC. [`src/api/http.js`](../src/api/http.js) sends the id; [`server/api.js`](../server/api.js) picks the cookie with `sessionCookieName()`.
+**One sign-in per browser tab.** Every request from the pages carries the tab's id (`X-Tab-Id`, kept in the tab's `sessionStorage`), and the server reads only the cookie named after that tab, so two tabs can be signed in as different people. [`src/api/http.js`](../src/api/http.js) sends the id; [`server/api.js`](../server/api.js) picks the cookie with `sessionCookieName()`.
+
+**Staying signed in.** A sign-in lasts until Sign out, like Facebook's: it ends only after a week without using the app (`sessions.expires`, pushed back by `touchSession` at most every 10 minutes) or 30 days after signing in (`sessions.created_at`). Signing in also sets `sid_kept`, the browser's last sign-in, which outlives the browser closing. A tab with no sign-in of its own (a new tab, or the browser opened again) calls `GET /auth/me` and carries on as it, with a cookie of its own; a tab that was signed in and lost its cookie asks with `?as=<its account id>`, so it never turns into someone else. Sign out deletes the row, which signs out every tab sharing it. Cookies for sign-ins that have ended are dropped as tabs sign in, and past 20 tabs' cookies the oldest ones sharing the sign-in are too (they pick it up again), so the `Cookie` header stays small.
 
 On every later request, the cookie is looked up and joined to the account, so a switched-off account stops working at once. [`server/api.js:414-418`](../server/api.js#L414-L418)
 

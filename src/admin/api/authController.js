@@ -5,6 +5,10 @@ import http from '../../api/http.js';
 
 export const login = ({ username, password }) => http.post("/auth/login", { username, password });
 
-export const getCurrentUser = (options) => http.get("/auth/me", options);
+// as: the account this tab was signed in as, when it's checking it can carry on as them; with none, a tab with no
+// sign-in of its own takes the browser's last one
+/** @param {{ signal?: AbortSignal, as?: number }} [options] */
+export const getCurrentUser = ({ as, ...options } = {}) =>
+    http.get(as === undefined ? "/auth/me" : `/auth/me?as=${encodeURIComponent(as)}`, options);
 
 export const logout = () => http.post("/auth/logout");

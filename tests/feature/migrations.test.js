@@ -643,3 +643,23 @@ test("036 keeps every point, and a purged ticket's point stays with no ticket", 
         db.close();
     }
 });
+
+// 038 makes sign-ins last a week from last use, up to 30 days from signing in; one open from before was made to last
+// 8 hours, so it started 8 hours before it ends
+test("038 dates the sign-ins already open from when they began", () => {
+    const old = databaseBefore("038");
+    old.exec(`
+        INSERT INTO users (id, username, name, role, password_hash, created_at)
+            VALUES (1, 'maria', 'Maria Santos', 'sales', 'x', '2026-10-20T08:00:00.000Z');
+        INSERT INTO sessions (sid_hash, user_id, expires) VALUES ('abc', 1, 1800000000000);
+    `);
+    old.close();
+
+    const db = openDatabase(dataDir);
+    try {
+        assert.deepEqual({ ...db.prepare("SELECT expires, created_at FROM sessions WHERE sid_hash = 'abc'").get() },
+            { expires: 1800000000000, created_at: 1800000000000 - 8 * 60 * 60 * 1000 });
+    } finally {
+        db.close();
+    }
+});

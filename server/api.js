@@ -33,7 +33,23 @@ const sessionCookieName = (req) => {
 const cookieFlags = (req) => `HttpOnly; SameSite=Strict; Path=/${req.headers["x-forwarded-proto"] === "https" ? "; Secure" : ""}`;
 const readCookies = (req) => Object.fromEntries(
     (req.headers.cookie ?? "").split(/;\s*/).filter((c) => c.includes("=")).map((c) => [c.slice(0, c.indexOf("=")), c.slice(c.indexOf("=") + 1)]));
-const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
+// like Facebook, a sign-in lasts until Sign out: it only ends after a week without using the app, and 30 days after
+// signing in, when the password is asked for again
+const SESSION_IDLE_MS = 7 * 24 * 60 * 60 * 1000;
+const SESSION_MAX_MS = 30 * 24 * 60 * 60 * 1000;
+// the week is pushed back at most this often, so the screens polling every few seconds don't write each time
+const SESSION_TOUCH_MS = 10 * 60 * 1000;
+// the browser's last sign-in, kept when it closes: a tab with no sign-in of its own (a new tab, or the browser opened
+// again) carries on as it; never a tab's own name, since those end in a 32-character tab id
+const KEPT_COOKIE = `${SESSION_COOKIE}_kept`;
+// how many tabs' cookies a browser keeps sending; past this, the oldest tabs sharing a sign-in give theirs up and pick
+// it up again from KEPT_COOKIE, so the Cookie header never grows too big for the server (or nginx) to read
+const MAX_TAB_COOKIES = 20;
+const isSessionCookie = (name) => name === SESSION_COOKIE || name.startsWith(`${SESSION_COOKIE}_`);
+// a tab's cookie ends when the browser closes; the kept one lasts until the sign-in's 30 days are up
+const setCookie = (req, name, sid, maxAgeMs) =>
+    `${name}=${sid}; ${cookieFlags(req)}${maxAgeMs === undefined ? "" : `; Max-Age=${Math.max(0, Math.floor(maxAgeMs / 1000))}`}`;
+const clearCookie = (req, name) => setCookie(req, name, "", 0);
 // returning: back in line after being served; like pending, it waits for a counter to call it
 const ORDER_STATUSES = ["pending", "serving", "returning", "done"];
 // a done order can't be called (or set to Now serving) again: it has to go back in line first
@@ -1132,10 +1148,11 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         getSetting: db.prepare("SELECT value FROM settings WHERE key = ?"),
         setSetting: db.prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value"),
         deleteSetting: db.prepare("DELETE FROM settings WHERE key = ?"),
-        insertSession: db.prepare("INSERT INTO sessions (sid_hash, user_id, expires) VALUES (?, ?, ?)"),
+        insertSession: db.prepare("INSERT INTO sessions (sid_hash, user_id, expires, created_at) VALUES (?, ?, ?, ?)"),
+        touchSession: db.prepare("UPDATE sessions SET expires = ? WHERE sid_hash = ?"),
         // a disabled account's sign-ins stop working at once
         findSession: db.prepare(`
-            SELECT s.expires, u.id, u.username, u.name, u.role, u.first_name, u.middle_name, u.surname,
+            SELECT s.expires, s.created_at AS signed_in_at, u.id, u.username, u.name, u.role, u.first_name, u.middle_name, u.surname,
                 u.employee_id, u.department, u.sales_team, u.photo, u.cover_photo, u.created_at
             FROM sessions s JOIN users u ON u.id = s.user_id
             WHERE s.sid_hash = ? AND u.disabled_at IS NULL`),
@@ -1562,11 +1579,31 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         const sidHash = sha256(sid);
         const row = sql.findSession.get(sidHash);
         if (!row) return null;
-        if (row.expires < Date.now()) {
+        const now = Date.now();
+        if (row.expires < now) {
             sql.deleteSession.run(sidHash);
             return null;
         }
-        return { sidHash, user: toMe(row) };
+        // used again, so the week starts over, though never past 30 days from signing in
+        const until = Math.min(now + SESSION_IDLE_MS, row.signed_in_at + SESSION_MAX_MS);
+        if (until - row.expires > SESSION_TOUCH_MS) sql.touchSession.run(until, sidHash);
+        return { sid, sidHash, user: toMe(row) };
+    };
+
+    // Set-Cookie lines for a tab taking sign-in `sid`: its own cookie, plus dropping this browser's cookies whose
+    // sign-in has ended, and, when there are too many, the oldest other tabs' cookies for this same sign-in (those
+    // tabs pick it up again from KEPT_COOKIE), so the browser doesn't send stale cookies on every request forever
+    const tabCookies = (req, sid) => {
+        const name = sessionCookieName(req);
+        const others = Object.entries(readCookies(req))
+            .filter(([other]) => isSessionCookie(other) && other !== name)
+            .map(([other, value]) => ({ name: other, value, live: Boolean(sessionFor(value)) }));
+        const ended = others.filter((cookie) => !cookie.live);
+        const liveTabs = others.filter((cookie) => cookie.live && cookie.name !== KEPT_COOKIE);
+        // this tab's own cookie counts too; the browser sends the oldest first
+        const over = Math.max(0, liveTabs.length + 1 - MAX_TAB_COOKIES);
+        const extra = liveTabs.filter((cookie) => cookie.value === sid).slice(0, over);
+        return [setCookie(req, name, sid), ...[...ended, ...extra].map((cookie) => clearCookie(req, cookie.name))];
     };
 
     // this tab's sign-in
@@ -1657,14 +1694,26 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             }
             const user = toMe(account);
             const sid = randomBytes(32).toString("hex");
-            sql.deleteExpiredSessions.run(Date.now());
-            sql.insertSession.run(sha256(sid), account.id, Date.now() + SESSION_TTL_MS);
+            const now = Date.now();
+            sql.deleteExpiredSessions.run(now);
+            sql.insertSession.run(sha256(sid), account.id, now + SESSION_IDLE_MS, now);
             seen(account.id);
             return send(res, 200, user, {
-                // no Max-Age: the browser forgets it when it closes, so the next person on a shared PC signs in
-                // themselves; the server still ends it after SESSION_TTL_MS
-                "Set-Cookie": `${sessionCookieName(req)}=${sid}; ${cookieFlags(req)}`,
+                // this tab's cookie, and the browser's kept one, so a new tab or the browser opened again carries on
+                // signed in as them until Sign out or the sign-in runs out
+                "Set-Cookie": [...tabCookies(req, sid), setCookie(req, KEPT_COOKIE, sid, SESSION_MAX_MS)],
             });
+        }
+
+        // a tab with no sign-in of its own (a new tab, or the browser opened again) carries on as the browser's kept
+        // one; ?as=<account id>, from a tab that was signed in and lost its cookie, takes it only if it's still them,
+        // so a tab never quietly turns into someone else
+        if (method === "GET" && path === "/auth/me" && !getSession(req)) {
+            const kept = sessionFor(readCookies(req)[KEPT_COOKIE]);
+            const as = url.searchParams.get("as");
+            if (!kept || (as !== null && as !== String(kept.user.id))) return send(res, 401, { message: "Please sign in." });
+            seen(kept.user.id);
+            return send(res, 200, kept.user, { "Set-Cookie": tabCookies(req, kept.sid) });
         }
 
         if (method === "POST" && path === "/orders") {
@@ -1813,8 +1862,12 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         if (method === "GET" && path === "/auth/me") return send(res, 200, session.user);
 
         if (method === "POST" && path === "/auth/logout") {
+            // every tab carrying on as this sign-in is signed out with it, and the browser stops keeping it
             sql.deleteSession.run(session.sidHash);
-            return send(res, 204, undefined, { "Set-Cookie": `${sessionCookieName(req)}=; ${cookieFlags(req)}; Max-Age=0` });
+            const keptToo = readCookies(req)[KEPT_COOKIE] === session.sid;
+            return send(res, 204, undefined, {
+                "Set-Cookie": [clearCookie(req, sessionCookieName(req)), ...(keptToo ? [clearCookie(req, KEPT_COOKIE)] : [])],
+            });
         }
 
         if (method === "PUT" && path === "/admin/video") {
