@@ -38,9 +38,10 @@ export const sheetDate = (iso) => {
 // a sales time as Customer order keeps it, "08:16", as the schedule writes it: "0816H"; "" for none
 export const sheetTime = (time) => (time ? `${time.replace(":", "")}H` : "");
 
-// who assisted the customer at sales: the staff member serving them at their counter, or who served them there and
-// handed them over to loading; "" before anyone has called them
-export const assistedBy = (order) => order.handedOver?.by?.name ?? order.servedBy?.name ?? "";
+// who assisted the customer at sales: whoever pressed Assist on My counter while the ticket's maker was away, or else
+// the staff member serving them at their counter, or who served them there and handed them over to loading; "" before
+// anyone has
+export const assistedBy = (order) => order.assistedBy?.name ?? order.handedOver?.by?.name ?? order.servedBy?.name ?? "";
 
 // a moment (ISO 8601) as the schedule writes a time, by this computer's clock: "0734H"; "" for none
 const clockTime = (iso) => {
