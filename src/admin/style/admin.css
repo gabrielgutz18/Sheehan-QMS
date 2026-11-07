@@ -3749,13 +3749,304 @@ html:has(.sale-actions) {
     min-width: 0;
 }
 
-/* a department's History tab: the list, All / One day / Range, the days and the search, wrapping on a phone */
+/* a department's History tab: the list, All / One day / Range, the days and the search in one bar, wrapping on a
+   phone; under it the orders by day, each a row of its ticket, the customer and invoices, who handed it over, and
+   whether the department's area loaded it, in green with a check, or not yet, in amber with a clock */
+.dept-history {
+    --ok-text: #166534;
+    --ok-bg: #f0fdf4;
+    --ok-border: #bbf7d0;
+    --wait-text: #92400e;
+    --wait-bg: #fffbeb;
+    --wait-border: #fde68a;
+}
+
+.dept-history-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+}
+
+.dept-history-intro {
+    margin: 0;
+    font-size: 14px;
+    color: var(--text-muted);
+}
+
 .department-history-filters {
-    margin-bottom: 16px;
+    padding: 12px 14px;
+    background: var(--surface-muted);
+    border: 1px solid var(--field-border);
+    border-radius: 12px;
+}
+
+/* the search fills what's left of the bar, with its magnifier inside the box */
+.dept-history-search {
+    position: relative;
+    flex: 1 1 220px;
+    min-width: 0;
+}
+
+.dept-history-search svg {
+    position: absolute;
+    left: 10px;
+    color: var(--text-muted);
+    pointer-events: none;
+}
+
+.department-history-filters .dept-history-search input[type="search"] {
+    width: 100%;
+    padding-left: 36px;
+}
+
+.dept-history-panel {
+    padding: 16px 20px 20px;
+}
+
+.dept-history-summary {
+    margin: 0 0 4px;
+    font-size: 14px;
+    color: var(--text-muted);
+}
+
+.dept-history-summary strong {
+    color: var(--text-dark);
+}
+
+.dept-history-day + .dept-history-day {
+    margin-top: 8px;
+}
+
+/* more than .admin-panel h2, which is for a panel's own title */
+.dept-history-panel .dept-history-day-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0;
+    padding: 14px 0 8px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dark);
+    border-bottom: 2px solid var(--field-border);
+}
+
+.dept-history-day-count {
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--text-muted);
+}
+
+.dept-history-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.dept-history-row {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1.2fr);
+    align-items: start;
+    gap: 6px 20px;
+    padding: 14px 8px;
+    border-bottom: 1px solid var(--field-border);
+    transition: background-color 150ms ease;
+}
+
+.dept-history-row:hover {
+    background: var(--surface-muted);
+}
+
+.dept-history-ticket {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+    white-space: nowrap;
+    color: var(--brand-red);
+}
+
+.dept-history-customer,
+.dept-history-step {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    font-size: 14px;
+}
+
+.dept-history-name {
+    font-size: 15px;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.dept-history-label {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.dept-history-muted {
+    color: var(--text-muted);
+}
+
+.dept-history-invoices {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 6px;
+}
+
+.dept-history-chip {
+    padding: 1px 8px;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    background: var(--cream);
+    border: 1px solid var(--field-border);
+    border-radius: 6px;
+    overflow-wrap: anywhere;
+}
+
+.dept-history-status {
+    display: inline-flex;
+    align-items: center;
+    align-self: flex-start;
+    gap: 6px;
+    padding: 3px 10px 3px 8px;
+    font-size: 13px;
+    font-weight: 700;
+    border: 1px solid transparent;
+    border-radius: 999px;
+}
+
+.dept-history-status svg {
+    flex: none;
+}
+
+.dept-history-status.is-loaded {
+    color: var(--ok-text);
+    background: var(--ok-bg);
+    border-color: var(--ok-border);
+}
+
+.dept-history-status.is-waiting {
+    color: var(--wait-text);
+    background: var(--wait-bg);
+    border-color: var(--wait-border);
+}
+
+/* the guard's report under the row, across all of it */
+.dept-history-sent-back {
+    grid-column: 1 / -1;
+}
+
+.dept-history-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 36px 12px;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.dept-history-empty svg {
+    width: 28px;
+    height: 28px;
+}
+
+.dept-history-empty p {
+    margin: 0;
+}
+
+/* while it reads: three grey rows the shape of the orders */
+.dept-history-skeleton-row {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1.4fr) minmax(0, 1fr);
+    gap: 20px;
+    padding: 18px 8px;
+    border-bottom: 1px solid var(--field-border);
+}
+
+.dept-history-skeleton-row span {
+    height: 14px;
+    background: var(--cream);
+    border-radius: 6px;
+    animation: dept-history-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes dept-history-pulse {
+    50% {
+        opacity: 0.45;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dept-history-row {
+        transition: none;
+    }
+
+    .dept-history-skeleton-row span {
+        animation: none;
+    }
 }
 
 .department-history-more {
-    margin-top: 12px;
+    display: flex;
+    margin: 16px auto 0;
+    min-width: 160px;
+}
+
+/* a narrower screen: the ticket and customer on top, who handed it over and the status under them */
+@media (max-width: 1100px) {
+    .dept-history-row {
+        grid-template-columns: 84px minmax(0, 1fr) minmax(0, 1fr);
+    }
+
+    .dept-history-customer {
+        grid-column: 2 / -1;
+    }
+
+    /* handed over, under the customer; the status takes the column beside it */
+    .dept-history-row > .dept-history-step:nth-child(3) {
+        grid-column: 2;
+    }
+}
+
+/* a phone: everything in one column, the ticket beside the name */
+@media (max-width: 640px) {
+    .dept-history-panel {
+        padding: 8px 14px 16px;
+    }
+
+    .dept-history-row {
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 8px 12px;
+        padding: 12px 0;
+    }
+
+    .dept-history-row > .dept-history-step,
+    .dept-history-row > .dept-history-step:nth-child(3) {
+        grid-column: 2;
+    }
+
+    .dept-history-ticket {
+        font-size: 18px;
+    }
+
+    .dept-history-skeleton-row {
+        grid-template-columns: 60px minmax(0, 1fr);
+    }
+
+    .dept-history-skeleton-row span:last-child {
+        display: none;
+    }
 }
 
 .history-field {

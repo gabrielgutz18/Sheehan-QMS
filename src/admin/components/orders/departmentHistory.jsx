@@ -33,6 +33,62 @@ const formatDay = (day) =>
 // "9:42 AM"
 const formatTime = (iso) => new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 
+// a day's heading in the list: "Today", "Yesterday", or "Thu, Nov 5, 2026"
+const dayHeading = (day) => {
+    if (day === today()) return "Today";
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (day === `${yesterday.getFullYear()}-${pad2(yesterday.getMonth() + 1)}-${pad2(yesterday.getDate())}`) {
+        return "Yesterday";
+    }
+    return new Date(`${day}T00:00`).toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+    });
+};
+
+// the rows split into days, newest first as they came, so each day gets its own heading
+/** @template {{ date: string }} T @param {T[]} rows @returns {{ day: string, rows: T[] }[]} */
+const byDay = (rows) => {
+    /** @type {{ day: string, rows: T[] }[]} */
+    const days = [];
+    for (const row of rows) {
+        if (days.at(-1)?.day === row.date) days.at(-1)?.rows.push(row);
+        else days.push({ day: row.date, rows: [row] });
+    }
+    return days;
+};
+
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+// the small icons beside a status; the words beside them say the same, so screen readers skip them
+const CheckIcon = () => (
+    <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" focusable="false">
+        <path
+            d="M5 10.5l3.2 3.2L15 7"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        />
+    </svg>
+);
+const ClockIcon = () => (
+    <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" focusable="false">
+        <circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M10 6.5V10l2.5 1.6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+);
+const SearchIcon = () => (
+    <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" focusable="false">
+        <circle cx="9" cy="9" r="5.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M13.2 13.2L17 17" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+);
+
 // the days the API is asked for: none for All, the same day at both ends for One day
 const daysOf = (show, day, from, to) =>
     show === "day" ? { from: day, to: day } : show === "range" ? { from, to } : {};
@@ -127,10 +183,15 @@ export default function DepartmentHistory({ department }) {
         }
     };
 
+    const loadedCount = result.rows.filter((row) => row.loaded).length;
+
     return (
-        <section className="admin-page">
-            <div className="admin-page-head">
+        <section className="admin-page dept-history">
+            <div className="admin-page-head dept-history-head">
                 <h1 className="admin-title">{DEPARTMENTS[department]} history</h1>
+                <p className="dept-history-intro">
+                    Every order sales handed over to {DEPARTMENTS[department]}, newest first.
+                </p>
             </div>
 
             <div className="history-filters department-history-filters">
@@ -182,8 +243,9 @@ export default function DepartmentHistory({ department }) {
                         </label>
                     </>
                 )}
-                <label className="history-field">
+                <label className="history-field dept-history-search">
                     <span className="visually-hidden">Search</span>
+                    <SearchIcon />
                     <input
                         type="search"
                         placeholder="Search name, ticket or invoice no."
@@ -200,45 +262,98 @@ export default function DepartmentHistory({ department }) {
                 </p>
             )}
 
-            <div className="admin-panel">
+            <div className="admin-panel dept-history-panel" aria-busy={loading}>
                 {loading ? (
-                    <p className="admin-empty">Loading...</p>
-                ) : result.rows.length === 0 ? (
-                    !result.error && <p className="admin-empty">{emptyText(list.name, show, day, from, to, query)}</p>
-                ) : (
-                    <ul className="counter-list">
-                        {result.rows.map((row) => (
-                            <li key={row.id} className="counter-ticket">
-                                <div className="counter-ticket-main">
-                                    <strong className="counter-number">
-                                        {formatQueueNum(row.queueNum, row.purpose, row)}
-                                    </strong>
-                                    <span className="counter-name">{row.name}</span>
-                                    <span className="counter-meta">{formatDay(row.date)}</span>
-                                    <span className="counter-meta">
-                                        {row.invoices.length
-                                            ? `Invoice: ${row.invoices.map(({ invoiceNo }) => invoiceNo).join(", ")}`
-                                            : "No invoice"}
-                                    </span>
-                                    <span className="counter-meta">
-                                        Handed over by {row.handedOver.by.name ?? "someone"} ·{" "}
-                                        {formatTime(row.handedOver.at)}
-                                    </span>
-                                    <span className="counter-meta">
-                                        {row.loaded
-                                            ? `${list.area} ✓ ${row.loaded.by.name} · ${formatTime(row.loaded.at)}`
-                                            : `${list.area}: not loaded`}
-                                    </span>
-                                    {row.sentBack && (
-                                        <p className="sent-back-note">
-                                            Sent back to {list.area} by security · {resultLabel(row.sentBack.result)}
-                                            {row.sentBack.note && ` · “${row.sentBack.note}”`} · {row.sentBack.by.name}
-                                        </p>
-                                    )}
-                                </div>
-                            </li>
+                    // a few grey rows where the orders will be, so the page doesn't jump when they come
+                    <div className="dept-history-skeleton">
+                        <span className="visually-hidden">Loading...</span>
+                        {[0, 1, 2].map((n) => (
+                            <div key={n} className="dept-history-skeleton-row" aria-hidden="true">
+                                <span />
+                                <span />
+                                <span />
+                            </div>
                         ))}
-                    </ul>
+                    </div>
+                ) : result.rows.length === 0 ? (
+                    !result.error && (
+                        <div className="dept-history-empty">
+                            <SearchIcon />
+                            <p>{emptyText(list.name, show, day, from, to, query)}</p>
+                        </div>
+                    )
+                ) : (
+                    <>
+                        <p className="dept-history-summary" role="status">
+                            <strong>{plural(result.rows.length, `${list.name} order`)}</strong>
+                            {result.more && " shown, more below"} · {loadedCount} loaded at {list.area}
+                        </p>
+                        {byDay(result.rows).map(({ day: date, rows }) => (
+                            <section key={date} className="dept-history-day" aria-label={formatDay(date)}>
+                                <h2 className="dept-history-day-head">
+                                    <span>{dayHeading(date)}</span>
+                                    <span className="dept-history-day-count">{plural(rows.length, "order")}</span>
+                                </h2>
+                                <ul className="dept-history-list">
+                                    {rows.map((row) => (
+                                        <li key={row.id} className="dept-history-row">
+                                            <strong className="dept-history-ticket">
+                                                {formatQueueNum(row.queueNum, row.purpose, row)}
+                                            </strong>
+                                            <div className="dept-history-customer">
+                                                <span className="dept-history-name">{row.name}</span>
+                                                {row.invoices.length ? (
+                                                    <span className="dept-history-invoices">
+                                                        <span className="dept-history-label">Invoice</span>
+                                                        {row.invoices.map(({ invoiceNo }) => (
+                                                            <span key={invoiceNo} className="dept-history-chip">
+                                                                {invoiceNo}
+                                                            </span>
+                                                        ))}
+                                                    </span>
+                                                ) : (
+                                                    <span className="dept-history-muted">No invoice</span>
+                                                )}
+                                            </div>
+                                            <div className="dept-history-step">
+                                                <span className="dept-history-label">Handed over</span>
+                                                <span>
+                                                    {row.handedOver.by.name ?? "someone"} ·{" "}
+                                                    {formatTime(row.handedOver.at)}
+                                                </span>
+                                            </div>
+                                            <div className="dept-history-step">
+                                                {row.loaded ? (
+                                                    <>
+                                                        <span className="dept-history-status is-loaded">
+                                                            <CheckIcon />
+                                                            Loaded at {list.area}
+                                                        </span>
+                                                        <span>
+                                                            {row.loaded.by.name} · {formatTime(row.loaded.at)}
+                                                        </span>
+                                                    </>
+                                                ) : (
+                                                    <span className="dept-history-status is-waiting">
+                                                        <ClockIcon />
+                                                        Not loaded at {list.area}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {row.sentBack && (
+                                                <p className="sent-back-note dept-history-sent-back">
+                                                    Sent back to {list.area} by security ·{" "}
+                                                    {resultLabel(row.sentBack.result)}
+                                                    {row.sentBack.note && ` · “${row.sentBack.note}”`} ·{" "}
+                                                    {row.sentBack.by.name}
+                                                </p>
+                                            )}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </section>
+                        ))}
+                    </>
                 )}
                 {!loading && result.more && (
                     <button
