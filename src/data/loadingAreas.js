@@ -37,4 +37,24 @@ export const departmentOf = (area) => loadingAreas.find(({ name }) => name === a
 export const departmentHas = (department, areas) =>
     areas.length === 0 ? department === "loading" : areas.some((area) => departmentOf(area) === department);
 
+// the lists on a department's History tab, one at a time so different products never mix: each is a few types of order
+// and the area they're loaded in; the first is the one that opens; Tire and Battery are apart though TBA loads them
+// together, so both show the same TBA load
+export const HISTORY_LISTS = {
+    loading: [
+        { name: "Roofings", types: ["Roofings", "Roofings Accessories"], area: "Roofings" },
+        { name: "Steel", types: ["Steel"], area: "Steel" },
+    ],
+    tba: [
+        { name: "Tire", types: ["Tire"], area: "TBA" },
+        { name: "Battery", types: ["Battery"], area: "TBA" },
+    ],
+    chassis: [{ name: "Chassis", types: ["Chassis"], area: "Chassis" }],
+    hardware: [{ name: "Hardware", types: ["Hardwares"], area: "Hardware" }],
+};
+
+// a department's History lists; [] for anything that isn't a department
+/** @param {string} department */
+export const historyListsOf = (department) => (Object.hasOwn(HISTORY_LISTS, department) ? HISTORY_LISTS[department] : []);
+
 export default loadingAreas;

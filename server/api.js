@@ -27,7 +27,13 @@ import paymentStatus from "../src/data/paymentStatus.js";
 import teams from "../src/data/teams.js";
 import checkers, { CHECKER_ROUNDS } from "../src/data/checkers.js";
 import { splitList } from "../src/data/list.js";
-import { DEPARTMENTS, areasFor, departmentHas, departmentOf } from "../src/data/loadingAreas.js";
+import loadingAreas, {
+    DEPARTMENTS,
+    areasFor,
+    departmentHas,
+    departmentOf,
+    historyListsOf,
+} from "../src/data/loadingAreas.js";
 
 const SESSION_COOKIE = "sid";
 // each browser tab signs in on its own: the page sends its tab's id (X-Tab-Id) and the session cookie is named
@@ -106,6 +112,8 @@ const VIDEO_EXTENSIONS = {
 };
 const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 const HISTORY_LIMIT = 200;
+// the orders a department's History tab shows at a time; Show more fetches the next ones
+const DEPARTMENT_HISTORY_PAGE = 50;
 // the most tickets picked at once on Orders & history, for Delete or Purge: every ticket one page of it can show, and more
 const MAX_PICKED = 500;
 const PICK_TICKETS = "Pick the tickets first.";
@@ -243,6 +251,8 @@ const ROLE_ROUTES = {
         // the Order status board: every order, not just the ones handed over, with none of the sales details
         ["GET", /^\/admin\/order-status$/],
         ["POST", /^\/admin\/loading\/[^/]+\/(call|start|done|back)$/],
+        // the History tab: the orders handed over to the department, its own only
+        ["GET", /^\/admin\/department-history\/loading$/],
         ...ACCOUNT_ROUTES,
         ...MESSAGE_ROUTES,
     ],
@@ -251,6 +261,8 @@ const ROLE_ROUTES = {
         ["GET", /^\/admin\/orders$/],
         ["GET", /^\/admin\/order-status$/],
         ["POST", /^\/admin\/tba\/[^/]+\/(call|start|done|back)$/],
+        // the History tab: the orders handed over to the department, its own only
+        ["GET", /^\/admin\/department-history\/tba$/],
         ...ACCOUNT_ROUTES,
         ...MESSAGE_ROUTES,
     ],
@@ -259,6 +271,8 @@ const ROLE_ROUTES = {
         ["GET", /^\/admin\/orders$/],
         ["GET", /^\/admin\/order-status$/],
         ["POST", /^\/admin\/chassis\/[^/]+\/(call|start|done|back)$/],
+        // the History tab: the orders handed over to the department, its own only
+        ["GET", /^\/admin\/department-history\/chassis$/],
         ...ACCOUNT_ROUTES,
         ...MESSAGE_ROUTES,
     ],
@@ -267,6 +281,8 @@ const ROLE_ROUTES = {
         ["GET", /^\/admin\/orders$/],
         ["GET", /^\/admin\/order-status$/],
         ["POST", /^\/admin\/hardware\/[^/]+\/(call|start|done|back)$/],
+        // the History tab: the orders handed over to the department, its own only
+        ["GET", /^\/admin\/department-history\/hardware$/],
         ...ACCOUNT_ROUTES,
         ...MESSAGE_ROUTES,
     ],
@@ -1022,6 +1038,39 @@ const toPayment = (row, invoices, edits, todayDate) => {
     };
 };
 
+// one order on a department's History tab, with only the list's part of it: the list's invoices (and untyped ones,
+// from older tickets, which could be anyone's), who loaded the list's area (orders.loaded_by for an order from before
+// the areas), and the guard's report that sent it back, when it was to this area; nothing about payment or sales
+const toDepartmentRow = (row, invoices, list) => {
+    const areaLoad = row.area_load ? JSON.parse(row.area_load) : null;
+    const loaded = areaLoad
+        ? { by: { id: areaLoad.id, name: areaLoad.name }, at: areaLoad.at }
+        : row.no_areas === 1 && row.loaded_by !== null
+          ? { by: { id: row.loaded_by, name: row.loaded_by_name }, at: row.loaded_at }
+          : null;
+    return {
+        id: row.id,
+        date: row.queue_date,
+        queueNum: row.queue_num,
+        purpose: row.purpose,
+        name: row.name,
+        priority: row.priority === 1,
+        tbaPriority: row.tba_priority === 1,
+        invoices: invoicesOf(invoices.filter(({ type }) => type === "" || list.types.includes(type))),
+        handedOver: { by: { id: row.handed_over_by, name: row.handed_over_by_name }, at: row.handed_over_at },
+        loaded,
+        sentBack:
+            row.return_area === list.area
+                ? {
+                      result: row.return_result,
+                      note: row.return_note ?? "",
+                      by: { name: row.returned_by_name },
+                      at: row.returned_at,
+                  }
+                : null,
+    };
+};
+
 // a ticket from any day for the History page and the Order sheet; id picks it out, since numbers repeat every day
 const toHistory = (row, items, invoices, edits, todayDate, cells = []) => ({
     id: row.id,
@@ -1242,6 +1291,34 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         servedOn: db.prepare(
             "SELECT COUNT(*) AS n FROM orders WHERE queue_date = ? AND status = 'done' AND deleted_at IS NULL",
         ),
+        // a department's History, one list at a time (HISTORY_LISTS): the orders handed over with one of the list's types
+        // of order, matched whole (", Roofings, " is never found inside ", Roofings Accessories, "), and, for Roofings,
+        // the ones from before the areas, which were the loading crew's; with who loaded the list's area (:area) and the
+        // guard's report that last sent the order back, if it was to that area; one more row than a page, to know if
+        // there are more
+        departmentHistory: db.prepare(`
+            SELECT o.id, o.queue_date, o.queue_num, o.purpose, o.name, o.priority, o.tba_priority,
+                o.handed_over_by, h.name AS handed_over_by_name, o.handed_over_at,
+                o.loaded_by, l.name AS loaded_by_name, o.loaded_at,
+                (SELECT json_object('id', ol.loaded_by, 'name', lu.name, 'at', ol.loaded_at)
+                    FROM order_loads ol JOIN users lu ON lu.id = ol.loaded_by
+                    WHERE ol.order_id = o.id AND ol.area = :area) AS area_load,
+                NOT EXISTS (SELECT 1 FROM json_each(:allTypes) t
+                    WHERE ', ' || o.purpose || ', ' LIKE '%, ' || t.value || ', %') AS no_areas,
+                rc.returned_to AS return_area, rc.result AS return_result, rc.note AS return_note,
+                rc.checked_at AS returned_at, ru.name AS returned_by_name
+            FROM orders o
+            LEFT JOIN users h ON h.id = o.handed_over_by
+            LEFT JOIN users l ON l.id = o.loaded_by
+            LEFT JOIN security_checks rc ON rc.id = o.return_check_id
+            LEFT JOIN users ru ON ru.id = rc.user_id
+            WHERE o.deleted_at IS NULL AND o.handed_over_at IS NOT NULL AND o.purpose <> :report
+              AND (EXISTS (SELECT 1 FROM json_each(:types) t
+                        WHERE ', ' || o.purpose || ', ' LIKE '%, ' || t.value || ', %')
+                   OR (:legacy = 1 AND NOT EXISTS (SELECT 1 FROM json_each(:allTypes) t
+                        WHERE ', ' || o.purpose || ', ' LIKE '%, ' || t.value || ', %')))
+            ORDER BY o.queue_date DESC, o.queue_num DESC
+            LIMIT :limit`),
         // History: any day, deleted only or all, by name or number; deleted ones newest-deleted first
         history: db.prepare(`
             SELECT ${ORDER_ROW}
@@ -3164,6 +3241,35 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                 to,
                 buckets: [...buckets.values()],
                 servedToday: sql.servedOn.get(to).n,
+            });
+        }
+
+        // a department's History tab, one list at a time (HISTORY_LISTS in src/data/loadingAreas.js): the orders handed
+        // over to it, each with only the list's invoices (an untyped one, from an older ticket, could be anyone's) and
+        // who loaded the list's area; ?list= → { rows, more }; the crews only get their own department (ROLE_ROUTES)
+        const departmentHistoryMatch = path.match(/^\/admin\/department-history\/([^/]+)$/);
+        if (method === "GET" && departmentHistoryMatch) {
+            const lists = historyListsOf(departmentHistoryMatch[1]);
+            if (lists.length === 0) return send(res, 404, { message: "There's no such department." });
+            const listName = url.searchParams.get("list");
+            const list = listName === null ? lists[0] : lists.find(({ name }) => name === listName);
+            if (!list) return send(res, 400, { message: "Pick one of the department's lists." });
+            const found = sql.departmentHistory.all({
+                types: JSON.stringify(list.types),
+                allTypes: JSON.stringify(loadingAreas.flatMap(({ types }) => types)),
+                area: list.area,
+                legacy: list.area === loadingAreas[0].name ? 1 : 0,
+                report: REPORT_PURPOSE,
+                limit: DEPARTMENT_HISTORY_PAGE + 1,
+            });
+            const rows = found.slice(0, DEPARTMENT_HISTORY_PAGE);
+            const invoicesByOrder = Map.groupBy(
+                sql.invoicesFor.all(JSON.stringify(rows.map((r) => r.id))),
+                (i) => i.order_id,
+            );
+            return send(res, 200, {
+                rows: rows.map((row) => toDepartmentRow(row, invoicesByOrder.get(row.id) ?? [], list)),
+                more: found.length > DEPARTMENT_HISTORY_PAGE,
             });
         }
 
