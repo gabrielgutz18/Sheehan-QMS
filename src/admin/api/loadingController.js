@@ -1,4 +1,4 @@
-import http from '../../api/http.js';
+import http from "../../api/http.js";
 
 // the Loading, TBA, Chassis and Hardware pages (department: "loading", "tba", "chassis" or "hardware", src/data/loadingAreas.js): each is one shared
 // line, so the department's crew calls any customer sales has handed over to one of the order's areas it works, marks
@@ -16,7 +16,8 @@ export const callAtLoading = (department, queueNum, remarks, area) =>
 export const startLoading = (department, queueNum, area) =>
     http.post(`/admin/${department}/${encodeURIComponent(queueNum)}/start`, { area });
 
-export const finishAtLoading = (department, queueNum) => http.post(`/admin/${department}/${encodeURIComponent(queueNum)}/done`);
+export const finishAtLoading = (department, queueNum) =>
+    http.post(`/admin/${department}/${encodeURIComponent(queueNum)}/done`);
 
 export const sendBackFromLoading = (department, queueNum) =>
     http.post(`/admin/${department}/${encodeURIComponent(queueNum)}/back`);

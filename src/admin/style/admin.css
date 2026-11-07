@@ -4,532 +4,534 @@
 
 .admin-shell,
 .login-page {
-  --text-dark: #18181b;
-  --text-muted: #71717a;
-  --cream: #f4f4f5;
-  --cream-hover: #e4e4e7;
-  --cream-border: #e4e4e7;
-  --focus-ring: rgba(200, 32, 42, 0.3);
-  --field-bg: #f4f4f5;
-  --field-border: #e4e4e7;
-  /* the admin's own: the sidebar's and table headings' tint, the main button, the red's pale tint for what's picked,
+    --text-dark: #18181b;
+    --text-muted: #71717a;
+    --cream: #f4f4f5;
+    --cream-hover: #e4e4e7;
+    --cream-border: #e4e4e7;
+    --focus-ring: rgba(200, 32, 42, 0.3);
+    --field-bg: #f4f4f5;
+    --field-border: #e4e4e7;
+    /* the admin's own: the sidebar's and table headings' tint, the main button, the red's pale tint for what's picked,
      and the cards' faint shadow */
-  --surface-muted: #fafafa;
-  --primary: var(--brand-red);
-  --primary-hover: #a91a23;
-  --brand-tint: #fef2f2;
-  --brand-tint-border: #fecaca;
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
-  font-size: 15px;
-  color: var(--text-dark);
+    --surface-muted: #fafafa;
+    --primary: var(--brand-red);
+    --primary-hover: #a91a23;
+    --brand-tint: #fef2f2;
+    --brand-tint-border: #fecaca;
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+    font-size: 15px;
+    color: var(--text-dark);
 }
 
 .admin-status {
-  margin: 64px auto;
-  text-align: center;
-  color: var(--text-muted);
+    margin: 64px auto;
+    text-align: center;
+    color: var(--text-muted);
 }
 
 /* ---------- layout ---------- */
 
 .admin-shell {
-  --sidebar-w: 248px;
-  /* the sidebar brand and the top bar share this height so they read as one header */
-  --bar-h: 56px;
-  min-height: 100vh;
-  /* index.css centers text for the customer kiosk; the admin reads left-aligned */
-  text-align: left;
-  display: grid;
-  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
-  background: #ffffff;
+    --sidebar-w: 248px;
+    /* the sidebar brand and the top bar share this height so they read as one header */
+    --bar-h: 56px;
+    min-height: 100vh;
+    /* index.css centers text for the customer kiosk; the admin reads left-aligned */
+    text-align: left;
+    display: grid;
+    grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+    background: #ffffff;
 }
 
 .admin-sidebar {
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: var(--surface-muted);
-  border-right: 1px solid var(--field-border);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface-muted);
+    border-right: 1px solid var(--field-border);
 }
 
 .admin-sidebar-brand {
-  flex-shrink: 0;
-  height: var(--bar-h);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 18px;
-  border-bottom: 1px solid var(--field-border);
+    flex-shrink: 0;
+    height: var(--bar-h);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 18px;
+    border-bottom: 1px solid var(--field-border);
 }
 
 .admin-logo {
-  width: 30px;
-  height: 30px;
-  object-fit: contain;
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
 }
 
 .admin-compname {
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: -0.2px;
-  white-space: nowrap;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+    white-space: nowrap;
 }
 
 .admin-nav {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  padding: 16px 10px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 16px 10px;
 }
 
 /* Overview, My work, Display, Account: a small gray heading over each group's links */
 .admin-nav-group {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
 .admin-nav-heading {
-  margin: 0 0 4px;
-  padding: 0 10px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-muted);
+    margin: 0 0 4px;
+    padding: 0 10px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted);
 }
 
 .admin-nav-link {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 7px 10px;
-  font-size: 14px;
-  font-weight: 500;
-  color: #3f3f46;
-  text-decoration: none;
-  border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 10px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #3f3f46;
+    text-decoration: none;
+    border-radius: 6px;
 }
 
 .admin-nav-icon {
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.75;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.75;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 /* an Icon anywhere else; the box it sits in sets its size */
 .line-icon {
-  width: 100%;
-  height: 100%;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.75;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+    width: 100%;
+    height: 100%;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.75;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 .admin-nav-link:hover {
-  color: var(--text-dark);
-  background: #f4f4f5;
+    color: var(--text-dark);
+    background: #f4f4f5;
 }
 
 .admin-nav-link.active {
-  font-weight: 600;
-  color: var(--brand-red);
-  background: var(--brand-tint);
+    font-weight: 600;
+    color: var(--brand-red);
+    background: var(--brand-tint);
 }
 
 /* a folder of links (Department): a button that looks like a link, with its links indented under it on a thin line */
 .admin-nav-folder-btn {
-  width: 100%;
-  border: 0;
-  background: none;
-  font-family: inherit;
-  line-height: inherit;
-  text-align: left;
-  cursor: pointer;
+    width: 100%;
+    border: 0;
+    background: none;
+    font-family: inherit;
+    line-height: inherit;
+    text-align: left;
+    cursor: pointer;
 }
 
 .admin-nav-chevron {
-  width: 14px;
-  height: 14px;
-  margin-left: auto;
-  transition: transform 0.15s ease;
+    width: 14px;
+    height: 14px;
+    margin-left: auto;
+    transition: transform 0.15s ease;
 }
 
 .admin-nav-folder-btn[aria-expanded="true"] .admin-nav-chevron {
-  transform: rotate(90deg);
+    transform: rotate(90deg);
 }
 
 /* shut while the page on screen is inside it: in the red, so it's clear where that page went */
 .admin-nav-folder-btn.holds-current {
-  color: var(--brand-red);
+    color: var(--brand-red);
 }
 
 .admin-nav-folder-links {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  /* the line runs under the folder icon's middle */
-  margin: 2px 0 0 19px;
-  padding-left: 8px;
-  border-left: 1px solid var(--cream-border);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    /* the line runs under the folder icon's middle */
+    margin: 2px 0 0 19px;
+    padding-left: 8px;
+    border-left: 1px solid var(--cream-border);
 }
 
 .admin-nav-folder-links[hidden] {
-  display: none;
+    display: none;
 }
 
 .admin-sidebar-foot {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 10px;
-  border-top: 1px solid var(--field-border);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px;
+    border-top: 1px solid var(--field-border);
 }
 
 /* the signed-in person at the foot of the sidebar, their name over their role; opens My account */
 .admin-user {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  padding: 6px;
-  color: inherit;
-  text-decoration: none;
-  border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    padding: 6px;
+    color: inherit;
+    text-decoration: none;
+    border-radius: 8px;
 }
 
 .admin-user:hover,
 .admin-user.active {
-  background: #f0f0f1;
+    background: #f0f0f1;
 }
 
 .admin-user:focus-visible,
 .admin-signout:focus-visible {
-  outline: 3px solid var(--focus-ring);
-  outline-offset: 2px;
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 2px;
 }
 
 .admin-user-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  line-height: 1.3;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.3;
 }
 
 .admin-user-name {
-  font-size: 14px;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+    font-size: 14px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .admin-user-role {
-  font-size: 12px;
-  color: var(--text-muted);
+    font-size: 12px;
+    color: var(--text-muted);
 }
 
 .admin-signout {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 7px 10px;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 500;
-  text-align: left;
-  color: var(--text-muted);
-  background: none;
-  border: 0;
-  border-radius: 6px;
-  cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 10px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    text-align: left;
+    color: var(--text-muted);
+    background: none;
+    border: 0;
+    border-radius: 6px;
+    cursor: pointer;
 }
 
 .admin-signout:hover:not(:disabled) {
-  color: var(--brand-red);
-  background: #fdf2f2;
+    color: var(--brand-red);
+    background: #fdf2f2;
 }
 
 .admin-signout:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 /* a profile photo, or initials when there's none */
 .avatar {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  font-weight: 600;
-  color: var(--text-dark);
-  background: #f4f4f5;
-  border: 1px solid var(--field-border);
-  border-radius: 50%;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    font-weight: 600;
+    color: var(--text-dark);
+    background: #f4f4f5;
+    border: 1px solid var(--field-border);
+    border-radius: 50%;
 }
 
 .avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .admin-body {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
 }
 
 /* the sidebar button, the page's name, and the clock and Order status at the right */
 .admin-topbar {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  height: var(--bar-h);
-  padding: 0 20px;
-  background: rgba(255, 255, 255, 0.94);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--field-border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: var(--bar-h);
+    padding: 0 20px;
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--field-border);
 }
 
 .admin-menu-btn {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  color: var(--text-dark);
-  background: none;
-  border: 0;
-  border-radius: 6px;
-  cursor: pointer;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    color: var(--text-dark);
+    background: none;
+    border: 0;
+    border-radius: 6px;
+    cursor: pointer;
 }
 
 .admin-menu-btn:hover {
-  background: #f4f4f5;
+    background: #f4f4f5;
 }
 
 .admin-topbar-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  margin: 0;
-  padding-left: 14px;
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.4;
-  border-left: 1px solid var(--field-border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    margin: 0;
+    padding-left: 14px;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.4;
+    border-left: 1px solid var(--field-border);
 }
 
 .admin-topbar-title span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .admin-topbar-title .admin-nav-icon {
-  color: var(--text-muted);
+    color: var(--text-muted);
 }
 
 .admin-topbar-end {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-left: auto;
 }
 
 /* src/components/clock.jsx, a little quieter in the top bar */
 .admin-topbar .clock-time {
-  font-size: 14px;
-  font-weight: 600;
+    font-size: 14px;
+    font-weight: 600;
 }
 
 .admin-topbar .clock-date {
-  font-size: 12px;
-  color: var(--text-muted);
-  opacity: 1;
+    font-size: 12px;
+    color: var(--text-muted);
+    opacity: 1;
 }
 
 .admin-scrim {
-  display: none;
+    display: none;
 }
 
 /* the top bar's Order status button, at its right; it opens the board in a drawer from the right */
 .status-drawer-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 34px;
-  padding: 0 12px;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-dark);
-  background: #ffffff;
-  border: 1px solid var(--field-border);
-  border-radius: 8px;
-  box-shadow: var(--shadow-xs);
-  cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 34px;
+    padding: 0 12px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-dark);
+    background: #ffffff;
+    border: 1px solid var(--field-border);
+    border-radius: 8px;
+    box-shadow: var(--shadow-xs);
+    cursor: pointer;
 }
 
 .status-drawer-btn:hover {
-  background: #f4f4f5;
+    background: #f4f4f5;
 }
 
 .status-drawer-btn:focus-visible,
 .status-drawer-close:focus-visible {
-  outline: 3px solid var(--focus-ring);
-  outline-offset: 2px;
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 2px;
 }
 
 .status-drawer-btn svg {
-  width: 18px;
-  height: 18px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.75;
-  stroke-linecap: round;
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.75;
+    stroke-linecap: round;
 }
 
 .status-drawer {
-  inset: 0;
-  width: min(440px, 100vw);
-  max-width: 100vw;
-  height: 100%;
-  max-height: 100%;
-  margin: 0 0 0 auto;
-  padding: 0;
-  text-align: left;
-  background: var(--surface-muted);
-  border: none;
-  border-left: 1px solid var(--field-border);
-  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.12);
+    inset: 0;
+    width: min(440px, 100vw);
+    max-width: 100vw;
+    height: 100%;
+    max-height: 100%;
+    margin: 0 0 0 auto;
+    padding: 0;
+    text-align: left;
+    background: var(--surface-muted);
+    border: none;
+    border-left: 1px solid var(--field-border);
+    box-shadow: -8px 0 32px rgba(0, 0, 0, 0.12);
 }
 
 .status-drawer[open] {
-  animation: status-drawer-in 0.2s ease-out;
+    animation: status-drawer-in 0.2s ease-out;
 }
 
 .status-drawer::backdrop {
-  background: rgba(0, 0, 0, 0.35);
+    background: rgba(0, 0, 0, 0.35);
 }
 
 @keyframes status-drawer-in {
-  from {
-    transform: translateX(100%);
-  }
+    from {
+        transform: translateX(100%);
+    }
 }
 
 .status-drawer-body {
-  min-height: 100%;
-  padding: 20px 18px;
+    min-height: 100%;
+    padding: 20px 18px;
 }
 
 .status-drawer-close {
-  width: 32px;
-  height: 32px;
-  font-size: 22px;
-  line-height: 1;
-  color: var(--text-dark);
-  background: #ffffff;
-  border: 1px solid var(--field-border);
-  border-radius: 8px;
-  cursor: pointer;
+    width: 32px;
+    height: 32px;
+    font-size: 22px;
+    line-height: 1;
+    color: var(--text-dark);
+    background: #ffffff;
+    border: 1px solid var(--field-border);
+    border-radius: 8px;
+    cursor: pointer;
 }
 
 .status-drawer-close:hover {
-  background: #f4f4f5;
+    background: #f4f4f5;
 }
 
 .admin-main {
-  flex: 1;
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 28px 24px 64px;
+    flex: 1;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 28px 24px 64px;
 }
 
 /* ---------- shared bits ---------- */
 
 .admin-page {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
 }
 
 .admin-page-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
 }
 
 .admin-title {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.3px;
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
 }
 
 .admin-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 36px;
-  padding: 7px 14px;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 500;
-  text-align: center;
-  color: var(--text-dark);
-  background: #ffffff;
-  border: 1px solid var(--field-border);
-  border-radius: 8px;
-  box-shadow: var(--shadow-xs);
-  /* also on links that look like buttons (Edit on Orders) */
-  text-decoration: none;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 7px 14px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    text-align: center;
+    color: var(--text-dark);
+    background: #ffffff;
+    border: 1px solid var(--field-border);
+    border-radius: 8px;
+    box-shadow: var(--shadow-xs);
+    /* also on links that look like buttons (Edit on Orders) */
+    text-decoration: none;
+    cursor: pointer;
+    transition:
+        background 0.15s,
+        border-color 0.15s;
 }
 
 .admin-btn:hover:not(:disabled) {
-  background: #f4f4f5;
+    background: #f4f4f5;
 }
 
 .admin-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .admin-btn-primary {
-  width: 100%;
-  height: 44px;
-  color: #ffffff;
-  background: var(--primary);
-  border-color: var(--primary);
+    width: 100%;
+    height: 44px;
+    color: #ffffff;
+    background: var(--primary);
+    border-color: var(--primary);
 }
 
 .admin-btn-primary:hover:not(:disabled) {
-  background: var(--primary-hover);
+    background: var(--primary-hover);
 }
 
 /* in a row of buttons the primary one is only as wide and tall as the others */
@@ -537,18 +539,18 @@
 .account-form-actions .admin-btn-primary,
 .admin-dialog-actions .admin-btn-primary,
 .security-actions .admin-btn-primary {
-  width: auto;
-  height: auto;
+    width: auto;
+    height: auto;
 }
 
 .admin-btn-danger {
-  color: #b91c1c;
-  background: #ffffff;
-  border-color: #fecaca;
+    color: #b91c1c;
+    background: #ffffff;
+    border-color: #fecaca;
 }
 
 .admin-btn-danger:hover:not(:disabled) {
-  background: #fef2f2;
+    background: #fef2f2;
 }
 
 .admin-btn:focus-visible,
@@ -560,1581 +562,1585 @@
 .admin-field select:focus-visible,
 .admin-filter select:focus-visible,
 .status-select:focus-visible {
-  outline: 3px solid var(--focus-ring);
-  outline-offset: 2px;
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 2px;
 }
 
 /* Customer order's Print ticket and Save buttons (src/style/customerOrder.css), in the admin's red */
 .admin-shell .submit-btn {
-  font-size: 16px;
-  font-weight: 600;
-  color: #ffffff;
-  background: var(--primary);
-  border-color: var(--primary);
-  border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #ffffff;
+    background: var(--primary);
+    border-color: var(--primary);
+    border-radius: 8px;
 }
 
 .admin-shell .submit-btn:hover:not(:disabled) {
-  background: var(--primary-hover);
+    background: var(--primary-hover);
 }
 
 .admin-panel {
-  padding: 20px 24px;
-  background: #ffffff;
-  border: 1px solid var(--field-border);
-  border-radius: 12px;
-  box-shadow: var(--shadow-xs);
+    padding: 20px 24px;
+    background: #ffffff;
+    border: 1px solid var(--field-border);
+    border-radius: 12px;
+    box-shadow: var(--shadow-xs);
 }
 
 .admin-panel h2 {
-  margin: 0 0 12px;
-  font-size: 16px;
-  font-weight: 600;
+    margin: 0 0 12px;
+    font-size: 16px;
+    font-weight: 600;
 }
 
 .admin-empty {
-  color: var(--text-muted);
-  text-align: center;
+    color: var(--text-muted);
+    text-align: center;
 }
 
 /* what went wrong, under the field or above the table it's about */
 .field-error {
-  margin: 0;
-  font-size: 15px;
-  color: var(--brand-red);
+    margin: 0;
+    font-size: 15px;
+    color: var(--brand-red);
 }
 
 .admin-link {
-  display: inline-block;
-  margin-top: 12px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--brand-red);
-  text-underline-offset: 3px;
+    display: inline-block;
+    margin-top: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--brand-red);
+    text-underline-offset: 3px;
 }
 
 /* looks like a link, works as a button: View opens a dialog instead of going to another page */
 .link-btn {
-  flex: none;
-  padding: 8px 4px;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--brand-red);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  background: none;
-  border: none;
-  cursor: pointer;
+    flex: none;
+    padding: 8px 4px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--brand-red);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    background: none;
+    border: none;
+    cursor: pointer;
 }
 
 .link-btn:hover {
-  text-decoration-thickness: 2px;
+    text-decoration-thickness: 2px;
 }
 
 .link-btn:focus-visible {
-  outline: 3px solid var(--focus-ring);
-  outline-offset: 2px;
-  border-radius: 2px;
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 2px;
+    border-radius: 2px;
 }
 
 /* the ticket dialog: purpose and time, then the order or concern */
 .ticket-facts {
-  display: grid;
-  gap: 8px;
-  margin: -4px 0 0;
-  padding: 12px 0;
-  border-block: 1px solid var(--field-border);
+    display: grid;
+    gap: 8px;
+    margin: -4px 0 0;
+    padding: 12px 0;
+    border-block: 1px solid var(--field-border);
 }
 
 .ticket-facts div {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
 }
 
 .ticket-facts dt {
-  color: var(--text-muted);
+    color: var(--text-muted);
 }
 
 .ticket-facts dd {
-  margin: 0;
-  font-weight: 600;
-  text-align: right;
+    margin: 0;
+    font-weight: 600;
+    text-align: right;
 }
 
 .ticket-details .order-concern {
-  max-width: none;
+    max-width: none;
 }
 
 .visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
 }
 
 /* ---------- login ---------- */
 
 .login-page {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 24px 16px;
-  background: var(--surface-muted);
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 24px 16px;
+    background: var(--surface-muted);
 }
 
 .login-card {
-  width: 100%;
-  text-align: left;
-  max-width: 380px;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  padding: 32px 28px;
-  background: #ffffff;
-  border: 1px solid var(--field-border);
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 12px 32px rgba(0, 0, 0, 0.05);
+    width: 100%;
+    text-align: left;
+    max-width: 380px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 32px 28px;
+    background: #ffffff;
+    border: 1px solid var(--field-border);
+    border-radius: 12px;
+    box-shadow:
+        0 1px 3px rgba(0, 0, 0, 0.05),
+        0 12px 32px rgba(0, 0, 0, 0.05);
 }
 
 .login-brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
 .login-brand h1 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 700;
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
 }
 
 .admin-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 14px;
-  font-weight: 500;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 500;
 }
 
 .admin-field input {
-  height: 44px;
-  padding: 0 12px;
-  font: inherit;
-  font-size: 15px;
-  font-weight: 400;
-  background: #ffffff;
-  border: 1px solid var(--field-border);
-  border-radius: 8px;
+    height: 44px;
+    padding: 0 12px;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 400;
+    background: #ffffff;
+    border: 1px solid var(--field-border);
+    border-radius: 8px;
 }
 
 /* the sign-in password box, with the show/hide eye sitting inside its right edge */
 .password-field {
-  position: relative;
-  display: flex;
+    position: relative;
+    display: flex;
 }
 
 .password-field input {
-  flex: 1;
-  min-width: 0;
-  padding-right: 84px;
+    flex: 1;
+    min-width: 0;
+    padding-right: 84px;
 }
 
 .password-toggle {
-  position: absolute;
-  top: 0;
-  right: 0;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 12px;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-muted);
-  background: none;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 12px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
 }
 
 .password-toggle:hover {
-  color: var(--text-dark);
+    color: var(--text-dark);
 }
 
 .password-toggle:focus-visible {
-  outline: 3px solid var(--focus-ring);
-  outline-offset: -3px;
+    outline: 3px solid var(--focus-ring);
+    outline-offset: -3px;
 }
 
 /* phones and iPads zoom the whole page in when a box's text is under 16px, so the sign-in boxes use 16px */
 .login-card .admin-field input {
-  font-size: 16px;
+    font-size: 16px;
 }
 
 .caps-lock-warning {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: #b45309;
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #b45309;
 }
 
 .admin-field select {
-  height: 44px;
-  padding: 0 8px;
-  font: inherit;
-  font-size: 15px;
-  font-weight: 400;
-  background: #ffffff;
-  border: 1px solid var(--field-border);
-  border-radius: 8px;
+    height: 44px;
+    padding: 0 8px;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 400;
+    background: #ffffff;
+    border: 1px solid var(--field-border);
+    border-radius: 8px;
 }
 
 /* one that's someone else's to pick, e.g. the payment status, which only the cashier sets */
 .admin-field select:disabled {
-  color: var(--text-muted);
-  background: var(--field-bg);
-  cursor: not-allowed;
+    color: var(--text-muted);
+    background: var(--field-bg);
+    cursor: not-allowed;
 }
 
 /* ---------- dashboard ---------- */
 
 /* the Dashboard runs edge to edge, its side panel (the profile and the live queue) against the window's right edge */
 .admin-main:has(.overview) {
-  max-width: none;
-  padding: 0;
+    max-width: none;
+    padding: 0;
 }
 
 .overview {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
-  min-height: calc(100vh - var(--bar-h));
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    min-height: calc(100vh - var(--bar-h));
 }
 
 .overview-main {
-  width: 100%;
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 28px 24px 64px;
+    width: 100%;
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 28px 24px 64px;
 }
 
 /* Overview, Queue status, Your pages: a heading over a row of cards */
 .overview-section {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 }
 
 .overview-heading {
-  margin: 0;
-  font-size: 17px;
-  font-weight: 600;
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
 }
 
 /* stays in view while the page scrolls, and scrolls on its own when it's the longer of the two */
 .overview-rail {
-  position: sticky;
-  top: var(--bar-h);
-  height: calc(100vh - var(--bar-h));
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  background: #ffffff;
-  border-left: 1px solid var(--field-border);
+    position: sticky;
+    top: var(--bar-h);
+    height: calc(100vh - var(--bar-h));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: #ffffff;
+    border-left: 1px solid var(--field-border);
 }
 
 /* the profile: the photo half on a banner, then the name and the details */
 .profile-summary {
-  border-bottom: 1px solid var(--field-border);
+    border-bottom: 1px solid var(--field-border);
 }
 
 .profile-summary-cover {
-  position: relative;
-  height: 112px;
-  background:
-    radial-gradient(110% 150% at 100% 0%, rgba(200, 32, 42, 0.75), transparent 60%),
-    radial-gradient(80% 120% at 0% 100%, rgba(255, 255, 255, 0.1), transparent 60%),
-    linear-gradient(135deg, #27272a, #111111 60%, #0a0a0a);
+    position: relative;
+    height: 112px;
+    background:
+        radial-gradient(110% 150% at 100% 0%, rgba(200, 32, 42, 0.75), transparent 60%),
+        radial-gradient(80% 120% at 0% 100%, rgba(255, 255, 255, 0.1), transparent 60%),
+        linear-gradient(135deg, #27272a, #111111 60%, #0a0a0a);
 }
 
 .profile-summary-cover-img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 /* a cover photo can be pale, so the button on it gets a dark backing to stay readable */
 .profile-summary-cover.has-photo .profile-summary-edit {
-  background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.5);
 }
 
 .profile-summary-cover.has-photo .profile-summary-edit:hover {
-  background: rgba(0, 0, 0, 0.7);
+    background: rgba(0, 0, 0, 0.7);
 }
 
 .profile-summary-edit {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 7px;
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 8px;
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 7px;
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
 }
 
 .profile-summary-edit:hover {
-  background: rgba(255, 255, 255, 0.26);
+    background: rgba(255, 255, 255, 0.26);
 }
 
 .profile-summary-edit:focus-visible {
-  outline: 2px solid #ffffff;
-  outline-offset: 2px;
+    outline: 2px solid #ffffff;
+    outline-offset: 2px;
 }
 
 .profile-summary-body {
-  padding: 0 20px 22px;
+    padding: 0 20px 22px;
 }
 
 /* positioned, so it's drawn over the banner it overlaps rather than under it */
 .profile-summary-body > .avatar {
-  position: relative;
-  margin-top: -32px;
-  border: 3px solid #ffffff;
-  border-radius: 14px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.14);
+    position: relative;
+    margin-top: -32px;
+    border: 3px solid #ffffff;
+    border-radius: 14px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.14);
 }
 
 .profile-summary-name {
-  margin: 12px 0 0;
-  font-size: 17px;
-  font-weight: 600;
-  overflow-wrap: anywhere;
+    margin: 12px 0 0;
+    font-size: 17px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
 }
 
 .profile-summary-username {
-  margin: 2px 0 0;
-  font-size: 14px;
-  color: var(--text-muted);
-  overflow-wrap: anywhere;
+    margin: 2px 0 0;
+    font-size: 14px;
+    color: var(--text-muted);
+    overflow-wrap: anywhere;
 }
 
 .profile-summary-facts {
-  display: grid;
-  gap: 12px;
-  margin: 20px 0 0;
-  font-size: 14px;
+    display: grid;
+    gap: 12px;
+    margin: 20px 0 0;
+    font-size: 14px;
 }
 
 .profile-summary-facts div {
-  display: grid;
-  grid-template-columns: 104px minmax(0, 1fr);
-  gap: 12px;
+    display: grid;
+    grid-template-columns: 104px minmax(0, 1fr);
+    gap: 12px;
 }
 
 .profile-summary-facts dt {
-  color: var(--text-muted);
+    color: var(--text-muted);
 }
 
 .profile-summary-facts dd {
-  margin: 0;
-  font-weight: 500;
-  overflow-wrap: anywhere;
+    margin: 0;
+    font-weight: 500;
+    overflow-wrap: anywhere;
 }
 
 /* the live queue under the profile: a small copy of the queue display (src/display), in its red and white and its
    type: Now serving in a card under a red bar, then the line in a table */
 .live-queue {
-  --mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
-  --red-dark: #9e1820;
-  --red-line: #f3c2c4;
-  --line: #f1e1e2;
-  --stripe: #fdf7f7;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 20px 16px 24px;
+    --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+    --red-dark: #9e1820;
+    --red-line: #f3c2c4;
+    --line: #f1e1e2;
+    --stripe: #fdf7f7;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 20px 16px 24px;
 }
 
 .mini-serving,
 .mini-line {
-  overflow: hidden;
-  background: #ffffff;
-  border: 1px solid var(--red-line);
-  border-radius: 10px;
+    overflow: hidden;
+    background: #ffffff;
+    border: 1px solid var(--red-line);
+    border-radius: 10px;
 }
 
 .mini-serving-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 8px 12px;
-  background: var(--brand-red);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--brand-red);
 }
 
 .mini-serving-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #ffffff;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #ffffff;
 }
 
 .mini-serving-title .line-icon {
-  width: 15px;
-  height: 15px;
+    width: 15px;
+    height: 15px;
 }
 
 .mini-live {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 2px 8px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.18);
-  border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 8px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
 }
 
 .mini-live-dot {
-  width: 6px;
-  height: 6px;
-  background: currentColor;
-  border-radius: 50%;
+    width: 6px;
+    height: 6px;
+    background: currentColor;
+    border-radius: 50%;
 }
 
 .mini-live.is-off {
-  color: var(--red-dark);
-  background: #ffffff;
+    color: var(--red-dark);
+    background: #ffffff;
 }
 
 /* the newest call: its number large, the name, a dashed line, then what the display reads out */
 .mini-serving-call {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 18px 14px 14px;
-  text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 18px 14px 14px;
+    text-align: center;
 }
 
 .mini-serving-num {
-  margin: 0;
-  font-family: var(--mono);
-  font-size: 40px;
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-  color: var(--brand-red);
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 40px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    color: var(--brand-red);
 }
 
 .mini-serving-name {
-  margin: 8px 0 0;
-  font-size: 17px;
-  font-weight: 900;
-  line-height: 1.15;
-  text-transform: uppercase;
-  overflow-wrap: anywhere;
+    margin: 8px 0 0;
+    font-size: 17px;
+    font-weight: 900;
+    line-height: 1.15;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
 }
 
 .mini-serving-note {
-  align-self: stretch;
-  margin: 10px 0 0;
-  padding-top: 10px;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--red-dark);
-  border-top: 1px dashed var(--red-line);
+    align-self: stretch;
+    margin: 10px 0 0;
+    padding-top: 10px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--red-dark);
+    border-top: 1px dashed var(--red-line);
 }
 
 .mini-serving-call .served-by {
-  align-self: center;
-  margin-top: 10px;
+    align-self: center;
+    margin-top: 10px;
 }
 
 /* everyone else at a counter, on the display's pink stripe */
 .mini-serving-others {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  background: var(--stripe);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    background: var(--stripe);
 }
 
 .mini-serving-other {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-top: 1px solid var(--line);
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-top: 1px solid var(--line);
 }
 
 /* a ticket number, a name and a tag, the display's small sizes */
 .mini-num {
-  font-family: var(--mono);
-  font-size: 14px;
-  font-weight: 700;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-  color: var(--brand-red);
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    color: var(--brand-red);
 }
 
 .mini-name {
-  min-width: 0;
-  font-size: 13px;
-  font-weight: 800;
-  line-height: 1.25;
-  text-transform: uppercase;
-  overflow-wrap: anywhere;
+    min-width: 0;
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.25;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
 }
 
 .mini-pill {
-  display: inline-block;
-  max-width: 110px;
-  padding: 2px 6px;
-  font-size: 10px;
-  font-weight: 800;
-  line-height: 1.3;
-  letter-spacing: 0.02em;
-  text-align: center;
-  text-transform: uppercase;
-  color: var(--red-dark);
-  background: #ffffff;
-  border: 1px solid var(--red-line);
-  border-radius: 5px;
+    display: inline-block;
+    max-width: 110px;
+    padding: 2px 6px;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1.3;
+    letter-spacing: 0.02em;
+    text-align: center;
+    text-transform: uppercase;
+    color: var(--red-dark);
+    background: #ffffff;
+    border: 1px solid var(--red-line);
+    border-radius: 5px;
 }
 
 .mini-more {
-  margin: 0;
-  padding: 8px 12px;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-muted);
-  border-top: 1px solid var(--line);
+    margin: 0;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-muted);
+    border-top: 1px solid var(--line);
 }
 
 .mini-empty {
-  margin: 0;
-  padding: 20px 12px;
-  font-size: 14px;
-  font-weight: 600;
-  text-align: center;
-  color: var(--text-muted);
+    margin: 0;
+    padding: 20px 12px;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    color: var(--text-muted);
 }
 
 /* the line: its heading and how many are in it, then the table */
 .mini-line-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 12px;
 }
 
 .mini-line-title {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 900;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--brand-red);
+    margin: 0;
+    font-size: 13px;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--brand-red);
 }
 
 .mini-line-count {
-  padding: 2px 8px;
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: var(--red-dark);
-  background: var(--brand-tint);
-  border-radius: 999px;
+    padding: 2px 8px;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--red-dark);
+    background: var(--brand-tint);
+    border-radius: 999px;
 }
 
 .mini-line-table {
-  width: 100%;
-  border-collapse: collapse;
+    width: 100%;
+    border-collapse: collapse;
 }
 
 .mini-line-table th {
-  padding: 6px;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-align: left;
-  text-transform: uppercase;
-  color: var(--red-dark);
-  background: var(--brand-tint);
-  border-bottom: 2px solid var(--brand-red);
+    padding: 6px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-align: left;
+    text-transform: uppercase;
+    color: var(--red-dark);
+    background: var(--brand-tint);
+    border-bottom: 2px solid var(--brand-red);
 }
 
 .mini-line-table td {
-  padding: 8px 6px;
-  vertical-align: middle;
-  border-bottom: 1px solid var(--line);
+    padding: 8px 6px;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--line);
 }
 
 .mini-line-table th:first-child,
 .mini-line-table td:first-child {
-  padding-left: 12px;
+    padding-left: 12px;
 }
 
 .mini-line-table th:last-child,
 .mini-line-table td:last-child {
-  padding-right: 12px;
+    padding-right: 12px;
 }
 
 .mini-line-table tbody tr:nth-child(even) td {
-  background: var(--stripe);
+    background: var(--stripe);
 }
 
 .mini-line-table tbody tr:last-child td {
-  border-bottom: none;
+    border-bottom: none;
 }
 
 .mini-returning {
-  display: inline-block;
-  margin-left: 4px;
-  padding: 1px 5px;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  vertical-align: middle;
-  color: #4b2a9e;
-  background: #f3ecfd;
-  border: 1px solid #c4aef0;
-  border-radius: 4px;
+    display: inline-block;
+    margin-left: 4px;
+    padding: 1px 5px;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    vertical-align: middle;
+    color: #4b2a9e;
+    background: #f3ecfd;
+    border: 1px solid #c4aef0;
+    border-radius: 4px;
 }
 
 /* an admin opens the ticket from its number */
 .mini-line-view {
-  padding: 0;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  background: none;
-  border: 0;
-  cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    background: none;
+    border: 0;
+    cursor: pointer;
 }
 
 .mini-line-view:focus-visible {
-  outline: 3px solid var(--focus-ring);
-  outline-offset: 2px;
-  border-radius: 2px;
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 2px;
+    border-radius: 2px;
 }
 
 .mini-line .mini-line-manage {
-  display: block;
-  margin: 0;
-  padding: 10px 12px;
-  border-top: 1px solid var(--line);
+    display: block;
+    margin: 0;
+    padding: 10px 12px;
+    border-top: 1px solid var(--line);
 }
 
 .live-queue-display {
-  width: 100%;
+    width: 100%;
 }
 
 /* the Dashboard's links to a role's own pages, a card each */
 .quick-links {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 12px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
 }
 
 .quick-links > li {
-  display: flex;
-  min-width: 0;
+    display: flex;
+    min-width: 0;
 }
 
 .quick-link {
-  flex: 1;
-  color: inherit;
-  text-decoration: none;
-  transition: background 0.15s, border-color 0.15s;
+    flex: 1;
+    color: inherit;
+    text-decoration: none;
+    transition:
+        background 0.15s,
+        border-color 0.15s;
 }
 
 .quick-link:hover {
-  background: var(--brand-tint);
-  border-color: var(--brand-tint-border);
+    background: var(--brand-tint);
+    border-color: var(--brand-tint-border);
 }
 
 .quick-link:focus-visible {
-  outline: 3px solid var(--focus-ring);
-  outline-offset: 2px;
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 2px;
 }
 
 .quick-link-label {
-  font-weight: 600;
+    font-weight: 600;
 }
 
 .quick-link .stat-label {
-  font-size: 13px;
+    font-size: 13px;
 }
 
 /* the Dashboard's In charge list: each customer in progress, where they are, who is with them (their photo and name)
    and their types of order, a line between the columns; its heading row stays in view while the list scrolls */
 .charge-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px 12px;
 }
 
 .charge-wrap {
-  max-height: 440px;
-  overflow: auto;
-  overscroll-behavior: contain;
+    max-height: 440px;
+    overflow: auto;
+    overscroll-behavior: contain;
 }
 
 .charge-table {
-  min-width: 640px;
+    min-width: 640px;
 }
 
 /* .charge-wrap too, to outweigh .admin-table's padding and top alignment further down */
 .charge-wrap .charge-table th,
 .charge-wrap .charge-table td {
-  padding: 10px 14px;
-  vertical-align: middle;
+    padding: 10px 14px;
+    vertical-align: middle;
 }
 
 .charge-table thead th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
+    position: sticky;
+    top: 0;
+    z-index: 1;
 }
 
 .charge-table thead th:not(:last-child),
 .charge-table tbody > tr > :not(:last-child) {
-  border-right: 1px solid var(--field-border);
+    border-right: 1px solid var(--field-border);
 }
 
 /* the customer heads its row, but reads like the other cells rather than like the column headings */
 .charge-table tbody th {
-  font-size: inherit;
-  font-weight: 400;
-  color: inherit;
-  background: #ffffff;
+    font-size: inherit;
+    font-weight: 400;
+    color: inherit;
+    background: #ffffff;
 }
 
 .charge-table tbody td {
-  background: #ffffff;
+    background: #ffffff;
 }
 
 .charge-table tbody tr:hover > * {
-  background: var(--surface-muted);
+    background: var(--surface-muted);
 }
 
 /* the signed-in staff member's own customers */
 .charge-table tbody tr.is-mine > * {
-  background: var(--brand-tint);
+    background: var(--brand-tint);
 }
 
 .charge-ticket {
-  display: block;
-  font-family: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  color: var(--brand-red);
+    display: block;
+    font-family: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--brand-red);
 }
 
 .charge-name {
-  display: block;
-  font-weight: 600;
-  overflow-wrap: anywhere;
+    display: block;
+    font-weight: 600;
+    overflow-wrap: anywhere;
 }
 
 /* where they are, after a gray flag, in the stage's color as on the Order status board */
 .charge-stage {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 500;
 }
 
 .charge-stage .line-icon {
-  flex: none;
-  width: 16px;
-  height: 16px;
-  color: var(--text-muted);
+    flex: none;
+    width: 16px;
+    height: 16px;
+    color: var(--text-muted);
 }
 
 .charge-stage.is-line {
-  color: #52525b;
+    color: #52525b;
 }
 
 .charge-stage.is-sales {
-  color: #b45309;
+    color: #b45309;
 }
 
 .charge-stage.is-loading {
-  color: #1d5f9e;
+    color: #1d5f9e;
 }
 
 .charge-stage.is-security {
-  color: #5b3a8c;
+    color: #5b3a8c;
 }
 
 .charge-person {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 500;
 }
 
 .charge-you,
 .charge-nobody {
-  font-weight: 400;
-  color: var(--text-muted);
+    font-weight: 400;
+    color: var(--text-muted);
 }
 
 .charge-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
 }
 
 .charge-tags li {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 2px 8px;
-  font-size: 13px;
-  white-space: nowrap;
-  color: #52525b;
-  background: #ffffff;
-  border: 1px solid var(--field-border);
-  border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 8px;
+    font-size: 13px;
+    white-space: nowrap;
+    color: #52525b;
+    background: #ffffff;
+    border: 1px solid var(--field-border);
+    border-radius: 6px;
 }
 
 .charge-tags .line-icon {
-  width: 13px;
-  height: 13px;
+    width: 13px;
+    height: 13px;
 }
 
 .stat-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 12px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
 }
 
 /* cards with an icon need more room before the label wraps: on a phone they go one under another */
 .stat-grid:has(> .has-icon) {
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
 }
 
 /* the number at the foot, so a row of cards lines its numbers up even when a label wraps */
 .stat-card {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 6px;
-  padding: 16px 18px;
-  background: #ffffff;
-  border: 1px solid var(--field-border);
-  border-radius: 10px;
-  box-shadow: var(--shadow-xs);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 16px 18px;
+    background: #ffffff;
+    border: 1px solid var(--field-border);
+    border-radius: 10px;
+    box-shadow: var(--shadow-xs);
 }
 
 /* an icon in a little gray box on the left, the label and the number beside it */
 .stat-card.has-icon {
-  display: grid;
-  grid-template-columns: 44px minmax(0, 1fr);
-  align-items: center;
-  gap: 2px 14px;
-  padding: 18px;
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    align-items: center;
+    gap: 2px 14px;
+    padding: 18px;
 }
 
 .stat-icon {
-  grid-row: 1 / span 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  padding: 11px;
-  color: var(--brand-red);
-  background: var(--brand-tint);
-  border: 1px solid var(--brand-tint-border);
-  border-radius: 8px;
+    grid-row: 1 / span 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 11px;
+    color: var(--brand-red);
+    background: var(--brand-tint);
+    border: 1px solid var(--brand-tint-border);
+    border-radius: 8px;
 }
 
 .stat-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: var(--text-muted);
 }
 
 .stat-value {
-  font-size: 22px;
-  font-weight: 600;
-  letter-spacing: -0.3px;
-  font-variant-numeric: tabular-nums;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    font-variant-numeric: tabular-nums;
 }
 
 /* a little square in the status's color, before its name on Queue status */
 .stat-dot {
-  flex: none;
-  width: 12px;
-  height: 12px;
-  border-radius: 3px;
-  background: #71717a;
+    flex: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    background: #71717a;
 }
 
 .stat-dot.is-pending {
-  background: #f59e0b;
+    background: #f59e0b;
 }
 
 .stat-dot.is-serving {
-  background: #3b82f6;
+    background: #3b82f6;
 }
 
 .stat-dot.is-done {
-  background: #10b981;
+    background: #10b981;
 }
 
 .stat-dot.is-returning {
-  background: #a855f7;
+    background: #a855f7;
 }
 
 .queue-columns {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 16px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
 }
 
 /* a narrower window has no room for the side panel beside the page: it goes under it */
 @media (max-width: 1279px) {
-  .overview {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .overview-rail {
-    position: static;
-    height: auto;
-    border-left: 0;
-    border-top: 1px solid var(--field-border);
-  }
+    .overview {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .overview-rail {
+        position: static;
+        height: auto;
+        border-left: 0;
+        border-top: 1px solid var(--field-border);
+    }
 }
 
 /* ---------- orders table ---------- */
 
 .admin-filter {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
 }
 
 /* View queue ticket on Customer order: wide enough for a number and a name */
 .ticket-picker {
-  flex-wrap: wrap;
+    flex-wrap: wrap;
 }
 
 /* a long customer name in the list doesn't widen it past the screen */
 .ticket-picker select {
-  min-width: 0;
-  max-width: min(280px, calc(100vw - 48px));
+    min-width: 0;
+    max-width: min(280px, calc(100vw - 48px));
 }
 
 .admin-filter select,
 .status-select {
-  height: 36px;
-  padding: 0 8px;
-  font: inherit;
-  font-size: 14px;
-  background: #ffffff;
-  border: 1px solid var(--field-border);
-  border-radius: 8px;
+    height: 36px;
+    padding: 0 8px;
+    font: inherit;
+    font-size: 14px;
+    background: #ffffff;
+    border: 1px solid var(--field-border);
+    border-radius: 8px;
 }
 
 .admin-table-wrap {
-  overflow-x: auto;
-  background: #ffffff;
-  border: 1px solid var(--field-border);
-  border-radius: 12px;
-  box-shadow: var(--shadow-xs);
+    overflow-x: auto;
+    background: #ffffff;
+    border: 1px solid var(--field-border);
+    border-radius: 12px;
+    box-shadow: var(--shadow-xs);
 }
 
 .admin-table {
-  width: 100%;
-  border-collapse: collapse;
+    width: 100%;
+    border-collapse: collapse;
 }
 
 .admin-table th,
 .admin-table td {
-  padding: 12px 16px;
-  text-align: left;
-  vertical-align: top;
-  border-bottom: 1px solid var(--field-border);
+    padding: 12px 16px;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--field-border);
 }
 
 .admin-table th {
-  font-size: 13px;
-  font-weight: 600;
-  color: #3f3f46;
-  background: var(--surface-muted);
+    font-size: 13px;
+    font-weight: 600;
+    color: #3f3f46;
+    background: var(--surface-muted);
 }
 
 .admin-table tbody tr:last-child td {
-  border-bottom: none;
+    border-bottom: none;
 }
 
 .item-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
+    margin: 0;
+    padding: 0;
+    list-style: none;
 }
 
 /* a Customer Report's concern, where an order's items would be */
 .order-concern {
-  max-width: 36ch;
-  margin: 0;
-  overflow-wrap: anywhere;
+    max-width: 36ch;
+    margin: 0;
+    overflow-wrap: anywhere;
 }
 
 /* "Concern" over a report's text, and "Order" over the items in the ticket dialog */
 .order-details-label {
-  display: block;
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--brand-red);
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--brand-red);
 }
 
 .status-select {
-  font-weight: 600;
+    font-weight: 600;
 }
 
 /* Accounts: the sales team picker, on its own line under the role */
 .account-team {
-  display: block;
-  margin-top: 6px;
-  font-weight: 500;
+    display: block;
+    margin-top: 6px;
+    font-weight: 500;
 }
 
 .status-pending {
-  background: #fff7e0;
-  border-color: #e9cf85;
+    background: #fff7e0;
+    border-color: #e9cf85;
 }
 
 .status-serving {
-  background: #e7f3ff;
-  border-color: #9cc7f0;
+    background: #e7f3ff;
+    border-color: #9cc7f0;
 }
 
 .status-done {
-  background: #e8f6ec;
-  border-color: #9fd3ae;
+    background: #e8f6ec;
+    border-color: #9fd3ae;
 }
 
 .status-returning {
-  background: #f3ecfd;
-  border-color: #c4aef0;
+    background: #f3ecfd;
+    border-color: #c4aef0;
 }
 
 /* "Returning" beside a returning customer in the waiting lists */
 .returning-tag {
-  margin-left: 6px;
-  padding: 0 8px;
-  font-size: 12px;
-  vertical-align: middle;
+    margin-left: 6px;
+    padding: 0 8px;
+    font-size: 12px;
+    vertical-align: middle;
 }
 
 /* an order's invoice, payment status, team, salesman and pick-up day, on one wrapping line
    (Orders, My counter, History and the ticket dialog) */
 .sale-facts {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 12px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: 14px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 14px;
 }
 
 .sale-pay {
-  padding: 0 8px;
-  font-weight: 600;
-  background: var(--cream);
-  border: 1px solid var(--cream-border);
-  border-radius: 999px;
+    padding: 0 8px;
+    font-weight: 600;
+    background: var(--cream);
+    border: 1px solid var(--cream-border);
+    border-radius: 999px;
 }
 
 /* a returning customer's day, in the returning status's purple */
 .sale-pickup {
-  font-weight: 600;
-  color: #5b3aa8;
+    font-weight: 600;
+    color: #5b3aa8;
 }
 
 /* the security check at the gate: waiting or verified, or a guard's report in red */
 .sale-security {
-  font-weight: 600;
-  color: #5b3a8c;
+    font-weight: 600;
+    color: #5b3a8c;
 }
 
 .sale-security.is-reported {
-  color: #8f1d1d;
+    color: #8f1d1d;
 }
 
 .sale-facts + .item-list {
-  margin-top: 6px;
+    margin-top: 6px;
 }
 
 /* ---------- loading ---------- */
 
 /* a customer a sales counter is serving: grayed out, with the reason on its own line underneath */
 .counter-ticket.is-elsewhere .counter-ticket-main {
-  opacity: 0.6;
+    opacity: 0.6;
 }
 
 /* Call stays on the right, even when the details push it onto the next line */
 .loading-call {
-  margin-left: auto;
+    margin-left: auto;
 }
 
 .loading-call .admin-btn-call:disabled {
-  color: #6f6f6f;
-  background: #e4e4e1;
-  border-color: #d4d4d0;
-  opacity: 1;
+    color: #6f6f6f;
+    background: #e4e4e1;
+    border-color: #d4d4d0;
+    opacity: 1;
 }
 
 .wait-hint {
-  flex-basis: 100%;
-  margin: 0;
-  padding: 6px 10px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #5c5c58;
-  background: #f1f1ee;
-  border-radius: 6px;
+    flex-basis: 100%;
+    margin: 0;
+    padding: 6px 10px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #5c5c58;
+    background: #f1f1ee;
+    border-radius: 6px;
 }
 
 /* a customer a crew has now, one card each: who and how far along, the order, then what to do next */
 .serving-list {
-  display: grid;
-  gap: 12px;
+    display: grid;
+    gap: 12px;
 }
 
 .serving-card {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 0;
-  padding: 14px 16px 16px;
-  background: #ffffff;
-  border: 1px solid var(--field-border);
-  border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+    padding: 14px 16px 16px;
+    background: #ffffff;
+    border: 1px solid var(--field-border);
+    border-radius: 10px;
 }
 
 /* the truck is being loaded: in the same green as its status */
 .serving-card.is-loading {
-  border-color: #9fd3ae;
+    border-color: #9fd3ae;
 }
 
 .serving-head {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
 }
 
 /* the number and its status stay on one line, whatever the length of the customer's name under them */
 .serving-top {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 4px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px 12px;
 }
 
 .serving-number {
-  font-size: 26px;
-  font-weight: 800;
-  line-height: 1.2;
-  letter-spacing: 0.04em;
-  color: var(--brand-red);
+    font-size: 26px;
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: 0.04em;
+    color: var(--brand-red);
 }
 
 .serving-name {
-  font-size: 16px;
-  font-weight: 700;
-  overflow-wrap: anywhere;
+    font-size: 16px;
+    font-weight: 700;
+    overflow-wrap: anywhere;
 }
 
 /* only called, in amber, or loading since a time, in green */
 .serving-status {
-  padding: 3px 10px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #7a4f00;
-  background: #fdf3dc;
-  border: 1px solid #f0d9a0;
-  border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #7a4f00;
+    background: #fdf3dc;
+    border: 1px solid #f0d9a0;
+    border-radius: 999px;
 }
 
 .serving-card.is-loading .serving-status {
-  color: #1a6b32;
-  background: #e8f6ec;
-  border-color: #9fd3ae;
+    color: #1a6b32;
+    background: #e8f6ec;
+    border-color: #9fd3ae;
 }
 
 /* the order's areas in turn: finished, where they are now, and what's left */
 .serving-areas {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
 }
 
 .serving-area {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 10px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-muted);
-  border: 1px solid var(--field-border);
-  border-radius: 999px;
-  white-space: pre-wrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    border: 1px solid var(--field-border);
+    border-radius: 999px;
+    white-space: pre-wrap;
 }
 
 .serving-area.is-done {
-  color: #1a6b32;
-  background: #e8f6ec;
-  border-color: #9fd3ae;
+    color: #1a6b32;
+    background: #e8f6ec;
+    border-color: #9fd3ae;
 }
 
 .serving-area.is-now {
-  font-weight: 700;
-  color: #ffffff;
-  background: var(--text-dark);
-  border-color: var(--text-dark);
+    font-weight: 700;
+    color: #ffffff;
+    background: var(--text-dark);
+    border-color: var(--text-dark);
 }
 
 .serving-area-now {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
 }
 
 .serving-facts {
-  display: grid;
-  gap: 4px;
-  margin: 0;
-  font-size: 14px;
+    display: grid;
+    gap: 4px;
+    margin: 0;
+    font-size: 14px;
 }
 
 .serving-facts > div {
-  display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
-  gap: 8px;
+    display: grid;
+    grid-template-columns: 72px minmax(0, 1fr);
+    gap: 8px;
 }
 
 .serving-facts dt {
-  color: var(--text-muted);
+    color: var(--text-muted);
 }
 
 .serving-facts dd {
-  margin: 0;
-  font-weight: 600;
-  overflow-wrap: anywhere;
+    margin: 0;
+    font-weight: 600;
+    overflow-wrap: anywhere;
 }
 
 /* the sale's details, in tidy columns rather than one long line */
 .serving-card .sale-facts {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-  gap: 4px 16px;
-  padding-top: 10px;
-  border-top: 1px solid var(--field-border);
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 4px 16px;
+    padding-top: 10px;
+    border-top: 1px solid var(--field-border);
 }
 
 .serving-card .sale-pay {
-  justify-self: start;
+    justify-self: start;
 }
 
 .serving-card .served-by,
 .serving-card .sent-back-note {
-  margin-top: 0;
+    margin-top: 0;
 }
 
 .serving-actions {
-  display: grid;
-  gap: 8px;
-  padding-top: 12px;
-  border-top: 1px solid var(--field-border);
+    display: grid;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--field-border);
 }
 
 .serving-next {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 500;
+    margin: 0;
+    font-size: 14px;
+    font-weight: 500;
 }
 
 .serving-main-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
 /* one main button across the card, with any other areas sharing the row under it */
 .serving-main-actions .admin-btn {
-  flex: 1 1 170px;
-  min-height: 44px;
+    flex: 1 1 170px;
+    min-height: 44px;
 }
 
 .serving-main-actions .admin-btn-primary {
-  flex-basis: 100%;
-  font-weight: 600;
+    flex-basis: 100%;
+    font-weight: 600;
 }
 
 .serving-more-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
 .serving-more-actions .admin-btn {
-  flex: 1 1 130px;
+    flex: 1 1 130px;
 }
 
 /* a guard's report that sent the order back to an area, in the report's red */
 .sent-back-note {
-  margin: 4px 0 0;
-  padding: 6px 10px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #8f1d1d;
-  background: #fdeeee;
-  border-radius: 6px;
+    margin: 4px 0 0;
+    padding: 6px 10px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #8f1d1d;
+    background: #fdeeee;
+    border-radius: 6px;
 }
 
 /* ---------- customer order ---------- */
 
 /* the printed ticket (src/style/customerOrder.css), centered in the panel */
 .order-panel {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 32px 48px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 48px;
 }
 
 /* the form: one column of short groups, then the bar with Serve at the bottom */
 .sale-form {
-  display: flex;
-  flex-direction: column;
-  gap: 28px;
-  padding: 28px 32px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    padding: 28px 32px 0;
 }
 
 .sale-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 28px;
-  max-width: 760px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    max-width: 760px;
 }
 
 /* the pick-up date, half as wide as a field in a row */
 .sale-field.is-narrow {
-  max-width: 240px;
+    max-width: 240px;
 }
 
 /* a group of the Order tab: its heading, then its fields; a thin line between groups keeps them apart without boxes */
 .sale-group {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: none;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: none;
 }
 
 .sale-group + .sale-group {
-  padding-top: 24px;
-  border-top: 1px solid var(--field-border);
+    padding-top: 24px;
+    border-top: 1px solid var(--field-border);
 }
 
 .sale-group-title {
-  /* a legend sits on its fieldset's border; floated, it's an ordinary heading inside the group, spaced by its gap */
-  float: left;
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  font-size: 15px;
-  font-weight: 600;
+    /* a legend sits on its fieldset's border; floated, it's an ordinary heading inside the group, spaced by its gap */
+    float: left;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    font-size: 15px;
+    font-weight: 600;
 }
 
 /* fields side by side: three to a row (salesman, team, payment, then the two times under them), or two (name and
    type of order); fewer as the form gets narrower */
 .sale-row {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-  align-items: start;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    align-items: start;
 }
 
 .sale-row.is-two {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .sale-form .has-error {
-  border-color: var(--brand-red);
+    border-color: var(--brand-red);
 }
 
 /* Customer order with the Order status board docked on its right, in a window wide enough for both; the page gets
    wider than the others to make room, and the board stays in view while the form scrolls */
 .admin-main:has(.desk-layout.has-status) {
-  max-width: 1640px;
+    max-width: 1640px;
 }
 
 .desk-layout.has-status {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 380px;
-  gap: 20px;
-  align-items: start;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 380px;
+    gap: 20px;
+    align-items: start;
 }
 
 /* the Queue ticket half while the Order sheet shows; display: grid would otherwise outrank the hidden attribute */
 .desk-layout[hidden] {
-  display: none;
+    display: none;
 }
 
 /* Queue ticket / Order sheet, in the page's heading */
 .desk-views {
-  margin: 0 auto 0 8px;
+    margin: 0 auto 0 8px;
 }
 
 .desk-views .video-tab {
-  flex: none;
-  padding: 8px 18px;
+    flex: none;
+    padding: 8px 18px;
 }
 
 /* the Order sheet: like a spreadsheet, thin grid lines and short rows, the heading row and the ticket column staying
    in view while the rest scrolls; the four columns staff fill in have a cream heading, and their cells are typed or
    picked into right where they are */
 .order-sheet-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 12px 20px;
-  margin-bottom: 14px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px 20px;
+    margin-bottom: 14px;
 }
 
 .order-sheet-head h2 {
-  margin: 0 0 4px;
+    margin: 0 0 4px;
 }
 
 .order-sheet-head .tab-hint {
-  max-width: 640px;
-  margin: 0;
+    max-width: 640px;
+    margin: 0;
 }
 
 .order-sheet-status {
-  min-height: 1.4em;
-  margin: 0 0 0 auto;
-  font-size: 13px;
-  color: var(--text-muted);
+    min-height: 1.4em;
+    margin: 0 0 0 auto;
+    font-size: 13px;
+    color: var(--text-muted);
 }
 
 /* stacked at the right of the heading, so the sheet's copy in Google Sheets doesn't push the search onto its own line */
 .order-sheet-tools {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
-  max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    max-width: 100%;
 }
 
 /* the search's own phone rule (flex: 1) is for a row; in this column it would squash its height */
 .order-sheet-tools .order-status-search {
-  flex: none;
+    flex: none;
 }
 
 @media (max-width: 640px) {
-  .order-sheet-tools,
-  .order-sheet-tools .order-status-search {
-    width: 100%;
-  }
+    .order-sheet-tools,
+    .order-sheet-tools .order-status-search {
+        width: 100%;
+    }
 }
 
 /* the sheet's copy in Google Sheets: how it's doing, and the button to open it */
 .sheet-sync {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
 }
 
 .sheet-sync-status {
-  display: flex;
-  flex-direction: column;
-  max-width: 340px;
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.35;
-  color: var(--text-muted);
-  overflow-wrap: anywhere;
+    display: flex;
+    flex-direction: column;
+    max-width: 340px;
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.35;
+    color: var(--text-muted);
+    overflow-wrap: anywhere;
 }
 
 .sheet-sync-status strong {
-  color: var(--text-dark);
+    color: var(--text-dark);
 }
 
 .sheet-sync-status.is-saved strong {
-  color: #15803d;
+    color: #15803d;
 }
 
 .sheet-sync-status.is-failed strong {
-  color: var(--brand-red);
+    color: var(--brand-red);
 }
 
 /* the Order sheet uses the whole width of the screen, with narrower margins */
 .admin-main:has(.order-sheet) {
-  max-width: none;
-  padding-left: 12px;
-  padding-right: 12px;
+    max-width: none;
+    padding-left: 12px;
+    padding-right: 12px;
 }
 
 .order-sheet.admin-panel {
-  padding: 16px 12px;
+    padding: 16px 12px;
 }
 
 /* the Order sheet, laid out like the loading schedule in Google Sheets: a black heading row that stays in view, thin
@@ -2144,2429 +2150,2455 @@
    an invoice number), whose column widens to fit it; every cell staff can
    change has a cream tint, which leaves only the date, queue number and status white */
 .sheet-frame {
-  min-width: 0;
-  max-height: calc(100vh - var(--bar-h) - 32px);
-  overflow: auto;
-  border-top: 1px solid #d4d4d0;
+    min-width: 0;
+    max-height: calc(100vh - var(--bar-h) - 32px);
+    overflow: auto;
+    border-top: 1px solid #d4d4d0;
 }
 
 .sheet-table {
-  /* the size of the numbers (dates, times, invoice numbers) and of the headings, which shrink with the screen like the
+    /* the size of the numbers (dates, times, invoice numbers) and of the headings, which shrink with the screen like the
      columns do, so a date, a time or an 8-digit invoice number always fits its column on one line */
-  --sheet-num: clamp(9px, calc((100vw - 300px) * 0.0103), 12px);
-  --sheet-head: clamp(8.5px, calc((100vw - 300px) * 0.0089), 10px);
-  width: 100%;
-  /* wide enough that no heading or number is squeezed, and wider again for each column people added */
-  min-width: calc(1820px + var(--sheet-added, 0) * 110px);
-  border-collapse: separate;
-  border-spacing: 0;
-  font-size: var(--sheet-num);
-  line-height: 1.3;
-  border-left: 1px solid #d4d4d0;
+    --sheet-num: clamp(9px, calc((100vw - 300px) * 0.0103), 12px);
+    --sheet-head: clamp(8.5px, calc((100vw - 300px) * 0.0089), 10px);
+    width: 100%;
+    /* wide enough that no heading or number is squeezed, and wider again for each column people added */
+    min-width: calc(1820px + var(--sheet-added, 0) * 110px);
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: var(--sheet-num);
+    line-height: 1.3;
+    border-left: 1px solid #d4d4d0;
 }
 
 /* each column's width, left to right as on the schedule; together they make the table's min-width above */
-.sheet-table .c-date { width: 80px; }
-.sheet-table .c-que { width: 64px; }
-.sheet-table .c-team { width: 70px; }
-.sheet-table .c-salesman { width: 100px; }
-.sheet-table .c-person { width: 90px; }
-.sheet-table .c-customer { width: 160px; }
-.sheet-table .c-invoice { width: 86px; }
-.sheet-table .c-type { width: 110px; }
-.sheet-table .c-terms { width: 80px; }
-.sheet-table .c-time { width: 64px; }
-.sheet-table .c-custom { width: 110px; }
-.sheet-table .c-status { width: 110px; }
+.sheet-table .c-date {
+    width: 80px;
+}
+.sheet-table .c-que {
+    width: 64px;
+}
+.sheet-table .c-team {
+    width: 70px;
+}
+.sheet-table .c-salesman {
+    width: 100px;
+}
+.sheet-table .c-person {
+    width: 90px;
+}
+.sheet-table .c-customer {
+    width: 160px;
+}
+.sheet-table .c-invoice {
+    width: 86px;
+}
+.sheet-table .c-type {
+    width: 110px;
+}
+.sheet-table .c-terms {
+    width: 80px;
+}
+.sheet-table .c-time {
+    width: 64px;
+}
+.sheet-table .c-custom {
+    width: 110px;
+}
+.sheet-table .c-status {
+    width: 110px;
+}
 
 /* the date and queue number stay in view as the sheet scrolls sideways */
 .sheet-table .sheet-date,
 .sheet-table thead th:first-child {
-  position: sticky;
-  left: 0;
-  z-index: 1;
+    position: sticky;
+    left: 0;
+    z-index: 1;
 }
 
 .sheet-table .sheet-que,
 .sheet-table thead th:nth-child(2) {
-  position: sticky;
-  left: 80px;
-  z-index: 1;
-  border-right: 2px solid #b9b9b3;
+    position: sticky;
+    left: 80px;
+    z-index: 1;
+    border-right: 2px solid #b9b9b3;
 }
 
 .sheet-table thead th:first-child,
 .sheet-table thead th:nth-child(2) {
-  z-index: 3;
+    z-index: 3;
 }
 
 .sheet-table th,
 .sheet-table td {
-  padding: 5px 3px;
-  text-align: left;
-  vertical-align: middle;
-  /* anywhere, not break-word: a long customer name or heading wraps in its cell instead of widening the column and
+    padding: 5px 3px;
+    text-align: left;
+    vertical-align: middle;
+    /* anywhere, not break-word: a long customer name or heading wraps in its cell instead of widening the column and
      pushing the sheet off the page */
-  overflow-wrap: anywhere;
-  background: #ffffff;
-  border-right: 1px solid #d4d4d0;
-  border-bottom: 1px solid #d4d4d0;
+    overflow-wrap: anywhere;
+    background: #ffffff;
+    border-right: 1px solid #d4d4d0;
+    border-bottom: 1px solid #d4d4d0;
 }
 
 .sheet-table thead th {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  padding: 8px 2px;
-  font-size: var(--sheet-head);
-  font-weight: 800;
-  line-height: 1.2;
-  text-transform: uppercase;
-  /* a heading too long for a narrow screen breaks with a hyphen, SALES-MAN, rather than anywhere */
-  hyphens: auto;
-  vertical-align: bottom;
-  color: #ffffff;
-  background: #1d1d1b;
-  border-right-color: #3d3d3a;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding: 8px 2px;
+    font-size: var(--sheet-head);
+    font-weight: 800;
+    line-height: 1.2;
+    text-transform: uppercase;
+    /* a heading too long for a narrow screen breaks with a hyphen, SALES-MAN, rather than anywhere */
+    hyphens: auto;
+    vertical-align: bottom;
+    color: #ffffff;
+    background: #1d1d1b;
+    border-right-color: #3d3d3a;
 }
 
 .sheet-table thead th small {
-  display: block;
-  font-size: var(--sheet-head);
-  font-weight: 600;
-  text-transform: none;
-  opacity: 0.8;
+    display: block;
+    font-size: var(--sheet-head);
+    font-weight: 600;
+    text-transform: none;
+    opacity: 0.8;
 }
 
 /* the sales times' headings are yellow, as on the schedule */
 .sheet-table thead th.is-time {
-  color: #ffd54a;
+    color: #ffd54a;
 }
 
 /* a cream line under the headings of the cells staff fill in */
 .sheet-table thead th.is-editable {
-  box-shadow: inset 0 -3px 0 #d9c8a0;
+    box-shadow: inset 0 -3px 0 #d9c8a0;
 }
 
 .sheet-table tbody th {
-  font-weight: 400;
+    font-weight: 400;
 }
 
 .sheet-table tbody tr:hover > * {
-  background: #fdfaf1;
+    background: #fdfaf1;
 }
 
 .sheet-table td.is-editable {
-  padding: 0;
-  background: #fffcf3;
+    padding: 0;
+    background: #fffcf3;
 }
 
 /* staff names are written in capitals, as on the schedule, a little smaller so a long surname fits on one line */
 .sheet-caps {
-  text-transform: uppercase;
+    text-transform: uppercase;
 }
 
 .sheet-table td.sheet-caps {
-  font-size: calc(var(--sheet-num) * 0.95);
-  /* a surname stays whole, CORONACION, and its column widens to fit, even when a long queue code has taken some room */
-  overflow-wrap: break-word;
+    font-size: calc(var(--sheet-num) * 0.95);
+    /* a surname stays whole, CORONACION, and its column widens to fit, even when a long queue code has taken some room */
+    overflow-wrap: break-word;
 }
 
 /* a ticket for many types of order has a long code, RASTBR 03: it stays whole, and its column widens to fit */
 .sheet-que {
-  white-space: nowrap;
+    white-space: nowrap;
 }
 
 /* dates, times and invoice numbers never break: half a number on the next line would read as another one */
 .sheet-date {
-  font-size: calc(var(--sheet-num) * 0.92);
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
+    font-size: calc(var(--sheet-num) * 0.92);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
 }
 
 .sheet-que-btn {
-  padding: 0;
-  font: inherit;
-  font-weight: 700;
-  text-align: left;
-  color: var(--brand-red);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  background: none;
-  border: 0;
-  cursor: pointer;
+    padding: 0;
+    font: inherit;
+    font-weight: 700;
+    text-align: left;
+    color: var(--brand-red);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    background: none;
+    border: 0;
+    cursor: pointer;
 }
 
 /* a ticket's invoice numbers under their department, one above the other */
 .sheet-invoices {
-  font-size: var(--sheet-num);
-  font-variant-numeric: tabular-nums;
+    font-size: var(--sheet-num);
+    font-variant-numeric: tabular-nums;
 }
 
 .sheet-invoices .sheet-cell {
-  white-space: pre;
+    white-space: pre;
 }
 
 .sheet-time .sheet-cell {
-  white-space: nowrap;
+    white-space: nowrap;
 }
 
 .sheet-time {
-  font-size: var(--sheet-num);
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
+    font-size: var(--sheet-num);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
 }
 
 /* the cells typed or picked into right where they are, edge to edge in their cell */
 .sheet-input,
 .sheet-select {
-  display: block;
-  width: 100%;
-  min-width: 0;
-  height: 34px;
-  font: inherit;
-  font-size: var(--sheet-num);
-  color: inherit;
-  background-color: transparent;
-  border: 0;
-  border-radius: 0;
+    display: block;
+    width: 100%;
+    min-width: 0;
+    height: 34px;
+    font: inherit;
+    font-size: var(--sheet-num);
+    color: inherit;
+    background-color: transparent;
+    border: 0;
+    border-radius: 0;
 }
 
 /* a cell as plain text until it's clicked: a long name wraps and the column fits it; it keeps the lines of several
    invoice numbers */
 .sheet-cell {
-  display: block;
-  width: 100%;
-  min-height: 34px;
-  padding: 5px 3px;
-  font: inherit;
-  color: inherit;
-  text-align: left;
-  text-transform: inherit;
-  white-space: pre-line;
-  background: none;
-  border: 0;
-  cursor: text;
+    display: block;
+    width: 100%;
+    min-height: 34px;
+    padding: 5px 3px;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    text-transform: inherit;
+    white-space: pre-line;
+    background: none;
+    border: 0;
+    cursor: text;
 }
 
 .sheet-cell:hover {
-  background-color: var(--field-bg);
+    background-color: var(--field-bg);
 }
 
 .sheet-input {
-  height: auto;
-  min-height: 34px;
-  padding: 5px 3px;
-  line-height: inherit;
-  text-transform: inherit;
-  overflow: hidden;
-  resize: none;
+    height: auto;
+    min-height: 34px;
+    padding: 5px 3px;
+    line-height: inherit;
+    text-transform: inherit;
+    overflow: hidden;
+    resize: none;
 }
 
 /* a row being added, before it's a ticket */
 .sheet-new-row > * {
-  background: #fff4d6;
+    background: #fff4d6;
 }
 
 .sheet-tool-row {
-  display: flex;
-  gap: 8px;
+    display: flex;
+    gap: 8px;
 }
 
 .sheet-tool-row .sheet-tool {
-  flex: 1;
-  white-space: nowrap;
+    flex: 1;
+    white-space: nowrap;
 }
 
 /* Add row, Add column and the small buttons that go with them */
 .sheet-tool {
-  padding: 6px 10px;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  color: inherit;
-  background: #ffffff;
-  border: 1px solid #c9c9c4;
-  border-radius: 6px;
-  cursor: pointer;
+    padding: 6px 10px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: inherit;
+    background: #ffffff;
+    border: 1px solid #c9c9c4;
+    border-radius: 6px;
+    cursor: pointer;
 }
 
 .sheet-tool:hover:not(:disabled) {
-  background-color: var(--field-bg);
+    background-color: var(--field-bg);
 }
 
 .sheet-tool:disabled {
-  opacity: 0.55;
-  cursor: default;
+    opacity: 0.55;
+    cursor: default;
 }
 
 .sheet-new-column {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
 }
 
 .sheet-new-column label {
-  font-size: 13px;
-  font-weight: 600;
+    font-size: 13px;
+    font-weight: 600;
 }
 
 .sheet-new-column input {
-  padding: 6px 8px;
-  font: inherit;
-  font-size: 13px;
-  border: 1px solid #c9c9c4;
-  border-radius: 6px;
+    padding: 6px 8px;
+    font: inherit;
+    font-size: 13px;
+    border: 1px solid #c9c9c4;
+    border-radius: 6px;
 }
 
 /* takes an added column off, in its heading */
 .sheet-column-remove {
-  display: block;
-  margin: 2px auto 0;
-  padding: 0 4px;
-  font: inherit;
-  font-size: 13px;
-  line-height: 1;
-  color: #ffffff;
-  background: none;
-  border: 0;
-  opacity: 0.7;
-  cursor: pointer;
+    display: block;
+    margin: 2px auto 0;
+    padding: 0 4px;
+    font: inherit;
+    font-size: 13px;
+    line-height: 1;
+    color: #ffffff;
+    background: none;
+    border: 0;
+    opacity: 0.7;
+    cursor: pointer;
 }
 
 .sheet-column-remove:hover {
-  opacity: 1;
+    opacity: 1;
 }
 
 /* a small caret instead of the browser's wide one, so the choice still fits a narrow column */
 .sheet-select {
-  appearance: none;
-  padding: 0 11px 0 3px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  cursor: pointer;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0h8L4 5z' fill='%236f6f6f'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 3px center;
-  background-size: 8px 5px;
+    appearance: none;
+    padding: 0 11px 0 3px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0h8L4 5z' fill='%236f6f6f'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 3px center;
+    background-size: 8px 5px;
 }
 
 .sheet-input:hover,
 .sheet-select:hover {
-  background-color: var(--field-bg);
+    background-color: var(--field-bg);
 }
 
 /* the cell being typed in, outlined like a spreadsheet's */
 .sheet-input:focus,
 .sheet-select:focus-visible {
-  outline: 2px solid var(--brand-red);
-  outline-offset: -2px;
-  background-color: #ffffff;
+    outline: 2px solid var(--brand-red);
+    outline-offset: -2px;
+    background-color: #ffffff;
 }
 
 /* the runners' names are red, as on the schedule */
 .sheet-runner {
-  font-weight: 600;
-  color: var(--brand-red);
+    font-weight: 600;
+    color: var(--brand-red);
 }
 
 .sheet-status .stage-badge {
-  padding: 2px 5px;
-  font-size: calc(var(--sheet-num) * 0.92);
+    padding: 2px 5px;
+    font-size: calc(var(--sheet-num) * 0.92);
 }
 
 .sheet-edit {
-  display: block;
-  margin-top: 4px;
-  font-size: 11px;
-  color: var(--text-muted);
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--text-muted);
 }
 
 /* the form lays itself out by its own width, which the board takes from */
 .desk-main {
-  container-type: inline-size;
+    container-type: inline-size;
 }
 
 .desk-status {
-  position: sticky;
-  top: calc(var(--bar-h) + 16px);
-  max-height: calc(100vh - var(--bar-h) - 32px);
-  padding: 16px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+    position: sticky;
+    top: calc(var(--bar-h) + 16px);
+    max-height: calc(100vh - var(--bar-h) - 32px);
+    padding: 16px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
 }
 
 /* a narrower form: two fields to a row, then one */
 @container (max-width: 700px) {
-  .sale-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+    .sale-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 @container (max-width: 520px) {
-  .sale-row,
-  .sale-row.is-two {
-    grid-template-columns: minmax(0, 1fr);
-  }
+    .sale-row,
+    .sale-row.is-two {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }
 
 /* Customer order's tabs: a row of names over a thin line, the picked one black and underlined in red */
 .sale-card {
-  display: flex;
-  flex-direction: column;
+    display: flex;
+    flex-direction: column;
 }
 
 .sale-tabs {
-  display: flex;
-  align-items: flex-end;
-  gap: 4px;
-  margin-bottom: 16px;
-  border-bottom: 1px solid var(--field-border);
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--field-border);
 }
 
 .sale-tab {
-  min-width: 0;
-  /* the underline sits on the row's line */
-  margin-bottom: -1px;
-  padding: 10px 14px;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-muted);
-  background: none;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
+    min-width: 0;
+    /* the underline sits on the row's line */
+    margin-bottom: -1px;
+    padding: 10px 14px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: none;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition:
+        color 0.15s,
+        border-color 0.15s;
 }
 
 .sale-tab:hover {
-  color: var(--text-dark);
+    color: var(--text-dark);
 }
 
 .sale-tab:focus-visible {
-  outline: 3px solid var(--focus-ring);
-  outline-offset: -3px;
-  border-radius: 6px 6px 0 0;
+    outline: 3px solid var(--focus-ring);
+    outline-offset: -3px;
+    border-radius: 6px 6px 0 0;
 }
 
 .sale-tab[aria-selected="true"] {
-  font-weight: 600;
-  color: var(--text-dark);
-  border-bottom-color: var(--brand-red);
+    font-weight: 600;
+    color: var(--text-dark);
+    border-bottom-color: var(--brand-red);
 }
 
 /* the tab that isn't picked; display: flex on .sale-fields would otherwise outrank the hidden attribute */
 .sale-form [role="tabpanel"][hidden] {
-  display: none;
+    display: none;
 }
 
 /* the Checker tab: a box for each column, its 1st and 2nd checker one under the other */
 .checker-section {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  max-width: 760px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-width: 760px;
 }
 
 /* the line under a tab's name saying what it's for */
 .tab-hint {
-  margin: 0;
-  font-size: 14px;
-  color: var(--text-muted);
+    margin: 0;
+    font-size: 14px;
+    color: var(--text-muted);
 }
 
 /* Ticket preview: the ticket on its paper, across the whole card */
 .ticket-preview {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  overflow-x: auto;
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    overflow-x: auto;
 }
 
 .checker-columns {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: 14px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 14px;
 }
 
 .checker-column {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-width: 0;
-  margin: 0;
-  padding: 12px 14px 14px;
-  border: 1px solid var(--field-border);
-  border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+    margin: 0;
+    padding: 12px 14px 14px;
+    border: 1px solid var(--field-border);
+    border-radius: 10px;
 }
 
 .checker-column legend {
-  padding: 0 6px;
-  font-weight: 600;
+    padding: 0 6px;
+    font-weight: 600;
 }
 
 .checker-column input {
-  width: 100%;
-  height: 44px;
-  padding: 0 12px;
-  font: inherit;
-  background: #ffffff;
-  border: 1px solid var(--field-border);
-  border-radius: 8px;
+    width: 100%;
+    height: 44px;
+    padding: 0 12px;
+    font: inherit;
+    background: #ffffff;
+    border: 1px solid var(--field-border);
+    border-radius: 8px;
 }
 
 .checker-column input:focus-visible {
-  outline: 3px solid var(--focus-ring);
-  outline-offset: 2px;
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 2px;
 }
 
 /* Type of order: a field that opens a list of checkboxes */
 .type-picker {
-  position: relative;
+    position: relative;
 }
 
 .type-trigger {
-  width: 100%;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 0 10px 0 12px;
-  font: inherit;
-  font-weight: 400;
-  text-align: left;
-  color: var(--text-dark);
-  background: #ffffff;
-  border: 1px solid var(--field-border);
-  border-radius: 8px;
-  cursor: pointer;
+    width: 100%;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0 10px 0 12px;
+    font: inherit;
+    font-weight: 400;
+    text-align: left;
+    color: var(--text-dark);
+    background: #ffffff;
+    border: 1px solid var(--field-border);
+    border-radius: 8px;
+    cursor: pointer;
 }
 
 .type-trigger:focus-visible {
-  outline: 3px solid var(--focus-ring);
-  outline-offset: 2px;
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 2px;
 }
 
 .type-trigger-text {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
 .type-trigger-text.is-placeholder {
-  color: var(--text-muted);
+    color: var(--text-muted);
 }
 
 .type-chevron {
-  flex: none;
-  width: 18px;
-  height: 18px;
-  fill: none;
-  stroke: #777;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  transition: transform 0.2s;
+    flex: none;
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: #777;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform 0.2s;
 }
 
 .type-picker.is-open .type-chevron {
-  transform: rotate(180deg);
+    transform: rotate(180deg);
 }
 
 /* floats over the fields below instead of pushing them down; --menu-room is the room the window has for it on that
    side, so it never hangs past the end of the page (CheckPicker in saleFields.jsx sets it) */
 .type-menu {
-  position: absolute;
-  z-index: 20;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  display: grid;
-  max-height: min(320px, 50svh, var(--menu-room, 320px));
-  margin: 0;
-  padding: 6px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  background: #ffffff;
-  border: 1px solid var(--field-border);
-  border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    display: grid;
+    max-height: min(320px, 50svh, var(--menu-room, 320px));
+    margin: 0;
+    padding: 6px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: #ffffff;
+    border: 1px solid var(--field-border);
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
 /* opens upward when there's more room above the field than below it */
 .type-menu[data-side="up"] {
-  top: auto;
-  bottom: calc(100% + 4px);
+    top: auto;
+    bottom: calc(100% + 4px);
 }
 
 .type-option {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 10px;
-  font-weight: 400;
-  border-radius: 4px;
-  cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    font-weight: 400;
+    border-radius: 4px;
+    cursor: pointer;
 }
 
 .type-option:hover {
-  background: var(--field-bg);
+    background: var(--field-bg);
 }
 
 .sale-form .type-option input,
 .sale-check input {
-  flex: none;
-  width: 18px;
-  height: 18px;
-  margin: 0;
-  padding: 0;
-  accent-color: var(--brand-red);
+    flex: none;
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    padding: 0;
+    accent-color: var(--brand-red);
 }
 
 /* Returning, and the pick-up date under it once it's ticked */
 .sale-returning {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding-top: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding-top: 4px;
 }
 
 .sale-check {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 600;
-  cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    cursor: pointer;
 }
 
 /* Mark as priority / Mark as TBA priority: side by side, wrapping on a narrow screen */
 .sale-priority {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
 /* each mark: an outlined button, filled red once it's pressed */
 .priority-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 40px;
-  padding: 8px 16px;
-  font: inherit;
-  font-weight: 600;
-  color: var(--text-dark);
-  background: var(--surface-muted);
-  border: 1px solid var(--field-border);
-  border-radius: 10px;
-  cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 8px 16px;
+    font: inherit;
+    font-weight: 600;
+    color: var(--text-dark);
+    background: var(--surface-muted);
+    border: 1px solid var(--field-border);
+    border-radius: 10px;
+    cursor: pointer;
 }
 
 .priority-toggle:hover {
-  background: var(--cream-hover);
+    background: var(--cream-hover);
 }
 
 .priority-toggle:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px var(--focus-ring);
+    outline: none;
+    box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .priority-toggle[aria-pressed="true"] {
-  color: #fff;
-  background: var(--primary);
-  border-color: var(--primary);
+    color: #fff;
+    background: var(--primary);
+    border-color: var(--primary);
 }
 
 .priority-toggle[aria-pressed="true"]:hover {
-  background: var(--primary-hover);
+    background: var(--primary-hover);
 }
 
 .priority-mark {
-  font-size: 1.25em;
-  line-height: 1;
+    font-size: 1.25em;
+    line-height: 1;
 }
 
 /* Customer order's invoices: a number and its type of order on each row, with × to take one away */
 .invoice-fields {
-  gap: 8px;
+    gap: 8px;
 }
 
 /* a number is short: the rows stop at the width of two fields */
 .invoice-entry {
-  max-width: 520px;
+    max-width: 520px;
 }
 
 .invoice-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 160px) 44px;
-  gap: 8px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 160px) 44px;
+    gap: 8px;
 }
 
 @media (max-width: 480px) {
-  .invoice-row {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 116px) 44px;
-  }
+    .invoice-row {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 116px) 44px;
+    }
 }
 
 .invoice-row input,
 .invoice-row select {
-  min-width: 0;
-  height: 44px;
-  font: inherit;
-  font-weight: 400;
-  background: #ffffff;
-  border: 1px solid var(--field-border);
-  border-radius: 8px;
+    min-width: 0;
+    height: 44px;
+    font: inherit;
+    font-weight: 400;
+    background: #ffffff;
+    border: 1px solid var(--field-border);
+    border-radius: 8px;
 }
 
 .invoice-row input {
-  padding: 0 12px;
+    padding: 0 12px;
 }
 
 .invoice-row select {
-  padding: 0 8px;
+    padding: 0 8px;
 }
 
 .invoice-row input:focus-visible,
 .invoice-row select:focus-visible,
 .invoice-remove:focus-visible {
-  outline: 3px solid var(--focus-ring);
-  outline-offset: 2px;
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 2px;
 }
 
 .invoice-remove {
-  font: inherit;
-  font-size: 22px;
-  line-height: 1;
-  color: var(--text-muted);
-  background: none;
-  border: 1px solid var(--field-border);
-  border-radius: 8px;
-  cursor: pointer;
+    font: inherit;
+    font-size: 22px;
+    line-height: 1;
+    color: var(--text-muted);
+    background: none;
+    border: 1px solid var(--field-border);
+    border-radius: 8px;
+    cursor: pointer;
 }
 
 .invoice-remove:hover:not(:disabled) {
-  color: var(--brand-red);
-  border-color: var(--brand-red);
+    color: var(--brand-red);
+    border-color: var(--brand-red);
 }
 
 .invoice-remove:disabled {
-  opacity: 0.4;
-  cursor: default;
+    opacity: 0.4;
+    cursor: default;
 }
 
 .invoice-entry .field-error {
-  margin: 4px 0 0;
+    margin: 4px 0 0;
 }
 
 .invoice-add {
-  align-self: flex-start;
+    align-self: flex-start;
 }
 
 /* the type of order an invoice is for, after its number (Summary, Orders, My counter) */
 .invoice-type {
-  margin-left: 6px;
-  padding: 0 8px;
-  font-size: 13px;
-  font-weight: 600;
-  background: var(--cream);
-  border: 1px solid var(--cream-border);
-  border-radius: 999px;
+    margin-left: 6px;
+    padding: 0 8px;
+    font-size: 13px;
+    font-weight: 600;
+    background: var(--cream);
+    border: 1px solid var(--cream-border);
+    border-radius: 999px;
 }
 
 .sale-summary {
-  min-width: 0;
+    min-width: 0;
 }
 
 .sale-summary-ticket {
-  margin: 0;
-  font-size: 14px;
-  color: var(--text-muted);
+    margin: 0;
+    font-size: 14px;
+    color: var(--text-muted);
 }
 
 .sale-summary-ticket strong {
-  margin-left: 8px;
-  font-size: 16px;
-  color: var(--text-dark);
+    margin-left: 8px;
+    font-size: 16px;
+    color: var(--text-dark);
 }
 
 /* who, what for and how many invoices, on one line, cut short with ... when it's long */
 .sale-summary-line {
-  margin: 2px 0 0;
-  overflow: hidden;
-  font-weight: 600;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+    margin: 2px 0 0;
+    overflow: hidden;
+    font-weight: 600;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
 .sale-summary-line.is-empty {
-  font-weight: 400;
-  color: var(--text-muted);
-  white-space: normal;
+    font-weight: 400;
+    color: var(--text-muted);
+    white-space: normal;
 }
 
 /* the bar with Serve: at the bottom of the form, and kept at the bottom of the window while the form is longer than
    it, so it never has to be scrolled to */
 .sale-actions {
-  position: sticky;
-  bottom: 0;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin: 0 -32px;
-  padding: 14px 32px;
-  background: #ffffff;
-  border-top: 1px solid var(--field-border);
-  border-radius: 0 0 12px 12px;
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 0 -32px;
+    padding: 14px 32px;
+    background: #ffffff;
+    border-top: 1px solid var(--field-border);
+    border-radius: 0 0 12px 12px;
 }
 
 .sale-submit {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 16px;
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 16px;
 }
 
 .sale-actions .submit-btn {
-  width: auto;
-  min-width: 160px;
-  height: 48px;
-  margin: 0;
-  padding: 0 28px;
-  font-size: 16px;
+    width: auto;
+    min-width: 160px;
+    height: 48px;
+    margin: 0;
+    padding: 0 28px;
+    font-size: 16px;
 }
 
 /* a field reached with Tab, or the first one to fix after Serve, scrolls clear of the top bar (56px) and the Serve bar
    instead of under them */
 html:has(.sale-actions) {
-  scroll-padding: 80px 0 96px;
+    scroll-padding: 80px 0 96px;
 }
 
 /* a ticket that couldn't be opened to edit */
 .sale-missing {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
 }
 
 @media (max-width: 760px) {
-  .sale-form {
-    padding: 20px 16px 0;
-  }
-  .sale-actions {
-    margin: 0 -16px;
-    padding: 12px 16px;
-  }
-  .sale-field.is-narrow {
-    max-width: none;
-  }
-  .order-panel {
-    padding: 24px 16px;
-  }
+    .sale-form {
+        padding: 20px 16px 0;
+    }
+    .sale-actions {
+        margin: 0 -16px;
+        padding: 12px 16px;
+    }
+    .sale-field.is-narrow {
+        max-width: none;
+    }
+    .order-panel {
+        padding: 24px 16px;
+    }
 }
 
 /* a phone: the summary over Serve, and Serve across the bar */
 @media (max-width: 520px) {
-  .sale-actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .sale-submit {
-    flex-direction: column;
-    align-items: stretch;
-  }
+    .sale-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .sale-submit {
+        flex-direction: column;
+        align-items: stretch;
+    }
 }
 
 /* ---------- my counter (sales) ---------- */
 
 /* "Hello, Maria!" on the right of the page title (My counter and Dashboard) */
 .greetings {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-  text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    text-align: right;
 }
 
 .greetings-hello {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 700;
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
 }
 
 .greetings-role {
-  margin: 0;
-  font-size: 13px;
-  color: var(--text-muted);
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-muted);
 }
 
 @media (max-width: 640px) {
-  /* the title wraps above it, so it reads from the left */
-  .greetings {
-    align-items: flex-start;
-    text-align: left;
-  }
+    /* the title wraps above it, so it reads from the left */
+    .greetings {
+        align-items: flex-start;
+        text-align: left;
+    }
 }
 
 .counter-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
 }
 
 .counter-head h2 {
-  margin: 0;
+    margin: 0;
 }
 
 .counter-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
+    margin: 0;
+    padding: 0;
+    list-style: none;
 }
 
 .counter-ticket {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 0;
-  border-top: 1px solid var(--field-border);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 0;
+    border-top: 1px solid var(--field-border);
 }
 
 .counter-ticket:first-child {
-  border-top: none;
+    border-top: none;
 }
 
 .counter-ticket-main {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
 }
 
 .counter-number {
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  color: var(--brand-red);
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    color: var(--brand-red);
 }
 
 .counter-name {
-  font-weight: 700;
+    font-weight: 700;
 }
 
 .counter-meta {
-  font-size: 13px;
-  color: var(--text-muted);
+    font-size: 13px;
+    color: var(--text-muted);
 }
 
 /* tickets other staff have at their counters, under You're serving */
 .counter-others {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--field-border);
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--field-border);
 }
 
 .counter-others h3 {
-  margin: 0 0 8px;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-muted);
+    margin: 0 0 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-muted);
 }
 
 .counter-others ul {
-  display: grid;
-  gap: 10px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
 }
 
 /* "Being served by Maria Santos" / "Served by Maria Santos · 10:42 AM", attached to a ticket */
 .served-by {
-  align-self: flex-start;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: fit-content;
-  max-width: 100%;
-  margin-top: 6px;
-  padding: 2px 10px 2px 2px;
-  font-size: 13px;
-  color: #1d5f9e;
-  background: #e7f3ff;
-  border: 1px solid #9cc7f0;
-  border-radius: 999px;
+    align-self: flex-start;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: fit-content;
+    max-width: 100%;
+    margin-top: 6px;
+    padding: 2px 10px 2px 2px;
+    font-size: 13px;
+    color: #1d5f9e;
+    background: #e7f3ff;
+    border: 1px solid #9cc7f0;
+    border-radius: 999px;
 }
 
 .served-by.is-done {
-  color: #1f7a3a;
-  background: #e8f6ec;
-  border-color: #9fd3ae;
+    color: #1f7a3a;
+    background: #e8f6ec;
+    border-color: #9fd3ae;
 }
 
 .served-by-text {
-  min-width: 0;
-  overflow-wrap: anywhere;
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .served-by-time {
-  color: var(--text-muted);
+    color: var(--text-muted);
 }
 
 /* "Edited by Gabriel Gutierrez · GIGA · 12:54 PM" and what changed, under the served-by tags; earlier edits fold away */
 .edited-by {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  margin-top: 6px;
-  max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    margin-top: 6px;
+    max-width: 100%;
 }
 
 .edited-by-tag {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: fit-content;
-  max-width: 100%;
-  padding: 2px 10px 2px 2px;
-  font-size: 13px;
-  color: #3f3f46;
-  background: var(--cream);
-  border: 1px solid var(--cream-border);
-  border-radius: 999px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: fit-content;
+    max-width: 100%;
+    padding: 2px 10px 2px 2px;
+    font-size: 13px;
+    color: #3f3f46;
+    background: var(--cream);
+    border: 1px solid var(--cream-border);
+    border-radius: 999px;
 }
 
 .edited-by-changes {
-  padding-left: 30px;
-  font-size: 12px;
-  color: var(--text-muted);
-  overflow-wrap: anywhere;
+    padding-left: 30px;
+    font-size: 12px;
+    color: var(--text-muted);
+    overflow-wrap: anywhere;
 }
 
 .edited-by-earlier {
-  margin-top: 2px;
-  font-size: 12px;
-  color: var(--text-muted);
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--text-muted);
 }
 
 .edited-by-earlier summary {
-  cursor: pointer;
-  width: fit-content;
+    cursor: pointer;
+    width: fit-content;
 }
 
 .edited-by-earlier ul {
-  display: grid;
-  gap: 6px;
-  margin: 6px 0 0;
-  padding: 0;
-  list-style: none;
+    display: grid;
+    gap: 6px;
+    margin: 6px 0 0;
+    padding: 0;
+    list-style: none;
 }
 
 .edited-by-earlier li {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
 }
 
 .volume-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 16px;
 }
 
 .volume-field {
-  flex: 1 1 240px;
-  max-width: 420px;
+    flex: 1 1 240px;
+    max-width: 420px;
 }
 
 /* ---------- my account ---------- */
 
 .account-columns {
-  display: grid;
-  grid-template-columns: minmax(260px, 1fr) minmax(0, 2fr);
-  gap: 16px;
-  align-items: start;
+    display: grid;
+    grid-template-columns: minmax(260px, 1fr) minmax(0, 2fr);
+    gap: 16px;
+    align-items: start;
 }
 
 .profile-photo {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    text-align: center;
 }
 
 .profile-photo-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
 }
 
 .admin-panel .account-cover-heading {
-  margin-top: 24px;
+    margin-top: 24px;
 }
 
 /* the cover as it will look, at the same shape it's cropped to */
 .cover-photo-field .profile-summary-cover {
-  align-self: stretch;
-  height: auto;
-  aspect-ratio: 3 / 1;
-  overflow: hidden;
-  border-radius: 8px;
+    align-self: stretch;
+    height: auto;
+    aspect-ratio: 3 / 1;
+    overflow: hidden;
+    border-radius: 8px;
 }
 
 .account-facts {
-  display: grid;
-  gap: 10px;
-  margin: 20px 0 0;
-  padding-top: 16px;
-  border-top: 1px solid var(--field-border);
+    display: grid;
+    gap: 10px;
+    margin: 20px 0 0;
+    padding-top: 16px;
+    border-top: 1px solid var(--field-border);
 }
 
 .account-facts div {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
 }
 
 .account-facts dt {
-  color: var(--text-muted);
+    color: var(--text-muted);
 }
 
 .account-facts dd {
-  margin: 0;
-  font-weight: 600;
-  text-align: right;
-  overflow-wrap: anywhere;
+    margin: 0;
+    font-weight: 600;
+    text-align: right;
+    overflow-wrap: anywhere;
 }
 
 /* first, middle and surname on one row; employee ID and department on the next */
 .account-details {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 14px 16px;
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 14px 16px;
 }
 
 .account-details .admin-field {
-  grid-column: span 2;
+    grid-column: span 2;
 }
 
 .account-details .account-field--employeeId,
 .account-details .account-field--department {
-  grid-column: span 3;
+    grid-column: span 3;
 }
 
 .account-details-full {
-  grid-column: 1 / -1;
-  margin: 0;
+    grid-column: 1 / -1;
+    margin: 0;
 }
 
 .field-optional {
-  font-weight: 400;
-  color: var(--text-muted);
+    font-weight: 400;
+    color: var(--text-muted);
 }
 
 @media (max-width: 900px) {
-  .account-columns {
-    grid-template-columns: minmax(0, 1fr);
-  }
+    .account-columns {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }
 
 @media (max-width: 640px) {
-  .account-details .admin-field,
-  .account-details .account-field--employeeId,
-  .account-details .account-field--department {
-    grid-column: 1 / -1;
-  }
+    .account-details .admin-field,
+    .account-details .account-field--employeeId,
+    .account-details .account-field--department {
+        grid-column: 1 / -1;
+    }
 }
 
 /* ---------- accounts ---------- */
 
 .account-person {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .account-form {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 14px 16px;
-  align-items: end;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px 16px;
+    align-items: end;
 }
 
 .account-form-actions {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
 }
 
 .password-row {
-  display: flex;
-  gap: 8px;
+    display: flex;
+    gap: 8px;
 }
 
 .password-row input {
-  flex: 1;
-  min-width: 0;
+    flex: 1;
+    min-width: 0;
 }
 
 /* the create form, one box per new account */
 .account-rows {
-  display: grid;
-  gap: 16px;
+    display: grid;
+    gap: 16px;
 }
 
 .account-row {
-  margin: 0;
-  padding: 16px;
-  border: 1px solid var(--cream-border);
-  border-radius: 10px;
-  background: var(--surface-muted);
-  min-width: 0;
+    margin: 0;
+    padding: 16px;
+    border: 1px solid var(--cream-border);
+    border-radius: 10px;
+    background: var(--surface-muted);
+    min-width: 0;
 }
 
 .account-row-title {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 0 6px;
-  font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 6px;
+    font-weight: 600;
 }
 
 .account-row .field-error {
-  margin-top: 10px;
+    margin-top: 10px;
 }
 
 .account-add {
-  margin: 12px 0 16px;
+    margin: 12px 0 16px;
 }
 
 .admin-table tr.is-disabled td {
-  color: var(--text-muted);
+    color: var(--text-muted);
 }
 
 /* department tabs on Accounts: shaped like folder tabs, the open one joined to the panel below */
 .folder-tabs {
-  display: flex;
-  gap: 4px;
-  margin-bottom: -1px;
-  overflow-x: auto;
+    display: flex;
+    gap: 4px;
+    margin-bottom: -1px;
+    overflow-x: auto;
 }
 
 .folder-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex: none;
-  padding: 8px 14px;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-muted);
-  background: var(--surface-muted);
-  border: 1px solid var(--field-border);
-  border-radius: 8px 8px 0 0;
-  cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: none;
+    padding: 8px 14px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: var(--surface-muted);
+    border: 1px solid var(--field-border);
+    border-radius: 8px 8px 0 0;
+    cursor: pointer;
 }
 
 .folder-tab:hover {
-  color: var(--text-dark);
+    color: var(--text-dark);
 }
 
 .folder-tab[aria-selected="true"] {
-  position: relative;
-  font-weight: 600;
-  color: var(--text-dark);
-  background: #ffffff;
-  border-bottom-color: #ffffff;
+    position: relative;
+    font-weight: 600;
+    color: var(--text-dark);
+    background: #ffffff;
+    border-bottom-color: #ffffff;
 }
 
 .folder-tab-count {
-  min-width: 20px;
-  padding: 0 6px;
-  font-size: 12px;
-  line-height: 18px;
-  text-align: center;
-  color: var(--text-muted);
-  background: rgba(0, 0, 0, 0.06);
-  border-radius: 9px;
+    min-width: 20px;
+    padding: 0 6px;
+    font-size: 12px;
+    line-height: 18px;
+    text-align: center;
+    color: var(--text-muted);
+    background: rgba(0, 0, 0, 0.06);
+    border-radius: 9px;
 }
 
 /* the Employees grid: one card per account */
 .employee-grid-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 4px 12px;
-  margin-bottom: 14px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 4px 12px;
+    margin-bottom: 14px;
 }
 
 .admin-panel .employee-grid-head h2 {
-  margin: 0;
+    margin: 0;
 }
 
 .employee-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 14px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 14px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
 }
 
 .employee-grid > li {
-  display: flex;
-  min-width: 0;
+    display: flex;
+    min-width: 0;
 }
 
 .profile-card {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 20px 14px 16px;
-  text-align: center;
-  background: var(--surface-muted);
-  border: 1px solid var(--field-border);
-  border-radius: 12px;
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 20px 14px 16px;
+    text-align: center;
+    background: var(--surface-muted);
+    border: 1px solid var(--field-border);
+    border-radius: 12px;
 }
 
 .profile-card .avatar {
-  margin-bottom: 8px;
+    margin-bottom: 8px;
 }
 
 .profile-card-name {
-  margin: 0;
-  font-size: 16px;
-  overflow-wrap: anywhere;
+    margin: 0;
+    font-size: 16px;
+    overflow-wrap: anywhere;
 }
 
 .profile-card-you {
-  font-weight: 400;
-  color: var(--text-muted);
+    font-weight: 400;
+    color: var(--text-muted);
 }
 
 .profile-card-role {
-  margin: 0;
-  font-size: 13px;
-  color: var(--text-muted);
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-muted);
 }
 
 .profile-card-dept {
-  margin: 0 0 10px;
-  font-size: 14px;
-  font-weight: 600;
-  overflow-wrap: anywhere;
+    margin: 0 0 10px;
+    font-size: 14px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
 }
 
 .profile-card-dept.is-empty {
-  font-weight: 400;
-  font-style: italic;
-  color: var(--text-muted);
+    font-weight: 400;
+    font-style: italic;
+    color: var(--text-muted);
 }
 
 /* switched-off accounts stay in the grid, faded, so their history still has a face */
 .profile-card.is-disabled {
-  background: #ffffff;
-  border-style: dashed;
+    background: #ffffff;
+    border-style: dashed;
 }
 
 .profile-card.is-disabled .avatar {
-  filter: grayscale(1);
-  opacity: 0.7;
+    filter: grayscale(1);
+    opacity: 0.7;
 }
 
 .profile-card.is-disabled .profile-card-name {
-  color: var(--text-muted);
+    color: var(--text-muted);
 }
 
 /* the badges line up along the bottom however long the names are */
 .availability {
-  margin-top: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 10px;
-  font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
-  border: 1px solid transparent;
-  border-radius: 999px;
+    margin-top: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 10px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    border: 1px solid transparent;
+    border-radius: 999px;
 }
 
 .availability::before {
-  content: "";
-  width: 8px;
-  height: 8px;
-  background: currentColor;
-  border-radius: 50%;
+    content: "";
+    width: 8px;
+    height: 8px;
+    background: currentColor;
+    border-radius: 50%;
 }
 
 .availability--active {
-  color: #1f7a3a;
-  background: #e8f6ec;
-  border-color: #9fd3ae;
+    color: #1f7a3a;
+    background: #e8f6ec;
+    border-color: #9fd3ae;
 }
 
 .availability--serving {
-  color: #1d5f9e;
-  background: #e7f3ff;
-  border-color: #9cc7f0;
+    color: #1d5f9e;
+    background: #e7f3ff;
+    border-color: #9cc7f0;
 }
 
 .availability--offline {
-  color: var(--text-muted);
-  background: var(--field-bg);
-  border-color: var(--field-border);
+    color: var(--text-muted);
+    background: var(--field-bg);
+    border-color: var(--field-border);
 }
 
 .availability--off {
-  color: #8a1c22;
-  background: #fdecec;
-  border-color: #f3c2c4;
+    color: #8a1c22;
+    background: #fdecec;
+    border-color: #f3c2c4;
 }
 
 /* ---------- sales statistics ---------- */
 
 .stats {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
 }
 
 .stats-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
 }
 
 .stats-title {
-  margin: 0;
-  font-size: 17px;
-  font-weight: 600;
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
 }
 
 /* period, product and export in one row above the graph */
 .stats-filters {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
 }
 
 .stats-filters .video-tabs {
-  margin-bottom: 0;
+    margin-bottom: 0;
 }
 
 .stats-caption {
-  margin: 0 0 8px;
-  font-size: 14px;
-  color: var(--text-muted);
+    margin: 0 0 8px;
+    font-size: 14px;
+    color: var(--text-muted);
 }
 
 .stats-chart {
-  position: relative;
-  height: 280px;
-  border-radius: 6px;
-  transition: opacity 0.2s;
+    position: relative;
+    height: 280px;
+    border-radius: 6px;
+    transition: opacity 0.2s;
 }
 
 .stats-chart:focus-visible {
-  outline: 3px solid var(--focus-ring);
-  outline-offset: 4px;
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 4px;
 }
 
 /* the previous numbers stay put, faded, while another period loads */
 .stats-chart.is-dimmed {
-  opacity: 0.45;
+    opacity: 0.45;
 }
 
 .stats-chart svg {
-  display: block;
-  overflow: visible;
+    display: block;
+    overflow: visible;
 }
 
 .stats-grid {
-  stroke: var(--field-border);
-  stroke-width: 1;
-  stroke-dasharray: 4 4;
-  shape-rendering: crispEdges;
+    stroke: var(--field-border);
+    stroke-width: 1;
+    stroke-dasharray: 4 4;
+    shape-rendering: crispEdges;
 }
 
 .stats-tick {
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  fill: var(--text-muted);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    fill: var(--text-muted);
 }
 
 .stats-end {
-  font-size: 13px;
-  font-weight: 700;
-  fill: var(--text-dark);
+    font-size: 13px;
+    font-weight: 700;
+    fill: var(--text-dark);
 }
 
 .stats-crosshair {
-  stroke: #9a9a96;
-  stroke-width: 1;
-  shape-rendering: crispEdges;
+    stroke: #9a9a96;
+    stroke-width: 1;
+    shape-rendering: crispEdges;
 }
 
 .stats-empty {
-  position: absolute;
-  inset: 0 0 32px 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0;
-  color: var(--text-muted);
-  pointer-events: none;
+    position: absolute;
+    inset: 0 0 32px 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    color: var(--text-muted);
+    pointer-events: none;
 }
 
 .stats-tooltip {
-  position: absolute;
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 8px 12px;
-  white-space: nowrap;
-  background: #ffffff;
-  border: 1px solid var(--field-border);
-  border-radius: 8px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
-  transform: translate(-50%, calc(-100% - 14px));
-  pointer-events: none;
+    position: absolute;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 12px;
+    white-space: nowrap;
+    background: #ffffff;
+    border: 1px solid var(--field-border);
+    border-radius: 8px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+    transform: translate(-50%, calc(-100% - 14px));
+    pointer-events: none;
 }
 
 .stats-tooltip-value {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-dark);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-dark);
 }
 
 /* a short stroke of the line's color, not a box */
 .stats-tooltip-key {
-  width: 14px;
-  height: 2px;
-  border-radius: 1px;
-  background: #c8202a;
+    width: 14px;
+    height: 2px;
+    border-radius: 1px;
+    background: #c8202a;
 }
 
 .stats-tooltip-label {
-  font-size: 13px;
-  color: var(--text-muted);
+    font-size: 13px;
+    color: var(--text-muted);
 }
 
 /* ---------- history ---------- */
 
 .history-filters {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
 }
 
 .history-filters .video-tabs {
-  margin-bottom: 0;
+    margin-bottom: 0;
 }
 
 /* each tab on one line, "All tickets" too */
 .history-filters .video-tab {
-  flex: none;
-  white-space: nowrap;
+    flex: none;
+    white-space: nowrap;
 }
 
 /* Orders & history on Customer order: the Today / Deleted / All tickets switch and its filters on one line, Export at
    its end, and the table under them across the whole width */
 .orders-history-export {
-  margin-left: auto;
+    margin-left: auto;
 }
 
 .orders-history-body {
-  flex-basis: 100%;
-  min-width: 0;
+    flex-basis: 100%;
+    min-width: 0;
 }
 
 .history-field {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
 }
 
 .history-field input {
-  height: 36px;
-  padding: 0 10px;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 400;
-  background: #ffffff;
-  border: 1px solid var(--field-border);
-  border-radius: 8px;
+    height: 36px;
+    padding: 0 10px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 400;
+    background: #ffffff;
+    border: 1px solid var(--field-border);
+    border-radius: 8px;
 }
 
 .history-field input[type="search"] {
-  width: min(260px, 70vw);
+    width: min(260px, 70vw);
 }
 
 .history-field input:focus-visible {
-  outline: 3px solid var(--focus-ring);
-  outline-offset: 2px;
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 2px;
 }
 
 .history-badge {
-  display: inline-block;
-  padding: 2px 10px;
-  font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
-  border: 1px solid transparent;
-  border-radius: 999px;
+    display: inline-block;
+    padding: 2px 10px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    border: 1px solid transparent;
+    border-radius: 999px;
 }
 
 .history-badge--deleted {
-  color: #8a1c22;
-  background: #fdecec;
-  border-color: #f3c2c4;
+    color: #8a1c22;
+    background: #fdecec;
+    border-color: #f3c2c4;
 }
 
 .history-note {
-  display: block;
-  margin-top: 4px;
-  font-size: 13px;
-  color: var(--text-muted);
+    display: block;
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--text-muted);
 }
 
 /* the developers' Deleted tickets page: one line under the title saying what Purge does */
 .deleted-tickets-intro {
-  margin: 6px 0 20px;
-  font-size: 14px;
-  color: var(--text-muted);
+    margin: 6px 0 20px;
+    font-size: 14px;
+    color: var(--text-muted);
 }
 
 /* picking several tickets on Deleted and All tickets (admins): Select all on the left, and once any are picked, how
    many, Clear and the one action, Delete or Purge, beside it; it stays under the top bar while the cards scroll, so the
    button is still there after picking one far down */
 .history-pick-bar {
-  position: sticky;
-  top: calc(var(--bar-h) + 8px);
-  z-index: 2;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 12px;
-  min-height: 52px;
-  margin-bottom: 12px;
-  padding: 8px 14px;
-  background: #ffffff;
-  border: 1px solid var(--field-border);
-  border-radius: 12px;
+    position: sticky;
+    top: calc(var(--bar-h) + 8px);
+    z-index: 2;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    min-height: 52px;
+    margin-bottom: 12px;
+    padding: 8px 14px;
+    background: #ffffff;
+    border: 1px solid var(--field-border);
+    border-radius: 12px;
 }
 
 .history-pick-all {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 36px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 36px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
 }
 
 .history-pick-count {
-  margin-left: auto;
-  font-size: 14px;
-  color: var(--text-muted);
+    margin-left: auto;
+    font-size: 14px;
+    color: var(--text-muted);
 }
 
 .history-pick-bar input[type="checkbox"],
 .ticket-card-pick input {
-  width: 18px;
-  height: 18px;
-  margin: 0;
-  accent-color: var(--brand-red);
-  cursor: pointer;
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: var(--brand-red);
+    cursor: pointer;
 }
 
 /* ---------- ticket cards ---------- */
 
 /* the box to pick a ticket, before its number; its label is the touch area, larger than the box */
 .ticket-card-pick {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  margin: -8px -6px -8px -10px;
-  cursor: pointer;
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    margin: -8px -6px -8px -10px;
+    cursor: pointer;
 }
 
 /* the number stays by the box, and the day at the far end */
 .ticket-card-pick + .ticket-card-number {
-  margin-right: auto;
+    margin-right: auto;
 }
 
 .ticket-card.is-picked {
-  border-color: var(--brand-red);
-  box-shadow: 0 0 0 1px var(--brand-red);
+    border-color: var(--brand-red);
+    box-shadow: 0 0 0 1px var(--brand-red);
 }
 
 /* Orders & history gets wider than the other pages, for more tickets on a big screen */
 .admin-main:has(.orders-history) {
-  max-width: 1640px;
+    max-width: 1640px;
 }
 
 /* every row of cards is as tall as the tallest, so all the cards are one size */
 .ticket-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
-  grid-auto-rows: 1fr;
-  gap: 16px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
+    grid-auto-rows: 1fr;
+    gap: 16px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
 }
 
 .ticket-cards-empty {
-  margin: 0;
-  padding: 40px 16px;
-  color: var(--text-muted);
-  text-align: center;
-  background: #ffffff;
-  border: 1px solid var(--field-border);
-  border-radius: 12px;
+    margin: 0;
+    padding: 40px 16px;
+    color: var(--text-muted);
+    text-align: center;
+    background: #ffffff;
+    border: 1px solid var(--field-border);
+    border-radius: 12px;
 }
 
 .ticket-cards-limit {
-  margin-top: 12px;
+    margin-top: 12px;
 }
 
 .ticket-card {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  background: #ffffff;
-  border: 1px solid var(--field-border);
-  border-radius: 12px;
-  box-shadow: var(--shadow-xs);
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background: #ffffff;
+    border: 1px solid var(--field-border);
+    border-radius: 12px;
+    box-shadow: var(--shadow-xs);
 }
 
 .ticket-card-head {
-  padding: 14px 16px 12px;
-  border-bottom: 1px solid var(--field-border);
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid var(--field-border);
 }
 
 .ticket-card-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
 }
 
 .ticket-card-number {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 700;
-  line-height: 1.2;
-  color: var(--brand-red);
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--brand-red);
 }
 
 .ticket-card-day {
-  font-size: 14px;
-  font-weight: 600;
-  white-space: nowrap;
-  color: #3f3f46;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    color: #3f3f46;
 }
 
 .ticket-card-name {
-  margin: 2px 0 0;
-  overflow: hidden;
-  font-size: 16px;
-  font-weight: 600;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+    margin: 2px 0 0;
+    overflow: hidden;
+    font-size: 16px;
+    font-weight: 600;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
 /* Status, Purpose and Order: the label on the left, the same width on every card so the values line up */
 .ticket-card-info {
-  flex: 1;
-  margin: 0;
-  padding: 2px 16px;
+    flex: 1;
+    margin: 0;
+    padding: 2px 16px;
 }
 
 .ticket-card-info > div {
-  display: grid;
-  grid-template-columns: 68px minmax(0, 1fr);
-  gap: 8px;
-  padding: 10px 0;
-  font-size: 14px;
-  line-height: 20px;
+    display: grid;
+    grid-template-columns: 68px minmax(0, 1fr);
+    gap: 8px;
+    padding: 10px 0;
+    font-size: 14px;
+    line-height: 20px;
 }
 
 .ticket-card-info > div + div {
-  border-top: 1px solid var(--field-border);
+    border-top: 1px solid var(--field-border);
 }
 
 .ticket-card-info dt {
-  font-weight: 600;
-  color: #52525b;
+    font-weight: 600;
+    color: #52525b;
 }
 
 .ticket-card-info dd {
-  min-width: 0;
-  margin: 0;
+    min-width: 0;
+    margin: 0;
 }
 
 .ticket-card-info .status-select,
 .ticket-card-status {
-  width: 100%;
-  height: 36px;
+    width: 100%;
+    height: 36px;
 }
 
 /* the status when it can't be changed from here: the same box as the status picker */
 .ticket-card-status {
-  display: flex;
-  align-items: center;
-  padding: 0 12px;
-  font-weight: 600;
-  /* the color comes with the status */
-  border-style: solid;
-  border-width: 1px;
-  border-radius: 8px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    font-weight: 600;
+    /* the color comes with the status */
+    border-style: solid;
+    border-width: 1px;
+    border-radius: 8px;
 }
 
 .ticket-card-status.is-deleted {
-  color: #8a1c22;
-  background: #fdecec;
-  border-color: #f3c2c4;
+    color: #8a1c22;
+    background: #fdecec;
+    border-color: #f3c2c4;
 }
 
 /* a row is kept for this even when it's empty, so the card doesn't change size once a ticket is called */
 .ticket-card-who {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 24px;
-  margin-top: 6px;
-  font-size: 13px;
-  color: #3f3f46;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 24px;
+    margin-top: 6px;
+    font-size: 13px;
+    color: #3f3f46;
 }
 
 .ticket-card-line {
-  flex: 1;
-  min-width: 0;
-  min-height: 20px;
-  margin: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
+    min-height: 20px;
+    margin: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
 .ticket-card-line.is-reported {
-  font-weight: 600;
-  color: #8f1d1d;
+    font-weight: 600;
+    color: #8f1d1d;
 }
 
 .ticket-card-none,
 .ticket-card-more {
-  color: var(--text-muted);
+    color: var(--text-muted);
 }
 
 /* two lines for the purpose and three for the order, kept even when they aren't all used */
 .ticket-card-purpose,
 .ticket-card-concern {
-  display: -webkit-box;
-  overflow: hidden;
-  overflow-wrap: anywhere;
-  -webkit-box-orient: vertical;
+    display: -webkit-box;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
 }
 
 .ticket-card-purpose {
-  min-height: 40px;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+    min-height: 40px;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
 }
 
 .ticket-card-concern {
-  margin: 0;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
+    margin: 0;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
 }
 
 .ticket-card-order {
-  min-height: 60px;
+    min-height: 60px;
 }
 
 .ticket-card-details {
-  min-height: 32px;
-  margin: 4px 0 -6px;
-  padding: 0;
-  font: inherit;
-  font-weight: 600;
-  color: var(--brand-red);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  cursor: pointer;
-  background: none;
-  border: none;
+    min-height: 32px;
+    margin: 4px 0 -6px;
+    padding: 0;
+    font: inherit;
+    font-weight: 600;
+    color: var(--brand-red);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+    background: none;
+    border: none;
 }
 
 .ticket-card-details:hover {
-  color: var(--primary-hover);
+    color: var(--primary-hover);
 }
 
 .ticket-card-details:focus-visible {
-  outline: 3px solid var(--focus-ring);
-  outline-offset: 2px;
-  border-radius: 4px;
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 2px;
+    border-radius: 4px;
 }
 
 /* along the bottom of the card: Call or Restore across its width, the others sharing the row under it equally */
 .ticket-card-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 12px 16px 16px;
-  border-top: 1px solid var(--field-border);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px 16px 16px;
+    border-top: 1px solid var(--field-border);
 }
 
 .ticket-card-actions .admin-btn {
-  flex: 1 1 0;
-  min-width: 0;
-  min-height: 40px;
-  padding: 8px;
-  white-space: nowrap;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 40px;
+    padding: 8px;
+    white-space: nowrap;
 }
 
 .ticket-card-actions .admin-btn-call {
-  flex-basis: 100%;
+    flex-basis: 100%;
 }
 
 /* grayed out when it can't be used right now, not red like a button that's ready to press */
 .ticket-card-actions .admin-btn-call:disabled {
-  color: #6f6f6f;
-  background: #e4e4e1;
-  border-color: #d4d4d0;
-  opacity: 1;
+    color: #6f6f6f;
+    background: #e4e4e1;
+    border-color: #d4d4d0;
+    opacity: 1;
 }
 
 /* ---------- calling ---------- */
 
 .row-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
 }
 
 .admin-btn-call {
-  color: #ffffff;
-  background: var(--brand-red);
-  border-color: var(--brand-red);
+    color: #ffffff;
+    background: var(--brand-red);
+    border-color: var(--brand-red);
 }
 
 .admin-btn-call:hover:not(:disabled) {
-  background: #a91a23;
+    background: #a91a23;
 }
 
 .order-remarks {
-  display: block;
-  margin: 6px 0 0;
-  font-size: 13px;
-  font-style: italic;
-  color: var(--text-muted);
+    display: block;
+    margin: 6px 0 0;
+    font-size: 13px;
+    font-style: italic;
+    color: var(--text-muted);
 }
 
 .admin-dialog {
-  width: min(480px, calc(100vw - 32px));
-  padding: 0;
-  text-align: left;
-  color: var(--text-dark);
-  border: 1px solid var(--field-border);
-  border-radius: 12px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.16);
+    width: min(480px, calc(100vw - 32px));
+    padding: 0;
+    text-align: left;
+    color: var(--text-dark);
+    border: 1px solid var(--field-border);
+    border-radius: 12px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.16);
 }
 
 .admin-dialog::backdrop {
-  background: rgba(0, 0, 0, 0.4);
+    background: rgba(0, 0, 0, 0.4);
 }
 
 .admin-dialog-body {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 24px;
 }
 
 .admin-dialog-title {
-  margin: 0;
-  font-size: 19px;
-  font-weight: 600;
+    margin: 0;
+    font-size: 19px;
+    font-weight: 600;
 }
 
 .admin-dialog-title strong {
-  color: var(--brand-red);
+    color: var(--brand-red);
 }
 
 .admin-dialog-sub,
 .admin-dialog-hint {
-  margin: 0;
-  color: var(--text-muted);
+    margin: 0;
+    color: var(--text-muted);
 }
 
 .admin-dialog-sub {
-  margin-top: -8px;
+    margin-top: -8px;
 }
 
 .admin-dialog-hint {
-  font-size: 13px;
+    font-size: 13px;
 }
 
 .remark-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
 .remark-chip {
-  padding: 6px 12px;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-dark);
-  background: #ffffff;
-  border: 1px solid var(--cream-border);
-  border-radius: 999px;
-  cursor: pointer;
+    padding: 6px 12px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-dark);
+    background: #ffffff;
+    border: 1px solid var(--cream-border);
+    border-radius: 999px;
+    cursor: pointer;
 }
 
 .remark-chip:hover {
-  background: var(--cream);
+    background: var(--cream);
 }
 
 .remark-chip.is-selected {
-  background: var(--brand-tint);
-  border-color: var(--brand-red);
+    background: var(--brand-tint);
+    border-color: var(--brand-red);
 }
 
 .remark-chip:focus-visible {
-  outline: 3px solid var(--focus-ring);
-  outline-offset: 2px;
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 2px;
 }
 
 .admin-dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 4px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 4px;
 }
 
 /* ---------- printer ---------- */
 
 .printer-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 16px;
-  margin-bottom: 16px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 16px;
 }
 
 .printer-head .admin-btn {
-  flex-shrink: 0;
+    flex-shrink: 0;
 }
 
 .printer-text {
-  margin: 0;
-  max-width: 60ch;
-  color: var(--text-muted);
+    margin: 0;
+    max-width: 60ch;
+    color: var(--text-muted);
 }
 
 .printer-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
+    margin: 0;
+    padding: 0;
+    list-style: none;
 }
 
 .printer-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-  padding: 12px 0;
-  border-top: 1px solid var(--field-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 12px 0;
+    border-top: 1px solid var(--field-border);
 }
 
 .printer-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
 }
 
 .printer-meta {
-  font-size: 13px;
-  color: var(--text-muted);
+    font-size: 13px;
+    color: var(--text-muted);
 }
 
 .printer-tips {
-  margin: 0;
-  padding-left: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  color: var(--text-muted);
+    margin: 0;
+    padding-left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    color: var(--text-muted);
 }
 
 /* ---------- display video ---------- */
 
 .admin-notice {
-  margin: 0;
-  padding: 10px 14px;
-  font-weight: 600;
-  color: #1d6b36;
-  background: #e8f6ec;
-  border: 1px solid #9fd3ae;
-  border-radius: 8px;
+    margin: 0;
+    padding: 10px 14px;
+    font-weight: 600;
+    color: #1d6b36;
+    background: #e8f6ec;
+    border: 1px solid #9fd3ae;
+    border-radius: 8px;
 }
 
 /* the red bar under the top bar while the server can't be reached; it stays in view while the page scrolls */
 .connection-bar {
-  position: sticky;
-  top: var(--bar-h);
-  z-index: 9;
-  margin: 0;
-  padding: 10px 20px;
-  font-size: 15px;
-  line-height: 1.4;
-  color: #ffffff;
-  background: var(--brand-red);
+    position: sticky;
+    top: var(--bar-h);
+    z-index: 9;
+    margin: 0;
+    padding: 10px 20px;
+    font-size: 15px;
+    line-height: 1.4;
+    color: #ffffff;
+    background: var(--brand-red);
 }
 
 /* on a department page: whether this computer chimes when a customer is handed over */
 .chime-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  color: var(--text-muted);
-  cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: var(--text-muted);
+    cursor: pointer;
 }
 
 .chime-toggle input {
-  width: 18px;
-  height: 18px;
-  margin: 0;
-  accent-color: var(--brand-red);
-  cursor: pointer;
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: var(--brand-red);
+    cursor: pointer;
 }
 
 .video-columns {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-  gap: 16px;
-  align-items: start;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 16px;
+    align-items: start;
 }
 
 /* same player as the display screen, sized for the admin panel */
 .video-preview .video-up {
-  display: block;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  border: 0;
-  border-radius: 8px;
-  background: #000000;
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border: 0;
+    border-radius: 8px;
+    background: #000000;
 }
 
 .video-preview .video-up--facebook {
-  overflow: hidden;
+    overflow: hidden;
 }
 
 .video-preview .video-up--empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-muted);
-  background: var(--field-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    background: var(--field-bg);
 }
 
 .video-current {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 12px;
 }
 
 .video-current-label {
-  min-width: 0;
-  font-size: 14px;
-  color: var(--text-muted);
-  overflow-wrap: anywhere;
+    min-width: 0;
+    font-size: 14px;
+    color: var(--text-muted);
+    overflow-wrap: anywhere;
 }
 
 .video-tabs {
-  display: flex;
-  margin-bottom: 16px;
-  background: #ffffff;
-  border: 1px solid var(--field-border);
-  border-radius: 8px;
-  box-shadow: var(--shadow-xs);
+    display: flex;
+    margin-bottom: 16px;
+    background: #ffffff;
+    border: 1px solid var(--field-border);
+    border-radius: 8px;
+    box-shadow: var(--shadow-xs);
 }
 
 .video-tab {
-  flex: 1;
-  padding: 7px 14px;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-muted);
-  background: none;
-  border: 0;
-  border-radius: 0;
-  cursor: pointer;
+    flex: 1;
+    padding: 7px 14px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: none;
+    border: 0;
+    border-radius: 0;
+    cursor: pointer;
 }
 
 .video-tab:first-child {
-  border-radius: 7px 0 0 7px;
+    border-radius: 7px 0 0 7px;
 }
 
 .video-tab:last-child {
-  border-radius: 0 7px 7px 0;
+    border-radius: 0 7px 7px 0;
 }
 
 .video-tab + .video-tab {
-  border-left: 1px solid var(--field-border);
+    border-left: 1px solid var(--field-border);
 }
 
 .video-tab:hover {
-  color: var(--text-dark);
-  background: var(--surface-muted);
+    color: var(--text-dark);
+    background: var(--surface-muted);
 }
 
 .video-tab[aria-selected="true"],
 .video-tab[aria-checked="true"] {
-  font-weight: 600;
-  color: #ffffff;
-  background: var(--text-dark);
+    font-weight: 600;
+    color: #ffffff;
+    background: var(--text-dark);
 }
 
 .video-form {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
 }
 
 /* ---------- announcer ---------- */
 
 .announcer-toggle {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 600;
-  cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    cursor: pointer;
 }
 
 .announcer-toggle input {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--brand-red);
+    width: 18px;
+    height: 18px;
+    accent-color: var(--brand-red);
 }
 
 .admin-field .announcer-range {
-  height: auto;
-  padding: 0;
-  background: none;
-  border: none;
-  accent-color: var(--brand-red);
+    height: auto;
+    padding: 0;
+    background: none;
+    border: none;
+    accent-color: var(--brand-red);
 }
 
 .announcer-label {
-  display: block;
-  margin-bottom: 6px;
-  font-weight: 600;
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 600;
 }
 
 .announcer-label + .video-tabs {
-  margin-bottom: 0;
+    margin-bottom: 0;
 }
 
 .announcer-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
 .video-hint {
-  margin: 0;
-  font-size: 13px;
-  color: var(--text-muted);
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-muted);
 }
 
 .video-drop {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 32px 16px;
-  text-align: center;
-  background: var(--surface-muted);
-  border: 2px dashed #d4d4d8;
-  border-radius: 12px;
-  cursor: pointer;
-  overflow-wrap: anywhere;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 32px 16px;
+    text-align: center;
+    background: var(--surface-muted);
+    border: 2px dashed #d4d4d8;
+    border-radius: 12px;
+    cursor: pointer;
+    overflow-wrap: anywhere;
 }
 
 .video-drop:hover {
-  background: var(--cream);
+    background: var(--cream);
 }
 
 /* narrow screens: the sidebar slides in over the page from the menu button */
 @media (max-width: 900px) {
-  .admin-shell {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .admin-sidebar {
-    position: fixed;
-    z-index: 40;
-    left: 0;
-    width: var(--sidebar-w);
-    transform: translateX(-100%);
-    transition: transform 0.2s ease;
-  }
-  .admin-sidebar.is-open {
-    transform: none;
-    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15);
-  }
-  .admin-scrim {
-    display: block;
-    position: fixed;
-    inset: 0;
-    z-index: 30;
-    background: rgba(0, 0, 0, 0.35);
-  }
+    .admin-shell {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .admin-sidebar {
+        position: fixed;
+        z-index: 40;
+        left: 0;
+        width: var(--sidebar-w);
+        transform: translateX(-100%);
+        transition: transform 0.2s ease;
+    }
+    .admin-sidebar.is-open {
+        transform: none;
+        box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15);
+    }
+    .admin-scrim {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 30;
+        background: rgba(0, 0, 0, 0.35);
+    }
 }
 
 /* wide screens: the top bar's sidebar button tucks the sidebar away, and the page takes the whole width */
 @media (min-width: 901px) {
-  .admin-shell.is-collapsed {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .admin-shell.is-collapsed .admin-sidebar {
-    display: none;
-  }
+    .admin-shell.is-collapsed {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .admin-shell.is-collapsed .admin-sidebar {
+        display: none;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .admin-sidebar,
-  .admin-nav-chevron {
-    transition: none;
-  }
-  .status-drawer[open] {
-    animation: none;
-  }
+    .admin-sidebar,
+    .admin-nav-chevron {
+        transition: none;
+    }
+    .status-drawer[open] {
+        animation: none;
+    }
 }
 
 @media (max-width: 640px) {
-  .admin-topbar,
-  .admin-main,
-  .overview-main {
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-  .video-columns {
-    grid-template-columns: minmax(0, 1fr);
-  }
+    .admin-topbar,
+    .admin-main,
+    .overview-main {
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+    .video-columns {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }
 
 /* a phone: the page's own heading names it, so the top bar keeps its room for the clock and Order status */
 @media (max-width: 520px) {
-  .admin-topbar {
-    gap: 8px;
-  }
-  .admin-topbar-title {
-    display: none;
-  }
-  .admin-topbar-end {
-    gap: 10px;
-  }
+    .admin-topbar {
+        gap: 8px;
+    }
+    .admin-topbar-title {
+        display: none;
+    }
+    .admin-topbar-end {
+        gap: 10px;
+    }
 }
 
 /* a hint that pops up over a button on hover or keyboard focus (data-hint on the wrapper), e.g. who made a ticket over
    My counter's Hand over; a grayed-out button lets the hover through to the wrapper, so its hint still shows */
 .hint {
-  position: relative;
-  display: inline-flex;
+    position: relative;
+    display: inline-flex;
 }
 
 .hint > button:disabled {
-  pointer-events: none;
+    pointer-events: none;
 }
 
 .hint[data-hint]::after {
-  content: attr(data-hint);
-  position: absolute;
-  bottom: calc(100% + 8px);
-  /* lined up with the button's right edge, so it never runs off the right of a phone's screen */
-  right: 0;
-  z-index: 5;
-  width: max-content;
-  max-width: min(280px, 80vw);
-  padding: 8px 12px;
-  font-size: 13px;
-  font-weight: 400;
-  line-height: 1.4;
-  color: #ffffff;
-  white-space: normal;
-  background: #1f2937;
-  border-radius: 8px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.12s ease;
-  pointer-events: none;
+    content: attr(data-hint);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    /* lined up with the button's right edge, so it never runs off the right of a phone's screen */
+    right: 0;
+    z-index: 5;
+    width: max-content;
+    max-width: min(280px, 80vw);
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.4;
+    color: #ffffff;
+    white-space: normal;
+    background: #1f2937;
+    border-radius: 8px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.12s ease;
+    pointer-events: none;
 }
 
 .hint[data-hint]:hover::after,
 .hint[data-hint]:focus-within::after {
-  opacity: 1;
-  visibility: visible;
+    opacity: 1;
+    visibility: visible;
 }
 
 /* the tabs of a page that holds a few others, e.g. Display & printer, above the open one */
 .page-tabs {
-  margin-bottom: 20px;
-  border-bottom: 1px solid var(--cream-border);
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--cream-border);
 }
