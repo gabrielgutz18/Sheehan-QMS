@@ -4,7 +4,7 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, test } from "node:test";
 
-import { bootApp } from "../support/testApp.js";
+import { bootApp, localDay } from "../support/testApp.js";
 
 let app;
 
@@ -33,6 +33,12 @@ const load = async (crew, department, queueNum, area) => {
     (await crew.post(`/admin/${department}/${queueNum}/start`, { area })).assertStatus(200);
     return (await crew.post(`/admin/${department}/${queueNum}/done`)).assertStatus(200).body;
 };
+// moves today's ticket to another day, as if it had been made then
+const moveTo = (queueNum, day) =>
+    app.db
+        .prepare("UPDATE orders SET queue_date = ? WHERE queue_date = ? AND queue_num = ?")
+        .run(day, localDay(), queueNum);
+const numbersOf = async (who, department, query) => (await rowsOf(who, department, query)).map((r) => r.queueNum);
 const history = (who, department, query = "") => who.get(`/admin/department-history/${department}${query}`);
 const rowsOf = async (who, department, query) => (await history(who, department, query)).assertStatus(200).body.rows;
 
@@ -263,5 +269,135 @@ describe("department history", () => {
         const ben = await app.actingAsHardware();
         (await history(pedro, "loading", "?list=Hardware")).assertStatus(400);
         (await history(ben, "hardware", "?list=Steel")).assertStatus(400);
+    });
+
+    test("All, one day and a range", async () => {
+        for (const name of ["Ana Reyes", "Ben Cruz", "Cora Diaz"]) await takeOrder({ name });
+        const maria = await app.actingAsSales();
+        const ben = await app.actingAsHardware();
+        for (const n of [1, 2, 3]) await handOver(maria, n);
+        moveTo(2, localDay(1));
+        moveTo(3, localDay(3));
+
+        assert.deepEqual(await numbersOf(ben, "hardware"), [1, 2, 3]);
+        assert.deepEqual(await numbersOf(ben, "hardware", `?from=${localDay(1)}&to=${localDay(1)}`), [2]);
+        assert.deepEqual(await numbersOf(ben, "hardware", `?from=${localDay(3)}&to=${localDay(1)}`), [2, 3]);
+        assert.deepEqual(await numbersOf(ben, "hardware", `?from=${localDay(1)}&to=${localDay(3)}`), [2, 3]);
+        assert.deepEqual(await numbersOf(ben, "hardware", `?from=${localDay(3)}`), [3]);
+        assert.deepEqual(await numbersOf(ben, "hardware", `?to=${localDay(0)}`), [1]);
+    });
+
+    test("search finds a name, a ticket number or the list's invoice", async () => {
+        await takeOrder({ name: "Ana Reyes" });
+        await takeOrder({
+            purpose: "Roofings, Steel",
+            invoices: [
+                { invoiceNo: "R-777", type: "Roofings" },
+                { invoiceNo: "S-888", type: "Steel" },
+            ],
+        });
+        const maria = await app.actingAsSales();
+        const ben = await app.actingAsHardware();
+        const pedro = await app.actingAsLoading();
+        await handOver(maria, 1);
+        await handOver(maria, 2);
+
+        assert.deepEqual(await numbersOf(ben, "hardware", "?search=ana"), [1]);
+        assert.deepEqual(await numbersOf(ben, "hardware", "?search=H-1"), [1]);
+        assert.deepEqual(await numbersOf(ben, "hardware", "?search=H%2001"), [1]);
+        assert.deepEqual(await numbersOf(ben, "hardware", "?search=nobody"), []);
+        // a search ending in digits also finds the ticket with that number, as on Orders & history, so these invoice
+        // numbers end in others
+        assert.deepEqual(await numbersOf(pedro, "loading", "?search=dela"), [2]);
+        assert.deepEqual(await numbersOf(pedro, "loading", "?search=2"), [2]);
+        assert.deepEqual(await numbersOf(pedro, "loading", "?search=R-777"), [2]);
+        assert.deepEqual(await numbersOf(pedro, "loading", "?list=Steel&search=R-777"), []);
+        assert.deepEqual(await numbersOf(pedro, "loading", "?list=Steel&search=S-888"), [2]);
+    });
+
+    test("a search of % or _ means those characters", async () => {
+        await takeOrder({ name: "100% Hardware" });
+        await takeOrder({ name: "Ana Reyes" });
+        const maria = await app.actingAsSales();
+        const ben = await app.actingAsHardware();
+        await handOver(maria, 1);
+        await handOver(maria, 2);
+
+        assert.deepEqual(await numbersOf(ben, "hardware", "?search=%25"), [1]);
+        assert.deepEqual(await numbersOf(ben, "hardware", "?search=_"), []);
+    });
+
+    test("Show more goes on where the page ended", async () => {
+        await takeOrder();
+        const maria = await app.actingAsSales();
+        const ben = await app.actingAsHardware();
+        await handOver(maria, 1);
+        // 51 more handed-over orders, copied in the database: the kiosk takes only 30 new tickets a minute
+        app.db.exec("CREATE TEMP TABLE copy AS SELECT * FROM orders WHERE queue_num = 1");
+        for (let n = 2; n <= 52; n++) {
+            app.db.prepare("UPDATE copy SET id = NULL, queue_num = ?").run(n);
+            app.db.exec("INSERT INTO orders SELECT * FROM copy");
+        }
+
+        const first = (await history(ben, "hardware")).assertStatus(200).body;
+        assert.equal(first.rows.length, 50);
+        assert.equal(first.more, true);
+        const last = first.rows.at(-1);
+        const second = (await history(ben, "hardware", `?before=${last.date}:${last.queueNum}`)).assertStatus(200).body;
+        assert.deepEqual(
+            second.rows.map((r) => r.queueNum),
+            [2, 1],
+        );
+        assert.equal(second.more, false);
+        const ids = [...first.rows, ...second.rows].map((r) => r.id);
+        assert.equal(new Set(ids).size, 52);
+    });
+
+    test("Show more keeps its place across a ticket restored to a later day", async () => {
+        await takeOrder({ name: "Ana Reyes" });
+        await takeOrder({ name: "Ben Cruz" });
+        const maria = await app.actingAsSales();
+        const admin = await app.actingAsAdmin();
+        const ben = await app.actingAsHardware();
+        // Ana's ticket was deleted yesterday; Ben's was handed over yesterday
+        (await admin.delete("/admin/orders/1")).assertStatus(204);
+        await handOver(maria, 2);
+        moveTo(1, localDay(1));
+        moveTo(2, localDay(1));
+        // restoring it gives it today's next number, on a new day, keeping its older, smaller id
+        const { id } = app.db.prepare("SELECT id FROM orders WHERE name = 'Ana Reyes'").get();
+        (await admin.post(`/admin/history/${id}/restore`)).assertStatus(200);
+        const restored = app.db.prepare("SELECT queue_num FROM orders WHERE id = ?").get(id);
+        await handOver(maria, restored.queue_num);
+
+        const all = await rowsOf(ben, "hardware");
+        assert.deepEqual(
+            all.map((r) => [r.name, r.date]),
+            [
+                ["Ana Reyes", localDay()],
+                ["Ben Cruz", localDay(1)],
+            ],
+        );
+        const [ana, benCruz] = all;
+        assert.deepEqual(
+            (await rowsOf(ben, "hardware", `?before=${ana.date}:${ana.queueNum}`)).map((r) => r.name),
+            ["Ben Cruz"],
+        );
+        const end = (await history(ben, "hardware", `?before=${benCruz.date}:${benCruz.queueNum}`)).assertStatus(
+            200,
+        ).body;
+        assert.deepEqual(end, { rows: [], more: false });
+    });
+
+    test("bad days and a bad before are refused", async () => {
+        const ben = await app.actingAsHardware();
+        assert.equal(
+            (await history(ben, "hardware", "?from=2026-02-30")).assertStatus(400).body.message,
+            "Pick a valid day.",
+        );
+        (await history(ben, "hardware", "?to=yesterday")).assertStatus(400);
+        (await history(ben, "hardware", "?before=12")).assertStatus(400);
+        (await history(ben, "hardware", "?before=2026-11-06:x")).assertStatus(400);
+        (await history(ben, "hardware", "?before=2026-02-30:3")).assertStatus(400);
     });
 });

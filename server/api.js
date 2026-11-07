@@ -1317,6 +1317,15 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                         WHERE ', ' || o.purpose || ', ' LIKE '%, ' || t.value || ', %')
                    OR (:legacy = 1 AND NOT EXISTS (SELECT 1 FROM json_each(:allTypes) t
                         WHERE ', ' || o.purpose || ', ' LIKE '%, ' || t.value || ', %')))
+              AND (:from = '' OR o.queue_date >= :from) AND (:to = '' OR o.queue_date <= :to)
+              -- Show more: the ones after the last row shown, by day and number, which never repeat (an id would put a
+              -- ticket restored to a later day in the wrong place)
+              AND (:beforeDay = '' OR o.queue_date < :beforeDay
+                   OR (o.queue_date = :beforeDay AND o.queue_num < :beforeNum))
+              AND (:search = '' OR o.name LIKE :like ESCAPE '\\' OR o.queue_num = :num
+                   OR EXISTS (SELECT 1 FROM order_invoices i WHERE i.order_id = o.id
+                        AND i.invoice_no LIKE :like ESCAPE '\\'
+                        AND (i.type = '' OR i.type IN (SELECT value FROM json_each(:types)))))
             ORDER BY o.queue_date DESC, o.queue_num DESC
             LIMIT :limit`),
         // History: any day, deleted only or all, by name or number; deleted ones newest-deleted first
@@ -3254,12 +3263,34 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             const listName = url.searchParams.get("list");
             const list = listName === null ? lists[0] : lists.find(({ name }) => name === listName);
             if (!list) return send(res, 400, { message: "Pick one of the department's lists." });
+            // one day is the same day at both ends; one end alone is that day; ends the wrong way round are swapped
+            let from = url.searchParams.get("from") ?? "";
+            let to = url.searchParams.get("to") ?? "";
+            if ((from && !validDay(from)) || (to && !validDay(to)))
+                return send(res, 400, { message: "Pick a valid day." });
+            if (!from || !to) from = to = from || to;
+            if (from > to) [from, to] = [to, from];
+            // Show more: "2026-11-06:12", the day and number of the last row shown
+            const before = url.searchParams.get("before") ?? "";
+            const [, beforeDay = "", beforeNum = "0"] = before.match(/^(\d{4}-\d{2}-\d{2}):(\d+)$/) ?? [];
+            if (before && !validDay(beforeDay)) {
+                return send(res, 400, { message: "Show more lost its place. Search again." });
+            }
+            // a name, a number ("H 01" or "1" finds ticket 1) or one of the list's invoice numbers
+            const search = (url.searchParams.get("search") ?? "").trim().slice(0, 100);
             const found = sql.departmentHistory.all({
                 types: JSON.stringify(list.types),
                 allTypes: JSON.stringify(loadingAreas.flatMap(({ types }) => types)),
                 area: list.area,
                 legacy: list.area === loadingAreas[0].name ? 1 : 0,
                 report: REPORT_PURPOSE,
+                from,
+                to,
+                beforeDay,
+                beforeNum: Number(beforeNum),
+                search,
+                like: likePattern(search),
+                num: Number(search.match(/(\d+)\s*$/)?.[1] ?? -1),
                 limit: DEPARTMENT_HISTORY_PAGE + 1,
             });
             const rows = found.slice(0, DEPARTMENT_HISTORY_PAGE);
