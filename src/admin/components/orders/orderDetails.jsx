@@ -1,6 +1,7 @@
 import { colorLabel } from '../../../data/roofingColors.js';
 import { formatPickup } from '../../../data/pickupDate.js';
 import { checkerSummary } from '../../../data/checkers.js';
+import { workOf } from '../../../data/loadingAreas.js';
 import { resultLabel } from '../../data/securityCheck.js';
 
 // a sales time as Customer order keeps it, "13:05", the way this computer shows the time, e.g. "1:05 PM"
@@ -53,9 +54,9 @@ export default function OrderDetails({ order }) {
                     {checked && <li>Checked by {checked}</li>}
                     {/* a returning customer: they come back for the items that day */}
                     {order.pickupDate && <li className="sale-pickup">Picks up {formatPickup(order.pickupDate)}</li>}
-                    {/* loading, area by area */}
+                    {/* loading, area by area ("Hardware prepared by", workOf) */}
                     {loadedAreas.map(({ name, loaded }) => (
-                        <li key={name}>{name} loaded by <strong>{loaded.by.name}</strong></li>
+                        <li key={name}>{name} {workOf(name).done} by <strong>{loaded.by.name}</strong></li>
                     ))}
                     {/* the security check at the gate */}
                     {order.security === "waiting" && <li className="sale-security">At the security check</li>}

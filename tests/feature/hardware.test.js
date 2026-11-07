@@ -67,6 +67,27 @@ describe("hardware", () => {
         app.assertDatabaseHas("serves", { user_id: maria.account.id });
     });
 
+    // Hardware hands small items over the counter, so its messages say preparing the order, not loading a truck
+    test("Hardware's messages say preparing the order, not loading a truck", async () => {
+        await takeOrder();
+        const { maria, pedro, ben } = await staff();
+        await handOver(maria, 1);
+
+        (await ben.post("/admin/hardware/1/call", { area: "Hardware" })).assertStatus(200);
+        const early = (await ben.post("/admin/hardware/1/done")).assertStatus(409).body;
+        assert.equal(
+            early.message,
+            "Press Start preparing at Hardware when you start getting the items ready, then Done when it's ready.",
+        );
+        (await ben.post("/admin/hardware/1/start")).assertStatus(200);
+        const twice = (await ben.post("/admin/hardware/1/start")).assertStatus(409).body;
+        assert.equal(twice.message, "Hardware is already preparing this order.");
+
+        // the Hardware crew is still preparing it, so the loading crew can't call the customer to Roofings yet
+        const roofings = (await pedro.post("/admin/loading/1/call", { area: "Roofings" })).assertStatus(409).body;
+        assert.match(roofings.message, /Ben Martillo/);
+    });
+
     test("the loading crew can't call a customer who only bought Hardwares, nor Hardware one who bought none", async () => {
         await takeOrder(only("Hardwares"));
         await takeOrder({ name: "Ana Reyes", ...only("Roofings") });
