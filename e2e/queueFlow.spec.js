@@ -18,7 +18,7 @@ test.afterEach(() => {
 
 const signIn = async (page, username, password) => {
     await page.getByLabel('Username').fill(username);
-    await page.getByLabel('Password').fill(password);
+    await page.getByLabel('Password', { exact: true }).fill(password);
     await page.getByRole('button', { name: 'Sign in' }).click();
 };
 
@@ -30,6 +30,13 @@ test('a wrong password is refused, and the staff pages stay behind the sign-in',
 
     await expect(page.getByRole('alert')).toHaveText('Incorrect username or password.');
     await expect(page.getByRole('heading', { name: 'Customer order' })).toBeHidden();
+
+    // the eye shows what's typed in the password box
+    const passwordBox = page.getByLabel('Password', { exact: true });
+    await expect(passwordBox).toHaveAttribute('type', 'password');
+    await page.getByRole('button', { name: 'Show password' }).click();
+    await expect(passwordBox).toHaveAttribute('type', 'text');
+    await expect(page.getByRole('button', { name: 'Hide password' })).toBeVisible();
 });
 
 test('Serve stays in view on Customer order, and a stopped Serve puts the cursor on the first field to fix', async ({ page }) => {
