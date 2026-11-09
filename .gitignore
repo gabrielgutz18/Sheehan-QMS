@@ -39,5 +39,7 @@ test-results
 
 # local record of what was committed
 COMMITS.md
+# local notes for a new claude session: where the work is and how to work here
+HANDOFF.md
 
 docs
