@@ -55,12 +55,12 @@ export const removeSheetColumn = (id) => http.delete(`/admin/order-sheet/columns
 export const getOrderSheetSync = (options) => http.get("/admin/order-sheet/sync", options);
 
 // the Cashier page (cashiers, sales and admins): the Order sheet's orders, every one from every day, with how each is
-// paid; a cashier gets paid and paymentSet (whether any status is picked yet) in place of paymentStatus
+// paid
 // → [{ id, date, isToday, ...as listOrderStatus, invoices: [{ invoiceNo, type }], salesman?, paymentStatus?,
 //      paymentChange?: { by: { name, role? }, at } (who last changed the payment status, and when) }]
 export const listPayments = (options) => http.get("/admin/payments", options);
 
-// sales or an admin change how one of those orders is paid, to one of src/data/paymentStatus.js (it can't be cleared)
+// sales, an admin or the cashier change how one of those orders is paid, to one of src/data/paymentStatus.js (it can't be cleared)
 // → the order, as listPayments has it; a change is kept as an edit, like one on the Order sheet
 export const updatePayment = (id, paymentStatus) =>
     http.patch(`/admin/payments/${encodeURIComponent(id)}`, { paymentStatus });

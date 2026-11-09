@@ -1,7 +1,6 @@
-// the Cashier page: the cashier only looks: they see every day's orders with what the customer bought, whether each
-// is paid or not and who set it, and can't change anything but their own account; sales staff and admins change the
-// payment status there (Vale, COD, Terms, Paid, ...) and on Customer order, each change kept on the ticket as an edit
-// with who made it
+// the Cashier page: every day's orders with what the customer bought and how each is paid; sales staff, admins and the
+// cashier, when the salesman isn't around, change the payment status there (Vale, COD, Terms, Paid, ...), and sales
+// staff and admins on Customer order too, each change kept on the ticket as an edit with who made it
 // run: npm test            only these: npm test -- --test-name-pattern="cashier"
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, test } from "node:test";
@@ -82,10 +81,10 @@ describe("cashier", () => {
         const listed = (await cashier.get("/admin/payments")).assertStatus(200).body;
 
         assert.deepEqual(
-            listed.map((o) => [o.id, o.date, o.isToday, o.paid]),
+            listed.map((o) => [o.id, o.date, o.isToday, o.paymentStatus]),
             [
-                [today, localDay(), true, false],
-                [yesterday, day, false, true],
+                [today, localDay(), true, "Vale"],
+                [yesterday, day, false, "Paid"],
             ],
         );
         const [juan] = listed;
@@ -97,53 +96,36 @@ describe("cashier", () => {
             { invoiceNo: "449765", type: "Roofings" },
             { invoiceNo: "2231", type: "Steel" },
         ]);
-        for (const hidden of [
-            "paymentStatus",
-            "runner",
-            "receiver",
-            "checkers",
-            "salesTimeIn",
-            "orders",
-            "edits",
-            "concern",
-        ]) {
+        for (const hidden of ["runner", "receiver", "checkers", "salesTimeIn", "orders", "edits", "concern"]) {
             assert.equal(juan[hidden], undefined, `${hidden} isn't the cashier's`);
         }
     });
 
-    test("only Paid is paid: the cashier never learns which of the others an order is", async () => {
-        const id = await takeOrder();
-        const cashier = await app.actingAsCashier();
-        const seen = async (status) => {
-            app.db.prepare("UPDATE orders SET payment_status = ? WHERE id = ?").run(status, id);
-            const [order] = (await cashier.get("/admin/payments")).assertStatus(200).body;
-            assert.equal(order.paymentStatus, undefined);
-            return [order.paid, order.paymentSet];
-        };
-
-        assert.deepEqual(await seen("Paid"), [true, true]);
-        for (const status of ["Vale", "Terms", "COD", "Partial"]) assert.deepEqual(await seen(status), [false, true]);
-        assert.deepEqual(await seen(""), [false, false]);
-    });
-
-    test("sales and admins still get the real payment status", async () => {
+    test("everyone on the Cashier page gets the real payment status", async () => {
         await takeOrder();
 
-        for (const staff of [await app.actingAsSales(), await app.actingAsAdmin()]) {
+        for (const staff of [await app.actingAsSales(), await app.actingAsAdmin(), await app.actingAsCashier()]) {
             const [order] = (await staff.get("/admin/payments")).assertStatus(200).body;
             assert.equal(order.paymentStatus, "Vale");
-            assert.equal(order.paid, undefined);
         }
     });
 
-    test("the cashier can't change the payment status", async () => {
+    test("the cashier can set the payment status when the salesman isn't around, and it's kept with their name and role", async () => {
         const id = await takeOrder();
         const cashier = await app.actingAsCashier();
 
-        (await pay(cashier, id, "Paid")).assertStatus(403);
+        const saved = (await pay(cashier, id, "Paid")).assertStatus(200).body;
 
-        app.assertDatabaseHas("orders", { id, payment_status: "Vale" });
-        app.assertDatabaseCount("order_edits", 0);
+        assert.equal(saved.paymentStatus, "Paid");
+        assert.equal(saved.paymentChange.by.role, "cashier");
+        assert.equal(saved.paymentChange.by.name, cashier.account.name);
+        app.assertDatabaseHas("orders", { id, payment_status: "Paid" });
+        app.assertDatabaseHas("order_edits", {
+            order_id: id,
+            user_id: cashier.account.id,
+            changes: '["paymentStatus"]',
+        });
+        (await pay(cashier, id, "Cash")).assertStatus(400);
     });
 
     test("the cashier sees who set it and in what role", async () => {
@@ -152,7 +134,7 @@ describe("cashier", () => {
 
         const [order] = (await (await app.actingAsCashier()).get("/admin/payments")).assertStatus(200).body;
 
-        assert.equal(order.paid, true);
+        assert.equal(order.paymentStatus, "Paid");
         assert.deepEqual(order.paymentChange.by, { name: "Maria Santos", role: "sales" });
         assert.ok(order.paymentChange.at);
     });
@@ -203,11 +185,11 @@ describe("cashier", () => {
 
         const [order] = (await cashier.get("/admin/payments")).assertStatus(200).body;
 
-        assert.deepEqual([order.paid, order.paymentChange.by.name], [true, "Liza Reyes"]);
+        assert.deepEqual([order.paymentStatus, order.paymentChange.by.name], ["Paid", "Liza Reyes"]);
         // and the terms on the sheet count as the change they are
         (await maria.patch(`/admin/order-sheet/${id}`, { terms: "COD" })).assertStatus(200);
         const [again] = (await cashier.get("/admin/payments")).assertStatus(200).body;
-        assert.deepEqual([again.paid, again.paymentChange.by.name], [false, "Maria Santos"]);
+        assert.deepEqual([again.paymentStatus, again.paymentChange.by.name], ["COD", "Maria Santos"]);
     });
 
     test("an earlier day's order is changed by its id, not today's order with the same number", async () => {
@@ -262,7 +244,7 @@ describe("cashier", () => {
         app.assertDatabaseCount("order_edits", 0);
     });
 
-    test("the cashier can only look at payments: no changing them, queue, calling, sheet, loading, security, history or accounts", async () => {
+    test("payments are all the cashier can work on: no queue, calling, sheet, loading, security, history or accounts", async () => {
         const id = await takeOrder();
         const cashier = await app.actingAsCashier();
 
@@ -271,7 +253,6 @@ describe("cashier", () => {
         (await cashier.get("/auth/me")).assertStatus(200);
         (await cashier.patch("/admin/me", { firstName: "Rosa", surname: "Bayad" })).assertStatus(200);
         const refused = [
-            ["patch", `/admin/payments/${id}`, { paymentStatus: "Paid" }],
             ["get", "/admin/orders"],
             ["get", "/admin/orders/1"],
             ["put", "/admin/orders/1", sale()],
@@ -350,7 +331,7 @@ describe("cashier", () => {
         }
         (await maria.put("/admin/orders/1", sale({ paymentStatus: "Cash" }))).assertStatus(400);
         const [listed] = (await cashier.get("/admin/payments")).assertStatus(200).body;
-        assert.deepEqual([listed.paid, listed.paymentChange.by.name], [true, "Maria Santos"]);
+        assert.deepEqual([listed.paymentStatus, listed.paymentChange.by.name], ["Paid", "Maria Santos"]);
         app.assertDatabaseCount("order_edits", 3);
     });
 

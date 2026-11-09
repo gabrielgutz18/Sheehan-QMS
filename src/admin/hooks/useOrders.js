@@ -9,10 +9,12 @@ const REFRESH_MS = 10000;
 // list: what to fetch, today's orders unless given; the Order sheet fetches every day's (listOrderSheet)
 // changed(): call it when a save starts and when it ends; a refresh asked for before then is dropped, since it would
 // show the change undone until the next one
+// updatedAt: when they last came in, so a page that can't reach the server shows how old its news is
 export default function useOrders({ refreshMs = REFRESH_MS, list = listOrders } = {}) {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [updatedAt, setUpdatedAt] = useState(null);
     const saves = useRef(0);
     const changed = useCallback(() => {
         saves.current += 1;
@@ -29,6 +31,7 @@ export default function useOrders({ refreshMs = REFRESH_MS, list = listOrders } 
                     if (saves.current !== asked) return;
                     setOrders(data ?? []);
                     setError("");
+                    setUpdatedAt(new Date());
                 })
                 .catch((err) => {
                     if (!signal.aborted) setError(err.message);
@@ -46,5 +49,5 @@ export default function useOrders({ refreshMs = REFRESH_MS, list = listOrders } 
         };
     }, [refreshMs, list]);
 
-    return { orders, setOrders, loading, error, changed };
+    return { orders, setOrders, loading, error, updatedAt, changed };
 }

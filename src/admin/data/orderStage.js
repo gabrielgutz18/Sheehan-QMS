@@ -77,7 +77,7 @@ export const stepsOf = (order) => {
     return [
         { label: "Sales", state: sales },
         ...loading,
-        ...(needsCheck ? [{ label: "Security", state: stage === "done" ? "done" : stage === "security" ? "now" : "waiting" }] : []),
+        ...(needsCheck ? [{ label: "Security check", state: stage === "done" ? "done" : stage === "security" ? "now" : "waiting" }] : []),
         { label: "Done", state: stage === "done" ? "done" : "waiting" },
     ];
 };
