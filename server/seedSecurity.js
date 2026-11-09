@@ -14,6 +14,7 @@ import { createServer } from 'node:http';
 
 import { createApi } from './api.js';
 import { whereNow } from '../src/admin/data/orderStage.js';
+import { departmentOf } from '../src/data/loadingAreas.js';
 import formatQueueNum from '../src/data/queueNum.js';
 
 const DEFAULT_PASSWORD = "security123";
@@ -35,20 +36,32 @@ const sale = (name, purpose, invoices, team = "GIGA") => ({
 const call = (n, admin) => admin("POST", `/admin/orders/${n}/call`);
 const handOver = (n, sales) => sales("POST", `/admin/orders/${n}/handover`);
 const doneAtSales = (n, sales) => sales("PATCH", `/admin/orders/${n}`, { status: "done" });
-// the loading crew calls them to their next area; Done there sends them on to the area after it, or, after the last,
-// to the security check
-const callToNextArea = (n, loading) => loading("POST", `/admin/loading/${n}/call`, { remarks: "" });
-const loadNextArea = async (n, loading) => {
-    await callToNextArea(n, loading);
-    return (await loading("POST", `/admin/loading/${n}/done`)).body;
+// the department of the customer's next area calls them and presses Start loading once the truck is there; Done there
+// sends them on to the area after it, or, after the last, to the security check; the demo loading account works
+// Roofings and Steel, and with no demo accounts for TBA, Chassis and Hardware, the built-in admin works those
+const nextArea = async (n, crews) => {
+    const { body: orders } = await crews.admin("GET", "/admin/orders");
+    const { name } = orders.find((order) => order.queueNum === n).areas.find((area) => !area.loaded);
+    const department = departmentOf(name);
+    return { route: `/admin/${department}/${n}`, crew: department === "loading" ? crews.loading : crews.admin };
 };
-const loadEveryArea = async (n, loading) => {
-    while ((await loadNextArea(n, loading)).status !== "done");
+const callToNextArea = async (n, crews) => {
+    const { route, crew } = await nextArea(n, crews);
+    await crew("POST", `${route}/call`, { remarks: "" });
+};
+const loadNextArea = async (n, crews) => {
+    const { route, crew } = await nextArea(n, crews);
+    await crew("POST", `${route}/call`, { remarks: "" });
+    await crew("POST", `${route}/start`);
+    return (await crew("POST", `${route}/done`)).body;
+};
+const loadEveryArea = async (n, crews) => {
+    while ((await loadNextArea(n, crews)).status !== "done");
 };
 // the guard at the gate: verified, or a report of what's wrong
 const check = (n, guard, result, note) => guard("POST", `/admin/security/${n}/check`, { result, note });
 
-// every stage, each with what gets it there; s is the sales counter, l the loading crew, g the guard, a the admin
+// every stage, each with what gets it there; s is the sales counter, l the department crews, g the guard, a the admin
 const CUSTOMERS = [
     {
         order: sale("Juan Dela Cruz", "Roofings, Steel", [["44976501", "Roofings"], ["44976502", "Roofings"], ["22310077", "Steel"]]),
@@ -167,7 +180,7 @@ try {
     const added = [];
     for (const { order, steps } of CUSTOMERS) {
         const { body: taken } = await admin("POST", "/orders", order);
-        await steps(taken.queueNum, sales, loading, guard ?? admin, admin);
+        await steps(taken.queueNum, sales, { admin, loading }, guard ?? admin, admin);
         added.push(taken.queueNum);
     }
 
