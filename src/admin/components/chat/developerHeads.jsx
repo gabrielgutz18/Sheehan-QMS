@@ -8,23 +8,30 @@ import Avatar from '../common/avatar.jsx';
 const REFRESH_MS = 15000;
 
 // the developer team as a row of chat heads, a green dot on each one online, online ones first
-// meId: the signed-in developer, marked You on the Chat page
-/** @param {{ meId?: number }} props */
-export default function DeveloperHeads({ meId }) {
+// meId: the signed-in developer, marked You on the Chat page; onTeam(team): told each time the team is read, so
+// Message developer can say when none of them is on
+/** @param {{ meId?: number, onTeam?: (team: any[]) => void }} props */
+export default function DeveloperHeads({ meId, onTeam }) {
     const [team, setTeam] = useState(null);
 
     useEffect(() => {
         const controller = new AbortController();
         const { signal } = controller;
         // a failed check keeps the heads it has; they're a help, not the page
-        const load = () => listDevelopers({ signal }).then(setTeam).catch(() => {});
+        const load = () =>
+            listDevelopers({ signal })
+                .then((found) => {
+                    setTeam(found);
+                    onTeam?.(found);
+                })
+                .catch(() => {});
         load();
         const id = setInterval(load, REFRESH_MS);
         return () => {
             clearInterval(id);
             controller.abort();
         };
-    }, []);
+    }, [onTeam]);
 
     if (!team) return null;
     const online = team.filter((d) => d.online).length;

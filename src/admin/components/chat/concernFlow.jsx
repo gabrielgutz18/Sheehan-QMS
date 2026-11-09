@@ -7,10 +7,11 @@ const BOT =
     "M12 4v3M6 7h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2zM9 12v1M15 12v1M9 16h6M2 12v3M22 12v3";
 
 // one of the bot's messages, in the middle of the thread: a question it asks, or a report's status change
-/** @param {{ children: import('react').ReactNode, sentAt?: string }} props */
-export function BotBubble({ children, sentAt }) {
+// pop: it springs in, for one that turns up on its own, like the developers being offline
+/** @param {{ children: import('react').ReactNode, sentAt?: string, pop?: boolean }} props */
+export function BotBubble({ children, sentAt, pop = false }) {
     return (
-        <li className="chat-message chat-bot-message">
+        <li className={`chat-message chat-bot-message${pop ? " is-pop" : ""}`}>
             <div className="chat-bot-bubble">
                 <Icon d={BOT} className="line-icon chat-bot-icon" />
                 <p className="chat-body">{children}</p>

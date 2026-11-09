@@ -860,6 +860,24 @@
   max-width: min(92%, 520px);
 }
 
+/* one that turns up on its own, like the developers being offline, springs in */
+.chat-message.chat-bot-message.is-pop {
+  animation: chat-bot-pop 220ms ease-out;
+}
+
+@keyframes chat-bot-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-message.chat-bot-message.is-pop {
+    animation: none;
+  }
+}
+
 .chat-bot-bubble {
   display: flex;
   flex-wrap: wrap;

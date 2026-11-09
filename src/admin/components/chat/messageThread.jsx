@@ -53,14 +53,14 @@ async function chatImage(file) {
 // renderReport(message): a report's card (see concernCard.jsx); the Chat page passes one with the status buttons
 // bot: while a report is being answered on Message developer: after (the guided chat, after the messages), above (its
 // choices over the box), placeholder, locked (the box takes no words, e.g. while choices are asked) and step (to keep
-// the newest question in view)
+// the newest question in view); note: a bot message after the messages, e.g. that the developers are offline
 /**
  * @param {{ messages: any[], loading: boolean, error: string, mine: (message: any) => boolean,
  *   onSend: (body: string, image: Blob | null) => Promise<any>, empty: string, label: string,
  *   typing: { id: number, name: string }[], onTyping: () => void, imageUrl?: (message: any) => string,
  *   disabled?: string, renderReport?: (message: any) => import('react').ReactNode,
  *   bot?: { after: import('react').ReactNode, above: import('react').ReactNode, placeholder: string, locked: boolean,
- *     step: number } | null }} props
+ *     step: number } | null, note?: import('react').ReactNode }} props
  */
 export default function MessageThread({
     messages,
@@ -76,6 +76,7 @@ export default function MessageThread({
     disabled = "",
     renderReport = (m) => <ConcernCard concern={m.concern} />,
     bot = null,
+    note = null,
 }) {
     const [draft, setDraft] = useState("");
     // the picture waiting to go: { blob, url } (url for its preview), or null
@@ -89,12 +90,13 @@ export default function MessageThread({
     const lastId = messages.at(-1)?.id;
     const pictures = messages.filter((m) => m.image);
     const viewIndex = pictures.findIndex((m) => m.id === viewing);
+    const hasNote = Boolean(note);
 
     // keep the newest message in view as they come in
     useEffect(() => {
         const list = listRef.current;
         if (list) list.scrollTop = list.scrollHeight;
-    }, [lastId, bot?.step]);
+    }, [lastId, bot?.step, hasNote]);
 
     // the preview's object URL is let go once it's replaced, sent or the page closes
     useEffect(() => () => image && URL.revokeObjectURL(image.url), [image]);
@@ -188,6 +190,7 @@ export default function MessageThread({
                         </li>
                     ))
                 )}
+                {note}
                 {bot?.after}
             </ol>
 

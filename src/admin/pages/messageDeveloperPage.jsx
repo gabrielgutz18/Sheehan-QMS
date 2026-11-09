@@ -1,9 +1,11 @@
 import "../style/chat.css";
 
+import { useState } from "react";
+
 import { listMyMessages, listMyTyping, noteMyTyping, sendMyImage, sendMyMessage } from "../api/chatController.js";
 import { ROLE_LABELS } from "../auth/roles.js";
 import { useAuth } from "../auth/authContext.js";
-import { ConcernBot, ConcernButtons, ConcernChoices } from "../components/chat/concernFlow.jsx";
+import { BotBubble, ConcernBot, ConcernButtons, ConcernChoices } from "../components/chat/concernFlow.jsx";
 import DeveloperHeads from "../components/chat/developerHeads.jsx";
 import MessageThread from "../components/chat/messageThread.jsx";
 import { navFor } from "../data/navItems.js";
@@ -28,6 +30,10 @@ export default function MessageDeveloperPage() {
         sent: added,
     });
     const { draft, question } = flow;
+    // the developer team as the chat heads last read it, or null until then
+    const [team, setTeam] = useState(null);
+    // with none of them on, the bot says so as soon as the tab opens, so nobody waits on an answer that isn't coming yet
+    const offline = team !== null && !team.some((d) => d.online);
 
     // while a report is being answered, the box answers the bot instead of writing to the developers
     const bot = draft && {
@@ -67,7 +73,7 @@ export default function MessageDeveloperPage() {
             </div>
 
             <div className="admin-panel chat-panel">
-                <DeveloperHeads />
+                <DeveloperHeads onTeam={setTeam} />
                 <ConcernButtons onStart={flow.start} disabled={Boolean(draft)} />
                 {!draft && flow.error && (
                     <p className="field-error" role="alert">
@@ -89,6 +95,13 @@ export default function MessageDeveloperPage() {
                     empty="No messages yet. Write the first one below."
                     label="Message to the developers"
                     bot={bot}
+                    note={
+                        offline && (
+                            <BotBubble pop>
+                                The developers are currently offline. Please leave a message and we'll get back to you.
+                            </BotBubble>
+                        )
+                    }
                 />
             </div>
         </section>
