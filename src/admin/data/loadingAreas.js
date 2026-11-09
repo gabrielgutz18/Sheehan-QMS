@@ -1,11 +1,11 @@
 import loadingAreas, { areasFor, departmentHas, departmentOf, departmentWord, workOf } from '../../data/loadingAreas.js';
 
-// where a department's crew sends a customer it calls: one-tap "Please proceed to …" messages in the Loading, TBA and
+// where a department's crew sends a customer it calls: one-tap "Please proceed to …" messages in the Loading, Service and
 // Hardware pages' call dialog (the message can still be changed before calling); the areas are departments of the
 // company, not teams, and each order is loaded in its own areas in turn (src/data/loadingAreas.js)
 
-// who sales hands an order over to, as the pages word it: "loading", "TBA", "hardware", or "loading and hardware",
-// "loading, TBA and hardware" for one with something from several; "loading" for one with no areas
+// who sales hands an order over to, as the pages word it: "loading", "service", "hardware", or "loading and hardware",
+// "loading, service and hardware" for one with something from several; "loading" for one with no areas
 export const handOverTo = (purpose) => {
     const departments = [...new Set(areasFor(purpose).map(departmentOf))];
     const words = (departments.length ? departments : ["loading"]).map(departmentWord);

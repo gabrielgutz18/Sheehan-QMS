@@ -203,6 +203,7 @@ On every start, any `.sql` file not yet listed in `schema_migrations` runs, in n
 | [`018_security_staff.sql`](../server/migrations/018_security_staff.sql) | rebuilds `users` to allow the `security` role (the guards at the gate, the last stage: looking only) |
 | [`019_area_loading_security_check.sql`](../server/migrations/019_area_loading_security_check.sql) | loading area by area, and the security check: adds `loading_area`, `security_pending`, `security_check_id` to `orders`, and the `order_loads` (each area loaded this visit, by whom and when) and `security_checks` (every guard's check: verified, or a report of something missing, over the quantity or stolen, with a note; kept even if the order is reopened) tables; orders already done stay done, with nothing to check |
 | [`020_cashier_staff.sql`](../server/migrations/020_cashier_staff.sql) | rebuilds `users` to allow the `cashier` role (changes how each order is paid, nothing else) |
+| [`040_service_staff.sql`](../server/migrations/040_service_staff.sql) | renames the TBA department to Service: rebuilds `users` so `role` allows `service` instead of `tba`, moves TBA accounts over, and changes the area from `TBA` to `Service` in `orders.loading_area`, `order_loads.area` and `security_checks.returned_to`; `orders.tba_priority` keeps its name |
 
 **Changing the tables later:** never edit a file that has already run anywhere. Add the next number instead, for example `server/migrations/006_add_counter_number.sql`:
 
@@ -313,7 +314,7 @@ erDiagram
     order_loads {
         INTEGER id PK
         INTEGER order_id FK "orders.id, cascade"
-        TEXT area "Roofings, Steel or TBA; once per order"
+        TEXT area "Roofings, Steel, Service, Chassis or Hardware; once per order"
         INTEGER loaded_by FK "users.id; who pressed Done there"
         TEXT loaded_at
     }
@@ -348,7 +349,7 @@ erDiagram
         INTEGER id PK
         TEXT username "unique, any case"
         TEXT name
-        TEXT role "admin | sales | loading | security | cashier"
+        TEXT role "admin | sales | loading | service | chassis | hardware | security | cashier | inventory | developer"
         TEXT password_hash "scrypt"
         TEXT created_at
         TEXT disabled_at
@@ -421,6 +422,8 @@ Orders are never deleted from the app. Delete only sets `deleted_at`, so the cas
 | `sessions` | who is signed in; [`038_lasting_sign_ins.sql`](../server/migrations/038_lasting_sign_ins.sql) adds `created_at`, for the 30-day limit | `insertSession`, `touchSession` (pushes `expires` back as the app is used), `deleteSession`, `deleteExpiredSessions`, `deleteUserSessions` | `findSession` |
 | `serves` | the points | `addPoint` / `removePoint` (L340-343), from `changeStatus()` (L478-487), and `addPoint` on Hand over to loading (the point is the sales counter's; the crews finishing or reopening the order leave it alone) | `listUsers` (L432-437), `myTotals` / `myByHour` / `myByDay` / `myByMonth` (L440-455) |
 | `concerns` | the reports staff send through the three buttons on Message developer (a bug, a system concern or a feature for their department) and where each stands; [`039_concerns.sql`](../server/migrations/039_concerns.sql) also adds `kind` (`text`, `report` or `status`) and `concern_id` to `messages`, so each report has a card message from the staff member and each status change a message from the developer, which count as unread like any other | `insertConcern` + `insertMessage` in `POST /admin/concerns`; `setConcernStatus` + `insertMessage` in `PATCH /admin/concerns/:id`, each in one `transaction()` | `listConcerns` (the Chat page's Reports), `findConcern`, and the `concern` on report and status messages (`threadMessages`, `findMessage`) |
+| `messages` | the developer chat, one conversation per staff member, including report cards and status changes; [`041_chat_ids_never_reused.sql`](../server/migrations/041_chat_ids_never_reused.sql) makes `id` AUTOINCREMENT, so a number is never given twice, as browsers cache `/chat-images/<id>` for a year | the chat routes in `server/api.js`; erased by `npm run clear:messages` | the Chat and Message developer pages, `/chat-images/<id>` |
+| `direct_messages` | SheeChat, one conversation per pair of staff; `id` is AUTOINCREMENT since `041`, as above | the SheeChat routes in `server/api.js`; erased by `npm run clear:messages` | the SheeChat page, `/sheechat-images/<id>` |
 | `settings` | display video and announcer settings, as JSON | `writeSetting()` (L502) | `readSetting()` (L498) |
 | `schema_migrations` | which migration files have run | `migrate()` in `server/db.js` | `migrate()` |
 
@@ -977,6 +980,7 @@ SELECT * FROM schema_migrations;     -- which migration files have run
 
 - **Back up:** `npm run backup` ([`server/backup.js`](../server/backup.js)) copies `queue.db` with `VACUUM INTO`, which is safe while the app runs, and the `videos/` and `photos/` folders into a dated folder. It keeps the newest 14. On the server, set `BACKUP_DIR` to another drive and schedule it daily.
 - **Restore:** stop the app, copy a backup's `queue.db`, `videos/` and `photos/` into the data folder (remove any old `queue.db-wal` and `queue.db-shm`), start the app.
+- **Erase every chat:** `npm run clear:messages` ([`server/clearMessages.js`](../server/clearMessages.js)) says how much there is and changes nothing; `npm run clear:messages -- --yes` empties `messages` and `direct_messages`, removes the files in `chat-images/` and compacts `queue.db` so the words are gone from the file too. `concerns` stays. It first saves a copy in a `_before-clear-messages` backup folder (`--no-backup` skips it), and earlier backups still hold the messages.
 - **Move to the Windows server:** stop the app and copy the whole data folder to the folder `DATA_DIR` points at. Or start fresh: the server creates an empty database and runs every migration on first start.
 
 ## 8. Troubleshooting

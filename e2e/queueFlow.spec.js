@@ -174,6 +174,13 @@ test("a customer goes from their ticket, through hand-over and loading, with the
     await expect(upNext.getByText(customer)).toBeHidden();
 });
 
+// Tire and Battery's own page, at the address it got when the department stopped being called TBA
+test("the Service page opens at its own address", async ({ page }) => {
+    await page.goto("/staff/service");
+    await signIn(page, ADMIN.username, ADMIN.password);
+    await expect(page.getByText(/^Waiting for service \(\d+\)$/)).toBeVisible();
+});
+
 test("a red bar says so when the server can't be reached, and goes away by itself once it can", async ({ page }) => {
     await page.goto("/staff/loading");
     await signIn(page, ADMIN.username, ADMIN.password);

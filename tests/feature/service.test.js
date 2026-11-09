@@ -1,8 +1,8 @@
-// the TBA page: TBA (Tire, Battery) is its own department, working like the loading crew and Hardware for its
+// the Service page: Service (Tire, Battery) is its own department, working like the loading crew and Hardware for its
 // own area (src/data/loadingAreas.js). A sales counter hands the customer over just the same; a customer who bought a
-// Tire or Battery is called to TBA from the TBA page, and one who bought roofing too goes to the loading crew
-// and TBA in turn, one at a time
-// run: npm test            only these: npm test -- --test-name-pattern="TBA"
+// Tire or Battery is called to Service from the Service page, and one who bought roofing too goes to the loading crew
+// and Service in turn, one at a time
+// run: npm test            only these: npm test -- --test-name-pattern="Service"
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, test } from 'node:test';
 
@@ -31,11 +31,11 @@ const only = (type) => ({ purpose: type, invoices: [{ invoiceNo: "2223", type }]
 
 const takeOrder = async (overrides) => (await app.client().post("/orders", order(overrides))).assertStatus(201).body;
 
-// a sales counter, someone on the loading crew and someone at TBA
+// a sales counter, someone on the loading crew and someone at Service
 const staff = async () => ({
     maria: await app.actingAsSales(),
     pedro: await app.actingAsLoading("Pedro Garcia"),
-    tony: await app.actingAsTba("Tony Gulong"),
+    tony: await app.actingAsService("Tony Gulong"),
 });
 
 const handOver = async (sales, queueNum) => {
@@ -43,8 +43,8 @@ const handOver = async (sales, queueNum) => {
 };
 const areasOf = (o) => o.areas.map(({ name, loaded }) => [name, loaded?.by.name]);
 
-describe("TBA", () => {
-    test("Tire and Battery are both loaded at TBA, in one go, by the TBA department", async () => {
+describe("Service", () => {
+    test("Tire and Battery are both loaded at Service, in one go, by the Service department", async () => {
         await takeOrder({
             purpose: "Tire, Battery", invoices: [{ invoiceNo: "601", type: "Tire" }, { invoiceNo: "602", type: "Battery" }],
         });
@@ -53,36 +53,36 @@ describe("TBA", () => {
 
         // not the loading crew's any more
         (await pedro.post("/admin/loading/1/call")).assertStatus(409);
-        assert.equal((await tony.post("/admin/tba/1/call")).assertStatus(200).body.loadingArea, "TBA");
-        const started = (await tony.post("/admin/tba/1/start", { area: "TBA" })).assertStatus(200).body;
+        assert.equal((await tony.post("/admin/service/1/call")).assertStatus(200).body.loadingArea, "Service");
+        const started = (await tony.post("/admin/service/1/start", { area: "Service" })).assertStatus(200).body;
         assert.ok(started.loadingStartedAt);
-        const done = (await tony.post("/admin/tba/1/done")).assertStatus(200).body;
+        const done = (await tony.post("/admin/service/1/done")).assertStatus(200).body;
 
         assert.equal(done.status, "done");
         assert.equal(done.loaded.by.name, "Tony Gulong");
-        assert.deepEqual(areasOf(done), [["TBA", "Tony Gulong"]]);
+        assert.deepEqual(areasOf(done), [["Service", "Tony Gulong"]]);
         assert.equal(done.security, "waiting");
     });
 
-    test("an order for Roofings and a Tire is loaded at Roofings, then TBA, then it's done", async () => {
+    test("an order for Roofings and a Tire is loaded at Roofings, then Service, then it's done", async () => {
         await takeOrder();
         const { maria, pedro, tony } = await staff();
         await handOver(maria, 1);
 
         (await pedro.post("/admin/loading/1/start", { area: "Roofings" })).assertStatus(200);
         // a customer is in one place at a time
-        assert.equal((await tony.post("/admin/tba/1/call")).assertStatus(409).body.message,
+        assert.equal((await tony.post("/admin/service/1/call")).assertStatus(409).body.message,
             "Please wait until Pedro Garcia finishes.");
-        (await tony.post("/admin/tba/1/start", { area: "TBA" })).assertStatus(409);
+        (await tony.post("/admin/service/1/start", { area: "Service" })).assertStatus(409);
         const roofingsDone = (await pedro.post("/admin/loading/1/done")).assertStatus(200).body;
         assert.equal(roofingsDone.status, "pending");
 
-        // nothing left for the loading crew; TBA loads it straight away, no call needed
+        // nothing left for the loading crew; Service loads it straight away, no call needed
         (await pedro.post("/admin/loading/1/call")).assertStatus(409);
-        (await tony.post("/admin/tba/1/start", { area: "TBA" })).assertStatus(200);
-        const finished = (await tony.post("/admin/tba/1/done")).assertStatus(200).body;
+        (await tony.post("/admin/service/1/start", { area: "Service" })).assertStatus(200);
+        const finished = (await tony.post("/admin/service/1/done")).assertStatus(200).body;
         assert.equal(finished.status, "done");
-        assert.deepEqual(areasOf(finished), [["Roofings", "Pedro Garcia"], ["TBA", "Tony Gulong"]]);
+        assert.deepEqual(areasOf(finished), [["Roofings", "Pedro Garcia"], ["Service", "Tony Gulong"]]);
     });
 
     test("each department's accounts see only the handed-over orders it has a part in; their routes are their own", async () => {
@@ -100,23 +100,23 @@ describe("TBA", () => {
         (await tony.get("/admin/order-status")).assertStatus(200);
         (await tony.post("/admin/loading/1/call")).assertStatus(403);
         (await tony.post("/admin/hardware/2/call")).assertStatus(403);
-        (await pedro.post("/admin/tba/2/call")).assertStatus(403);
-        (await maria.post("/admin/tba/2/call")).assertStatus(403);
+        (await pedro.post("/admin/service/2/call")).assertStatus(403);
+        (await maria.post("/admin/service/2/call")).assertStatus(403);
         (await tony.get("/admin/security")).assertStatus(403);
         // an admin can work it too
-        (await (await app.actingAsAdmin()).post("/admin/tba/2/call")).assertStatus(200);
+        (await (await app.actingAsAdmin()).post("/admin/service/2/call")).assertStatus(200);
     });
 
-    test("an admin can make an account TBA staff, or move one there", async () => {
+    test("an admin can make an account Service staff, or move one there", async () => {
         const admin = await app.actingAsAdmin();
         const created = (await admin.post("/admin/users", {
-            username: "tony", name: "Tony Gulong", password: "password1", role: "tba",
+            username: "tony", name: "Tony Gulong", password: "password1", role: "service",
         })).assertStatus(201).body;
-        assert.equal(created.role, "tba");
+        assert.equal(created.role, "service");
 
         const pedro = await app.actingAsLoading("Pedro Garcia");
-        const moved = (await admin.patch(`/admin/users/${pedro.account.id}`, { role: "tba" })).assertStatus(200).body;
-        assert.equal(moved.role, "tba");
-        app.assertDatabaseHas("users", { username: "tony", role: "tba" });
+        const moved = (await admin.patch(`/admin/users/${pedro.account.id}`, { role: "service" })).assertStatus(200).body;
+        assert.equal(moved.role, "service");
+        app.assertDatabaseHas("users", { username: "tony", role: "service" });
     });
 });

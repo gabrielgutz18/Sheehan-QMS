@@ -60,7 +60,7 @@ describe("department history", () => {
         ]) {
             (await history(other, "hardware")).assertStatus(403);
         }
-        for (const department of ["loading", "tba", "chassis", "hardware"])
+        for (const department of ["loading", "service", "chassis", "hardware"])
             (await history(admin, department)).assertStatus(200);
         (await history(admin, "nowhere")).assertStatus(404);
     });
@@ -88,7 +88,7 @@ describe("department history", () => {
             rows.map((r) => r.queueNum),
             [1],
         );
-        for (const department of ["loading", "tba", "chassis"]) assert.deepEqual(await rowsOf(admin, department), []);
+        for (const department of ["loading", "service", "chassis"]) assert.deepEqual(await rowsOf(admin, department), []);
     });
 
     test("an order shows in every list it has a type of, with only that list's part", async () => {
@@ -104,7 +104,7 @@ describe("department history", () => {
         const maria = await app.actingAsSales();
         const pedro = await app.actingAsLoading();
         const ben = await app.actingAsHardware();
-        const tony = await app.actingAsTba();
+        const tony = await app.actingAsService();
         await handOver(maria, 1);
         await load(pedro, "loading", 1, "Roofings");
 
@@ -124,9 +124,9 @@ describe("department history", () => {
         assert.deepEqual(steel.invoices, [{ invoiceNo: "S-1", type: "Steel" }]);
         assert.equal(steel.loaded, null);
 
-        const [tire] = await rowsOf(tony, "tba", "?list=Tire");
+        const [tire] = await rowsOf(tony, "service", "?list=Tire");
         assert.deepEqual(tire.invoices, [{ invoiceNo: "T-1", type: "Tire" }]);
-        assert.deepEqual(await rowsOf(tony, "tba", "?list=Battery"), []);
+        assert.deepEqual(await rowsOf(tony, "service", "?list=Battery"), []);
 
         for (const row of [hardware, roofings, steel, tire]) {
             for (const key of ["paymentStatus", "salesman", "edits", "orders"]) assert.equal(key in row, false, key);
@@ -166,7 +166,7 @@ describe("department history", () => {
         );
     });
 
-    test("Tire and Battery share TBA's load", async () => {
+    test("Tire and Battery share Service's load", async () => {
         await takeOrder({
             purpose: "Tire, Battery",
             invoices: [
@@ -175,12 +175,12 @@ describe("department history", () => {
             ],
         });
         const maria = await app.actingAsSales();
-        const tony = await app.actingAsTba();
+        const tony = await app.actingAsService();
         await handOver(maria, 1);
-        await load(tony, "tba", 1, "TBA");
+        await load(tony, "service", 1, "Service");
 
-        const [tire] = await rowsOf(tony, "tba", "?list=Tire");
-        const [battery] = await rowsOf(tony, "tba", "?list=Battery");
+        const [tire] = await rowsOf(tony, "service", "?list=Tire");
+        const [battery] = await rowsOf(tony, "service", "?list=Battery");
         assert.deepEqual(
             tire.invoices.map((i) => i.invoiceNo),
             ["T-3"],
@@ -191,9 +191,9 @@ describe("department history", () => {
         );
         assert.equal(tire.loaded.by.name, "Tony Gulong");
         assert.equal(battery.loaded.by.name, "Tony Gulong");
-        // Tire is TBA's first list
+        // Tire is Service's first list
         assert.deepEqual(
-            (await rowsOf(tony, "tba")).map((r) => r.invoices[0].invoiceNo),
+            (await rowsOf(tony, "service")).map((r) => r.invoices[0].invoiceNo),
             ["T-3"],
         );
     });
@@ -290,10 +290,10 @@ describe("department history", () => {
         await handOver(maria, 2);
         await load(pedro, "loading", 1, "Roofings");
         await load(carlos, "chassis", 2, "Chassis");
-        // before areas had loads of their own only the order's Done was kept; and Chassis was loaded at TBA before it
+        // before areas had loads of their own only the order's Done was kept; and Chassis was loaded at Service before it
         // had its own department
         app.db.prepare("DELETE FROM order_loads WHERE area = 'Roofings'").run();
-        app.db.prepare("UPDATE order_loads SET area = 'TBA' WHERE area = 'Chassis'").run();
+        app.db.prepare("UPDATE order_loads SET area = 'Service' WHERE area = 'Chassis'").run();
 
         const [roofings] = await rowsOf(pedro, "loading");
         assert.equal(roofings.loaded?.by.name, "Pedro Garcia");

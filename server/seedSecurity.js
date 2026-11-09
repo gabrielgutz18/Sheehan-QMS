@@ -38,7 +38,7 @@ const handOver = (n, sales) => sales("POST", `/admin/orders/${n}/handover`);
 const doneAtSales = (n, sales) => sales("PATCH", `/admin/orders/${n}`, { status: "done" });
 // the department of the customer's next area calls them and presses Start loading once the truck is there; Done there
 // sends them on to the area after it, or, after the last, to the security check; the demo loading account works
-// Roofings and Steel, and with no demo accounts for TBA, Chassis and Hardware, the built-in admin works those
+// Roofings and Steel, and with no demo accounts for Service, Chassis and Hardware, the built-in admin works those
 const nextArea = async (n, crews) => {
     const { body: orders } = await crews.admin("GET", "/admin/orders");
     const { name } = orders.find((order) => order.queueNum === n).areas.find((area) => !area.loaded);

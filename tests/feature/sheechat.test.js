@@ -70,7 +70,7 @@ describe("SheeChat", () => {
     test("the People list has everyone but you and the developers", async () => {
         const admin = await app.actingAsAdmin();
         const sales = await app.actingAsSales();
-        await app.actingAsTba();
+        await app.actingAsService();
         await app.actingAsDeveloper();
 
         const people = (await sales.get("/admin/sheechat/people")).assertStatus(200).body;

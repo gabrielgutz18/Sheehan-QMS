@@ -1,16 +1,16 @@
 // bringing an existing database up to date: each migration runs once, and one that rebuilds a table keeps
 // every row in it and in the tables that point at it
 // run: npm test -- --test-name-pattern="migration"
-import assert from 'node:assert/strict';
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
-import { afterEach, beforeEach, mock, test } from 'node:test';
+import assert from "node:assert/strict";
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
+import { afterEach, beforeEach, mock, test } from "node:test";
 
-import { DB_FILE, openDatabase } from '../../server/db.js';
+import { DB_FILE, openDatabase } from "../../server/db.js";
 
-const MIGRATIONS_DIR = new URL('../../server/migrations/', import.meta.url);
+const MIGRATIONS_DIR = new URL("../../server/migrations/", import.meta.url);
 
 let dataDir;
 
@@ -24,9 +24,14 @@ afterEach(() => rmSync(dataDir, { recursive: true, force: true, maxRetries: 5, r
 const databaseBefore = (upTo) => {
     const db = new DatabaseSync(join(dataDir, DB_FILE));
     db.exec("CREATE TABLE schema_migrations (name TEXT PRIMARY KEY, applied_at TEXT NOT NULL)");
-    for (const file of readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql") && f < upTo).sort()) {
+    for (const file of readdirSync(MIGRATIONS_DIR)
+        .filter((f) => f.endsWith(".sql") && f < upTo)
+        .sort()) {
         db.exec(readFileSync(new URL(file, MIGRATIONS_DIR), "utf8"));
-        db.prepare("INSERT INTO schema_migrations (name, applied_at) VALUES (?, ?)").run(file, new Date().toISOString());
+        db.prepare("INSERT INTO schema_migrations (name, applied_at) VALUES (?, ?)").run(
+            file,
+            new Date().toISOString(),
+        );
     }
     return db;
 };
@@ -42,7 +47,10 @@ test("an edit can come with no account, and the edits already kept stay with who
         INSERT INTO order_edits (id, order_id, user_id, sales_team, changes, edited_at)
             VALUES (7, 5, 1, 'GIGA', '["runner"]', '2026-10-20T09:30:00.000Z');
     `);
-    assert.throws(() => old.exec(`INSERT INTO order_edits (order_id, user_id, changes, edited_at) VALUES (5, NULL, '[]', 'x')`), /NOT NULL/);
+    assert.throws(
+        () => old.exec(`INSERT INTO order_edits (order_id, user_id, changes, edited_at) VALUES (5, NULL, '[]', 'x')`),
+        /NOT NULL/,
+    );
     old.close();
 
     const quiet = mock.method(console, "log", () => {});
@@ -51,14 +59,32 @@ test("an edit can come with no account, and the edits already kept stay with who
 
     try {
         const kept = db.prepare("SELECT * FROM order_edits WHERE id = 7").get();
-        assert.deepEqual({ ...kept }, {
-            id: 7, order_id: 5, user_id: 1, sales_team: "GIGA", changes: '["runner"]', edited_at: "2026-10-20T09:30:00.000Z",
-        });
+        assert.deepEqual(
+            { ...kept },
+            {
+                id: 7,
+                order_id: 5,
+                user_id: 1,
+                sales_team: "GIGA",
+                changes: '["runner"]',
+                edited_at: "2026-10-20T09:30:00.000Z",
+            },
+        );
 
-        db.prepare(`INSERT INTO order_edits (order_id, user_id, changes, edited_at) VALUES (5, NULL, '["team"]', 'x')`).run();
+        db.prepare(
+            `INSERT INTO order_edits (order_id, user_id, changes, edited_at) VALUES (5, NULL, '["team"]', 'x')`,
+        ).run();
 
         // an account given must still be a real one, and the edits still go with their order
-        assert.throws(() => db.prepare(`INSERT INTO order_edits (order_id, user_id, changes, edited_at) VALUES (5, 99, '[]', 'x')`).run(), /FOREIGN KEY/);
+        assert.throws(
+            () =>
+                db
+                    .prepare(
+                        `INSERT INTO order_edits (order_id, user_id, changes, edited_at) VALUES (5, 99, '[]', 'x')`,
+                    )
+                    .run(),
+            /FOREIGN KEY/,
+        );
         db.prepare("DELETE FROM orders WHERE id = 5").run();
         assert.equal(db.prepare("SELECT COUNT(*) AS n FROM order_edits").get().n, 0);
         assert.ok(db.prepare("SELECT name FROM sqlite_master WHERE name = 'order_edits_order'").get());
@@ -184,12 +210,22 @@ test("each older ticket's invoice number becomes its first invoice, typed when i
     quiet.mock.restore();
 
     try {
-        const invoices = db.prepare("SELECT order_id, position, invoice_no, type FROM order_invoices ORDER BY order_id").all();
-        assert.deepEqual(invoices.map((row) => ({ ...row })), [
-            { order_id: 1, position: 0, invoice_no: "43355521", type: "Roofings" },
-            { order_id: 2, position: 0, invoice_no: "5566", type: "" },
-        ]);
-        assert.ok(!db.prepare("PRAGMA table_info(orders)").all().some((column) => column.name === "invoice_no"));
+        const invoices = db
+            .prepare("SELECT order_id, position, invoice_no, type FROM order_invoices ORDER BY order_id")
+            .all();
+        assert.deepEqual(
+            invoices.map((row) => ({ ...row })),
+            [
+                { order_id: 1, position: 0, invoice_no: "43355521", type: "Roofings" },
+                { order_id: 2, position: 0, invoice_no: "5566", type: "" },
+            ],
+        );
+        assert.ok(
+            !db
+                .prepare("PRAGMA table_info(orders)")
+                .all()
+                .some((column) => column.name === "invoice_no"),
+        );
         assert.equal(db.prepare("SELECT COUNT(*) AS n FROM orders").get().n, 3);
     } finally {
         db.close();
@@ -216,13 +252,20 @@ test("loading crews are gone: Roofings and Steel come off the orders, and a cust
 
     try {
         const orders = db.prepare("SELECT id, team, status, at_loading FROM orders ORDER BY id").all();
-        assert.deepEqual(orders.map((row) => ({ ...row })), [
-            { id: 1, team: "", status: "serving", at_loading: 1 },
-            { id: 2, team: "GIGA", status: "pending", at_loading: 0 },
-            { id: 3, team: "MEGA", status: "done", at_loading: 0 },
-            { id: 4, team: "", status: "serving", at_loading: 0 },
-        ]);
-        const columns = (table) => db.prepare(`PRAGMA table_info(${table})`).all().map((column) => column.name);
+        assert.deepEqual(
+            orders.map((row) => ({ ...row })),
+            [
+                { id: 1, team: "", status: "serving", at_loading: 1 },
+                { id: 2, team: "GIGA", status: "pending", at_loading: 0 },
+                { id: 3, team: "MEGA", status: "done", at_loading: 0 },
+                { id: 4, team: "", status: "serving", at_loading: 0 },
+            ],
+        );
+        const columns = (table) =>
+            db
+                .prepare(`PRAGMA table_info(${table})`)
+                .all()
+                .map((column) => column.name);
         assert.ok(!columns("orders").includes("serving_team"));
         assert.ok(!columns("orders").includes("teams_done"));
         assert.ok(!columns("users").includes("team"));
@@ -252,12 +295,15 @@ test("an order loading has finished is served by the sales counter again, and lo
 
     try {
         const orders = db.prepare("SELECT id, served_by, loaded_by, loaded_at FROM orders ORDER BY id").all();
-        assert.deepEqual(orders.map((row) => ({ ...row })), [
-            { id: 1, served_by: 1, loaded_by: 2, loaded_at: null },
-            // still at loading, and an order that never went to loading
-            { id: 2, served_by: 2, loaded_by: null, loaded_at: null },
-            { id: 3, served_by: 1, loaded_by: null, loaded_at: null },
-        ]);
+        assert.deepEqual(
+            orders.map((row) => ({ ...row })),
+            [
+                { id: 1, served_by: 1, loaded_by: 2, loaded_at: null },
+                // still at loading, and an order that never went to loading
+                { id: 2, served_by: 2, loaded_by: null, loaded_at: null },
+                { id: 3, served_by: 1, loaded_by: null, loaded_at: null },
+            ],
+        );
     } finally {
         db.close();
     }
@@ -282,8 +328,10 @@ test("accounts start with no sales team and orders with no edits, and an order's
         assert.equal(db.prepare("SELECT sales_team FROM users WHERE id = 1").get().sales_team, "");
         assert.equal(db.prepare("SELECT COUNT(*) AS n FROM order_edits").get().n, 0);
 
-        db.prepare(`INSERT INTO order_edits (order_id, user_id, sales_team, changes, edited_at)
-            VALUES (1, 1, 'GIGA', '["runner"]', '2026-10-24T09:30:00.000Z')`).run();
+        db.prepare(
+            `INSERT INTO order_edits (order_id, user_id, sales_team, changes, edited_at)
+            VALUES (1, 1, 'GIGA', '["runner"]', '2026-10-24T09:30:00.000Z')`,
+        ).run();
         db.prepare("DELETE FROM orders WHERE id = 1").run();
         assert.equal(db.prepare("SELECT COUNT(*) AS n FROM order_edits").get().n, 0);
     } finally {
@@ -312,24 +360,57 @@ test("rebuilding users for security accounts keeps every account, sign-in, point
     quiet.mock.restore();
 
     try {
-        const users = db.prepare("SELECT id, role, employee_id, department, photo, sales_team FROM users ORDER BY id").all();
-        assert.deepEqual(users.map((row) => ({ ...row })), [
-            { id: 1, role: "sales", employee_id: "E-1", department: "Sales", photo: "user-1.jpg", sales_team: "GIGA" },
-            { id: 2, role: "loading", employee_id: null, department: "Roofings", photo: null, sales_team: "" },
-        ]);
+        const users = db
+            .prepare("SELECT id, role, employee_id, department, photo, sales_team FROM users ORDER BY id")
+            .all();
+        assert.deepEqual(
+            users.map((row) => ({ ...row })),
+            [
+                {
+                    id: 1,
+                    role: "sales",
+                    employee_id: "E-1",
+                    department: "Sales",
+                    photo: "user-1.jpg",
+                    sales_team: "GIGA",
+                },
+                { id: 2, role: "loading", employee_id: null, department: "Roofings", photo: null, sales_team: "" },
+            ],
+        );
         assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sessions WHERE user_id = 1").get().n, 1);
         assert.equal(db.prepare("SELECT COUNT(*) AS n FROM serves WHERE user_id = 1").get().n, 1);
         assert.equal(db.prepare("SELECT COUNT(*) AS n FROM order_edits WHERE user_id = 1").get().n, 1);
-        assert.deepEqual({ ...db.prepare("SELECT served_by, loaded_by FROM orders WHERE id = 1").get() }, { served_by: 1, loaded_by: 2 });
+        assert.deepEqual(
+            { ...db.prepare("SELECT served_by, loaded_by FROM orders WHERE id = 1").get() },
+            { served_by: 1, loaded_by: 2 },
+        );
 
-        db.prepare(`INSERT INTO users (username, name, role, password_hash, created_at)
-            VALUES ('jose', 'Jose Bantay', 'security', 'x', '2026-10-27T08:00:00.000Z')`).run();
-        assert.throws(() => db.prepare(`INSERT INTO users (username, name, role, password_hash, created_at)
-            VALUES ('guard', 'Someone', 'guard', 'x', '2026-10-27T08:00:00.000Z')`).run(), /CHECK constraint/);
+        db.prepare(
+            `INSERT INTO users (username, name, role, password_hash, created_at)
+            VALUES ('jose', 'Jose Bantay', 'security', 'x', '2026-10-27T08:00:00.000Z')`,
+        ).run();
+        assert.throws(
+            () =>
+                db
+                    .prepare(
+                        `INSERT INTO users (username, name, role, password_hash, created_at)
+            VALUES ('guard', 'Someone', 'guard', 'x', '2026-10-27T08:00:00.000Z')`,
+                    )
+                    .run(),
+            /CHECK constraint/,
+        );
         // still one employee ID per person, and one account per username
         assert.throws(() => db.prepare("UPDATE users SET employee_id = 'e-1' WHERE id = 2").run(), /UNIQUE/);
-        assert.throws(() => db.prepare(`INSERT INTO users (username, name, role, password_hash, created_at)
-            VALUES ('MARIA', 'Maria Again', 'sales', 'x', '2026-10-27T08:00:00.000Z')`).run(), /UNIQUE/);
+        assert.throws(
+            () =>
+                db
+                    .prepare(
+                        `INSERT INTO users (username, name, role, password_hash, created_at)
+            VALUES ('MARIA', 'Maria Again', 'sales', 'x', '2026-10-27T08:00:00.000Z')`,
+                    )
+                    .run(),
+            /UNIQUE/,
+        );
     } finally {
         db.close();
     }
@@ -351,12 +432,37 @@ test("orders finished before the security check stay done, and the new tables fo
     quiet.mock.restore();
 
     try {
-        const order = db.prepare("SELECT status, loading_area, security_pending, security_check_id FROM orders WHERE id = 1").get();
-        assert.deepEqual({ ...order }, { status: "done", loading_area: "", security_pending: 0, security_check_id: null });
-        db.prepare("INSERT INTO order_loads (order_id, area, loaded_by, loaded_at) VALUES (1, 'Roofings', 1, '2026-10-24T09:30:00.000Z')").run();
-        assert.throws(() => db.prepare("INSERT INTO order_loads (order_id, area, loaded_by, loaded_at) VALUES (1, 'Roofings', 1, 'x')").run(), /UNIQUE/);
-        db.prepare("INSERT INTO security_checks (order_id, user_id, result, note, checked_at) VALUES (1, 1, 'missing', 'One sheet short', 'x')").run();
-        assert.throws(() => db.prepare("INSERT INTO security_checks (order_id, user_id, result, checked_at) VALUES (1, 1, 'lost', 'x')").run(), /CHECK/);
+        const order = db
+            .prepare("SELECT status, loading_area, security_pending, security_check_id FROM orders WHERE id = 1")
+            .get();
+        assert.deepEqual(
+            { ...order },
+            { status: "done", loading_area: "", security_pending: 0, security_check_id: null },
+        );
+        db.prepare(
+            "INSERT INTO order_loads (order_id, area, loaded_by, loaded_at) VALUES (1, 'Roofings', 1, '2026-10-24T09:30:00.000Z')",
+        ).run();
+        assert.throws(
+            () =>
+                db
+                    .prepare(
+                        "INSERT INTO order_loads (order_id, area, loaded_by, loaded_at) VALUES (1, 'Roofings', 1, 'x')",
+                    )
+                    .run(),
+            /UNIQUE/,
+        );
+        db.prepare(
+            "INSERT INTO security_checks (order_id, user_id, result, note, checked_at) VALUES (1, 1, 'missing', 'One sheet short', 'x')",
+        ).run();
+        assert.throws(
+            () =>
+                db
+                    .prepare(
+                        "INSERT INTO security_checks (order_id, user_id, result, checked_at) VALUES (1, 1, 'lost', 'x')",
+                    )
+                    .run(),
+            /CHECK/,
+        );
         db.prepare("DELETE FROM orders WHERE id = 1").run();
         assert.equal(db.prepare("SELECT COUNT(*) AS n FROM order_loads").get().n, 0);
         assert.equal(db.prepare("SELECT COUNT(*) AS n FROM security_checks").get().n, 0);
@@ -392,21 +498,34 @@ test("rebuilding users for cashier accounts keeps every account, sign-in, edit, 
 
     try {
         const users = db.prepare("SELECT id, role, employee_id, sales_team FROM users ORDER BY id").all();
-        assert.deepEqual(users.map((row) => ({ ...row })), [
-            { id: 1, role: "sales", employee_id: "E-1", sales_team: "GIGA" },
-            { id: 2, role: "loading", employee_id: null, sales_team: "" },
-            { id: 3, role: "security", employee_id: null, sales_team: "" },
-        ]);
+        assert.deepEqual(
+            users.map((row) => ({ ...row })),
+            [
+                { id: 1, role: "sales", employee_id: "E-1", sales_team: "GIGA" },
+                { id: 2, role: "loading", employee_id: null, sales_team: "" },
+                { id: 3, role: "security", employee_id: null, sales_team: "" },
+            ],
+        );
         assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sessions WHERE user_id = 3").get().n, 1);
         assert.equal(db.prepare("SELECT COUNT(*) AS n FROM order_edits WHERE user_id = 1").get().n, 1);
         assert.equal(db.prepare("SELECT loaded_by FROM order_loads WHERE order_id = 1").get().loaded_by, 2);
         assert.equal(db.prepare("SELECT user_id FROM security_checks WHERE id = 1").get().user_id, 3);
         assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(), []);
 
-        db.prepare(`INSERT INTO users (username, name, role, password_hash, created_at)
-            VALUES ('rosa', 'Rosa Bayad', 'cashier', 'x', '2026-10-27T08:00:00.000Z')`).run();
-        assert.throws(() => db.prepare(`INSERT INTO users (username, name, role, password_hash, created_at)
-            VALUES ('teller', 'Someone', 'teller', 'x', '2026-10-27T08:00:00.000Z')`).run(), /CHECK constraint/);
+        db.prepare(
+            `INSERT INTO users (username, name, role, password_hash, created_at)
+            VALUES ('rosa', 'Rosa Bayad', 'cashier', 'x', '2026-10-27T08:00:00.000Z')`,
+        ).run();
+        assert.throws(
+            () =>
+                db
+                    .prepare(
+                        `INSERT INTO users (username, name, role, password_hash, created_at)
+            VALUES ('teller', 'Someone', 'teller', 'x', '2026-10-27T08:00:00.000Z')`,
+                    )
+                    .run(),
+            /CHECK constraint/,
+        );
         assert.throws(() => db.prepare("UPDATE users SET employee_id = 'e-1' WHERE id = 2").run(), /UNIQUE/);
         // a staff member who loaded an area or checked an order can't be removed out from under it
         assert.throws(() => db.prepare("DELETE FROM users WHERE id = 3").run(), /FOREIGN KEY/);
@@ -440,17 +559,33 @@ test("rebuilding users for hardware accounts keeps every account, sign-in, loade
 
     try {
         const roles = db.prepare("SELECT id, role FROM users ORDER BY id").all();
-        assert.deepEqual(roles.map((row) => ({ ...row })), [
-            { id: 1, role: "sales" }, { id: 2, role: "loading" }, { id: 3, role: "security" }, { id: 4, role: "cashier" },
-        ]);
+        assert.deepEqual(
+            roles.map((row) => ({ ...row })),
+            [
+                { id: 1, role: "sales" },
+                { id: 2, role: "loading" },
+                { id: 3, role: "security" },
+                { id: 4, role: "cashier" },
+            ],
+        );
         assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sessions WHERE user_id = 4").get().n, 1);
         assert.equal(db.prepare("SELECT loaded_by FROM order_loads WHERE order_id = 1").get().loaded_by, 2);
         assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(), []);
 
-        db.prepare(`INSERT INTO users (username, name, role, password_hash, created_at)
-            VALUES ('ben', 'Ben Martillo', 'hardware', 'x', '2026-10-28T08:00:00.000Z')`).run();
-        assert.throws(() => db.prepare(`INSERT INTO users (username, name, role, password_hash, created_at)
-            VALUES ('teller', 'Someone', 'teller', 'x', '2026-10-28T08:00:00.000Z')`).run(), /CHECK constraint/);
+        db.prepare(
+            `INSERT INTO users (username, name, role, password_hash, created_at)
+            VALUES ('ben', 'Ben Martillo', 'hardware', 'x', '2026-10-28T08:00:00.000Z')`,
+        ).run();
+        assert.throws(
+            () =>
+                db
+                    .prepare(
+                        `INSERT INTO users (username, name, role, password_hash, created_at)
+            VALUES ('teller', 'Someone', 'teller', 'x', '2026-10-28T08:00:00.000Z')`,
+                    )
+                    .run(),
+            /CHECK constraint/,
+        );
         assert.throws(() => db.prepare("UPDATE users SET employee_id = 'e-1' WHERE id = 2").run(), /UNIQUE/);
     } finally {
         db.close();
@@ -479,17 +614,32 @@ test("rebuilding users for TBA accounts keeps every account, sign-in, last seen,
     quiet.mock.restore();
 
     try {
-        const maria = db.prepare("SELECT role, employee_id, photo, sales_team, last_seen FROM users WHERE id = 1").get();
-        assert.deepEqual({ ...maria }, { role: "sales", employee_id: "E-1", photo: "user-1.jpg", sales_team: "GIGA", last_seen: 1761800000000 });
+        const maria = db
+            .prepare("SELECT role, employee_id, photo, sales_team, last_seen FROM users WHERE id = 1")
+            .get();
+        assert.deepEqual(
+            { ...maria },
+            { role: "sales", employee_id: "E-1", photo: "user-1.jpg", sales_team: "GIGA", last_seen: 1761800000000 },
+        );
         assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sessions WHERE user_id = 1").get().n, 1);
         assert.equal(db.prepare("SELECT loaded_by FROM order_loads WHERE order_id = 1").get().loaded_by, 2);
         assert.equal(db.prepare("SELECT COUNT(*) AS n FROM messages WHERE sender_id = 3").get().n, 1);
         assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(), []);
 
-        db.prepare(`INSERT INTO users (username, name, role, password_hash, created_at)
-            VALUES ('tony', 'Tony Gulong', 'tba', 'x', '2026-10-30T08:00:00.000Z')`).run();
-        assert.throws(() => db.prepare(`INSERT INTO users (username, name, role, password_hash, created_at)
-            VALUES ('teller', 'Someone', 'teller', 'x', '2026-10-30T08:00:00.000Z')`).run(), /CHECK constraint/);
+        db.prepare(
+            `INSERT INTO users (username, name, role, password_hash, created_at)
+            VALUES ('tony', 'Tony Gulong', 'service', 'x', '2026-10-30T08:00:00.000Z')`,
+        ).run();
+        assert.throws(
+            () =>
+                db
+                    .prepare(
+                        `INSERT INTO users (username, name, role, password_hash, created_at)
+            VALUES ('teller', 'Someone', 'teller', 'x', '2026-10-30T08:00:00.000Z')`,
+                    )
+                    .run(),
+            /CHECK constraint/,
+        );
         assert.throws(() => db.prepare("UPDATE users SET employee_id = 'e-1' WHERE id = 2").run(), /UNIQUE/);
     } finally {
         db.close();
@@ -516,18 +666,36 @@ test("rebuilding users for inventory accounts keeps every account, sign-in, last
     quiet.mock.restore();
 
     try {
-        const maria = db.prepare("SELECT role, employee_id, photo, sales_team, last_seen FROM users WHERE id = 1").get();
-        assert.deepEqual({ ...maria }, { role: "sales", employee_id: "E-1", photo: "user-1.jpg", sales_team: "GIGA", last_seen: 1761800000000 });
-        assert.equal(db.prepare("SELECT role FROM users WHERE id = 2").get().role, "tba");
+        const maria = db
+            .prepare("SELECT role, employee_id, photo, sales_team, last_seen FROM users WHERE id = 1")
+            .get();
+        assert.deepEqual(
+            { ...maria },
+            { role: "sales", employee_id: "E-1", photo: "user-1.jpg", sales_team: "GIGA", last_seen: 1761800000000 },
+        );
+        assert.equal(db.prepare("SELECT role FROM users WHERE id = 2").get().role, "service");
         assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sessions WHERE user_id = 1").get().n, 1);
         assert.equal(db.prepare("SELECT COUNT(*) AS n FROM messages WHERE sender_id = 3").get().n, 1);
-        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM direct_messages WHERE sender_id = 1 AND recipient_id = 2").get().n, 1);
+        assert.equal(
+            db.prepare("SELECT COUNT(*) AS n FROM direct_messages WHERE sender_id = 1 AND recipient_id = 2").get().n,
+            1,
+        );
         assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(), []);
 
-        db.prepare(`INSERT INTO users (username, name, role, password_hash, created_at)
-            VALUES ('ines', 'Ines Bodega', 'inventory', 'x', '2026-10-31T08:00:00.000Z')`).run();
-        assert.throws(() => db.prepare(`INSERT INTO users (username, name, role, password_hash, created_at)
-            VALUES ('teller', 'Someone', 'teller', 'x', '2026-10-31T08:00:00.000Z')`).run(), /CHECK constraint/);
+        db.prepare(
+            `INSERT INTO users (username, name, role, password_hash, created_at)
+            VALUES ('ines', 'Ines Bodega', 'inventory', 'x', '2026-10-31T08:00:00.000Z')`,
+        ).run();
+        assert.throws(
+            () =>
+                db
+                    .prepare(
+                        `INSERT INTO users (username, name, role, password_hash, created_at)
+            VALUES ('teller', 'Someone', 'teller', 'x', '2026-10-31T08:00:00.000Z')`,
+                    )
+                    .run(),
+            /CHECK constraint/,
+        );
         assert.throws(() => db.prepare("UPDATE users SET employee_id = 'e-1' WHERE id = 2").run(), /UNIQUE/);
     } finally {
         db.close();
@@ -574,18 +742,36 @@ test("rebuilding users for chassis accounts keeps every account, sign-in, last s
     quiet.mock.restore();
 
     try {
-        const maria = db.prepare("SELECT role, employee_id, photo, sales_team, last_seen FROM users WHERE id = 1").get();
-        assert.deepEqual({ ...maria }, { role: "sales", employee_id: "E-1", photo: "user-1.jpg", sales_team: "GIGA", last_seen: 1761800000000 });
+        const maria = db
+            .prepare("SELECT role, employee_id, photo, sales_team, last_seen FROM users WHERE id = 1")
+            .get();
+        assert.deepEqual(
+            { ...maria },
+            { role: "sales", employee_id: "E-1", photo: "user-1.jpg", sales_team: "GIGA", last_seen: 1761800000000 },
+        );
         assert.equal(db.prepare("SELECT role FROM users WHERE id = 2").get().role, "inventory");
         assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sessions WHERE user_id = 1").get().n, 1);
         assert.equal(db.prepare("SELECT COUNT(*) AS n FROM messages WHERE sender_id = 3").get().n, 1);
-        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM direct_messages WHERE sender_id = 1 AND recipient_id = 2").get().n, 1);
+        assert.equal(
+            db.prepare("SELECT COUNT(*) AS n FROM direct_messages WHERE sender_id = 1 AND recipient_id = 2").get().n,
+            1,
+        );
         assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(), []);
 
-        db.prepare(`INSERT INTO users (username, name, role, password_hash, created_at)
-            VALUES ('carlos', 'Carlos Tsasis', 'chassis', 'x', '2026-10-31T08:00:00.000Z')`).run();
-        assert.throws(() => db.prepare(`INSERT INTO users (username, name, role, password_hash, created_at)
-            VALUES ('teller', 'Someone', 'teller', 'x', '2026-10-31T08:00:00.000Z')`).run(), /CHECK constraint/);
+        db.prepare(
+            `INSERT INTO users (username, name, role, password_hash, created_at)
+            VALUES ('carlos', 'Carlos Tsasis', 'chassis', 'x', '2026-10-31T08:00:00.000Z')`,
+        ).run();
+        assert.throws(
+            () =>
+                db
+                    .prepare(
+                        `INSERT INTO users (username, name, role, password_hash, created_at)
+            VALUES ('teller', 'Someone', 'teller', 'x', '2026-10-31T08:00:00.000Z')`,
+                    )
+                    .run(),
+            /CHECK constraint/,
+        );
         assert.throws(() => db.prepare("UPDATE users SET employee_id = 'e-1' WHERE id = 2").run(), /UNIQUE/);
     } finally {
         db.close();
@@ -595,12 +781,20 @@ test("035 adds the sheet's own columns and typed cells, and an order's cells go 
     const db = openDatabase(dataDir);
     try {
         db.exec("PRAGMA foreign_keys = ON");
-        const { lastInsertRowid: id } = db.prepare(`INSERT INTO orders (queue_date, queue_num, name, purpose, status, created_at)
-            VALUES ('2026-11-05', 1, 'Ana', 'Steel', 'pending', '2026-11-05T01:00:00Z')`).run();
-        db.prepare("INSERT INTO sheet_columns (key, name, created_at) VALUES ('c:TRUCK', 'Truck', '2026-11-05T01:00:00Z')").run();
+        const { lastInsertRowid: id } = db
+            .prepare(
+                `INSERT INTO orders (queue_date, queue_num, name, purpose, status, created_at)
+            VALUES ('2026-11-05', 1, 'Ana', 'Steel', 'pending', '2026-11-05T01:00:00Z')`,
+            )
+            .run();
+        db.prepare(
+            "INSERT INTO sheet_columns (key, name, created_at) VALUES ('c:TRUCK', 'Truck', '2026-11-05T01:00:00Z')",
+        ).run();
         db.prepare("INSERT INTO sheet_cells (order_id, cell, value) VALUES (?, 'c:TRUCK', 'Isuzu')").run(id);
 
-        assert.throws(() => db.prepare("INSERT INTO sheet_columns (key, name, created_at) VALUES ('c:TRUCK', 'truck', 'x')").run());
+        assert.throws(() =>
+            db.prepare("INSERT INTO sheet_columns (key, name, created_at) VALUES ('c:TRUCK', 'truck', 'x')").run(),
+        );
         db.prepare("DELETE FROM orders WHERE id = ?").run(id);
         assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sheet_cells").get().n, 0);
     } finally {
@@ -623,20 +817,30 @@ test("036 keeps every point, and a purged ticket's point stays with no ticket", 
 
     const db = openDatabase(dataDir);
     try {
-        assert.deepEqual({ ...db.prepare("SELECT order_id, user_id, queue_date FROM serves WHERE id = 9").get() },
-            { order_id: 5, user_id: 1, queue_date: "2026-11-05" });
+        assert.deepEqual(
+            { ...db.prepare("SELECT order_id, user_id, queue_date FROM serves WHERE id = 9").get() },
+            { order_id: 5, user_id: 1, queue_date: "2026-11-05" },
+        );
 
         // a checked order: its gate check points back at it, and goes with it
-        db.prepare("INSERT INTO security_checks (id, order_id, user_id, result, checked_at) VALUES (3, 5, 1, 'verified', 'x')").run();
+        db.prepare(
+            "INSERT INTO security_checks (id, order_id, user_id, result, checked_at) VALUES (3, 5, 1, 'verified', 'x')",
+        ).run();
         db.prepare("UPDATE orders SET security_check_id = 3, deleted_at = 'x' WHERE id = 5").run();
         db.prepare("DELETE FROM orders WHERE id = 5").run();
 
         assert.equal(db.prepare("SELECT order_id FROM serves WHERE id = 9").get().order_id, null);
         assert.equal(db.prepare("SELECT COUNT(*) AS n FROM security_checks").get().n, 0);
         // a ticket's visit can still only earn one point
-        const { lastInsertRowid: id } = db.prepare(`INSERT INTO orders (queue_date, queue_num, name, purpose, status, created_at)
-            VALUES ('2026-11-06', 1, 'Ben', 'Steel', 'done', 'x')`).run();
-        const addPoint = db.prepare("INSERT INTO serves (order_id, user_id, queue_date, served_at) VALUES (?, 1, '2026-11-06', 'x')");
+        const { lastInsertRowid: id } = db
+            .prepare(
+                `INSERT INTO orders (queue_date, queue_num, name, purpose, status, created_at)
+            VALUES ('2026-11-06', 1, 'Ben', 'Steel', 'done', 'x')`,
+            )
+            .run();
+        const addPoint = db.prepare(
+            "INSERT INTO serves (order_id, user_id, queue_date, served_at) VALUES (?, 1, '2026-11-06', 'x')",
+        );
         addPoint.run(id);
         assert.throws(() => addPoint.run(id));
     } finally {
@@ -658,11 +862,15 @@ test("037 leaves the tickets already taken with no maker and no one assisting", 
 
     const db = openDatabase(dataDir);
     try {
-        assert.deepEqual({ ...db.prepare("SELECT created_by, assisted_by FROM orders WHERE id = 5").get() },
-            { created_by: null, assisted_by: null });
+        assert.deepEqual(
+            { ...db.prepare("SELECT created_by, assisted_by FROM orders WHERE id = 5").get() },
+            { created_by: null, assisted_by: null },
+        );
         db.prepare("UPDATE orders SET created_by = 1, assisted_by = 1 WHERE id = 5").run();
-        assert.deepEqual({ ...db.prepare("SELECT created_by, assisted_by FROM orders WHERE id = 5").get() },
-            { created_by: 1, assisted_by: 1 });
+        assert.deepEqual(
+            { ...db.prepare("SELECT created_by, assisted_by FROM orders WHERE id = 5").get() },
+            { created_by: 1, assisted_by: 1 },
+        );
     } finally {
         db.close();
     }
@@ -681,8 +889,10 @@ test("038 dates the sign-ins already open from when they began", () => {
 
     const db = openDatabase(dataDir);
     try {
-        assert.deepEqual({ ...db.prepare("SELECT expires, created_at FROM sessions WHERE sid_hash = 'abc'").get() },
-            { expires: 1800000000000, created_at: 1800000000000 - 8 * 60 * 60 * 1000 });
+        assert.deepEqual(
+            { ...db.prepare("SELECT expires, created_at FROM sessions WHERE sid_hash = 'abc'").get() },
+            { expires: 1800000000000, created_at: 1800000000000 - 8 * 60 * 60 * 1000 },
+        );
     } finally {
         db.close();
     }
@@ -702,16 +912,189 @@ test("039 keeps every message as a text message with no report, and adds the rep
     const db = openDatabase(dataDir);
     quiet.mock.restore();
     try {
-        assert.deepEqual({ ...db.prepare("SELECT body, kind, concern_id FROM messages WHERE id = 4").get() },
-            { body: "The printer is stuck.", kind: "text", concern_id: null });
-        db.prepare(`
+        assert.deepEqual(
+            { ...db.prepare("SELECT body, kind, concern_id FROM messages WHERE id = 4").get() },
+            { body: "The printer is stuck.", kind: "text", concern_id: null },
+        );
+        db.prepare(
+            `
             INSERT INTO concerns (staff_id, kind, area, details, impact, created_at, updated_at)
-            VALUES (1, 'bug', 'Loading', 'Start does nothing', 'blocking', 'x', 'x')`).run();
-        assert.deepEqual({ ...db.prepare("SELECT status, status_note, extra, status_by FROM concerns").get() },
-            { status: "open", status_note: "", extra: "", status_by: null });
-        assert.throws(() => db.exec(`
+            VALUES (1, 'bug', 'Loading', 'Start does nothing', 'blocking', 'x', 'x')`,
+        ).run();
+        assert.deepEqual(
+            { ...db.prepare("SELECT status, status_note, extra, status_by FROM concerns").get() },
+            { status: "open", status_note: "", extra: "", status_by: null },
+        );
+        assert.throws(
+            () =>
+                db.exec(`
             INSERT INTO concerns (staff_id, kind, area, details, impact, created_at, updated_at)
-            VALUES (1, 'wish', 'x', 'x', 'low', 'x', 'x')`), /CHECK/);
+            VALUES (1, 'wish', 'x', 'x', 'low', 'x', 'x')`),
+            /CHECK/,
+        );
+    } finally {
+        db.close();
+    }
+});
+
+// 041 rebuilds both chat tables so that a number, once given to a message, is never given to another
+test("041 keeps every message with its number, and a number isn't used again once the messages are erased", () => {
+    const old = databaseBefore("041");
+    old.exec(`
+        INSERT INTO users (id, username, name, role, password_hash, created_at)
+            VALUES (1, 'maria', 'Maria Santos', 'sales', 'x', '2026-10-20T08:00:00.000Z'),
+                   (2, 'jun', 'Jun Reyes', 'loading', 'x', '2026-10-20T08:00:00.000Z');
+        INSERT INTO concerns (id, staff_id, kind, area, details, impact, created_at, updated_at)
+            VALUES (3, 1, 'bug', 'Loading', 'Start does nothing', 'blocking', 'x', 'x');
+        INSERT INTO messages (id, staff_id, sender_id, body, sent_at, read_at, image, kind, concern_id)
+            VALUES (40, 1, 1, 'Report', 'sent', 'read', 'a.jpg', 'report', 3);
+        INSERT INTO direct_messages (id, sender_id, recipient_id, body, image, sent_at, read_at)
+            VALUES (50, 1, 2, 'Truck 2', 'b.jpg', 'sent', 'read');
+    `);
+    old.close();
+
+    const quiet = mock.method(console, "log", () => {});
+    const db = openDatabase(dataDir);
+    quiet.mock.restore();
+    try {
+        assert.deepEqual(
+            { ...db.prepare("SELECT * FROM messages").get() },
+            {
+                id: 40,
+                staff_id: 1,
+                sender_id: 1,
+                body: "Report",
+                sent_at: "sent",
+                read_at: "read",
+                image: "a.jpg",
+                kind: "report",
+                concern_id: 3,
+            },
+        );
+        assert.deepEqual(
+            { ...db.prepare("SELECT * FROM direct_messages").get() },
+            {
+                id: 50,
+                sender_id: 1,
+                recipient_id: 2,
+                body: "Truck 2",
+                image: "b.jpg",
+                sent_at: "sent",
+                read_at: "read",
+            },
+        );
+        for (const index of ["messages_staff", "direct_messages_pair", "direct_messages_unread"]) {
+            assert.ok(db.prepare("SELECT name FROM sqlite_master WHERE name = ?").get(index), index);
+        }
+
+        db.exec("DELETE FROM messages; DELETE FROM direct_messages");
+        const nextMessage = db
+            .prepare("INSERT INTO messages (staff_id, sender_id, body, sent_at) VALUES (1, 1, 'New', 'x')")
+            .run();
+        const nextDirect = db
+            .prepare("INSERT INTO direct_messages (sender_id, recipient_id, body, sent_at) VALUES (1, 2, 'New', 'x')")
+            .run();
+        assert.equal(Number(nextMessage.lastInsertRowid), 41);
+        assert.equal(Number(nextDirect.lastInsertRowid), 51);
+
+        // the rebuilt tables still check who a message is from, and still go with the account
+        assert.throws(
+            () =>
+                db
+                    .prepare(
+                        "INSERT INTO direct_messages (sender_id, recipient_id, body, sent_at) VALUES (9, 2, 'x', 'x')",
+                    )
+                    .run(),
+            /FOREIGN KEY/,
+        );
+        db.prepare("DELETE FROM users WHERE id = 1").run();
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM messages").get().n, 0);
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM direct_messages").get().n, 0);
+    } finally {
+        db.close();
+    }
+});
+
+// 040 renames the TBA department to Service: its accounts, the customer at its area, what it has loaded and a guard's
+// send-back all move over; a TBA priority order keeps its mark
+test("040 turns TBA accounts and areas into Service, and leaves everything else as it was", () => {
+    const old = databaseBefore("040");
+    old.exec(`
+        INSERT INTO users (id, username, name, role, password_hash, created_at, employee_id, department, photo, sales_team, last_seen, cover_photo)
+            VALUES (1, 'tony', 'Tony Gulong', 'tba', 'x', '2026-10-30T08:00:00.000Z', 'E-1', 'Tires', 'user-1.jpg', '', 1761800000000, 'cover-1.jpg'),
+                   (2, 'pedro', 'Pedro Garcia', 'loading', 'x', '2026-10-20T08:00:00.000Z', NULL, 'Roofings', NULL, '', NULL, NULL),
+                   (3, 'guard', 'Gina Guard', 'security', 'x', '2026-10-20T08:00:00.000Z', NULL, '', NULL, '', NULL, NULL);
+        INSERT INTO orders (id, queue_date, queue_num, name, purpose, status, loading_area, tba_priority, created_at)
+            VALUES (1, '2026-11-09', 1, 'At TBA now', 'Tire', 'pending', 'TBA', 1, '2026-11-09T09:00:00.000Z'),
+                   (2, '2026-11-09', 2, 'At Roofings now', 'Roofings', 'pending', 'Roofings', 0, '2026-11-09T09:00:00.000Z');
+        INSERT INTO order_loads (order_id, area, loaded_by, loaded_at)
+            VALUES (1, 'TBA', 1, '2026-11-09T09:30:00.000Z'),
+                   (2, 'Roofings', 2, '2026-11-09T09:30:00.000Z');
+        INSERT INTO security_checks (id, order_id, user_id, result, note, checked_at, returned_to)
+            VALUES (1, 1, 3, 'missing', 'Short one tire', '2026-11-09T10:00:00.000Z', 'TBA'),
+                   (2, 2, 3, 'missing', 'Short one sheet', '2026-11-09T10:00:00.000Z', 'Roofings');
+        INSERT INTO sessions (sid_hash, user_id, expires) VALUES ('abc', 1, 4102444800000);
+    `);
+    old.close();
+
+    const quiet = mock.method(console, "log", () => {});
+    const db = openDatabase(dataDir);
+    quiet.mock.restore();
+
+    try {
+        const tony = db
+            .prepare("SELECT role, employee_id, photo, last_seen, cover_photo FROM users WHERE id = 1")
+            .get();
+        assert.deepEqual(
+            { ...tony },
+            {
+                role: "service",
+                employee_id: "E-1",
+                photo: "user-1.jpg",
+                last_seen: 1761800000000,
+                cover_photo: "cover-1.jpg",
+            },
+        );
+        assert.equal(db.prepare("SELECT role FROM users WHERE id = 2").get().role, "loading");
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sessions WHERE user_id = 1").get().n, 1);
+
+        assert.deepEqual(
+            db
+                .prepare("SELECT loading_area, tba_priority FROM orders ORDER BY id")
+                .all()
+                .map((o) => ({ ...o })),
+            [
+                { loading_area: "Service", tba_priority: 1 },
+                { loading_area: "Roofings", tba_priority: 0 },
+            ],
+        );
+        assert.deepEqual(
+            db
+                .prepare("SELECT area FROM order_loads ORDER BY order_id")
+                .all()
+                .map((l) => l.area),
+            ["Service", "Roofings"],
+        );
+        assert.deepEqual(
+            db
+                .prepare("SELECT returned_to FROM security_checks ORDER BY id")
+                .all()
+                .map((c) => c.returned_to),
+            ["Service", "Roofings"],
+        );
+        assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(), []);
+
+        assert.throws(
+            () =>
+                db
+                    .prepare(
+                        `INSERT INTO users (username, name, role, password_hash, created_at)
+            VALUES ('old', 'Old Role', 'tba', 'x', '2026-11-09T08:00:00.000Z')`,
+                    )
+                    .run(),
+            /CHECK constraint/,
+        );
+        assert.throws(() => db.prepare("UPDATE users SET employee_id = 'e-1' WHERE id = 2").run(), /UNIQUE/);
     } finally {
         db.close();
     }

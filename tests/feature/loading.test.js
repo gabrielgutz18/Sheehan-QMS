@@ -163,7 +163,7 @@ describe("loading", () => {
         for (const queueNum of [1, 2, 3]) await handOver(maria, queueNum);
         const names = async (account) => (await account.get("/admin/orders")).assertStatus(200).body.map((o) => o.name);
 
-        // a Tire is TBA's, its own department (tba.test.js)
+        // a Tire is Service's, its own department (service.test.js)
         assert.deepEqual(await names(pedro), ["Ana Reyes", "Pedro Santos"]);
         assert.deepEqual(await names(rico), ["Ana Reyes", "Pedro Santos"]);
         assert.equal((await names(await app.actingAsAdmin())).length, 4);
@@ -263,7 +263,7 @@ describe("loading area by area", () => {
 
         const steelAgain = (await pedro.post("/admin/loading/1/call", { area: "Steel" })).assertStatus(400).body;
         assert.equal(steelAgain.message, "Call them to an area this order still needs: Roofings.");
-        (await pedro.post("/admin/loading/1/call", { area: "TBA" })).assertStatus(400);
+        (await pedro.post("/admin/loading/1/call", { area: "Service" })).assertStatus(400);
         // with no area, the call is to the one left
         assert.equal((await pedro.post("/admin/loading/1/call")).assertStatus(200).body.loadingArea, "Roofings");
     });
@@ -381,8 +381,8 @@ describe("loading at a station", () => {
         const { maria, pedro } = await staff();
         await handOver(maria, 1);
 
-        const tba = (await pedro.post("/admin/loading/1/start", { area: "TBA" })).assertStatus(400).body;
-        assert.equal(tba.message, "Load it at an area this order still needs: Roofings, Steel.");
+        const service = (await pedro.post("/admin/loading/1/start", { area: "Service" })).assertStatus(400).body;
+        assert.equal(service.message, "Load it at an area this order still needs: Roofings, Steel.");
         (await pedro.post("/admin/loading/1/start", { area: "Hardware" })).assertStatus(400);
         // an admin calls them back to a counter
         (await (await app.actingAsAdmin()).patch("/admin/orders/1", { status: "serving" })).assertStatus(200);

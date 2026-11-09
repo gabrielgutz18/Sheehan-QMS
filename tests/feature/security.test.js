@@ -294,7 +294,7 @@ describe("security check", () => {
         (await maria.patch("/admin/orders/2", { status: "done" })).assertStatus(200);
         const guard = await app.actingAsSecurity();
 
-        const elsewhere = (await check(guard, 1, { result: "missing", note: "Short", returnTo: "TBA" })).assertStatus(400).body;
+        const elsewhere = (await check(guard, 1, { result: "missing", note: "Short", returnTo: "Service" })).assertStatus(400).body;
         assert.equal(elsewhere.message, "Send it back to one of its areas: Roofings, Steel.");
         (await check(guard, 1, { result: "verified", returnTo: "Roofings" })).assertStatus(400);
         const unloaded = (await check(guard, 2, { result: "missing", note: "Short", returnTo: "Roofings" })).assertStatus(400).body;
