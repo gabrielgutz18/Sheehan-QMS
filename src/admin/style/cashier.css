@@ -1,200 +1,237 @@
-/* the Cashier page: every order with how it's paid, changed with one tap */
+/* the Cashier page: every order with how it's paid, changed with one tap by sales and only looked at by the cashier */
 .cashier {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
 }
 
 .cashier-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 8px 20px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 8px 20px;
 }
 
 .cashier-head .tab-hint {
-  max-width: 640px;
-  margin: 0;
+    max-width: 640px;
+    margin: 0;
 }
 
 /* the ticket heads its row, but reads like the other cells rather than like the column headings */
 .cashier-table th[scope="row"] {
-  font-size: inherit;
-  font-weight: 400;
-  text-transform: none;
-  letter-spacing: normal;
-  white-space: nowrap;
-  color: inherit;
-  background: none;
+    font-size: inherit;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: normal;
+    white-space: nowrap;
+    color: inherit;
+    background: none;
 }
 
 .cashier-none {
-  font-size: 13px;
-  color: var(--text-muted);
+    font-size: 13px;
+    color: var(--text-muted);
 }
 
 /* the invoice numbers under their department, as on the Order sheet */
 .cashier-invoices {
-  display: grid;
-  gap: 4px;
-  margin: 0;
+    display: grid;
+    gap: 4px;
+    margin: 0;
 }
 
 .cashier-invoices div {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 2px 8px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 8px;
 }
 
 .cashier-invoices dt {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
 }
 
 .cashier-invoices dd {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 8px;
-  margin: 0;
-  font-variant-numeric: tabular-nums;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 8px;
+    margin: 0;
+    font-variant-numeric: tabular-nums;
 }
 
 .cashier .order-status-search {
-  width: 260px;
+    width: 260px;
 }
 
 /* the payment column takes the room its buttons need, all on one line, and the other columns share the rest */
 .cashier-table td:last-child {
-  width: 1%;
+    width: 1%;
 }
 
 /* how the order is paid: one button for each, the one it is now filled in with its color */
 .cashier-payments {
-  display: flex;
-  gap: 4px;
+    display: flex;
+    gap: 4px;
 }
 
 .cashier-payment {
-  min-width: 52px;
-  white-space: nowrap;
-  min-height: 36px;
-  padding: 6px 10px;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-dark);
-  background: #ffffff;
-  border: 1px solid var(--field-border);
-  border-radius: 6px;
-  cursor: pointer;
+    min-width: 52px;
+    white-space: nowrap;
+    min-height: 36px;
+    padding: 6px 10px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dark);
+    background: #ffffff;
+    border: 1px solid var(--field-border);
+    border-radius: 6px;
+    cursor: pointer;
 }
 
 .cashier-payment:hover:not(:disabled) {
-  background: var(--field-bg);
+    background: var(--field-bg);
 }
 
 .cashier-payment:focus-visible {
-  outline: 3px solid var(--focus-ring);
-  outline-offset: 2px;
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 2px;
 }
 
 .cashier-payment:disabled {
-  cursor: progress;
-  opacity: 0.6;
+    cursor: progress;
+    opacity: 0.6;
 }
 
 .cashier-payment[aria-pressed="true"] {
-  color: #ffffff;
-  background: var(--text-dark);
-  border-color: var(--text-dark);
+    color: #ffffff;
+    background: var(--text-dark);
+    border-color: var(--text-dark);
 }
 
 .cashier-payment.is-paid[aria-pressed="true"] {
-  background: #1f7a3a;
-  border-color: #1f7a3a;
+    background: #1f7a3a;
+    border-color: #1f7a3a;
 }
 
 .cashier-payment.is-vale[aria-pressed="true"] {
-  background: #a45a00;
-  border-color: #a45a00;
+    background: #a45a00;
+    border-color: #a45a00;
 }
 
 .cashier-payment.is-cod[aria-pressed="true"] {
-  background: #1d5f9e;
-  border-color: #1d5f9e;
+    background: #1d5f9e;
+    border-color: #1d5f9e;
 }
 
 .cashier-payment.is-terms[aria-pressed="true"] {
-  background: #5b3a8c;
-  border-color: #5b3a8c;
+    background: #5b3a8c;
+    border-color: #5b3a8c;
 }
 
 .cashier-payment.is-partial[aria-pressed="true"] {
-  background: #8a6d1f;
-  border-color: #8a6d1f;
+    background: #8a6d1f;
+    border-color: #8a6d1f;
 }
 
 .cashier-change {
-  display: block;
-  margin-top: 6px;
-  font-size: 12px;
-  color: var(--text-muted);
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+/* what the cashier has instead of the buttons: a plain label, fully rounded so it doesn't look like one to tap; green
+   with a check once it's paid, and amber before that rather than red, since Vale and Terms aren't mistakes */
+.cashier-paid {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    border: 1px solid transparent;
+    border-radius: 999px;
+}
+
+.cashier-paid .line-icon {
+    flex: none;
+    width: 14px;
+    height: 14px;
+}
+
+.cashier-paid.is-paid {
+    color: #166534;
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+}
+
+.cashier-paid.is-unpaid {
+    color: #92400e;
+    background: #fffbeb;
+    border-color: #fde68a;
+}
+
+/* with no row of buttons to fit, the cashier's payment column shares the room like the others */
+.cashier-table.is-view-only td:last-child {
+    width: auto;
 }
 
 /* on a phone each order is a card: its details one under another, each with its heading */
 @media (max-width: 760px) {
-  .cashier-table thead {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-  }
+    .cashier-table thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+    }
 
-  .cashier-table,
-  .cashier-table tbody,
-  .cashier-table tr,
-  .cashier-table th[scope="row"],
-  .cashier-table td {
-    display: block;
-  }
+    .cashier-table,
+    .cashier-table tbody,
+    .cashier-table tr,
+    .cashier-table th[scope="row"],
+    .cashier-table td {
+        display: block;
+    }
 
-  .cashier-table tr {
-    padding: 8px 0;
-    border-bottom: 1px solid var(--field-border);
-  }
+    .cashier-table tr {
+        padding: 8px 0;
+        border-bottom: 1px solid var(--field-border);
+    }
 
-  .cashier-table tbody tr:last-child {
-    border-bottom: none;
-  }
+    .cashier-table tbody tr:last-child {
+        border-bottom: none;
+    }
 
-  .cashier-table th[scope="row"],
-  .cashier-table td {
-    padding: 6px 14px;
-    border-bottom: none;
-  }
+    .cashier-table th[scope="row"],
+    .cashier-table td {
+        padding: 6px 14px;
+        border-bottom: none;
+    }
 
-  .cashier-table td::before {
-    content: attr(data-label);
-    display: block;
-    margin-bottom: 2px;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    color: var(--text-muted);
-  }
+    .cashier-table td::before {
+        content: attr(data-label);
+        display: block;
+        margin-bottom: 2px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        color: var(--text-muted);
+    }
 
-  .cashier-table td:last-child {
-    width: auto;
-  }
+    .cashier-table td:last-child {
+        width: auto;
+    }
 
-  .cashier-payment {
-    flex: 1 1 0;
-    min-width: 0;
-    min-height: 44px;
-    padding: 6px 2px;
-  }
+    .cashier-payment {
+        flex: 1 1 0;
+        min-width: 0;
+        min-height: 44px;
+        padding: 6px 2px;
+    }
 }

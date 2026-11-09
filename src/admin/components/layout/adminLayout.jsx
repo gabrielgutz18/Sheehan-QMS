@@ -2,6 +2,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 import { matchPath, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 
 import { isServerReachable, onConnectionChange } from '../../../api/http.js';
+import { DEPARTMENTS } from '../../../data/loadingAreas.js';
 import Clock from '../../../components/clock.jsx';
 import { useAuth } from '../../auth/authContext.js';
 import { ROLE_LABELS } from '../../auth/roles.js';
@@ -11,6 +12,7 @@ import useMessageToasts from '../../hooks/useMessageToasts.js';
 import MessageToasts from '../chat/messageToasts.jsx';
 import Avatar from '../common/avatar.jsx';
 import Icon from '../common/icon.jsx';
+import OrderNotices from '../notification/orderNotices.jsx';
 import OrderStatusDrawer, { BOARD_DOCKS } from '../orderStatus/orderStatusDrawer.jsx';
 import logo from '../../../assets/SheehanLogo.png';
 
@@ -193,6 +195,7 @@ export default function AdminLayout() {
             </div>
 
             <MessageToasts toasts={toasts} dismiss={dismiss} />
+            {DEPARTMENTS[user?.role] && <OrderNotices userId={user.id} department={user.role} />}
         </div>
     );
 }

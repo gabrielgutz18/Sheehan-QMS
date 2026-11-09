@@ -1,51 +1,31 @@
-/* sizes follow --px from the queue screen (see queueDisplay.css); 1px elsewhere */
+/* sizes follow --px from the queue screen (see queueDisplay.css).
+   --len is how many characters the ticket has: "RS 01" stays as big as the slab allows, and a ticket for every
+   type of order with a mark ("** RTSHCRAB 01") shrinks to still fit beside the name */
 .number-card {
-  font-family: var(--mono, ui-monospace, monospace);
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
 }
 
-/* the headline number under Now Serving */
+/* the headline number under Now serving */
 .number-card--serving {
-  font-size: calc(var(--px, 1px) * 100);
-  line-height: 1;
-  letter-spacing: 0.02em;
-  color: var(--red, #c8202a);
-  animation: card-called 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.3);
+    font-size: calc(var(--px) * min(320, 2200 / var(--len)));
+    font-weight: 800;
+    line-height: 0.9;
 }
 
 /* a ticket in the line, or someone else at a counter */
 .number-card--upcoming {
-  font-size: calc(var(--px, 1px) * 26);
-  font-weight: 700;
-  line-height: 1.2;
-  color: var(--red, #c8202a);
+    font-size: calc(var(--px) * min(44, 400 / var(--len)));
+    line-height: 1;
 }
 
-@keyframes card-called {
-  from {
-    opacity: 0;
-    transform: scale(0.7);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* phones: shrink the big number so it fits the narrow screen */
-@media (max-width: 600px) {
-  .number-card--serving {
-    font-size: 64px;
-  }
-  .number-card--upcoming {
-    font-size: 20px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .number-card--serving {
-    animation: none;
-  }
+/* phones and portrait screens: fit the width instead */
+@media (max-width: 1023px), (orientation: portrait) {
+    .number-card--serving {
+        font-size: min(170vw / var(--len), 30vw, 40vh);
+    }
+    .number-card--upcoming {
+        font-size: min(34px, 300px / var(--len));
+    }
 }
