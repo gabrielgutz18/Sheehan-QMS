@@ -100,7 +100,9 @@ const MAX_CONCERN = 300;
 // both are the lists in src/data, so a new one is added in one place
 const PAYMENT_STATUSES = paymentStatus.map((p) => p.type);
 const NO_SUCH_PAYMENT = `Pick a payment status from the list (${PAYMENT_STATUSES.join(", ")}).`;
-// who picks the payment status on Customer order, as they take or edit the order; the cashier has the Cashier page
+// the one status that means the money is in; to the cashier, every other one is simply not paid
+const PAID = "Paid";
+// who picks the payment status on Customer order, as they take or edit the order; the cashier only looks, on the Cashier page
 // they're also the ones who can mark an order as a priority or TBA priority order: a ticket from the kiosk never is one
 const PAYMENT_ON_ORDER = ["admin", "sales"];
 const TEAMS = teams.map((t) => t.name);
@@ -133,7 +135,7 @@ const ANNOUNCER_REPEATS = [1, 2];
 // loading: the loading crew, one shared line for its areas (Roofings, Steel); tba: the TBA department (Tire, Battery),
 // chassis: the Chassis department and hardware: the Hardware department, each the same as loading but for its own area
 // (src/data/loadingAreas.js); security: the guards at the gate, the last stage, who check what each customer leaves
-// with; cashier: who changes how each order is paid; inventory: the inventory department, with no work page of its own
+// with; cashier: who sees which orders are paid and who set it; inventory: the inventory department, with no work page of its own
 // yet; developer: the team that builds the app, who answer staff on the Chat page when something doesn't go well
 const ROLES = [
     "admin",
@@ -243,7 +245,7 @@ const ROLE_ROUTES = {
         ["POST", /^\/admin\/orders\/[^/]+\/handover$/],
         ["POST", /^\/admin\/orders\/[^/]+\/assist$/],
         ["DELETE", /^\/admin\/orders\/[^/]+\/assist$/],
-        // the Cashier page, the same as the cashier's: changing how each order is paid
+        // the Cashier page, where sales change how each order is paid; the cashier only looks
         ["GET", /^\/admin\/payments$/],
         ["PATCH", /^\/admin\/payments\/\d+$/],
         ["PATCH", /^\/admin\/orders\/[^/]+$/],
@@ -321,11 +323,10 @@ const ROLE_ROUTES = {
         ...ACCOUNT_ROUTES,
         ...MESSAGE_ROUTES,
     ],
-    // the Cashier page: every day's orders with how each is paid, and changing its payment status (Vale to Paid, ...);
-    // nothing else they can call, change or save but their own account
+    // the Cashier page, to look only: every day's orders with whether each is paid and who set it; nothing they can
+    // call, change or save but their own account
     cashier: [
         ["GET", /^\/admin\/payments$/],
-        ["PATCH", /^\/admin\/payments\/\d+$/],
         // the Order status board the top bar opens
         ["GET", /^\/admin\/order-status$/],
         ...ACCOUNT_ROUTES,
@@ -1125,9 +1126,22 @@ const toPayment = (row, invoices, edits, todayDate) => {
         invoices: invoicesOf(invoices),
         ...(row.salesman && { salesman: row.salesman }),
         ...(row.payment_status && { paymentStatus: row.payment_status }),
-        ...(change && { paymentChange: { by: { name: change.name ?? GOOGLE_SHEET_EDITOR }, at: change.edited_at } }),
+        ...(change && {
+            paymentChange: {
+                by: { name: change.name ?? GOOGLE_SHEET_EDITOR, ...(change.role && { role: change.role }) },
+                at: change.edited_at,
+            },
+        }),
     };
 };
+
+// the same order as the cashier is sent it: they only go by whether the money is in, so which of the other statuses
+// it is stays with sales; paid is only for Paid, and paymentSet says whether any status has been picked yet
+const toCashierPayment = ({ paymentStatus, ...order }) => ({
+    ...order,
+    paid: paymentStatus === PAID,
+    paymentSet: Boolean(paymentStatus),
+});
 
 // one order on a department's History tab, with only the list's part of it: the list's invoices (and untyped ones,
 // from older tickets, which could be anyone's), who loaded the list's area, and the guard's report that sent it back,
@@ -1482,7 +1496,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             FROM order_edits e LEFT JOIN users u ON u.id = e.user_id JOIN orders o ON o.id = e.order_id
             WHERE o.queue_date = ? ORDER BY e.order_id, e.id DESC`),
         editsFor: db.prepare(`
-            SELECT e.order_id, e.user_id, u.name, u.photo, e.sales_team, e.changes, e.edited_at
+            SELECT e.order_id, e.user_id, u.name, u.role, u.photo, e.sales_team, e.changes, e.edited_at
             FROM order_edits e LEFT JOIN users u ON u.id = e.user_id
             WHERE e.order_id IN (SELECT value FROM json_each(?)) ORDER BY e.order_id, e.id DESC`),
         insertInvoice: db.prepare(
@@ -3201,12 +3215,13 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         }
 
         // the Cashier page (cashiers, sales and admins): the Order sheet's orders, every one from every day (deleted ones and
-        // Customer Reports left out), with how each is paid
+        // Customer Reports left out), with how each is paid, or for the cashier only whether it is
         if (method === "GET" && path === "/admin/payments") {
-            return send(res, 200, loadPayments(sql.sheetOrders.all(REPORT_PURPOSE)));
+            const payments = loadPayments(sql.sheetOrders.all(REPORT_PURPOSE));
+            return send(res, 200, me.role === "cashier" ? payments.map(toCashierPayment) : payments);
         }
 
-        // the cashier (or sales) changes how an order is paid, e.g. Vale to Paid once the customer has settled it; from any day, by
+        // sales (or an admin) change how an order is paid, e.g. Vale to Paid once the customer has settled it; from any day, by
         // id; it can be changed but not cleared, and a change is kept as an edit with who made it, like one on the Order
         // sheet, so sales see it on the ticket
         const paymentMatch = path.match(/^\/admin\/payments\/(\d+)$/);

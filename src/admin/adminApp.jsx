@@ -1,28 +1,28 @@
-import { Navigate, Route, Routes } from 'react-router';
-import './style/admin.css';
+import { Navigate, Route, Routes } from "react-router";
+import "./style/admin.css";
 
-import AuthProvider from './auth/authProvider.jsx';
-import ProtectedRoute from './auth/protectedRoute.jsx';
-import { useAuth } from './auth/authContext.js';
-import { ROLE_LABELS } from './auth/roles.js';
-import AdminLayout from './components/layout/adminLayout.jsx';
-import LoginPage from './pages/loginPage.jsx';
-import DashboardPage from './pages/dashboardPage.jsx';
-import DisplaySettingsPage from './pages/displaySettingsPage.jsx';
-import SalesPage from './pages/salesPage.jsx';
-import CustomerOrderPage from './pages/customerOrderPage.jsx';
-import AccCreation from './pages/accCreation.jsx';
-import AccountPage from './pages/accountPage.jsx';
-import LoadingPage from './pages/loadingPage.jsx';
-import TbaPage from './pages/tbaPage.jsx';
-import ChassisPage from './pages/chassisPage.jsx';
-import HardwarePage from './pages/hardwarePage.jsx';
-import OrderStatusPage from './pages/orderStatusPage.jsx';
-import SecurityPage from './pages/securityPage.jsx';
-import CashierPage from './pages/cashierPage.jsx';
-import ChatPage from './pages/chatPage.jsx';
-import DeletedTicketsPage from './pages/deletedTicketsPage.jsx';
-import MessagesPage from './pages/messagesPage.jsx';
+import AuthProvider from "./auth/authProvider.jsx";
+import ProtectedRoute from "./auth/protectedRoute.jsx";
+import { useAuth } from "./auth/authContext.js";
+import { ROLE_LABELS } from "./auth/roles.js";
+import AdminLayout from "./components/layout/adminLayout.jsx";
+import LoginPage from "./pages/loginPage.jsx";
+import DashboardPage from "./pages/dashboardPage.jsx";
+import DisplaySettingsPage from "./pages/displaySettingsPage.jsx";
+import SalesPage from "./pages/salesPage.jsx";
+import CustomerOrderPage from "./pages/customerOrderPage.jsx";
+import AccCreation from "./pages/accCreation.jsx";
+import AccountPage from "./pages/accountPage.jsx";
+import LoadingPage from "./pages/loadingPage.jsx";
+import TbaPage from "./pages/tbaPage.jsx";
+import ChassisPage from "./pages/chassisPage.jsx";
+import HardwarePage from "./pages/hardwarePage.jsx";
+import OrderStatusPage from "./pages/orderStatusPage.jsx";
+import SecurityPage from "./pages/securityPage.jsx";
+import CashierPage from "./pages/cashierPage.jsx";
+import ChatPage from "./pages/chatPage.jsx";
+import DeletedTicketsPage from "./pages/deletedTicketsPage.jsx";
+import MessagesPage from "./pages/messagesPage.jsx";
 
 // every kind of staff account but the developers, who are written to from Message developer and have no Dashboard
 const NOT_DEVELOPER = ["admin", "sales", "loading", "tba", "chassis", "hardware", "security", "cashier", "inventory"];
@@ -56,7 +56,10 @@ export default function AdminApp() {
                             <Route index element={<DashboardPage />} />
                             {/* SheeChat has Message developer as its second tab */}
                             <Route path="sheechat" element={<MessagesPage />} />
-                            <Route path="message-developer" element={<Navigate to="/staff/sheechat?tab=developer" replace />} />
+                            <Route
+                                path="message-developer"
+                                element={<Navigate to="/staff/sheechat?tab=developer" replace />}
+                            />
                         </Route>
 
                         {/* the developers: answering what staff write, with no rights in the queue beyond the Order
@@ -78,7 +81,10 @@ export default function AdminApp() {
                                 addresses open it (sales can set any status there but Now serving, as they don't call;
                                 Call stays admin-only, and Purge is for admins and developers) */}
                             <Route path="orders" element={<Navigate to="/staff/customer-order?tab=orders" replace />} />
-                            <Route path="history" element={<Navigate to="/staff/customer-order?tab=history" replace />} />
+                            <Route
+                                path="history"
+                                element={<Navigate to="/staff/customer-order?tab=history" replace />}
+                            />
                         </Route>
 
                         {/* the loading crew; no admin rights beyond these pages and My account */}
@@ -103,7 +109,13 @@ export default function AdminApp() {
 
                         {/* where every customer is, for the departments and the developers; admins and sales have
                             the same board on Customer order */}
-                        <Route element={<ProtectedRoute roles={["admin", "loading", "tba", "chassis", "hardware", "inventory", "developer"]} />}>
+                        <Route
+                            element={
+                                <ProtectedRoute
+                                    roles={["admin", "loading", "tba", "chassis", "hardware", "inventory", "developer"]}
+                                />
+                            }
+                        >
                             <Route path="order-status" element={<OrderStatusPage />} />
                         </Route>
 
@@ -113,8 +125,8 @@ export default function AdminApp() {
                             <Route path="security" element={<SecurityPage />} />
                         </Route>
 
-                        {/* changing how each order is paid: the cashier, with no admin rights beyond this page and My
-                            account, and sales */}
+                        {/* how each order is paid: the cashier, who only looks, with nothing beyond this page and My
+                            account, and sales, who change it */}
                         <Route element={<ProtectedRoute roles={["admin", "sales", "cashier"]} />}>
                             <Route path="cashier" element={<CashierPage />} />
                         </Route>

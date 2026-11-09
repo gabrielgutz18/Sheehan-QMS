@@ -29,7 +29,7 @@ const navItems = [
     // admins and sales have the same board on Customer order, and the loading crews and inventory on their Dashboard
     { to: "/staff/order-status", label: "Order status", group: "My work", roles: ["developer"], icon: "M4 6h3M4 12h3M4 18h3M11 6h9M11 12h9M11 18h9M5.5 4.5v3M5.5 10.5v3M5.5 16.5v3", blurb: "Where every customer is today" },
     { to: "/staff/security", label: "Security", group: "My work", folder: "Department", roles: ["admin", "security"], icon: "M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6zM8.5 12l2.5 2.5 4.5-5", blurb: "Check what each customer leaves with" },
-    { to: "/staff/cashier", label: "Cashier", group: "My work", folder: "Department", roles: ["admin", "sales", "cashier"], icon: "M2 6h20v12H2zM12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 1 0 0-5M5.5 9v6M18.5 9v6", blurb: "Change how each order is paid" },
+    { to: "/staff/cashier", label: "Cashier", group: "My work", folder: "Department", roles: ["admin", "sales", "cashier"], icon: "M2 6h20v12H2zM12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 1 0 0-5M5.5 9v6M18.5 9v6", blurb: "How each order is paid" },
     // the display's video and announcer, and the receipt printer, as tabs of one page
     { to: "/staff/display", label: "Display & printer", group: "Display", roles: ["admin"], icon: "M3 6h13v12H3zM16 10l5-3v10l-5-3", blurb: "The display's video and voice, and the receipt printer" },
     { to: "/staff/account", label: "My account", group: "Account", roles: STAFF, icon: "M20 21v-1a6 6 0 0 0-6-6h-4a6 6 0 0 0-6 6v1M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8", blurb: "Your photo, name and details" },

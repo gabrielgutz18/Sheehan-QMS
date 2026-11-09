@@ -1,4 +1,4 @@
-import http from '../../api/http.js';
+import http from "../../api/http.js";
 
 // admin endpoints sit under /admin so the backend can guard the whole prefix with one auth check
 // order shape: { queueNum, name, purpose, orders: [{ item, qty }], status, createdAt, calledAt?, remarks? }
@@ -54,12 +54,13 @@ export const removeSheetColumn = (id) => http.delete(`/admin/order-sheet/columns
 // "waiting" | "saving" | "saved" | "failed", savedAt (when the sheet last took some rows, or null), error, link }
 export const getOrderSheetSync = (options) => http.get("/admin/order-sheet/sync", options);
 
-// the Cashier page (cashiers and admins): the Order sheet's orders, every one from every day, with how each is paid
+// the Cashier page (cashiers, sales and admins): the Order sheet's orders, every one from every day, with how each is
+// paid; a cashier gets paid and paymentSet (whether any status is picked yet) in place of paymentStatus
 // → [{ id, date, isToday, ...as listOrderStatus, invoices: [{ invoiceNo, type }], salesman?, paymentStatus?,
-//      paymentChange?: { by: { name }, at } (who last changed the payment status, and when) }]
+//      paymentChange?: { by: { name, role? }, at } (who last changed the payment status, and when) }]
 export const listPayments = (options) => http.get("/admin/payments", options);
 
-// the cashier changes how one of those orders is paid, to one of src/data/paymentStatus.js (it can't be cleared)
+// sales or an admin change how one of those orders is paid, to one of src/data/paymentStatus.js (it can't be cleared)
 // → the order, as listPayments has it; a change is kept as an edit, like one on the Order sheet
 export const updatePayment = (id, paymentStatus) =>
     http.patch(`/admin/payments/${encodeURIComponent(id)}`, { paymentStatus });

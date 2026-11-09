@@ -2,18 +2,17 @@
 // (even once loading has them), the sales team, the runner, the receiver, the invoices and the rest of Customer order;
 // deleted tickets left out
 // run: npm test            only these: npm test -- --test-name-pattern="order export"
-import assert from 'node:assert/strict';
-import { afterEach, beforeEach, describe, test } from 'node:test';
-import ExcelJS from 'exceljs';
+import assert from "node:assert/strict";
+import { afterEach, beforeEach, describe, test } from "node:test";
+import ExcelJS from "exceljs";
 
-import {
-    ORDER_COLUMNS, daysBetween, excelDate, excelTime, orderExportRows,
-} from '../../src/admin/export/orderRows.js';
-import { buildOrdersWorkbook } from '../../src/admin/export/ordersWorkbook.js';
-import { bootApp, localDay } from '../support/testApp.js';
+import { ORDER_COLUMNS, daysBetween, excelDate, excelTime, orderExportRows } from "../../src/admin/export/orderRows.js";
+import { buildOrdersWorkbook } from "../../src/admin/export/ordersWorkbook.js";
+import { bootApp, localDay } from "../support/testApp.js";
 
 // a 1 × 1 PNG, standing in for the logo
-const LOGO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+const LOGO =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
 
 let app;
 
@@ -28,7 +27,10 @@ const sale = (overrides = {}) => ({
     name: "Juan Dela Cruz",
     purpose: "Roofings, Steel",
     orders: [],
-    invoices: [{ invoiceNo: "43355521", type: "Roofings" }, { invoiceNo: "5566", type: "Steel" }],
+    invoices: [
+        { invoiceNo: "43355521", type: "Roofings" },
+        { invoiceNo: "5566", type: "Steel" },
+    ],
     salesman: "Maria Santos",
     runner: "Jose Rizal",
     receiver: "Andres Bonifacio",
@@ -46,9 +48,16 @@ describe("order export", () => {
     test("each of the day's tickets is a row with its sales details and who served it, oldest first", async () => {
         await takeOrder();
         await takeOrder({
-            name: "Ana Reyes", purpose: "Tire", invoices: [{ invoiceNo: "7788", type: "Tire" }],
-            runner: "", receiver: "", salesTimeIn: "", salesTimeOut: "", checkers: {},
-            team: "", pickupDate: localDay(-1),
+            name: "Ana Reyes",
+            purpose: "Tire",
+            invoices: [{ invoiceNo: "7788", type: "Tire" }],
+            runner: "",
+            receiver: "",
+            salesTimeIn: "",
+            salesTimeOut: "",
+            checkers: {},
+            team: "",
+            pickupDate: localDay(-1),
         });
         await takeOrder({ name: "Deleted Customer", purpose: "Steel", invoices: [{ invoiceNo: "1", type: "Steel" }] });
 
@@ -57,8 +66,8 @@ describe("order export", () => {
         (await maria.post("/admin/orders/1/handover")).assertStatus(200);
         const pedro = await app.actingAsLoading("Pedro Garcia");
         (await pedro.post("/admin/loading/1/call")).assertStatus(200);
-        // the cashier marks Juan's as paid; Ana's isn't set yet
-        (await (await app.actingAsCashier()).patch("/admin/payments/1", { paymentStatus: "Paid" })).assertStatus(200);
+        // sales mark Juan's as paid; Ana's isn't set yet
+        (await maria.patch("/admin/payments/1", { paymentStatus: "Paid" })).assertStatus(200);
         const admin = await app.actingAsAdmin();
         (await admin.delete("/admin/orders/3")).assertStatus(204);
 
@@ -66,7 +75,10 @@ describe("order export", () => {
         const rows = orderExportRows(history);
 
         assert.equal(rows.length, 2);
-        assert.deepEqual(rows.map((r) => r.ticket), ["RS 01", "T 02"]);
+        assert.deepEqual(
+            rows.map((r) => r.ticket),
+            ["RS 01", "T 02"],
+        );
         assert.deepEqual(rows[0], {
             date: excelDate(localDay()),
             ticket: "RS 01",
@@ -97,7 +109,12 @@ describe("order export", () => {
     });
 
     test("the days of a range, both ends included, across a month's end", () => {
-        assert.deepEqual(daysBetween("2026-10-30", "2026-11-02"), ["2026-10-30", "2026-10-31", "2026-11-01", "2026-11-02"]);
+        assert.deepEqual(daysBetween("2026-10-30", "2026-11-02"), [
+            "2026-10-30",
+            "2026-10-31",
+            "2026-11-01",
+            "2026-11-02",
+        ]);
         assert.deepEqual(daysBetween("2026-10-24", "2026-10-24"), ["2026-10-24"]);
         assert.deepEqual(daysBetween("2026-10-24", "2026-10-23"), []);
         assert.deepEqual(daysBetween("", "2026-10-23"), []);
@@ -115,7 +132,12 @@ describe("order export", () => {
         await takeOrder();
         const admin = await app.actingAsAdmin();
         const history = (await admin.get(`/admin/history?day=${localDay()}&search=&deleted=0`)).assertStatus(200).body;
-        const report = { title: "Customer orders", rangeLabel: "24 Oct 2026", rows: orderExportRows(history), fullDays: ["24 Oct 2026"] };
+        const report = {
+            title: "Customer orders",
+            rangeLabel: "24 Oct 2026",
+            rows: orderExportRows(history),
+            fullDays: ["24 Oct 2026"],
+        };
 
         const buffer = await buildOrdersWorkbook(report, LOGO).xlsx.writeBuffer();
         const workbook = new ExcelJS.Workbook();
@@ -126,7 +148,10 @@ describe("order export", () => {
         assert.equal(sheet.getCell("B1").value, "SHEEHAN INC.");
         assert.equal(sheet.getCell("B7").value, 1);
         assert.match(sheet.getCell("A8").value, /newest 200 tickets of 24 Oct 2026/);
-        assert.deepEqual(sheet.getRow(10).values.slice(1), ORDER_COLUMNS.map((c) => c.header));
+        assert.deepEqual(
+            sheet.getRow(10).values.slice(1),
+            ORDER_COLUMNS.map((c) => c.header),
+        );
 
         const cell = (header) => sheet.getRow(11).getCell(ORDER_COLUMNS.findIndex((c) => c.header === header) + 1);
         assert.equal(cell("Ticket").value, "RS 01");
