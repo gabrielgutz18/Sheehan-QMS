@@ -47,8 +47,31 @@ describe("new orders", () => {
         assert.deepEqual(forHardware.types, ["Hardwares"]);
         assert.deepEqual(forHardware.invoices, ["8812"]);
 
-        assert.deepEqual(await newOrders(await app.actingAsTba()), []);
+        assert.deepEqual(await newOrders(await app.actingAsService()), []);
         assert.deepEqual(await newOrders(await app.actingAsChassis()), []);
+    });
+
+    test("Service is told about a Tire or Battery, the same as Loading and Hardware about theirs", async () => {
+        const maria = await app.actingAsSales("Maria Santos");
+        const service = await app.actingAsService();
+        const sale = {
+            ...MIXED,
+            purpose: "Roofings, Tire, Battery",
+            invoices: [
+                { invoiceNo: "449765", type: "Roofings" },
+                { invoiceNo: "450023", type: "Tire" },
+                { invoiceNo: "450024", type: "Battery" },
+            ],
+        };
+        (await maria.post("/orders", sale)).assertStatus(201);
+
+        const [coming] = await newOrders(service);
+        assert.deepEqual(coming.types, ["Tire", "Battery"]);
+        assert.deepEqual(coming.invoices, ["450023", "450024"]);
+        assert.equal(coming.handedOver, undefined);
+
+        (await maria.post("/admin/orders/1/handover")).assertStatus(200);
+        assert.equal((await newOrders(service))[0].handedOver.by, "Maria Santos");
     });
 
     test("a ticket from the kiosk and a Customer Report aren't orders from sales", async () => {
@@ -98,7 +121,7 @@ describe("new orders", () => {
         const [forHardware] = await newOrders(hardware);
         assert.equal(forHardware.handedOver.by, "Maria Santos");
         assert.deepEqual(forHardware.invoices, ["8812"]);
-        assert.deepEqual(await newOrders(await app.actingAsTba()), []);
+        assert.deepEqual(await newOrders(await app.actingAsService()), []);
     });
 
     test("a kiosk ticket isn't new from sales, but its hand-over still counts", async () => {

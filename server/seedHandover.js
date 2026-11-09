@@ -1,8 +1,8 @@
 // adds sample customers to today's queue and hands each one over to loading at once, like Laravel's db:seed, for
-// trying the Loading, TBA and Hardware pages and the security check without serving them at a sales counter first
+// trying the Loading, Service and Hardware pages and the security check without serving them at a sales counter first
 // each one goes through the same POST /orders Customer order uses and the same POST /admin/orders/:n/handover My
 // counter uses, signed in as the built-in admin from .env, so they get real queue numbers and wait on the Loading
-// page; the mix covers orders loaded in several areas in turn (Roofings then Steel, then TBA or Hardware); safe to run while
+// page; the mix covers orders loaded in several areas in turn (Roofings then Steel, then Service or Hardware); safe to run while
 // the app is running
 // run: npm run seed:handover          6 customers
 //      npm run seed:handover -- 12    12 customers (up to 50)

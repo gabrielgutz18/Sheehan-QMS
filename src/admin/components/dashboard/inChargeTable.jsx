@@ -17,7 +17,7 @@ const NOBODY = {
     loading: "Waiting for the loading crew",
     security: "Waiting for a guard",
 };
-// the department next to call a handed-over customer: TBA's, Hardware's or the loading crew's
+// the department next to call a handed-over customer: Service's, Hardware's or the loading crew's
 const nobodyFor = (order, stage) => {
     const next = departmentOf(areasLeft(order)[0] ?? "");
     return stage === "loading" && next !== "loading" ? `Waiting for the ${DEPARTMENTS[next]} crew` : NOBODY[stage] ?? "No one yet";

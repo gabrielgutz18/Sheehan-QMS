@@ -126,7 +126,7 @@ describe("unread messages", () => {
         for (const staff of [
             await app.actingAsAdmin(),
             await app.actingAsLoading(),
-            await app.actingAsTba(),
+            await app.actingAsService(),
             await app.actingAsChassis(),
             await app.actingAsHardware(),
             await app.actingAsSecurity(),

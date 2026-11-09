@@ -203,6 +203,7 @@ On every start, any `.sql` file not yet listed in `schema_migrations` runs, in n
 | [`018_security_staff.sql`](../server/migrations/018_security_staff.sql) | rebuilds `users` to allow the `security` role (the guards at the gate, the last stage: looking only) |
 | [`019_area_loading_security_check.sql`](../server/migrations/019_area_loading_security_check.sql) | loading area by area, and the security check: adds `loading_area`, `security_pending`, `security_check_id` to `orders`, and the `order_loads` (each area loaded this visit, by whom and when) and `security_checks` (every guard's check: verified, or a report of something missing, over the quantity or stolen, with a note; kept even if the order is reopened) tables; orders already done stay done, with nothing to check |
 | [`020_cashier_staff.sql`](../server/migrations/020_cashier_staff.sql) | rebuilds `users` to allow the `cashier` role (changes how each order is paid, nothing else) |
+| [`040_service_staff.sql`](../server/migrations/040_service_staff.sql) | renames the TBA department to Service: rebuilds `users` so `role` allows `service` instead of `tba`, moves TBA accounts over, and changes the area from `TBA` to `Service` in `orders.loading_area`, `order_loads.area` and `security_checks.returned_to`; `orders.tba_priority` keeps its name |
 
 **Changing the tables later:** never edit a file that has already run anywhere. Add the next number instead, for example `server/migrations/006_add_counter_number.sql`:
 
@@ -313,7 +314,7 @@ erDiagram
     order_loads {
         INTEGER id PK
         INTEGER order_id FK "orders.id, cascade"
-        TEXT area "Roofings, Steel or TBA; once per order"
+        TEXT area "Roofings, Steel, Service, Chassis or Hardware; once per order"
         INTEGER loaded_by FK "users.id; who pressed Done there"
         TEXT loaded_at
     }
@@ -348,7 +349,7 @@ erDiagram
         INTEGER id PK
         TEXT username "unique, any case"
         TEXT name
-        TEXT role "admin | sales | loading | security | cashier"
+        TEXT role "admin | sales | loading | service | chassis | hardware | security | cashier | inventory | developer"
         TEXT password_hash "scrypt"
         TEXT created_at
         TEXT disabled_at

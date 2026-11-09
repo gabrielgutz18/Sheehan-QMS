@@ -50,7 +50,7 @@ export const whereNow = (order, { named = true } = {}) => {
             }
             const [next] = areasLeft(order);
             const started = (order.areas ?? []).some((area) => area.loaded);
-            // TBA and Hardware are their own departments, so they're named even before anything is loaded
+            // Service and Hardware are their own departments, so they're named even before anything is loaded
             return next && (started || departmentOf(next.name) !== "loading") ? `Waiting for ${next.name}` : "Waiting for loading";
         }
         default:

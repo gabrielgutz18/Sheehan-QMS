@@ -1,15 +1,12 @@
 import { splitList } from './list.js';
 
 // the departments that take a customer once sales hands them over, each with its own staff role and page: the
-// loading crew (Roofings, Steel), TBA (Tire, Battery), Chassis and Hardware; a customer who bought from several goes
+// loading crew (Roofings, Steel), Service (Tire, Battery), Chassis and Hardware; a customer who bought from several goes
 // to each in turn, one at a time
-export const DEPARTMENTS = { loading: "Loading", tba: "TBA", chassis: "Chassis", hardware: "Hardware" };
+export const DEPARTMENTS = { loading: "Loading", service: "Service", chassis: "Chassis", hardware: "Hardware" };
 
-// a department's name inside a sentence: "loading", "hardware", but "TBA" stays in capitals
-export const departmentWord = (department) => {
-    const label = DEPARTMENTS[department];
-    return label === label.toUpperCase() ? label : label.toLowerCase();
-};
+// a department's name inside a sentence: "loading", "service", "hardware"
+export const departmentWord = (department) => DEPARTMENTS[department].toLowerCase();
 
 // the loading areas, departments of the company (not teams), in the order a customer goes through them, each with
 // the types of order (purpose.js) it loads and the department whose staff work it; a ticket for several types is
@@ -18,13 +15,13 @@ export const departmentWord = (department) => {
 const loadingAreas = [
     { name: "Roofings", types: ["Roofings", "Roofings Accessories"], department: "loading" },
     { name: "Steel", types: ["Steel"], department: "loading" },
-    { name: "TBA", types: ["Tire", "Battery"], department: "tba" },
+    { name: "Service", types: ["Tire", "Battery"], department: "service" },
     { name: "Chassis", types: ["Chassis"], department: "chassis" },
     // Hardware hands small items over the counter, not onto a truck, so its crew prepares the order (WORK below)
     { name: "Hardware", types: ["Hardwares"], department: "hardware", work: "preparing" },
 ];
 
-// how the pages and the server word an area's work: a truck is loaded at Roofings, Steel, TBA and Chassis, but at
+// how the pages and the server word an area's work: a truck is loaded at Roofings, Steel, Service and Chassis, but at
 // Hardware the crew gets the items ready, so it's "Start preparing at Hardware", "Prepared by Juan" there; only the
 // words differ, the steps (Call, Start, Done) and the records are the same
 // verb: "Load it at an area ..."; doing: "Loading at Roofings", "Start loading"; done: "Loaded by", "Not loaded"; what:
@@ -72,16 +69,16 @@ export const departmentHas = (department, areas) =>
     areas.length === 0 ? department === "loading" : areas.some((area) => departmentOf(area) === department);
 
 // the lists on a department's History tab, one at a time so different products never mix: each is a few types of order
-// and the area they're loaded in; the first is the one that opens; Tire and Battery are apart though TBA loads them
-// together, so both show the same TBA load
+// and the area they're loaded in; the first is the one that opens; Tire and Battery are apart though Service loads them
+// together, so both show the same Service load
 export const HISTORY_LISTS = {
     loading: [
         { name: "Roofings", types: ["Roofings", "Roofings Accessories"], area: "Roofings" },
         { name: "Steel", types: ["Steel"], area: "Steel" },
     ],
-    tba: [
-        { name: "Tire", types: ["Tire"], area: "TBA" },
-        { name: "Battery", types: ["Battery"], area: "TBA" },
+    service: [
+        { name: "Tire", types: ["Tire"], area: "Service" },
+        { name: "Battery", types: ["Battery"], area: "Service" },
     ],
     chassis: [{ name: "Chassis", types: ["Chassis"], area: "Chassis" }],
     hardware: [{ name: "Hardware", types: ["Hardwares"], area: "Hardware" }],

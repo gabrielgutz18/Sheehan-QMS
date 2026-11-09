@@ -18,12 +18,12 @@ import {
 import { DEPARTMENTS, departmentWord } from '../../../data/loadingAreas.js';
 import formatQueueNum from '../../../data/queueNum.js';
 
-// a department's counter, the Loading, TBA, Chassis and Hardware pages' (department: "loading", "tba", "chassis" or "hardware",
+// a department's counter, the Loading, Service, Chassis and Hardware pages' (department: "loading", "service", "chassis" or "hardware",
 // src/data/loadingAreas.js), one shared line for every account of the department: today's customers once a sales
 // counter has served them and pressed Hand over on My counter, the ones with something from the department's areas,
 // in queue order; call one to one of those areas (the display shows "Please proceed to Roofings", which can be changed
 // before calling), mark that area done, or send them back to waiting
-// an order is loaded in each of its areas in turn (Roofings, Steel, TBA at loading, then Hardware): Done at one area
+// an order is loaded in each of its areas in turn (Roofings, Steel, Service at loading, then Hardware): Done at one area
 // puts the customer back in line for the next, here or at the other department, and Done at the last finishes the
 // order and sends them on to the security check at the gate
 // loading isn't serving: Done means the crew has finished loading the order (the truck, for roofing), so the ticket

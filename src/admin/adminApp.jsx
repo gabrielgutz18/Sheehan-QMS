@@ -14,7 +14,7 @@ import CustomerOrderPage from "./pages/customerOrderPage.jsx";
 import AccCreation from "./pages/accCreation.jsx";
 import AccountPage from "./pages/accountPage.jsx";
 import LoadingPage from "./pages/loadingPage.jsx";
-import TbaPage from "./pages/tbaPage.jsx";
+import ServicePage from "./pages/servicePage.jsx";
 import ChassisPage from "./pages/chassisPage.jsx";
 import HardwarePage from "./pages/hardwarePage.jsx";
 import OrderStatusPage from "./pages/orderStatusPage.jsx";
@@ -25,7 +25,7 @@ import DeletedTicketsPage from "./pages/deletedTicketsPage.jsx";
 import MessagesPage from "./pages/messagesPage.jsx";
 
 // every kind of staff account but the developers, who are written to from Message developer and have no Dashboard
-const NOT_DEVELOPER = ["admin", "sales", "loading", "tba", "chassis", "hardware", "security", "cashier", "inventory"];
+const NOT_DEVELOPER = ["admin", "sales", "loading", "service", "chassis", "hardware", "security", "cashier", "inventory"];
 
 // the browser tab: "Sheehan Inc. — Staff" until someone signs in, then their role ("Sheehan Inc. — Sales")
 function StaffTitle() {
@@ -92,9 +92,9 @@ export default function AdminApp() {
                             <Route path="loading" element={<LoadingPage />} />
                         </Route>
 
-                        {/* the TBA department (Tire, Battery), the same as the loading crew for its own area */}
-                        <Route element={<ProtectedRoute roles={["admin", "tba"]} />}>
-                            <Route path="tba" element={<TbaPage />} />
+                        {/* the Service department (Tire, Battery), the same as the loading crew for its own area */}
+                        <Route element={<ProtectedRoute roles={["admin", "service"]} />}>
+                            <Route path="service" element={<ServicePage />} />
                         </Route>
 
                         {/* the Chassis department, the same as the loading crew for its own area */}
@@ -112,7 +112,7 @@ export default function AdminApp() {
                         <Route
                             element={
                                 <ProtectedRoute
-                                    roles={["admin", "loading", "tba", "chassis", "hardware", "inventory", "developer"]}
+                                    roles={["admin", "loading", "service", "chassis", "hardware", "inventory", "developer"]}
                                 />
                             }
                         >
