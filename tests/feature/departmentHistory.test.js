@@ -60,7 +60,7 @@ describe("department history", () => {
         ]) {
             (await history(other, "hardware")).assertStatus(403);
         }
-        for (const department of ["loading", "service", "chassis", "hardware"])
+        for (const department of ["loading", "logistics", "service", "chassis", "hardware"])
             (await history(admin, department)).assertStatus(200);
         (await history(admin, "nowhere")).assertStatus(404);
     });

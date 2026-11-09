@@ -1,21 +1,28 @@
-import { useCallback, useEffect, useState } from 'react';
-import { useLocation } from 'react-router';
-import '../style/orderStatus.css';
-import '../style/chat.css';
+import { useCallback, useEffect, useState } from "react";
+import { useLocation } from "react-router";
+import "../style/orderStatus.css";
+import "../style/chat.css";
 
-import { answerChat, answerChatImage, listChat, listChats, listChatTyping, noteChatTyping } from '../api/chatController.js';
-import { listConcerns, setConcernStatus } from '../api/concernController.js';
-import { ROLE_LABELS } from '../auth/roles.js';
-import { useAuth } from '../auth/authContext.js';
-import Avatar from '../components/common/avatar.jsx';
-import ConcernCard from '../components/chat/concernCard.jsx';
-import DeveloperHeads from '../components/chat/developerHeads.jsx';
-import MessageThread from '../components/chat/messageThread.jsx';
-import ReportList from '../components/chat/reportList.jsx';
-import StaffList from '../components/chat/staffList.jsx';
-import { useViewingConversation } from '../hooks/useMessageToasts.js';
-import useMessages from '../hooks/useMessages.js';
-import useTyping from '../hooks/useTyping.js';
+import {
+    answerChat,
+    answerChatImage,
+    listChat,
+    listChats,
+    listChatTyping,
+    noteChatTyping,
+} from "../api/chatController.js";
+import { listConcerns, setConcernStatus } from "../api/concernController.js";
+import { ROLE_LABELS } from "../auth/roles.js";
+import { useAuth } from "../auth/authContext.js";
+import Avatar from "../components/common/avatar.jsx";
+import ConcernCard from "../components/chat/concernCard.jsx";
+import DeveloperHeads from "../components/chat/developerHeads.jsx";
+import MessageThread from "../components/chat/messageThread.jsx";
+import ReportList from "../components/chat/reportList.jsx";
+import StaffList from "../components/chat/staffList.jsx";
+import { useViewingConversation } from "../hooks/useMessageToasts.js";
+import useMessages from "../hooks/useMessages.js";
+import useTyping from "../hooks/useTyping.js";
 
 // new messages should show up while a developer has the page open
 const REFRESH_MS = 5000;
@@ -45,6 +52,7 @@ function Conversation({ staff, onSent }) {
                     added(await (image ? answerChatImage(staff.id, image, body) : answerChat(staff.id, body)));
                     onSent();
                 }}
+                disabled={staff.deleted ? "This account has been deleted, so you can't send them messages." : ""}
                 empty="No messages yet."
                 label={`Answer to ${staff.name}`}
                 // a report's card, with the buttons to move it along; the bot's sentence goes to them as your message
@@ -57,7 +65,14 @@ function Conversation({ staff, onSent }) {
                                 const { concern, message } = await setConcernStatus(m.concern.id, status, note);
                                 edited((x) =>
                                     x.concern?.id === concern.id
-                                        ? { ...x, concern: { ...x.concern, status: concern.status, statusNote: concern.statusNote } }
+                                        ? {
+                                              ...x,
+                                              concern: {
+                                                  ...x.concern,
+                                                  status: concern.status,
+                                                  statusNote: concern.statusNote,
+                                              },
+                                          }
                                         : x,
                                 );
                                 added(message);
@@ -137,28 +152,56 @@ export default function ChatPage() {
         <section className="admin-page">
             <div>
                 <h1 className="admin-title">Chat</h1>
-                <p className="tab-hint">What staff write from Message developer when something doesn't go well. Pick one to answer.</p>
+                <p className="tab-hint">
+                    What staff write from Message developer when something doesn't go well. Pick one to answer.
+                </p>
             </div>
 
             <div className="admin-panel">
                 <DeveloperHeads meId={user.id} />
             </div>
 
-            {listError && <p className="field-error" role="alert">{listError}</p>}
+            {listError && (
+                <p className="field-error" role="alert">
+                    {listError}
+                </p>
+            )}
 
             <div className="chat-layout">
-                <nav className="admin-panel chat-list" aria-label={{ chats: "Conversations", staff: "Staff", reports: "Reports" }[view]}>
+                <nav
+                    className="admin-panel chat-list"
+                    aria-label={{ chats: "Conversations", staff: "Staff", reports: "Reports" }[view]}
+                >
                     <div className="order-status-filters chat-views" role="group" aria-label="Show">
-                        <button type="button" className="status-chip" aria-pressed={view === "chats"} onClick={() => setView("chats")}>
+                        <button
+                            type="button"
+                            className="status-chip"
+                            aria-pressed={view === "chats"}
+                            onClick={() => setView("chats")}
+                        >
                             Conversations
                             {unread > 0 && <span className="status-chip-count">{unread}</span>}
                         </button>
-                        <button type="button" className="status-chip" aria-pressed={view === "staff"} onClick={() => setView("staff")}>
+                        <button
+                            type="button"
+                            className="status-chip"
+                            aria-pressed={view === "staff"}
+                            onClick={() => setView("staff")}
+                        >
                             Staff
                         </button>
-                        <button type="button" className="status-chip" aria-pressed={view === "reports"} onClick={() => setView("reports")}>
+                        <button
+                            type="button"
+                            className="status-chip"
+                            aria-pressed={view === "reports"}
+                            onClick={() => setView("reports")}
+                        >
                             Reports
-                            {openReports > 0 && <span className="status-chip-count" aria-label={`${openReports} open`}>{openReports}</span>}
+                            {openReports > 0 && (
+                                <span className="status-chip-count" aria-label={`${openReports} open`}>
+                                    {openReports}
+                                </span>
+                            )}
                         </button>
                     </div>
                     {view === "reports" ? (
@@ -184,18 +227,26 @@ export default function ChatPage() {
                                             <span className="chat-list-name">
                                                 <strong>{staff.name}</strong>
                                                 <span className="history-note">
-                                                    {ROLE_LABELS[staff.role] ?? staff.role}{staff.disabled && " · switched off"}
+                                                    {ROLE_LABELS[staff.role] ?? staff.role}
+                                                    {staff.disabled && !staff.deleted && " · switched off"}
                                                 </span>
                                             </span>
                                             <span className="chat-list-last">
-                                                {!last.fromStaff && `${last.from.id === user.id ? "You" : last.from.name}: `}
-                                                {last.image ? (last.body ? `Picture · ${last.body}` : "Picture") : last.body}
+                                                {!last.fromStaff &&
+                                                    `${last.from.id === user.id ? "You" : last.from.name}: `}
+                                                {last.image
+                                                    ? last.body
+                                                        ? `Picture · ${last.body}`
+                                                        : "Picture"
+                                                    : last.body}
                                             </span>
                                         </span>
                                         <span className="chat-list-end">
                                             <time dateTime={last.sentAt}>{lastTime.format(new Date(last.sentAt))}</time>
                                             {unread > 0 && (
-                                                <span className="chat-unread" aria-label={`${unread} unread`}>{unread}</span>
+                                                <span className="chat-unread" aria-label={`${unread} unread`}>
+                                                    {unread}
+                                                </span>
                                             )}
                                         </span>
                                     </button>

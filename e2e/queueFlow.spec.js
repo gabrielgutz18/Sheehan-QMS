@@ -174,6 +174,13 @@ test("a customer goes from their ticket, through hand-over and loading, with the
     await expect(upNext.getByText(customer)).toBeHidden();
 });
 
+// Plain Sheet, Stainless Steel and Insulations have their own department and page
+test("the Logistics page opens at its own address", async ({ page }) => {
+    await page.goto("/staff/logistics");
+    await signIn(page, ADMIN.username, ADMIN.password);
+    await expect(page.getByText(/^Waiting for logistics \(\d+\)$/)).toBeVisible();
+});
+
 // Tire and Battery's own page, at the address it got when the department stopped being called TBA
 test("the Service page opens at its own address", async ({ page }) => {
     await page.goto("/staff/service");

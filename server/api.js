@@ -1,7 +1,7 @@
 // the backend API, shared by the Vite dev server (npm run dev) and server/server.js (npm start)
 // orders, settings, staff accounts and sign-ins are saved in a SQLite database in the data folder
 // (see server/db.js), and an uploaded display video next to it in videos/, so nothing is lost on restart
-// ten roles: admins can do everything; sales, loading, service, chassis, hardware, security, cashier, inventory and developer staff only what
+// eleven roles: admins can do everything; sales, loading, logistics, service, chassis, hardware, security, cashier, inventory and developer staff only what
 // ROLE_ROUTES lists for them
 import { createHash, randomBytes, scrypt, scryptSync, timingSafeEqual } from "node:crypto";
 import { createReadStream, createWriteStream, mkdirSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
@@ -132,7 +132,7 @@ const DEPARTMENT_HISTORY_PAGE = 50;
 const MAX_PICKED = 500;
 const PICK_TICKETS = "Pick the tickets first.";
 const ANNOUNCER_REPEATS = [1, 2];
-// loading: the loading crew, one shared line for its areas (Roofings, Steel); service: the Service department (Tire, Battery),
+// loading: the loading crew, one shared line for its areas (Roofings, Steel); logistics: the Logistics department (Plain Sheet, Stainless Steel, Insulations); service: the Service department (Tire, Battery),
 // chassis: the Chassis department and hardware: the Hardware department, each the same as loading but for its own area
 // (src/data/loadingAreas.js); security: the guards at the gate, the last stage, who check what each customer leaves
 // with; cashier: who sees which orders are paid and who set it; inventory: the inventory department, with no work page of its own
@@ -141,6 +141,7 @@ const ROLES = [
     "admin",
     "sales",
     "loading",
+    "logistics",
     "service",
     "chassis",
     "hardware",
@@ -149,9 +150,15 @@ const ROLES = [
     "inventory",
     "developer",
 ];
-const NO_SUCH_ROLE = "Pick admin, sales, loading, service, chassis, hardware, security, cashier, inventory or developer.";
+const NO_SUCH_ROLE =
+    "Pick admin, sales, loading, logistics, service, chassis, hardware, security, cashier, inventory or developer.";
 // a developer makes and changes accounts on Accounts too, but not admin ones, so they can't give themselves everything
 const ADMINS_ONLY = "Only an admin can make or change an admin account.";
+// who a dropped account is in the chats, reports and profiles; tickets and points keep the person's real name
+const DELETED_ACCOUNT = "Deleted account";
+const chatName = (alias) => `CASE WHEN ${alias}.dropped_at IS NULL THEN ${alias}.name ELSE '${DELETED_ACCOUNT}' END`;
+const chatRole = (alias) => `CASE WHEN ${alias}.dropped_at IS NULL THEN ${alias}.role ELSE '' END`;
+const DROPPED_NO_MESSAGES = "This account has been deleted, so it can't be sent messages.";
 // one chat message, written to or by the developers
 const MAX_MESSAGE = 1000;
 // a picture pasted or attached in the chat; the page shrinks it first, so this is only a guard
@@ -274,6 +281,18 @@ const ROLE_ROUTES = {
         ...ACCOUNT_ROUTES,
         ...MESSAGE_ROUTES,
     ],
+    // the Logistics page: the same as loading's, for the customers handed over with Plain Sheet, Stainless Steel or Insulations
+    logistics: [
+        ["GET", /^\/admin\/orders$/],
+        ["GET", /^\/admin\/order-status$/],
+        ["POST", /^\/admin\/logistics\/[^/]+\/(call|start|done|back)$/],
+        // the History tab: the orders handed over to the department, its own only
+        ["GET", /^\/admin\/department-history\/logistics$/],
+        // the pop-ups when staff make or hand over an order with something for the department
+        ["GET", /^\/admin\/new-orders$/],
+        ...ACCOUNT_ROUTES,
+        ...MESSAGE_ROUTES,
+    ],
     // the Service page: the same as loading's, for the customers handed over with a Tire or Battery
     service: [
         ["GET", /^\/admin\/orders$/],
@@ -360,6 +379,8 @@ const ROLE_ROUTES = {
         ["GET", /^\/admin\/users$/],
         ["POST", /^\/admin\/users$/],
         ["PATCH", /^\/admin\/users\/\d+$/],
+        // dropping a switched-off account for good, to free up its photos
+        ["DELETE", /^\/admin\/users\/\d+$/],
         ...ACCOUNT_ROUTES,
     ],
 };
@@ -852,21 +873,42 @@ const toMe = (row) => ({
 
 // someone's profile as a coworker sees it on SheeChat; never their username, which is half of signing in as them, or
 // their employee ID and middle name, which only they and the people managing accounts need
-const toProfile = (row, now) => ({
+// a dropped account has nothing left to show but that it's gone
+const droppedProfile = (row) => ({
     id: row.id,
-    name: row.name,
-    firstName: row.first_name,
-    surname: row.surname,
-    role: row.role,
-    department: row.department,
-    team: row.sales_team,
-    photo: row.photo,
-    coverPhoto: row.cover_photo,
-    createdAt: row.created_at,
-    disabled: row.disabled_at !== null,
-    online: isOnline(row, now),
-    lastSeen: row.last_seen,
+    name: DELETED_ACCOUNT,
+    firstName: "",
+    surname: "",
+    role: "",
+    department: "",
+    team: "",
+    photo: null,
+    coverPhoto: null,
+    createdAt: null,
+    disabled: true,
+    deleted: true,
+    online: false,
+    lastSeen: null,
 });
+
+const toProfile = (row, now) =>
+    row.dropped_at !== null
+        ? droppedProfile(row)
+        : {
+              id: row.id,
+              name: row.name,
+              firstName: row.first_name,
+              surname: row.surname,
+              role: row.role,
+              department: row.department,
+              team: row.sales_team,
+              photo: row.photo,
+              coverPhoto: row.cover_photo,
+              createdAt: row.created_at,
+              disabled: row.disabled_at !== null,
+              online: isOnline(row, now),
+              lastSeen: row.last_seen,
+          };
 
 // a report keeps only its concern and an order only its items, so switching purpose on Edit drops the other
 // the keys besides orders and invoices are the insertOrder / updateOrder parameters; the payment status isn't one of
@@ -1258,14 +1300,15 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
 
     // a developer-chat message with its sender, and the report it's about, if any
     const MESSAGE_ROW = `
-        SELECT m.id, m.staff_id, m.sender_id, m.body, m.image, m.sent_at, m.read_at, m.kind, u.name, u.role, u.photo,
+        SELECT m.id, m.staff_id, m.sender_id, m.body, m.image, m.sent_at, m.read_at, m.kind,
+            ${chatName("u")} AS name, ${chatRole("u")} AS role, u.photo,
             c.id AS c_id, c.kind AS c_kind, c.area AS c_area, c.details AS c_details, c.extra AS c_extra,
             c.impact AS c_impact, c.status AS c_status, c.status_note AS c_status_note
         FROM messages m JOIN users u ON u.id = m.sender_id LEFT JOIN concerns c ON c.id = m.concern_id`;
     // a report with who sent it and who last changed it
     const CONCERN_ROW = `
-        SELECT c.*, s.name AS staff_name, s.role AS staff_role, s.department AS staff_department, s.photo AS staff_photo,
-            s.disabled_at AS staff_disabled_at, d.name AS status_by_name
+        SELECT c.*, ${chatName("s")} AS staff_name, ${chatRole("s")} AS staff_role, s.department AS staff_department, s.photo AS staff_photo,
+            s.disabled_at AS staff_disabled_at, ${chatName("d")} AS status_by_name
         FROM concerns c JOIN users s ON s.id = c.staff_id LEFT JOIN users d ON d.id = c.status_by`;
     const sql = {
         nextQueueNum: db.prepare(`
@@ -1524,6 +1567,14 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         deleteExpiredSessions: db.prepare("DELETE FROM sessions WHERE expires < ?"),
         // sign the account out everywhere except, optionally, this sign-in
         deleteUserSessions: db.prepare("DELETE FROM sessions WHERE user_id = ? AND sid_hash != ?"),
+        deleteAllUserSessions: db.prepare("DELETE FROM sessions WHERE user_id = ?"),
+        // dropping an account leaves only the name, which the tickets and points still show; the username can't be typed
+        // on Accounts, so it never gets in the way of a new one, and the password is random, so nobody knows it
+        dropUser: db.prepare(`
+            UPDATE users SET username = :username, password_hash = :passwordHash, dropped_at = :now, first_name = '',
+                middle_name = '', surname = '', employee_id = NULL, department = '', sales_team = '', photo = NULL,
+                cover_photo = NULL, last_seen = NULL
+            WHERE id = :id`),
 
         findUser: db.prepare("SELECT * FROM users WHERE username = ?"),
         findUserById: db.prepare("SELECT * FROM users WHERE id = ?"),
@@ -1554,6 +1605,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                     WHERE o.served_by = u.id AND o.status = 'serving' AND o.deleted_at IS NULL AND o.queue_date = :today) AS serving_now,
                 EXISTS (SELECT 1 FROM sessions s WHERE s.user_id = u.id AND s.expires > :now) AS signed_in
             FROM users u
+            WHERE u.dropped_at IS NULL
             ORDER BY u.disabled_at IS NOT NULL, u.role, u.name COLLATE NOCASE`),
 
         // Message developer and the Chat page: one staff member's conversation with the developers, oldest first
@@ -1593,7 +1645,8 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         // the Chat page's list: everyone who has a conversation, the newest message first, with how many of theirs
         // no developer has read yet
         listChats: db.prepare(`
-            SELECT u.id, u.name, u.role, u.photo, u.disabled_at, m.body AS last_body, m.image IS NOT NULL AS last_image,
+            SELECT u.id, ${chatName("u")} AS name, ${chatRole("u")} AS role, u.photo, u.disabled_at, u.dropped_at,
+                m.body AS last_body, m.image IS NOT NULL AS last_image,
                 m.sent_at AS last_at,
                 m.sender_id = u.id AS last_from_staff, m.sender_id AS last_from_id,
                 (SELECT name FROM users WHERE id = m.sender_id) AS last_from_name,
@@ -1602,7 +1655,8 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             ORDER BY m.id DESC`),
         // SheeChat: the conversation between :me and :other, either way round, oldest first
         dmThread: db.prepare(`
-            SELECT d.id, d.sender_id, d.recipient_id, d.body, d.image, d.sent_at, d.read_at, u.name, u.role, u.photo
+            SELECT d.id, d.sender_id, d.recipient_id, d.body, d.image, d.sent_at, d.read_at,
+                ${chatName("u")} AS name, ${chatRole("u")} AS role, u.photo
             FROM direct_messages d JOIN users u ON u.id = d.sender_id
             WHERE (d.sender_id = :me AND d.recipient_id = :other) OR (d.sender_id = :other AND d.recipient_id = :me)
             ORDER BY d.id`),
@@ -1610,7 +1664,8 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             "INSERT INTO direct_messages (sender_id, recipient_id, body, image, sent_at) VALUES (?, ?, ?, ?, ?)",
         ),
         findDm: db.prepare(`
-            SELECT d.id, d.sender_id, d.recipient_id, d.body, d.image, d.sent_at, d.read_at, u.name, u.role, u.photo
+            SELECT d.id, d.sender_id, d.recipient_id, d.body, d.image, d.sent_at, d.read_at,
+                ${chatName("u")} AS name, ${chatRole("u")} AS role, u.photo
             FROM direct_messages d JOIN users u ON u.id = d.sender_id WHERE d.id = ?`),
         // a picture sent on SheeChat, and who it's between, for /sheechat-images/<id>
         findDmImage: db.prepare(
@@ -1622,7 +1677,8 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         ),
         // everyone :me has a conversation with, the newest message first, with how many of theirs :me hasn't read
         listDmChats: db.prepare(`
-            SELECT u.id, u.name, u.role, u.photo, u.disabled_at, d.body AS last_body, d.image IS NOT NULL AS last_image,
+            SELECT u.id, ${chatName("u")} AS name, ${chatRole("u")} AS role, u.photo, u.disabled_at, u.dropped_at,
+                d.body AS last_body, d.image IS NOT NULL AS last_image,
                 d.sent_at AS last_at, d.sender_id = :me AS last_mine,
                 (SELECT COUNT(*) FROM direct_messages x
                     WHERE x.sender_id = u.id AND x.recipient_id = :me AND x.read_at IS NULL) AS unread
@@ -1634,19 +1690,22 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         // the message pop-ups: for each conversation with something unopened, its newest message and how many there
         // are; these only look, as a pop-up appearing doesn't mean anyone has read it
         unreadDms: db.prepare(`
-            SELECT d.id, d.body, d.image, d.sent_at, n.unread, u.id AS from_id, u.name, u.role, u.photo, u.disabled_at
+            SELECT d.id, d.body, d.image, d.sent_at, n.unread, u.id AS from_id, ${chatName("u")} AS name, ${chatRole("u")} AS role,
+                u.photo, u.disabled_at
             FROM (SELECT MAX(id) AS id, COUNT(*) AS unread FROM direct_messages
                 WHERE recipient_id = ? AND read_at IS NULL GROUP BY sender_id) n
             JOIN direct_messages d ON d.id = n.id JOIN users u ON u.id = d.sender_id`),
         // a staff member's own conversation with the developers: the answers they haven't opened
         unreadAnswers: db.prepare(`
-            SELECT m.id, m.body, m.image, m.sent_at, n.unread, u.id AS from_id, u.name, u.role, u.photo, u.disabled_at
+            SELECT m.id, m.body, m.image, m.sent_at, n.unread, u.id AS from_id, ${chatName("u")} AS name, ${chatRole("u")} AS role,
+                u.photo, u.disabled_at
             FROM (SELECT MAX(id) AS id, COUNT(*) AS unread FROM messages
                 WHERE staff_id = ? AND sender_id != staff_id AND read_at IS NULL) n
             JOIN messages m ON m.id = n.id JOIN users u ON u.id = m.sender_id`),
         // what staff wrote that no developer has opened yet, for the whole developer team
         unreadQuestions: db.prepare(`
-            SELECT m.id, m.body, m.image, m.sent_at, n.unread, u.id AS from_id, u.name, u.role, u.photo, u.disabled_at
+            SELECT m.id, m.body, m.image, m.sent_at, n.unread, u.id AS from_id, ${chatName("u")} AS name, ${chatRole("u")} AS role,
+                u.photo, u.disabled_at
             FROM (SELECT MAX(id) AS id, COUNT(*) AS unread FROM messages
                 WHERE sender_id = staff_id AND read_at IS NULL GROUP BY staff_id) n
             JOIN messages m ON m.id = n.id JOIN users u ON u.id = m.sender_id`),
@@ -2484,11 +2543,40 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             );
         }
 
+        // Drop account (admins and developers): gone for good, and only once it's switched off, so it takes two deliberate
+        // steps; the row stays with just the name, for the tickets and points that credit it, and the photos are erased
+        const dropMatch = method === "DELETE" && path.match(/^\/admin\/users\/(\d+)$/);
+        if (dropMatch) {
+            const account = sql.findUserById.get(Number(dropMatch[1]));
+            if (!account || account.dropped_at !== null) return send(res, 404, { message: "Account not found." });
+            if (me.role === "developer" && account.role === "admin") return send(res, 403, { message: ADMINS_ONLY });
+            if (isBuiltIn(account) || account.id === me.id) {
+                return send(res, 400, { message: "You can't drop this account." });
+            }
+            if (account.disabled_at === null) {
+                return send(res, 409, { message: "Switch this account off before dropping it." });
+            }
+            const passwordHash = await hashPassword(randomBytes(16).toString("hex"));
+            transaction(db, () => {
+                sql.dropUser.run({
+                    id: account.id,
+                    username: `~dropped-${account.id}`,
+                    passwordHash,
+                    now: new Date().toISOString(),
+                });
+                sql.deleteAllUserSessions.run(account.id);
+            });
+            for (const file of [account.photo, account.cover_photo]) {
+                if (file) rmSync(join(photosDir, file), { force: true });
+            }
+            return send(res, 204);
+        }
+
         // { name?, role?, team?, password?, disabled? }; team is "" for none
         const userMatch = path.match(/^\/admin\/users\/(\d+)$/);
         if (method === "PATCH" && userMatch) {
             const account = sql.findUserById.get(Number(userMatch[1]));
-            if (!account) return send(res, 404, { message: "Account not found." });
+            if (!account || account.dropped_at !== null) return send(res, 404, { message: "Account not found." });
             const body = await readBody(req);
             if (me.role === "developer" && (account.role === "admin" || body.role === "admin")) {
                 return send(res, 403, { message: ADMINS_ONLY });
@@ -2727,6 +2815,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                 200,
                 sql.listDmChats.all({ me: me.id }).map((row) => ({
                     with: {
+                        deleted: row.dropped_at !== null,
                         id: row.id,
                         name: row.name,
                         role: row.role,
@@ -2791,7 +2880,12 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             if (method === "POST") {
                 // an earlier conversation with someone switched off can still be read, but not added to
                 if (other.disabled_at !== null)
-                    return send(res, 409, { message: `${other.name}'s account is switched off.` });
+                    return send(res, 409, {
+                        message:
+                            other.dropped_at !== null
+                                ? DROPPED_NO_MESSAGES
+                                : `${other.name}'s account is switched off.`,
+                    });
                 let body;
                 let image = null;
                 if (dmMatch[2]) {
@@ -2837,6 +2931,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                 200,
                 sql.listChats.all().map((row) => ({
                     staff: {
+                        deleted: row.dropped_at !== null,
                         id: row.id,
                         name: row.name,
                         role: row.role,
@@ -2865,6 +2960,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                 sql.readQuestions.run(new Date().toISOString(), staff.id);
                 return send(res, 200, sql.threadMessages.all(staff.id).map(toMessage));
             }
+            if (staff.dropped_at !== null) return send(res, 409, { message: DROPPED_NO_MESSAGES });
             const body = messageBody(await readBody(req));
             if (!body) return send(res, 400, { message: `Write a message of up to ${MAX_MESSAGE} characters.` });
             const { lastInsertRowid } = sql.insertMessage.run(staff.id, me.id, body, null, new Date().toISOString());
@@ -2890,6 +2986,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             if (me.role !== "developer") return send(res, 403, { message: "Only a developer can do that." });
             const staff = sql.findUserById.get(Number(chatImageSend[1]));
             if (!staff || staff.role === "developer") return send(res, 404, { message: "Staff member not found." });
+            if (staff.dropped_at !== null) return send(res, 409, { message: DROPPED_NO_MESSAGES });
             const saved = await saveChatImage(req, url, me.id);
             if (!saved.file) return send(res, saved.status, { message: saved.message });
             const { lastInsertRowid } = sql.insertMessage.run(
@@ -3011,7 +3108,10 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                 .filter((row) => (row.created_by !== null || row.handed_over_by !== null) && row.status !== "done")
                 .map((row) => ({
                     id: row.id,
-                    ticket: formatQueueNum(row.queue_num, row.purpose, { priority: row.priority, tbaPriority: row.tba_priority }),
+                    ticket: formatQueueNum(row.queue_num, row.purpose, {
+                        priority: row.priority,
+                        tbaPriority: row.tba_priority,
+                    }),
                     ...(row.handed_over_by !== null && {
                         handedOver: { by: row.handed_over_by_name, at: row.handed_over_at },
                     }),
@@ -3025,7 +3125,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             return send(res, 200, newOrders);
         }
 
-        // a loading, service, chassis or hardware account only gets the orders sales has handed over that its department has a part in:
+        // a loading, logistics, service, chassis or hardware account only gets the orders sales has handed over that its department has a part in:
         // the department's one shared line
         if (method === "GET" && path === "/admin/orders") {
             const date = today();
@@ -3297,7 +3397,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             }
         }
 
-        // the Loading, Service, Chassis and Hardware pages: a department's crew calls a customer sales has handed over to one of its
+        // the Loading, Logistics, Service, Chassis and Hardware pages: a department's crew calls a customer sales has handed over to one of its
         // areas, marks them done, or sends them back to waiting; each is one shared line, so any of the department's
         // accounts (or an admin) can call any of them, and finish or send back one the department is serving; a
         // customer is in one place at a time, so while a sales counter or another department has them, they can't
@@ -3308,7 +3408,9 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         // Steel, ...: start, with the area), whether they called the customer there, to another area, or not yet; from
         // then on the customer can't be called or loaded at another area until that one is done (or sends them back to
         // waiting), e.g. Steel waits while Roofings is loading; Done needs Loading first
-        const loadingMatch = path.match(/^\/admin\/(loading|service|chassis|hardware)\/([^/]+)\/(call|start|done|back)$/);
+        const loadingMatch = path.match(
+            /^\/admin\/(loading|logistics|service|chassis|hardware)\/([^/]+)\/(call|start|done|back)$/,
+        );
         if (method === "POST" && loadingMatch) {
             const [, department, queueNum, action] = loadingMatch;
             const label = DEPARTMENTS[department];

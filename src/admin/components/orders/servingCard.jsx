@@ -29,7 +29,7 @@ function AreaSteps({ order }) {
     );
 }
 
-// a customer a department's crew has now, on the Loading, Service, Chassis and Hardware pages, read from the top: who it
+// a customer a department's crew has now, on the Loading, Logistics, Service, Chassis and Hardware pages, read from the top: who it
 // is and how far along they are, what the order is, then what to do next; there's one main button at a time, Start
 // loading while the truck is on its way and Done once it's loading, with the less used ones under it
 // busy: this ticket's action is on its way; onStart(area): "" for an order from before the areas

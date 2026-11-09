@@ -1,9 +1,9 @@
 // every kind of staff account
-const STAFF = ["admin", "sales", "loading", "service", "chassis", "hardware", "security", "cashier", "inventory", "developer"];
+const STAFF = ["admin", "sales", "loading", "logistics", "service", "chassis", "hardware", "security", "cashier", "inventory", "developer"];
 // everyone but the developers, who are the ones written to
 const NOT_DEVELOPER = STAFF.filter((role) => role !== "developer");
 // the roles with the Order status board on their Dashboard instead of a page of its own in the menu
-export const BOARD_ON_DASHBOARD = ["loading", "service", "chassis", "hardware", "inventory"];
+export const BOARD_ON_DASHBOARD = ["loading", "logistics", "service", "chassis", "hardware", "inventory"];
 
 // the sidebar's groups, in order; a group with none of the signed-in role's pages is left out
 export const NAV_GROUPS = ["Overview", "My work", "Display", "Account"];
@@ -23,6 +23,7 @@ const navItems = [
     { to: "/staff/customer-order", label: "Customer order", group: "My work", roles: ["admin", "sales"], icon: "M9 3h6v3H9zM9 4.5H5V21h14V4.5h-4M12 10v7M8.5 13.5h7", blurb: "Take orders, print tickets, and today's orders and the history" },
     { to: "/staff/counter", label: "My counter", group: "My work", roles: ["admin", "sales"], icon: "M3 10h18M5 10v10h14V10M8 10V6a4 4 0 0 1 8 0v4", blurb: "Hand the customers in line over to loading" },
     { to: "/staff/loading", label: "Loading", group: "My work", folder: "Department", roles: ["admin", "loading"], icon: "M3 6h11v10H3zM14 10h4l3 3v3h-7M5 18a2 2 0 1 0 4 0 2 2 0 1 0-4 0M15 18a2 2 0 1 0 4 0 2 2 0 1 0-4 0", blurb: "Call the customers handed over to loading" },
+    { to: "/staff/logistics", label: "Logistics", group: "My work", folder: "Department", roles: ["admin", "logistics"], icon: "M21 8l-9-5-9 5v8l9 5 9-5zM3 8l9 5 9-5M12 13v8", blurb: "Call the customers handed over to Logistics" },
     { to: "/staff/service", label: "Service", group: "My work", folder: "Department", roles: ["admin", "service"], icon: "M12 3a9 9 0 1 0 0 18 9 9 0 1 0 0-18M12 8a4 4 0 1 0 0 8 4 4 0 1 0 0-8M12 3v5M12 16v5M3 12h5M16 12h5", blurb: "Call the customers handed over to Service" },
     { to: "/staff/chassis", label: "Chassis", group: "My work", folder: "Department", roles: ["admin", "chassis"], icon: "M3 9h18M3 15h18M6 9v6M18 9v6M5 6a1 1 0 1 0 2 0 1 1 0 1 0-2 0M17 6a1 1 0 1 0 2 0 1 1 0 1 0-2 0M5 18a1 1 0 1 0 2 0 1 1 0 1 0-2 0M17 18a1 1 0 1 0 2 0 1 1 0 1 0-2 0", blurb: "Call the customers handed over to Chassis" },
     { to: "/staff/hardware", label: "Hardware", group: "My work", folder: "Department", roles: ["admin", "hardware"], icon: "M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z", blurb: "Call the customers handed over to Hardware" },

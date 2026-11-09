@@ -66,14 +66,16 @@ export default function StaffProfileDialog({ person, onMessage = null, onClose }
                     <h2 className="profile-summary-name">{shown.name}</h2>
                     {profile && (
                         <p className="profile-summary-username">
-                            {profile.disabled
-                                ? "Account switched off"
-                                : profile.online
-                                  ? "Online"
-                                  : // someone who has never signed in has no time to show, so seenAgo says "Offline"
-                                    profile.lastSeen === null
-                                    ? seenAgo(profile.lastSeen)
-                                    : `Last on ${seenAgo(profile.lastSeen)}`}
+                            {profile.deleted
+                                ? "This account has been deleted"
+                                : profile.disabled
+                                  ? "Account switched off"
+                                  : profile.online
+                                    ? "Online"
+                                    : // someone who has never signed in has no time to show, so seenAgo says "Offline"
+                                      profile.lastSeen === null
+                                      ? seenAgo(profile.lastSeen)
+                                      : `Last on ${seenAgo(profile.lastSeen)}`}
                         </p>
                     )}
                     {error && (

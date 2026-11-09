@@ -10,27 +10,35 @@
 //
 // seeders/ is in .gitignore: a snapshot holds staff password hashes and customers' names and orders, so carry
 // it yourself (USB stick, your own drive), never through git or chat; this script holds no data and is committed
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { basename, dirname, join, resolve } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
+import { DatabaseSync } from "node:sqlite";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { DB_FILE, openDatabase, resolveDataDir, transaction } from './db.js';
+import { DB_FILE, openDatabase, resolveDataDir, transaction } from "./db.js";
 
-export const SNAPSHOT_FILE = fileURLToPath(new URL('../seeders/snapshot.json', import.meta.url));
+export const SNAPSHOT_FILE = fileURLToPath(new URL("../seeders/snapshot.json", import.meta.url));
 
 // bumped if the file's layout ever changes, so an old snapshot is refused instead of half-loaded
 const FORMAT = 1;
 // parents before children, so the foreign keys hold while loading; sign-ins (sessions) aren't carried
-const TABLES = ["users", "orders", "order_items", "order_invoices", "order_edits", "serves", "queue_counters", "settings"];
+const TABLES = [
+    "users",
+    "orders",
+    "order_items",
+    "order_invoices",
+    "order_edits",
+    "serves",
+    "queue_counters",
+    "settings",
+];
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const pad2 = (n) => String(n).padStart(2, "0");
 // YYYY-MM-DD by the local clock, the way the server dates tickets
 const localDate = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 const daysBetween = (from, to) => Math.round((Date.parse(`${to}T00:00Z`) - Date.parse(`${from}T00:00Z`)) / DAY_MS);
-const stamp = (d) =>
-    `${localDate(d)}_${pad2(d.getHours())}${pad2(d.getMinutes())}${pad2(d.getSeconds())}`;
+const stamp = (d) => `${localDate(d)}_${pad2(d.getHours())}${pad2(d.getMinutes())}${pad2(d.getSeconds())}`;
 
 // every column that holds a time, by how it's stored, so the whole snapshot can move forward by whole days
 const SHIFT = {
@@ -42,10 +50,15 @@ const SHIFT = {
     ms: (ms, days) => ms + days * DAY_MS,
 };
 const TIME_COLUMNS = {
-    users: { created_at: "iso", disabled_at: "iso" },
+    users: { created_at: "iso", disabled_at: "iso", dropped_at: "iso" },
     orders: {
-        queue_date: "day", original_date: "day",
-        created_at: "iso", deleted_at: "iso", restored_at: "iso", called_at: "ms", handed_over_at: "iso",
+        queue_date: "day",
+        original_date: "day",
+        created_at: "iso",
+        deleted_at: "iso",
+        restored_at: "iso",
+        called_at: "ms",
+        handed_over_at: "iso",
         loaded_at: "iso",
     },
     order_edits: { edited_at: "iso" },
@@ -62,9 +75,14 @@ const withInvoices = ({ tables, migrations }) => {
     return {
         ...tables,
         orders: orders.map((o) => Object.fromEntries(Object.entries(o).filter(([column]) => column !== "invoice_no"))),
-        order_invoices: orders.filter((o) => o.invoice_no).map((o) => ({
-            order_id: o.id, position: 0, invoice_no: o.invoice_no, type: o.purpose.includes(",") ? "" : o.purpose,
-        })),
+        order_invoices: orders
+            .filter((o) => o.invoice_no)
+            .map((o) => ({
+                order_id: o.id,
+                position: 0,
+                invoice_no: o.invoice_no,
+                type: o.purpose.includes(",") ? "" : o.purpose,
+            })),
     };
 };
 
@@ -95,7 +113,10 @@ export function saveSnapshot(dataDir, file = SNAPSHOT_FILE) {
         // one read, so a ticket saved at the same moment is either all in or not at all
         db.exec("BEGIN");
         tables = Object.fromEntries(TABLES.map((table) => [table, db.prepare(`SELECT * FROM ${table}`).all()]));
-        migrations = db.prepare("SELECT name FROM schema_migrations ORDER BY name").all().map((r) => r.name);
+        migrations = db
+            .prepare("SELECT name FROM schema_migrations ORDER BY name")
+            .all()
+            .map((r) => r.name);
         db.exec("COMMIT");
     } finally {
         db.close();
@@ -121,7 +142,14 @@ export function saveSnapshot(dataDir, file = SNAPSHOT_FILE) {
     }
 
     const now = new Date();
-    const snapshot = { format: FORMAT, takenAt: now.toISOString(), takenOn: localDate(now), migrations, tables, photos };
+    const snapshot = {
+        format: FORMAT,
+        takenAt: now.toISOString(),
+        takenOn: localDate(now),
+        migrations,
+        tables,
+        photos,
+    };
     writeFileSync(file, JSON.stringify(snapshot, null, 1));
     return { file, snapshot, video: videoCopied ? video : null };
 }
@@ -136,10 +164,17 @@ export function loadSnapshot(dataDir, file = SNAPSHOT_FILE, { replace = false, k
     // creates the database, or brings its tables up to date
     const db = openDatabase(dataDir);
     try {
-        const applied = new Set(db.prepare("SELECT name FROM schema_migrations").all().map((r) => r.name));
+        const applied = new Set(
+            db
+                .prepare("SELECT name FROM schema_migrations")
+                .all()
+                .map((r) => r.name),
+        );
         const missing = snapshot.migrations.filter((name) => !applied.has(name));
         if (missing.length) {
-            throw new Error(`This copy of the app is older than the snapshot (it lacks ${missing.join(", ")}). Pull the latest code first.`);
+            throw new Error(
+                `This copy of the app is older than the snapshot (it lacks ${missing.join(", ")}). Pull the latest code first.`,
+            );
         }
 
         // a fresh install has nothing but the built-in admin
@@ -147,8 +182,10 @@ export function loadSnapshot(dataDir, file = SNAPSHOT_FILE, { replace = false, k
         const accounts = db.prepare("SELECT COUNT(*) AS n FROM users").get().n;
         const hasData = tickets > 0 || accounts > 1;
         if (hasData && !replace) {
-            throw new Error(`The database in ${dataDir} already has ${tickets} tickets and ${accounts} accounts. ` +
-                "Run again with --replace to swap them for the snapshot (they're backed up first).");
+            throw new Error(
+                `The database in ${dataDir} already has ${tickets} tickets and ${accounts} accounts. ` +
+                    "Run again with --replace to swap them for the snapshot (they're backed up first).",
+            );
         }
         let backup = null;
         if (hasData) {
@@ -165,11 +202,18 @@ export function loadSnapshot(dataDir, file = SNAPSHOT_FILE, { replace = false, k
                 const rows = tables[table] ?? [];
                 if (!rows.length) continue;
                 // column names come from the file, so only ones this table really has are let into the SQL
-                const known = new Set(db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name));
+                const known = new Set(
+                    db
+                        .prepare(`PRAGMA table_info(${table})`)
+                        .all()
+                        .map((c) => c.name),
+                );
                 const columns = Object.keys(rows[0]);
                 const unknown = columns.find((column) => !known.has(column));
                 if (unknown) throw new Error(`The snapshot's ${table}.${unknown} isn't in this database.`);
-                const insert = db.prepare(`INSERT INTO ${table} (${columns.join(", ")}) VALUES (${columns.map(() => "?").join(", ")})`);
+                const insert = db.prepare(
+                    `INSERT INTO ${table} (${columns.join(", ")}) VALUES (${columns.map(() => "?").join(", ")})`,
+                );
                 for (const row of rows) {
                     const shifted = shiftRow(table, row, days);
                     insert.run(...columns.map((column) => shifted[column]));
@@ -189,7 +233,9 @@ export function loadSnapshot(dataDir, file = SNAPSHOT_FILE, { replace = false, k
                 mkdirSync(join(dataDir, "videos"), { recursive: true });
                 copyFileSync(from, join(dataDir, "videos", video));
             } else {
-                warnings.push(`The display video (${video}) wasn't next to the snapshot in videos/, so the display has no video.`);
+                warnings.push(
+                    `The display video (${video}) wasn't next to the snapshot in videos/, so the display has no video.`,
+                );
             }
         }
         return { snapshot, days, backup, warnings };
@@ -201,9 +247,11 @@ export function loadSnapshot(dataDir, file = SNAPSHOT_FILE, { replace = false, k
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const describe = ({ tables, photos }) => {
     const days = new Set(tables.orders.map((o) => o.queue_date)).size;
-    return `${plural(tables.users.length, "staff account")}, ${plural(tables.orders.length, "ticket")} ` +
+    return (
+        `${plural(tables.users.length, "staff account")}, ${plural(tables.orders.length, "ticket")} ` +
         `from ${plural(days, "day")}, ${plural(tables.serves.length, "point")} served, ` +
-        `${plural(Object.keys(photos ?? {}).length, "photo")}`;
+        `${plural(Object.keys(photos ?? {}).length, "photo")}`
+    );
 };
 
 function main() {
@@ -228,7 +276,8 @@ function main() {
             });
             console.log(`Loaded the snapshot taken ${snapshot.takenOn} into ${dataDir}`);
             console.log(`  ${describe(snapshot)}`);
-            if (days) console.log(`  moved ${plural(days, "day")} forward, so ${snapshot.takenOn}'s queue is today's queue`);
+            if (days)
+                console.log(`  moved ${plural(days, "day")} forward, so ${snapshot.takenOn}'s queue is today's queue`);
             if (backup) console.log(`  what was there before is backed up in ${backup}`);
             for (const warning of warnings) console.log(`  ${warning}`);
             console.log("Staff sign in with the same usernames and passwords as when it was taken;");
