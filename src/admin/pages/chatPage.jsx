@@ -4,11 +4,14 @@ import '../style/orderStatus.css';
 import '../style/chat.css';
 
 import { answerChat, answerChatImage, listChat, listChats, listChatTyping, noteChatTyping } from '../api/chatController.js';
+import { listConcerns, setConcernStatus } from '../api/concernController.js';
 import { ROLE_LABELS } from '../auth/roles.js';
 import { useAuth } from '../auth/authContext.js';
 import Avatar from '../components/common/avatar.jsx';
+import ConcernCard from '../components/chat/concernCard.jsx';
 import DeveloperHeads from '../components/chat/developerHeads.jsx';
 import MessageThread from '../components/chat/messageThread.jsx';
+import ReportList from '../components/chat/reportList.jsx';
 import StaffList from '../components/chat/staffList.jsx';
 import { useViewingConversation } from '../hooks/useMessageToasts.js';
 import useMessages from '../hooks/useMessages.js';
@@ -18,10 +21,11 @@ import useTyping from '../hooks/useTyping.js';
 const REFRESH_MS = 5000;
 const lastTime = new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeStyle: "short" });
 
-// the open conversation, answered by the developer signed in; onSent: once an answer is saved
+// the open conversation, answered by the developer signed in; onSent: once an answer, or a report's status change,
+// is saved
 function Conversation({ staff, onSent }) {
     const list = useCallback((options) => listChat(staff.id, options), [staff.id]);
-    const { messages, loading, error, added } = useMessages(list);
+    const { messages, loading, error, added, edited, reload } = useMessages(list);
     const listTyping = useCallback((options) => listChatTyping(staff.id, options), [staff.id]);
     const noteTyping = useCallback(() => noteChatTyping(staff.id), [staff.id]);
     const { typing, typed } = useTyping(listTyping, noteTyping);
@@ -43,6 +47,30 @@ function Conversation({ staff, onSent }) {
                 }}
                 empty="No messages yet."
                 label={`Answer to ${staff.name}`}
+                // a report's card, with the buttons to move it along; the bot's sentence goes to them as your message
+                renderReport={(m) => (
+                    <ConcernCard
+                        concern={m.concern}
+                        canChange
+                        onChange={async (status, note) => {
+                            try {
+                                const { concern, message } = await setConcernStatus(m.concern.id, status, note);
+                                edited((x) =>
+                                    x.concern?.id === concern.id
+                                        ? { ...x, concern: { ...x.concern, status: concern.status, statusNote: concern.statusNote } }
+                                        : x,
+                                );
+                                added(message);
+                                onSent();
+                            } catch (err) {
+                                // another developer may have changed it first: show where it stands now
+                                reload();
+                                onSent();
+                                throw err;
+                            }
+                        }}
+                    />
+                )}
             />
         </>
     );
@@ -56,7 +84,9 @@ export default function ChatPage() {
     const { user } = useAuth();
     const [chats, setChats] = useState(null);
     const [listError, setListError] = useState("");
-    // the left column: "chats" (the conversations) or "staff" (everyone, by department)
+    // the reports staff sent through Message developer's buttons, or null until they load
+    const [reports, setReports] = useState(/** @type {any[] | null} */ (null));
+    // the left column: "chats" (the conversations), "staff" (everyone, by department) or "reports"
     const [view, setView] = useState("chats");
     // whose conversation is open: { id, name, role, photo }, or null
     const [openStaff, setOpenStaff] = useState(null);
@@ -67,13 +97,17 @@ export default function ChatPage() {
     useEffect(() => {
         const controller = new AbortController();
         const { signal } = controller;
-        const load = () =>
+        const load = () => {
             listChats({ signal })
                 .then((data) => {
                     setChats(data ?? []);
                     setListError("");
                 })
                 .catch((err) => !signal.aborted && setListError(err.message));
+            listConcerns({ signal })
+                .then((data) => setReports(data ?? []))
+                .catch((err) => !signal.aborted && setListError(err.message));
+        };
         load();
         const id = setInterval(load, REFRESH_MS);
         return () => {
@@ -83,6 +117,7 @@ export default function ChatPage() {
     }, [sent]);
 
     const unread = chats?.reduce((sum, c) => sum + c.unread, 0) ?? 0;
+    const openReports = reports?.filter((r) => r.status === "open").length ?? 0;
 
     // opening a conversation reads it, so its count goes as soon as it's picked
     const pick = (staff) => {
@@ -112,7 +147,7 @@ export default function ChatPage() {
             {listError && <p className="field-error" role="alert">{listError}</p>}
 
             <div className="chat-layout">
-                <nav className="admin-panel chat-list" aria-label={view === "chats" ? "Conversations" : "Staff"}>
+                <nav className="admin-panel chat-list" aria-label={{ chats: "Conversations", staff: "Staff", reports: "Reports" }[view]}>
                     <div className="order-status-filters chat-views" role="group" aria-label="Show">
                         <button type="button" className="status-chip" aria-pressed={view === "chats"} onClick={() => setView("chats")}>
                             Conversations
@@ -121,8 +156,14 @@ export default function ChatPage() {
                         <button type="button" className="status-chip" aria-pressed={view === "staff"} onClick={() => setView("staff")}>
                             Staff
                         </button>
+                        <button type="button" className="status-chip" aria-pressed={view === "reports"} onClick={() => setView("reports")}>
+                            Reports
+                            {openReports > 0 && <span className="status-chip-count" aria-label={`${openReports} open`}>{openReports}</span>}
+                        </button>
                     </div>
-                    {view === "staff" ? (
+                    {view === "reports" ? (
+                        <ReportList reports={reports} openId={openId} onPick={pick} />
+                    ) : view === "staff" ? (
                         <StaffList openId={openId} onPick={pick} />
                     ) : !chats ? (
                         <p className="admin-empty">Loading...</p>

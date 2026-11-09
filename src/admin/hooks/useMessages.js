@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 // a conversation is answered while someone waits on it, so it fetches again often
 const REFRESH_MS = 5000;
@@ -11,6 +11,8 @@ export default function useMessages(list) {
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    // fetches them again now, rather than on the next round
+    const reloadRef = useRef(() => {});
 
     useEffect(() => {
         const controller = new AbortController();
@@ -32,6 +34,7 @@ export default function useMessages(list) {
         };
 
         load();
+        reloadRef.current = load;
         const id = setInterval(load, REFRESH_MS);
         document.addEventListener("visibilitychange", load);
         return () => {
@@ -44,5 +47,9 @@ export default function useMessages(list) {
     const added = useCallback((message) =>
         setMessages((prev) => (prev.some(({ id }) => id === message.id) ? prev : [...prev, message])), []);
 
-    return { messages, loading, error, added };
+    // edited(change): each message as change(message) gives it back, e.g. a report's card with its new status
+    const edited = useCallback((change) => setMessages((prev) => prev.map(change)), []);
+    const reload = useCallback(() => reloadRef.current(), []);
+
+    return { messages, loading, error, added, edited, reload };
 }

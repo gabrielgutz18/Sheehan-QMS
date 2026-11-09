@@ -4,6 +4,8 @@ import { chatImageUrl } from '../../api/chatController.js';
 import { ROLE_LABELS } from '../../auth/roles.js';
 import Avatar from '../common/avatar.jsx';
 import Icon from '../common/icon.jsx';
+import ConcernCard from './concernCard.jsx';
+import { BotBubble } from './concernFlow.jsx';
 import ImageViewer from './imageViewer.jsx';
 
 const MAX_MESSAGE = 1000;
@@ -48,7 +50,34 @@ async function chatImage(file) {
 // imageUrl(message): where a picture is shown from (the developer chat's, unless SheeChat passes its own); disabled:
 // why nothing can be sent, e.g. the other person's account is switched off, or empty when it can
 // typing: who else is writing right now, [{ id, name }]; onTyping(): called as you write a message (see useTyping)
-export default function MessageThread({ messages, loading, error, mine, onSend, empty, label, typing, onTyping, imageUrl = chatImageUrl, disabled = "" }) {
+// renderReport(message): a report's card (see concernCard.jsx); the Chat page passes one with the status buttons
+// bot: while a report is being answered on Message developer: after (the guided chat, after the messages), above (its
+// choices over the box), placeholder, locked (the box takes no words, e.g. while choices are asked) and step (to keep
+// the newest question in view); note: a bot message after the messages, e.g. that the developers are offline
+/**
+ * @param {{ messages: any[], loading: boolean, error: string, mine: (message: any) => boolean,
+ *   onSend: (body: string, image: Blob | null) => Promise<any>, empty: string, label: string,
+ *   typing: { id: number, name: string }[], onTyping: () => void, imageUrl?: (message: any) => string,
+ *   disabled?: string, renderReport?: (message: any) => import('react').ReactNode,
+ *   bot?: { after: import('react').ReactNode, above: import('react').ReactNode, placeholder: string, locked: boolean,
+ *     step: number } | null, note?: import('react').ReactNode }} props
+ */
+export default function MessageThread({
+    messages,
+    loading,
+    error,
+    mine,
+    onSend,
+    empty,
+    label,
+    typing,
+    onTyping,
+    imageUrl = chatImageUrl,
+    disabled = "",
+    renderReport = (m) => <ConcernCard concern={m.concern} />,
+    bot = null,
+    note = null,
+}) {
     const [draft, setDraft] = useState("");
     // the picture waiting to go: { blob, url } (url for its preview), or null
     const [image, setImage] = useState(null);
@@ -61,12 +90,13 @@ export default function MessageThread({ messages, loading, error, mine, onSend, 
     const lastId = messages.at(-1)?.id;
     const pictures = messages.filter((m) => m.image);
     const viewIndex = pictures.findIndex((m) => m.id === viewing);
+    const hasNote = Boolean(note);
 
     // keep the newest message in view as they come in
     useEffect(() => {
         const list = listRef.current;
         if (list) list.scrollTop = list.scrollHeight;
-    }, [lastId]);
+    }, [lastId, bot?.step, hasNote]);
 
     // the preview's object URL is let go once it's replaced, sent or the page closes
     useEffect(() => () => image && URL.revokeObjectURL(image.url), [image]);
@@ -111,12 +141,15 @@ export default function MessageThread({ messages, loading, error, mine, onSend, 
     return (
         <div className="chat-thread">
             <ol ref={listRef} className="chat-messages" aria-live="polite">
-                {loading && messages.length === 0 ? (
+                {loading && messages.length === 0 && !bot ? (
                     <li className="admin-empty">Loading...</li>
-                ) : messages.length === 0 ? (
+                ) : messages.length === 0 && !bot ? (
                     <li className="admin-empty">{empty}</li>
                 ) : (
-                    messages.map((m) => (
+                    messages.map((m) => m.kind === "status" ? (
+                        // a developer moved a report along: the bot says so, in the middle
+                        <BotBubble key={m.id} sentAt={m.sentAt}>{m.body}</BotBubble>
+                    ) : (
                         <li key={m.id} className={`chat-message${mine(m) ? " is-mine" : ""}`}>
                             <Avatar account={m.from} size={28} />
                             <div className="chat-bubble">
@@ -145,7 +178,7 @@ export default function MessageThread({ messages, loading, error, mine, onSend, 
                                         />
                                     </button>
                                 )}
-                                {m.body && <p className="chat-body">{m.body}</p>}
+                                {m.kind === "report" && m.concern ? renderReport(m) : m.body && <p className="chat-body">{m.body}</p>}
                                 {mine(m) && (
                                     <p className={`chat-ticks${m.read ? " is-seen" : ""}`}>
                                         <span role="img" aria-label={m.read ? "Seen" : "Delivered"} title={m.read ? "Seen" : "Delivered"}>
@@ -157,6 +190,8 @@ export default function MessageThread({ messages, loading, error, mine, onSend, 
                         </li>
                     ))
                 )}
+                {note}
+                {bot?.after}
             </ol>
 
             {/* always there, so the messages don't jump when someone starts or stops typing */}
@@ -175,6 +210,7 @@ export default function MessageThread({ messages, loading, error, mine, onSend, 
                 <p className="admin-empty">{disabled}</p>
             ) : (
                 <form className="chat-compose" onSubmit={send}>
+                    {bot?.above}
                     {image && (
                         <div className="chat-attachment">
                             <img src={image.url} alt="Picture to send" />
@@ -187,7 +223,8 @@ export default function MessageThread({ messages, loading, error, mine, onSend, 
                         aria-label={label}
                         rows={3}
                         maxLength={MAX_MESSAGE}
-                        placeholder={image ? "Add a caption..." : "Write a message, or paste a picture..."}
+                        placeholder={bot?.placeholder ?? (image ? "Add a caption..." : "Write a message, or paste a picture...")}
+                        disabled={bot?.locked}
                         value={draft}
                         onChange={(e) => {
                             setDraft(e.target.value);

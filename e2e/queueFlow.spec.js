@@ -1020,3 +1020,87 @@ test("the History tab never shows another filter's orders after a failed read, a
     await expect(hardware.getByText("No Hardware orders were handed over on Jan 1, 2001.")).toBeVisible();
     await theirs.close();
 });
+
+test("a loading account reports a bug through the guided chat, and a developer marks it Done from Reports", async ({
+    page,
+    browser,
+}) => {
+    const stamp = Date.now();
+    const crew = { username: `e2e-report-${stamp}`, password: "e2e-password", name: `Crew ${stamp}`, role: "loading" };
+    const developer = {
+        username: `e2e-fixer-${stamp}`,
+        password: "e2e-password",
+        name: `Fixer ${stamp}`,
+        role: "developer",
+    };
+
+    // an admin makes both accounts
+    await page.goto("/staff/account");
+    await signIn(page, ADMIN.username, ADMIN.password);
+    await expect(page.getByRole("heading", { name: "My account" })).toBeVisible();
+    await page.evaluate(
+        async (accounts) => {
+            for (const account of accounts) {
+                const res = await fetch("/api/admin/users", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Requested-With": "XMLHttpRequest",
+                        "X-Tab-Id": sessionStorage.getItem("tabId"),
+                    },
+                    body: JSON.stringify(account),
+                });
+                if (!res.ok) throw new Error(`Making the account failed (${res.status})`);
+            }
+        },
+        [crew, developer],
+    );
+
+    // the loading crew member answers the bot's questions on Message developer
+    const theirs = await browser.newContext();
+    const staff = await theirs.newPage();
+    watch(staff);
+    await staff.goto("/staff/sheechat?tab=developer");
+    await signIn(staff, crew.username, crew.password);
+    await staff.getByRole("tab", { name: "Message developer" }).click();
+    await expect(staff.getByRole("heading", { name: "Message developer" })).toBeVisible();
+    await staff.getByRole("button", { name: "Report a bug" }).click();
+    const thread = staff.locator(".chat-messages");
+    await expect(thread.getByText("Which page were you on?")).toBeVisible();
+    const choices = staff.getByRole("group", { name: "Choices" });
+    await choices.getByRole("button", { name: "Loading", exact: true }).click();
+    await expect(thread.getByText("What were you doing, and what happened?")).toBeVisible();
+    const box = staff.getByRole("textbox", { name: "Message to the developers" });
+    await box.fill(`Start does nothing ${stamp}`);
+    await box.press("Enter");
+    await choices.getByRole("button", { name: "Can't work" }).click();
+    await staff.getByRole("button", { name: "Skip" }).click();
+    await staff.getByRole("button", { name: "Send report" }).click();
+    const card = staff.getByRole("article", { name: /^Bug #\d+$/ });
+    await expect(card).toBeVisible();
+    await expect(card.locator(".concern-status")).toHaveText("Open");
+    // the bot is done, so the box writes to the developers again
+    await expect(staff.getByRole("button", { name: "Report a bug" })).toBeEnabled();
+
+    // a developer finds it under Reports and marks it Done with a note
+    const devs = await browser.newContext();
+    const dev = await devs.newPage();
+    watch(dev);
+    await dev.goto("/staff/chat");
+    await signIn(dev, developer.username, developer.password);
+    await expect(dev.getByRole("heading", { name: "Chat", exact: true })).toBeVisible();
+    await dev.getByRole("button", { name: /^Reports/ }).click();
+    await dev.locator(".report-row", { hasText: crew.name }).click();
+    const devCard = dev.getByRole("article", { name: /^Bug #\d+$/ });
+    await expect(devCard).toContainText(`Start does nothing ${stamp}`);
+    await devCard.getByRole("textbox").fill("Fixed it, refresh the page.");
+    await devCard.getByRole("button", { name: "Done" }).click();
+    await expect(devCard.locator(".concern-status")).toHaveText("Done");
+
+    // the staff member gets the bot's message, and their card says Done
+    await expect(thread.getByText(/is Done: "Fixed it, refresh the page\."/)).toBeVisible({ timeout: 8000 });
+    await expect(card.locator(".concern-status")).toHaveText("Done");
+
+    await theirs.close();
+    await devs.close();
+});

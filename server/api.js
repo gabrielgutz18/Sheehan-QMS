@@ -36,6 +36,15 @@ import loadingAreas, {
     historyListsOf,
     workOf,
 } from "../src/data/loadingAreas.js";
+import {
+    CONCERN_KINDS,
+    CONCERN_STATUSES,
+    CONCERN_TOPICS,
+    MAX_AREA,
+    concernSummary,
+    statusSentence,
+} from "../src/data/concerns.js";
+import { ROLE_LABELS } from "../src/admin/auth/roles.js";
 
 const SESSION_COOKIE = "sid";
 // each browser tab signs in on its own: the page sends its tab's id (X-Tab-Id) and the session cookie is named
@@ -206,6 +215,8 @@ const MESSAGE_ROUTES = [
     ["GET", /^\/admin\/messages\/typing$/],
     ["POST", /^\/admin\/messages\/typing$/],
     ["GET", /^\/admin\/developers$/],
+    // a report sent through the guided chat's buttons (a bug, a system concern or a feature for their department)
+    ["POST", /^\/admin\/concerns$/],
     ...SHEECHAT_ROUTES,
 ];
 // what each role other than admin may do; every other /admin route is for admins only, so a new route is safe by default
@@ -328,6 +339,9 @@ const ROLE_ROUTES = {
         // Staff list
         ["GET", /^\/admin\/developers$/],
         ["GET", /^\/admin\/staff-presence$/],
+        // the Chat page's Reports: every report staff sent, and moving one along (In progress, Done, Declined, reopened)
+        ["GET", /^\/admin\/concerns$/],
+        ["PATCH", /^\/admin\/concerns\/\d+$/],
         ["GET", /^\/admin\/order-status$/],
         // the Deleted tickets page: the deleted tickets only (the history route checks that), and Purge, to free up the
         // database; not Delete or Restore, which change the queue
@@ -697,7 +711,73 @@ const toMessage = (row) => ({
     read: row.read_at !== null,
     // whether it carries a picture, shown from /chat-images/<id>
     image: row.image !== null,
+    // 'text', or 'report' (a report's card, from the staff member) or 'status' (a developer changed the report)
+    kind: row.kind,
+    // the report a card or a status message is about, as it stands now, so a card updates on the next fetch
+    concern:
+        row.c_id === null
+            ? null
+            : {
+                  id: row.c_id,
+                  kind: row.c_kind,
+                  area: row.c_area,
+                  details: row.c_details,
+                  extra: row.c_extra,
+                  impact: row.c_impact,
+                  status: row.c_status,
+                  statusNote: row.c_status_note,
+              },
 });
+
+// one report on the Chat page's Reports list, with who sent it and the developer who last changed it
+const toConcern = (row) => ({
+    id: row.id,
+    kind: row.kind,
+    area: row.area,
+    details: row.details,
+    extra: row.extra,
+    impact: row.impact,
+    status: row.status,
+    statusNote: row.status_note,
+    statusBy: row.status_by === null ? null : { id: row.status_by, name: row.status_by_name },
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    staff: {
+        id: row.staff_id,
+        name: row.staff_name,
+        role: row.staff_role,
+        department: row.staff_department,
+        photo: row.staff_photo,
+        disabled: row.staff_disabled_at !== null,
+    },
+});
+
+// a report's answers, checked against the lists in src/data/concerns.js → { concern } ready to save, or { message }
+// saying what's wrong; a feature's area is the person's department, or their role when they have none
+const checkConcern = (body, account) => {
+    const text = (value) => (typeof value === "string" ? value.trim() : "");
+    const kind = Object.hasOwn(CONCERN_KINDS, body.kind) ? body.kind : null;
+    if (!kind) return { message: "Pick a bug, a system concern or a feature." };
+    if (!Object.hasOwn(CONCERN_KINDS[kind].impacts, body.impact))
+        return { message: "Pick how bad it is from the list." };
+    let area = text(body.area);
+    if (kind === "concern" && !Object.hasOwn(CONCERN_TOPICS, area)) {
+        return { message: "Pick what it is about from the list." };
+    }
+    if (kind === "bug" && (!area || area.length > MAX_AREA)) {
+        return { message: `Pick the page you were on (up to ${MAX_AREA} characters).` };
+    }
+    if (kind === "feature") area = account.department || ROLE_LABELS[account.role] || account.role;
+    const details = text(body.details);
+    if (!details || details.length > MAX_MESSAGE) {
+        return { message: `Say what happened, or what you'd like, in up to ${MAX_MESSAGE} characters.` };
+    }
+    const extra = kind === "feature" ? text(body.extra) : "";
+    if (kind === "feature" && (!extra || extra.length > MAX_MESSAGE)) {
+        return { message: `Say how it would help your work, in up to ${MAX_MESSAGE} characters.` };
+    }
+    return { concern: { kind, area, details, extra, impact: body.impact } };
+};
 
 // one SheeChat message between two staff members; to: the recipient's id; read: the recipient has opened it
 const toDirectMessage = (row) => ({
@@ -1153,6 +1233,17 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         ]),
     );
 
+    // a developer-chat message with its sender, and the report it's about, if any
+    const MESSAGE_ROW = `
+        SELECT m.id, m.staff_id, m.sender_id, m.body, m.image, m.sent_at, m.read_at, m.kind, u.name, u.role, u.photo,
+            c.id AS c_id, c.kind AS c_kind, c.area AS c_area, c.details AS c_details, c.extra AS c_extra,
+            c.impact AS c_impact, c.status AS c_status, c.status_note AS c_status_note
+        FROM messages m JOIN users u ON u.id = m.sender_id LEFT JOIN concerns c ON c.id = m.concern_id`;
+    // a report with who sent it and who last changed it
+    const CONCERN_ROW = `
+        SELECT c.*, s.name AS staff_name, s.role AS staff_role, s.department AS staff_department, s.photo AS staff_photo,
+            s.disabled_at AS staff_disabled_at, d.name AS status_by_name
+        FROM concerns c JOIN users s ON s.id = c.staff_id LEFT JOIN users d ON d.id = c.status_by`;
     const sql = {
         nextQueueNum: db.prepare(`
             INSERT INTO queue_counters (queue_date, last_num) VALUES (?, 1)
@@ -1443,19 +1534,31 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             ORDER BY u.disabled_at IS NOT NULL, u.role, u.name COLLATE NOCASE`),
 
         // Message developer and the Chat page: one staff member's conversation with the developers, oldest first
-        threadMessages: db.prepare(`
-            SELECT m.id, m.staff_id, m.sender_id, m.body, m.image, m.sent_at, m.read_at, u.name, u.role, u.photo
-            FROM messages m JOIN users u ON u.id = m.sender_id
-            WHERE m.staff_id = ? ORDER BY m.id`),
+        threadMessages: db.prepare(`${MESSAGE_ROW} WHERE m.staff_id = ? ORDER BY m.id`),
         // image: the picture's file name in chat-images/, or null for a text message
         insertMessage: db.prepare(
             "INSERT INTO messages (staff_id, sender_id, body, image, sent_at) VALUES (?, ?, ?, ?, ?)",
         ),
         // a picture sent in the chat, and whose conversation it's in, for /chat-images/<id>
         findMessageImage: db.prepare("SELECT staff_id, image FROM messages WHERE id = ? AND image IS NOT NULL"),
-        findMessage: db.prepare(`
-            SELECT m.id, m.staff_id, m.sender_id, m.body, m.image, m.sent_at, m.read_at, u.name, u.role, u.photo
-            FROM messages m JOIN users u ON u.id = m.sender_id WHERE m.id = ?`),
+        findMessage: db.prepare(`${MESSAGE_ROW} WHERE m.id = ?`),
+        // a report's card (kind 'report', from the staff member) or a status change (kind 'status', from the developer)
+        insertConcernMessage: db.prepare(
+            "INSERT INTO messages (staff_id, sender_id, body, sent_at, kind, concern_id) VALUES (?, ?, ?, ?, ?, ?)",
+        ),
+        insertConcern: db.prepare(`
+            INSERT INTO concerns (staff_id, kind, area, details, extra, impact, created_at, updated_at)
+            VALUES (:staffId, :kind, :area, :details, :extra, :impact, :now, :now)`),
+        setConcernStatus: db.prepare(`
+            UPDATE concerns SET status = :status, status_note = :note, status_by = :by, updated_at = :now WHERE id = :id`),
+        // the Reports list, newest first; each filter is a JSON list, or null for any
+        listConcerns: db.prepare(`
+            ${CONCERN_ROW}
+            WHERE (:kinds IS NULL OR c.kind IN (SELECT value FROM json_each(:kinds)))
+                AND (:statuses IS NULL OR c.status IN (SELECT value FROM json_each(:statuses)))
+                AND (:department IS NULL OR s.department = :department)
+            ORDER BY c.id DESC`),
+        findConcern: db.prepare(`${CONCERN_ROW} WHERE c.id = ?`),
         // opening the conversation reads what the other side wrote: the staff member the developers' answers, a
         // developer what the staff member wrote
         readAnswers: db.prepare(
@@ -2456,6 +2559,85 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             if (method === "GET") return send(res, 200, typingIn(`staff:${me.id}`, me.id));
             noteTyping(`staff:${me.id}`, me);
             return send(res, 204);
+        }
+
+        // a report from the guided chat on Message developer: { kind, area, details, extra, impact } → its card message;
+        // the report and its card are saved together
+        if (method === "POST" && path === "/admin/concerns") {
+            if (me.role === "developer")
+                return send(res, 403, { message: "Developers answer reports on the Chat page." });
+            const checked = checkConcern(await readBody(req), me);
+            if (!checked.concern) return send(res, 400, { message: checked.message });
+            const now = new Date().toISOString();
+            const id = transaction(db, () => {
+                const { lastInsertRowid } = sql.insertConcern.run({ ...checked.concern, staffId: me.id, now });
+                return sql.insertConcernMessage.run(
+                    me.id,
+                    me.id,
+                    concernSummary(checked.concern),
+                    now,
+                    "report",
+                    lastInsertRowid,
+                ).lastInsertRowid;
+            });
+            stopTyping(`staff:${me.id}`, me.id);
+            return send(res, 201, toMessage(sql.findMessage.get(id)));
+        }
+
+        // the Chat page's Reports, the developers' only: ?kind=, ?status= (one or several, comma-separated) and
+        // ?department= narrow it
+        if (method === "GET" && path === "/admin/concerns") {
+            if (me.role !== "developer") return send(res, 403, { message: "Only a developer can do that." });
+            const listOf = (name, allowed) => {
+                const value = url.searchParams.get(name);
+                if (!value) return null;
+                const values = value.split(",");
+                return values.every((v) => Object.hasOwn(allowed, v)) ? values : undefined;
+            };
+            const kinds = listOf("kind", CONCERN_KINDS);
+            const statuses = listOf("status", CONCERN_STATUSES);
+            if (kinds === undefined) return send(res, 400, { message: "Pick bug, concern or feature." });
+            if (statuses === undefined) return send(res, 400, { message: "Pick open, in_progress, done or declined." });
+            const rows = sql.listConcerns.all({
+                kinds: kinds && JSON.stringify(kinds),
+                statuses: statuses && JSON.stringify(statuses),
+                department: url.searchParams.get("department") || null,
+            });
+            return send(res, 200, rows.map(toConcern));
+        }
+
+        // a developer moves a report along: { status, note } → { concern, message }; the bot's sentence goes to the
+        // staff member as the developer's message; open on a Done or Declined report reopens it
+        const concernMatch = path.match(/^\/admin\/concerns\/(\d+)$/);
+        if (method === "PATCH" && concernMatch) {
+            if (me.role !== "developer") return send(res, 403, { message: "Only a developer can do that." });
+            const body = await readBody(req);
+            if (!Object.hasOwn(CONCERN_STATUSES, body.status)) {
+                return send(res, 400, { message: "Pick open, in_progress, done or declined." });
+            }
+            const note = typeof body.note === "string" ? body.note.trim() : "";
+            if (note.length > MAX_MESSAGE) {
+                return send(res, 400, { message: `Notes can be up to ${MAX_MESSAGE} characters.` });
+            }
+            const concern = sql.findConcern.get(Number(concernMatch[1]));
+            if (!concern) return send(res, 404, { message: "Report not found." });
+            if (concern.status === body.status) {
+                return send(res, 409, {
+                    message: `It's already ${CONCERN_STATUSES[body.status]}. Refresh to see the latest.`,
+                });
+            }
+            const now = new Date().toISOString();
+            const id = transaction(db, () => {
+                sql.setConcernStatus.run({ status: body.status, note, by: me.id, now, id: concern.id });
+                const said = statusSentence({ id: concern.id, status: body.status, note, by: me.name });
+                return sql.insertConcernMessage.run(concern.staff_id, me.id, said, now, "status", concern.id)
+                    .lastInsertRowid;
+            });
+            stopTyping(`staff:${concern.staff_id}`, me.id);
+            return send(res, 200, {
+                concern: toConcern(sql.findConcern.get(concern.id)),
+                message: toMessage(sql.findMessage.get(id)),
+            });
         }
 
         // the message pop-ups, polled from every staff page: one entry per conversation with something you haven't
