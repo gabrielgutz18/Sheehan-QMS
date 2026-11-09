@@ -174,7 +174,7 @@ test("a customer goes from their ticket, through hand-over and loading, with the
     await expect(upNext.getByText(customer)).toBeHidden();
 });
 
-// Plain Sheet, Stainless Steel and Insulations have their own department and page
+// For Logistics orders have their own department and page
 test("the Logistics page opens at its own address", async ({ page }) => {
     await page.goto("/staff/logistics");
     await signIn(page, ADMIN.username, ADMIN.password);
@@ -186,6 +186,147 @@ test("the Service page opens at its own address", async ({ page }) => {
     await page.goto("/staff/service");
     await signIn(page, ADMIN.username, ADMIN.password);
     await expect(page.getByText(/^Waiting for service \(\d+\)$/)).toBeVisible();
+});
+
+// calls the API as the signed-in page does, to set up what a test needs
+const api = (page, method, path, body) =>
+    page.evaluate(
+        async ([verb, url, payload]) => {
+            const res = await fetch(`/api${url}`, {
+                method: verb,
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-Requested-With": "XMLHttpRequest",
+                    "X-Tab-Id": sessionStorage.getItem("tabId"),
+                },
+                body: payload && JSON.stringify(payload),
+            });
+            if (!res.ok) throw new Error(`${verb} ${url} failed (${res.status})`);
+            return res.json();
+        },
+        [method, path, body],
+    );
+
+const sale = (name, purpose, invoices) => ({
+    name,
+    purpose,
+    orders: [],
+    invoices,
+    salesman: "Maria Santos",
+    team: "GIGA",
+    pickupDate: null,
+});
+
+test("By product splits the Cashier's orders by type, and a mixed ticket has one payment status across its lines", async ({
+    page,
+}) => {
+    const stamp = Date.now();
+    const customer = `Cashier Buyer ${stamp}`;
+    await page.goto("/staff/cashier");
+    await signIn(page, ADMIN.username, ADMIN.password);
+    await expect(page.getByRole("heading", { name: "Cashier", exact: true })).toBeVisible();
+    await api(
+        page,
+        "POST",
+        "/orders",
+        sale(customer, "Steel, Hardwares", [
+            { invoiceNo: `S${stamp}`, type: "Steel" },
+            { invoiceNo: `H${stamp}`, type: "Hardwares" },
+        ]),
+    );
+
+    await page.getByRole("tab", { name: "By product" }).click();
+    await expect(page).toHaveURL(/tab=products/);
+    await page.getByRole("searchbox").fill(customer);
+
+    const steel = page.getByRole("region", { name: "Steel" }).getByRole("row").filter({ hasText: customer });
+    const hardwares = page.getByRole("region", { name: "Hardwares" }).getByRole("row").filter({ hasText: customer });
+    await expect(steel).toContainText(`S${stamp}`);
+    await expect(steel).not.toContainText(`H${stamp}`);
+    await expect(steel).toContainText("Also: Hardwares");
+    await expect(hardwares).toContainText(`H${stamp}`);
+
+    // paid on one line is paid on the other, as it's one ticket
+    await steel.getByRole("button", { name: "Paid", exact: true }).click();
+    await expect(hardwares.getByRole("button", { name: "Paid", exact: true })).toHaveAttribute("aria-pressed", "true");
+
+    // every type has its own button, and one shows only its own orders
+    const products = page.getByRole("group", { name: "Product" });
+    for (const name of [
+        "Roofings",
+        "Roofings Accessories",
+        "Steel",
+        "Hardwares",
+        "Tire",
+        "Battery",
+        "Chassis",
+        "For Logistics",
+    ]) {
+        await expect(products.getByRole("button", { name: new RegExp(`^${name} \\d+$`) })).toBeVisible();
+    }
+    await products.getByRole("button", { name: /^Hardwares/ }).click();
+    await expect(hardwares).toBeVisible();
+    await expect(steel).toBeHidden();
+
+    // an invoice number finds only the group it's in
+    await products.getByRole("button", { name: /^All products/ }).click();
+    await page.getByRole("searchbox").fill(`S${stamp}`);
+    await expect(steel).toBeVisible();
+    await expect(hardwares).toBeHidden();
+
+    // the search carries across to the Orders tab, where the ticket is one row
+    await page.getByRole("tab", { name: "Orders", exact: true }).click();
+    await expect(page.getByRole("row").filter({ hasText: customer })).toHaveCount(1);
+
+    // on a phone the page itself never scrolls sideways
+    await page.setViewportSize({ width: 390, height: 800 });
+    await page.getByRole("tab", { name: "By product" }).click();
+    await expect(steel).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test("Security has the page heading the other staff pages have, with Verified as the one main button", async ({
+    page,
+}) => {
+    const stamp = Date.now();
+    const customer = `Gate Buyer ${stamp}`;
+    await page.goto("/staff/security");
+    await signIn(page, ADMIN.username, ADMIN.password);
+    await expect(page.getByRole("heading", { level: 1, name: "Security check" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Orders today" })).toBeVisible();
+
+    const { queueNum } = await api(
+        page,
+        "POST",
+        "/orders",
+        sale(customer, "Steel", [{ invoiceNo: `G${stamp}`, type: "Steel" }]),
+    );
+    await api(page, "POST", `/admin/orders/${queueNum}/handover`);
+    await api(page, "POST", `/admin/loading/${queueNum}/start`, { area: "Steel" });
+    await api(page, "POST", `/admin/loading/${queueNum}/done`);
+
+    await page.getByRole("searchbox").fill(customer);
+    const row = page.getByRole("row").filter({ hasText: customer });
+    const verified = row.getByRole("button", { name: /^Verified:/ });
+    const problem = row.getByRole("button", { name: /^Report a problem with/ });
+    await expect(verified).toBeVisible();
+    expect((await verified.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    expect((await problem.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    expect((await problem.boundingBox()).width).toBeCloseTo((await verified.boundingBox()).width, 0);
+    await expect(row).not.toContainText("⚠");
+
+    // a report doesn't go through until the guard has said whether the customer leaves or goes back to an area
+    await problem.click();
+    const report = page.getByRole("dialog");
+    await report.getByRole("textbox").fill("One sheet short");
+    await report.getByRole("button", { name: "Report", exact: true }).click();
+    await expect(report.getByRole("alert")).toContainText("what happens next");
+    await report.getByRole("button", { name: "Cancel" }).click();
+    await expect(report).toBeHidden();
+
+    await verified.click();
+    await page.getByRole("group", { name: "Show" }).getByRole("button", { name: /^All/ }).click();
+    await expect(row).toContainText("Verified by");
 });
 
 test("a red bar says so when the server can't be reached, and goes away by itself once it can", async ({ page }) => {

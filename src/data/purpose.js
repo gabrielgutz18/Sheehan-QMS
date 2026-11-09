@@ -9,9 +9,9 @@ const purpose = [
     { name: "Chassis" },
     { name: "Roofings Accessories" },
     { name: "Battery"},
-    { name: "Plain Sheet" },
-    { name: "Stainless Steel" },
-    { name: "Insulations" },
+    // tentative: every order for the Logistics department comes in as this one type for now; its tickets start LA,
+    // which its words alone wouldn't give (see queueNum.js)
+    { name: "For Logistics", initials: "LA" },
 ];
 
 export default purpose;

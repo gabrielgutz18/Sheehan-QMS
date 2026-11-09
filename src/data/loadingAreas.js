@@ -1,7 +1,7 @@
 import { splitList } from './list.js';
 
 // the departments that take a customer once sales hands them over, each with its own staff role and page: the
-// loading crew (Roofings, Steel), Logistics (Plain Sheet, Stainless Steel, Insulations), Service (Tire, Battery), Chassis and Hardware; a customer who bought from several goes
+// loading crew (Roofings, Steel), Logistics (For Logistics), Service (Tire, Battery), Chassis and Hardware; a customer who bought from several goes
 // to each in turn, one at a time
 export const DEPARTMENTS = { loading: "Loading", logistics: "Logistics", service: "Service", chassis: "Chassis", hardware: "Hardware" };
 
@@ -15,7 +15,7 @@ export const departmentWord = (department) => DEPARTMENTS[department].toLowerCas
 const loadingAreas = [
     { name: "Roofings", types: ["Roofings", "Roofings Accessories"], department: "loading" },
     { name: "Steel", types: ["Steel"], department: "loading" },
-    { name: "Logistics", types: ["Plain Sheet", "Stainless Steel", "Insulations"], department: "logistics" },
+    { name: "Logistics", types: ["For Logistics"], department: "logistics" },
     { name: "Service", types: ["Tire", "Battery"], department: "service" },
     { name: "Chassis", types: ["Chassis"], department: "chassis" },
     // Hardware hands small items over the counter, not onto a truck, so its crew prepares the order (WORK below)
@@ -78,9 +78,7 @@ export const HISTORY_LISTS = {
         { name: "Steel", types: ["Steel"], area: "Steel" },
     ],
     logistics: [
-        { name: "Plain Sheet", types: ["Plain Sheet"], area: "Logistics" },
-        { name: "Stainless Steel", types: ["Stainless Steel"], area: "Logistics" },
-        { name: "Insulations", types: ["Insulations"], area: "Logistics" },
+        { name: "For Logistics", types: ["For Logistics"], area: "Logistics" },
     ],
     service: [
         { name: "Tire", types: ["Tire"], area: "Service" },

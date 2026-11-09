@@ -1,3 +1,4 @@
+import Icon from '../common/icon.jsx';
 import { INVOICE_COLUMNS, invoicesByColumn } from '../../data/sheetColumns.js';
 import { resultLabel } from '../../data/securityCheck.js';
 import { colorLabel } from '../../../data/roofingColors.js';
@@ -5,6 +6,8 @@ import { workOf } from '../../../data/loadingAreas.js';
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
 const timeOf = (iso) => timeFormat.format(new Date(iso));
+
+const CHECK = "M20 6 9 17l-5-5";
 
 // what the customer bought, on the Security page, for the guards to check against what they leave with: the invoice
 // numbers under their department (as on the Order sheet), the items and quantities on a ticket taken before invoices,
@@ -54,7 +57,7 @@ export default function OrderProducts({ order }) {
             )}
             {check && (
                 <p className={`order-products-check${check.result === "verified" ? "" : " is-reported"}`}>
-                    {check.result === "verified" ? "✓ Verified" : `Reported: ${resultLabel(check.result)}`}
+                    {check.result === "verified" ? <><Icon d={CHECK} /> Verified</> : `Reported: ${resultLabel(check.result)}`}
                     {` by ${check.by.name} · ${timeOf(check.at)}`}
                     {check.note && <span className="order-products-check-note">“{check.note}”</span>}
                 </p>

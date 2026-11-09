@@ -1,462 +1,551 @@
 /* the Order status board (src/admin/components/orderStatus/lifeCycleTable.jsx): every order today and where its customer is */
 
 .order-status {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
 }
 
 .order-status-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 6px 16px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px 16px;
 }
 
 .order-status-title {
-  margin: 0;
-  font-size: 17px;
-  font-weight: 600;
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
 }
 
 /* a green dot while it's keeping up, red when it can't reach the server */
 .order-status-live {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  font-size: 13px;
-  color: var(--text-muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-muted);
 }
 
 .order-status-live::before {
-  content: "";
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #2e9d57;
-  box-shadow: 0 0 0 3px rgba(46, 157, 87, 0.18);
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #2e9d57;
+    box-shadow: 0 0 0 3px rgba(46, 157, 87, 0.18);
 }
 
 .order-status-live.is-stale::before {
-  background: var(--brand-red);
-  box-shadow: 0 0 0 3px rgba(200, 32, 42, 0.18);
+    background: var(--brand-red);
+    box-shadow: 0 0 0 3px rgba(200, 32, 42, 0.18);
 }
 
 .order-status-tools {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 12px;
 }
 
 .order-status-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-right: auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-right: auto;
 }
 
 /* a filter, with how many orders it has */
 .status-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 8px 6px 12px;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-dark);
-  background: #ffffff;
-  border: 1px solid var(--field-border);
-  border-radius: 999px;
-  cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px 6px 12px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-dark);
+    background: #ffffff;
+    border: 1px solid var(--field-border);
+    border-radius: 999px;
+    cursor: pointer;
 }
 
 .status-chip:hover {
-  background: var(--field-bg);
+    background: var(--field-bg);
 }
 
 .status-chip:focus-visible,
 .order-status-search:focus-visible,
 .order-status-team:focus-visible {
-  outline: 3px solid var(--focus-ring);
-  outline-offset: 2px;
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 2px;
 }
 
 .status-chip[aria-pressed="true"] {
-  color: #ffffff;
-  background: var(--text-dark);
-  border-color: var(--text-dark);
+    color: #ffffff;
+    background: var(--text-dark);
+    border-color: var(--text-dark);
 }
 
 .status-chip-count {
-  min-width: 22px;
-  padding: 1px 6px;
-  font-size: 12px;
-  text-align: center;
-  background: var(--field-bg);
-  border-radius: 999px;
+    min-width: 22px;
+    padding: 1px 6px;
+    font-size: 12px;
+    text-align: center;
+    background: var(--field-bg);
+    border-radius: 999px;
 }
 
 .status-chip[aria-pressed="true"] .status-chip-count {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.2);
 }
 
 .order-status-search,
 .order-status-team {
-  height: 38px;
-  padding: 0 10px;
-  font: inherit;
-  font-size: 14px;
-  background: #ffffff;
-  border: 1px solid var(--field-border);
-  border-radius: 8px;
+    height: 38px;
+    padding: 0 10px;
+    font: inherit;
+    font-size: 14px;
+    background: #ffffff;
+    border: 1px solid var(--field-border);
+    border-radius: 8px;
 }
 
 .order-status-search {
-  width: 220px;
+    width: 220px;
 }
 
 .order-status-empty {
-  margin: 0;
-  padding: 28px 16px;
-  text-align: center;
-  color: var(--text-muted);
-  background: #ffffff;
-  border: 1px dashed var(--field-border);
-  border-radius: 10px;
+    margin: 0;
+    padding: 28px 16px;
+    text-align: center;
+    color: var(--text-muted);
+    background: #ffffff;
+    border: 1px dashed var(--field-border);
+    border-radius: 10px;
 }
 
 .order-status-table td {
-  vertical-align: middle;
+    vertical-align: middle;
 }
 
 .order-status-ticket {
-  display: block;
-  white-space: nowrap;
+    display: block;
+    white-space: nowrap;
 }
 
 /* the time the ticket was taken, and the type of order under the name */
 .order-status-sub {
-  display: block;
-  font-size: 13px;
-  color: var(--text-muted);
+    display: block;
+    font-size: 13px;
+    color: var(--text-muted);
 }
 
 .order-status-pickup {
-  display: inline-block;
-  margin-top: 4px;
-  padding: 1px 8px;
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-  background: var(--cream);
-  border: 1px solid var(--cream-border);
-  border-radius: 999px;
+    display: inline-block;
+    margin-top: 4px;
+    padding: 1px 8px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    background: var(--cream);
+    border: 1px solid var(--cream-border);
+    border-radius: 999px;
+}
+
+/* each stage's one color, so where they are now reads the same on its badge and on its step */
+.stage-badge.is-line,
+.order-steps.is-line {
+    --stage-text: #555555;
+    --stage-fill: #ececea;
+}
+
+.stage-badge.is-sales,
+.order-steps.is-sales {
+    --stage-text: #92400e;
+    --stage-fill: #fef3c7;
+}
+
+.stage-badge.is-loading,
+.order-steps.is-loading {
+    --stage-text: #1d5f9e;
+    --stage-fill: #e3eefa;
+}
+
+.stage-badge.is-security,
+.order-steps.is-security {
+    --stage-text: #5b3a8c;
+    --stage-fill: #efe8f8;
+}
+
+.stage-badge.is-done,
+.order-steps.is-done {
+    --stage-text: #1f7a3a;
+    --stage-fill: #e2f3e7;
 }
 
 /* where they are now, in the stage's color */
 .stage-badge {
-  display: inline-block;
-  padding: 3px 10px;
-  font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
-  border-radius: 999px;
+    display: inline-block;
+    padding: 3px 10px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--stage-text);
+    background: var(--stage-fill);
+    border-radius: 999px;
 }
 
-.stage-badge.is-line {
-  color: #555555;
-  background: #ececea;
-}
-
-.stage-badge.is-sales {
-  color: #92400e;
-  background: #fef3c7;
-}
-
-.stage-badge.is-loading {
-  color: #1d5f9e;
-  background: #e3eefa;
-}
-
-.stage-badge.is-security {
-  color: #5b3a8c;
-  background: #efe8f8;
-}
-
-.stage-badge.is-done {
-  color: #1f7a3a;
-  background: #e2f3e7;
-}
-
-/* the order's steps in turn, joined by a line: green once done, outlined in red for the one they're at now */
+/* the order's steps in turn, joined by a line: green once done, outlined in the stage's color for the one they're at now */
 .order-steps {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 0;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: 13px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 13px;
 }
 
 .order-step {
-  display: flex;
-  align-items: center;
+    display: flex;
+    align-items: center;
 }
 
 .order-step + .order-step::before {
-  content: "";
-  width: 14px;
-  height: 2px;
-  margin: 0 4px;
-  background: var(--field-border);
+    content: "";
+    width: 14px;
+    height: 2px;
+    margin: 0 4px;
+    background: var(--field-border);
 }
 
 .order-step.is-done + .order-step::before {
-  background: #9fd3ae;
+    background: #9fd3ae;
 }
 
 .order-step-pill {
-  /* holds its visually hidden "(done)", which would otherwise stretch the page past the table's scroll box */
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 10px;
-  white-space: nowrap;
-  color: var(--text-muted);
-  background: #ffffff;
-  border: 1px solid var(--field-border);
-  border-radius: 999px;
+    /* holds its visually hidden "(done)", which would otherwise stretch the page past the table's scroll box */
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    white-space: nowrap;
+    color: var(--text-muted);
+    background: #ffffff;
+    border: 1px solid var(--field-border);
+    border-radius: 999px;
 }
 
 .order-step.is-done .order-step-pill {
-  color: #1f7a3a;
-  background: #e2f3e7;
-  border-color: #bfe3c9;
+    color: #1f7a3a;
+    background: #e2f3e7;
+    border-color: #bfe3c9;
 }
 
 .order-step.is-now .order-step-pill {
-  font-weight: 700;
-  color: var(--brand-red);
-  background: #fff5f5;
-  border-color: var(--brand-red);
+    font-weight: 700;
+    color: var(--stage-text);
+    background: var(--stage-fill);
+    border-color: var(--stage-text);
 }
 
 /* compact: beside Customer order and in the drawer, a card for each order, edged in its stage's color */
 .order-status.is-compact .order-status-filters {
-  margin-right: 0;
+    margin-right: 0;
 }
 
 .order-status.is-compact .status-chip {
-  padding: 4px 6px 4px 10px;
-  font-size: 13px;
+    padding: 4px 6px 4px 10px;
+    font-size: 13px;
 }
 
 .order-status.is-compact .order-status-search {
-  flex: 1;
-  width: auto;
-  min-width: 0;
+    flex: 1;
+    width: auto;
+    min-width: 0;
 }
 
 .order-status-list {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
 }
 
 .order-status-card {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  padding: 10px 12px;
-  background: #ffffff;
-  border: 1px solid var(--field-border);
-  border-left: 4px solid #c9c9c4;
-  border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 10px 12px;
+    background: #ffffff;
+    border: 1px solid var(--field-border);
+    border-left: 4px solid #c9c9c4;
+    border-radius: 8px;
 }
 
 .order-status-card.is-sales {
-  border-left-color: #d9a520;
+    border-left-color: #d9a520;
 }
 
 .order-status-card.is-loading {
-  border-left-color: #1d5f9e;
+    border-left-color: #1d5f9e;
 }
 
 .order-status-card.is-security {
-  border-left-color: #7a52b3;
+    border-left-color: #7a52b3;
 }
 
 .order-status-card.is-done {
-  border-left-color: #2e9d57;
+    border-left-color: #2e9d57;
 }
 
 .order-status-card-head {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  width: 100%;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    width: 100%;
 }
 
 .order-status-card-name {
-  flex: 1;
-  min-width: 0;
-  font-weight: 600;
-  overflow-wrap: anywhere;
+    flex: 1;
+    min-width: 0;
+    font-weight: 600;
+    overflow-wrap: anywhere;
 }
 
 .order-status-card > .order-status-sub {
-  margin-top: -6px;
+    margin-top: -6px;
 }
 
 /* the Security page: what the customer bought, in its own column or at the foot of the card */
 .order-products {
-  display: grid;
-  gap: 6px;
-  font-size: 14px;
+    display: grid;
+    gap: 6px;
+    font-size: 14px;
 }
 
 .order-status-card .order-products {
-  width: 100%;
-  padding-top: 8px;
-  border-top: 1px solid var(--field-border);
+    width: 100%;
+    padding-top: 8px;
+    border-top: 1px solid var(--field-border);
 }
 
 .order-products-none {
-  margin: 0;
-  color: var(--text-muted);
+    margin: 0;
+    color: var(--text-muted);
 }
 
 .order-products-invoices {
-  display: grid;
-  gap: 4px;
-  margin: 0;
+    display: grid;
+    gap: 4px;
+    margin: 0;
 }
 
 .order-products-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 8px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 8px;
 }
 
 .order-products-row dt {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
 }
 
 .order-products-row dd {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 0;
 }
 
 /* an invoice number, easy to read off against the paper one */
 .order-products-invoice {
-  padding: 1px 8px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  background: var(--field-bg);
-  border: 1px solid var(--field-border);
-  border-radius: 6px;
+    padding: 1px 8px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    background: var(--field-bg);
+    border: 1px solid var(--field-border);
+    border-radius: 6px;
 }
 
 .order-products-items {
-  display: grid;
-  gap: 2px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+    display: grid;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
 }
 
 .order-products-loaded {
-  margin: 0;
-  font-size: 13px;
-  color: var(--text-muted);
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-muted);
 }
 
 /* the guard's check: verified in green, a report in red with what they saw */
 .order-products-check {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: #1f7a3a;
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1f7a3a;
 }
 
 .order-products-check.is-reported {
-  padding: 6px 10px;
-  color: #8f1d1d;
-  background: #fdecec;
-  border: 1px solid #f3c2c2;
-  border-radius: 6px;
+    padding: 6px 10px;
+    color: #8f1d1d;
+    background: #fdecec;
+    border: 1px solid #f3c2c2;
+    border-radius: 6px;
 }
 
 .order-products-check-note {
-  display: block;
-  font-weight: 400;
+    display: block;
+    font-weight: 400;
 }
 
-/* Verified and Report, for an order at the security check */
+/* the Security page's board sits in a panel under the page's own heading */
+.security .order-status-title {
+    margin: 0;
+}
+
+/* its filters have a line to themselves, with the search and the team together under them */
+.security .order-status-filters {
+    flex: 1 1 100%;
+    margin-right: 0;
+}
+
+/* a name and a time stay in one piece; Progress, which has room to wrap, gives way instead */
+.security .order-status-table td:first-child {
+    white-space: nowrap;
+}
+
+.security .order-status-table td:nth-child(2) {
+    min-width: 140px;
+}
+
+/* every row starts level, with room for the two buttons side by side */
+.security .order-status-table td {
+    vertical-align: top;
+}
+
+.security .order-status-table td:last-child {
+    min-width: 400px;
+}
+
+.security .order-status-table .stage-badge {
+    margin-bottom: 8px;
+}
+
+/* steps wrap on this page, and a joining line would be left hanging at the start of the next row */
+.security .order-steps {
+    gap: 6px;
+}
+
+.security .order-step + .order-step::before {
+    display: none;
+}
+
+/* Verified and Report a problem, the same size on every order; on a narrow phone they stack */
 .security-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(176px, 1fr));
+    gap: 8px;
+    width: 100%;
+    margin-top: 8px;
 }
 
-/* a problem at one of the order's areas, which sends it back there: in the report's red */
-.security-area-problem {
-  color: #8f1d1d;
-  border-color: #e3a5a5;
+.security-actions .admin-btn {
+    width: 100%;
+    min-height: 44px;
+    font-weight: 600;
 }
 
-.security-area-problem:hover:not(:disabled) {
-  background: #fdeeee;
+.security-actions .line-icon {
+    flex: none;
+    width: 18px;
+    height: 18px;
+}
+
+.order-products-check .line-icon {
+    width: 14px;
+    height: 14px;
+    vertical-align: -2px;
+}
+
+/* in the report's red */
+.security-report {
+    color: #8f1d1d;
+    border-color: #e3a5a5;
+}
+
+.security-report:hover:not(:disabled) {
+    background: #fdeeee;
 }
 
 .security-results {
-  display: grid;
-  gap: 6px;
-  margin: 0 0 12px;
-  padding: 0;
-  border: 0;
+    display: grid;
+    gap: 6px;
+    margin: 0 0 12px;
+    padding: 0;
+    border: 0;
 }
 
 .security-results legend {
-  margin-bottom: 4px;
-  font-weight: 600;
+    margin-bottom: 4px;
+    font-weight: 600;
 }
 
 .security-results label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .security-note {
-  width: 100%;
-  min-height: 80px;
-  padding: 8px 10px;
-  font: inherit;
-  border: 1px solid var(--field-border);
-  border-radius: 6px;
-  resize: vertical;
+    width: 100%;
+    min-height: 80px;
+    padding: 8px 10px;
+    font: inherit;
+    border: 1px solid var(--field-border);
+    border-radius: 6px;
+    resize: vertical;
+}
+
+/* on a phone or a touch screen, the Cashier and Security filters and search are big enough to tap */
+@media (pointer: coarse), (max-width: 760px) {
+    .cashier .status-chip,
+    .security .status-chip {
+        min-height: 44px;
+    }
+
+    .cashier .order-status-search,
+    .security .order-status-search,
+    .security .order-status-team {
+        height: 44px;
+    }
 }
 
 @media (max-width: 640px) {
-  .order-status-search {
-    flex: 1;
-    width: auto;
-  }
+    .order-status-search {
+        flex: 1;
+        width: auto;
+    }
+
+    /* wide enough to read what it asks for */
+    .security .order-status-search {
+        flex: 1 1 100%;
+    }
 }

@@ -3,7 +3,7 @@
 // counter (they don't call customers); loading staff (one shared loading line) call the customers sales hands over
 // from the Loading page, and logistics, service, chassis and hardware staff the same from the Logistics, Service, Chassis and Hardware pages, for their own departments; security
 // guards, the last stage, look at where each customer is and what they bought on the Security page, and check it at
-// the gate; the cashier sees whether each order is paid and who set it on the Cashier page, where sales change it; loading, logistics, service, chassis, hardware, security, cashier and inventory keep the Dashboard (the live queue, as the display has it, and
+// the gate; the Cashier page is where sales change how each order is paid, and the cashier too when the salesman isn't around; loading, logistics, service, chassis, hardware, security, cashier and inventory keep the Dashboard (the live queue, as the display has it, and
 // their profile) and My account and nothing else (the backend enforces this too); developers, the team that builds the
 // app, answer what staff write from Message developer on the Chat page, and have the Order status board and Accounts
 // (not admin accounts), with no Dashboard

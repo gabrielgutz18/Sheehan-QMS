@@ -1,11 +1,11 @@
-import { useId, useState } from 'react';
-import '../../style/orderStatus.css';
+import { useId, useState } from "react";
+import "../../style/orderStatus.css";
 
-import useOrderStatus from '../../hooks/useOrderStatus.js';
-import { STAGES, stageOf, stepsOf, whereNow } from '../../data/orderStage.js';
-import formatQueueNum from '../../../data/queueNum.js';
-import { formatPickup } from '../../../data/pickupDate.js';
-import teams from '../../../data/teams.js';
+import useOrderStatus from "../../hooks/useOrderStatus.js";
+import { STAGES, stageOf, stepsOf, whereNow } from "../../data/orderStage.js";
+import formatQueueNum from "../../../data/queueNum.js";
+import { formatPickup } from "../../../data/pickupDate.js";
+import teams from "../../../data/teams.js";
 
 // the Order status board: every order today and where its customer is now (in line, at a sales counter, waiting for
 // or at loading, or done), so every counter and the loading crew see the same thing; it refreshes by itself every few
@@ -37,14 +37,18 @@ const matches = (order, search) => {
     const text = search.trim().toLowerCase();
     if (!text) return true;
     const ticket = formatQueueNum(order.queueNum, order.purpose, order).toLowerCase();
-    return order.name.toLowerCase().includes(text) || ticket.includes(text) || String(order.queueNum) === text ||
-        (order.invoices ?? []).some(({ invoiceNo }) => invoiceNo.toLowerCase().includes(text));
+    return (
+        order.name.toLowerCase().includes(text) ||
+        ticket.includes(text) ||
+        String(order.queueNum) === text ||
+        (order.invoices ?? []).some(({ invoiceNo }) => invoiceNo.toLowerCase().includes(text))
+    );
 };
 
 // the order's steps in turn: the sales counter, loading (once they're handed over), then done
 function Steps({ order }) {
     return (
-        <ol className="order-steps">
+        <ol className={`order-steps is-${stageOf(order)}`}>
             {stepsOf(order).map(({ label, state }) => (
                 <li key={label} className={`order-step is-${state}`}>
                     <span className="order-step-pill">
@@ -66,7 +70,12 @@ const Pickup = ({ order }) =>
  * @param {{ heading?: "h1" | "h2" | "h3", compact?: boolean, action?: import('react').ReactNode, list?: any, title?: string, details?: import('react').ComponentType<any>, startWith?: string }} props
  */
 export default function LifeCycleTable({
-    heading = "h2", compact = false, action = null, list, title = "Order status", details: Details = null,
+    heading = "h2",
+    compact = false,
+    action = null,
+    list,
+    title = "Order status",
+    details: Details = null,
     startWith = "active",
 }) {
     const { orders, loading, error, updatedAt, refresh } = useOrderStatus({ list });
@@ -79,8 +88,9 @@ export default function LifeCycleTable({
     const staged = orders.map((order) => ({ order, stage: stageOf(order) }));
     const count = (shows) => staged.filter(({ stage }) => shows(stage)).length;
     const { shows } = FILTERS.find((f) => f.value === filter);
-    const visible = staged.filter(({ order, stage }) =>
-        shows(stage) && matches(order, search) && (!team || order.team === team));
+    const visible = staged.filter(
+        ({ order, stage }) => shows(stage) && matches(order, search) && (!team || order.team === team),
+    );
 
     return (
         <section className={`order-status${compact ? " is-compact" : ""}`} aria-labelledby={titleId}>
@@ -99,23 +109,42 @@ export default function LifeCycleTable({
             <div className="order-status-tools">
                 <div className="order-status-filters" role="group" aria-label="Show">
                     {FILTERS.map(({ value, label, shows: inFilter }) => (
-                        <button key={value} type="button" className="status-chip" aria-pressed={filter === value}
-                            onClick={() => setFilter(value)}>
+                        <button
+                            key={value}
+                            type="button"
+                            className="status-chip"
+                            aria-pressed={filter === value}
+                            onClick={() => setFilter(value)}
+                        >
                             {label}
                             <span className="status-chip-count">{count(inFilter)}</span>
                         </button>
                     ))}
                 </div>
-                <input type="search" className="order-status-search"
+                <input
+                    type="search"
+                    className="order-status-search"
                     placeholder={Details ? "Name, number or invoice" : "Search name or number"}
-                    aria-label={Details ? "Search by customer name, ticket number or invoice number"
-                        : "Search by customer name or ticket number"}
+                    aria-label={
+                        Details
+                            ? "Search by customer name, ticket number or invoice number"
+                            : "Search by customer name or ticket number"
+                    }
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)} />
-                <select className="order-status-team" aria-label="Sales team" value={team}
-                    onChange={(e) => setTeam(e.target.value)}>
+                    onChange={(e) => setSearch(e.target.value)}
+                />
+                <select
+                    className="order-status-team"
+                    aria-label="Sales team"
+                    value={team}
+                    onChange={(e) => setTeam(e.target.value)}
+                >
                     <option value="">All teams</option>
-                    {teams.map(({ name }) => <option key={name} value={name}>{name}</option>)}
+                    {teams.map(({ name }) => (
+                        <option key={name} value={name}>
+                            {name}
+                        </option>
+                    ))}
                 </select>
             </div>
 
@@ -158,8 +187,8 @@ export default function LifeCycleTable({
                             <tr>
                                 <th scope="col">Ticket</th>
                                 <th scope="col">Customer</th>
-                                <th scope="col">Where now</th>
-                                <th scope="col">Progress</th>
+                                {!Details && <th scope="col">Where now</th>}
+                                <th scope="col">{Details ? "Status" : "Progress"}</th>
                                 {Details && <th scope="col">Products</th>}
                             </tr>
                         </thead>
@@ -170,20 +199,31 @@ export default function LifeCycleTable({
                                         <strong className="order-status-ticket">
                                             {formatQueueNum(order.queueNum, order.purpose, order)}
                                         </strong>
-                                        <span className="order-status-sub">{timeFormat.format(new Date(order.createdAt))}</span>
+                                        <span className="order-status-sub">
+                                            {timeFormat.format(new Date(order.createdAt))}
+                                        </span>
                                     </td>
                                     <td>
                                         {order.name}
                                         <span className="order-status-sub">{order.purpose}</span>
                                         <Pickup order={order} />
                                     </td>
+                                    {!Details && (
+                                        <td>
+                                            <span className={`stage-badge is-${stage}`}>{whereNow(order)}</span>
+                                        </td>
+                                    )}
                                     <td>
-                                        <span className={`stage-badge is-${stage}`}>{whereNow(order)}</span>
-                                    </td>
-                                    <td>
+                                        {Details && (
+                                            <span className={`stage-badge is-${stage}`}>{whereNow(order)}</span>
+                                        )}
                                         <Steps order={order} />
                                     </td>
-                                    {Details && <td><Details order={order} refresh={refresh} /></td>}
+                                    {Details && (
+                                        <td>
+                                            <Details order={order} refresh={refresh} />
+                                        </td>
+                                    )}
                                 </tr>
                             ))}
                         </tbody>

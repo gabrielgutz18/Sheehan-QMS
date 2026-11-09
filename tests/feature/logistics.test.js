@@ -1,12 +1,14 @@
-// the Logistics page: Logistics (Plain Sheet, Stainless Steel, Insulations) is its own department, working like the
-// loading crew for its own area (src/data/loadingAreas.js). A sales counter hands the customer over just the same; a
-// customer who bought one of its products is called to Logistics from the Logistics page, and one who bought steel or a
-// Tire too goes to each department in turn, one at a time
+// the Logistics page: Logistics is its own department, working like the loading crew for its own area
+// (src/data/loadingAreas.js). Its orders come in as one tentative type, "For Logistics", with tickets starting LA. A
+// sales counter hands the customer over just the same; a customer with a For Logistics order is called from the Logistics
+// page, and one who bought steel or a Tire too goes to each department in turn, one at a time
 // run: npm test            only these: npm test -- --test-name-pattern="Logistics"
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, test } from "node:test";
 
 import { invoicesByColumn } from "../../src/admin/data/sheetColumns.js";
+import { HISTORY_LISTS } from "../../src/data/loadingAreas.js";
+import purpose from "../../src/data/purpose.js";
 import formatQueueNum from "../../src/data/queueNum.js";
 import { bootApp } from "../support/testApp.js";
 
@@ -18,14 +20,12 @@ beforeEach(async () => {
 
 afterEach(() => app.close());
 
-const PRODUCTS = ["Plain Sheet", "Stainless Steel", "Insulations"];
-
 // an order from Customer order; pass any field to change it
 const order = (overrides = {}) => ({
     name: "Juan Dela Cruz",
-    purpose: "Plain Sheet",
+    purpose: "For Logistics",
     orders: [],
-    invoices: [{ invoiceNo: "701", type: "Plain Sheet" }],
+    invoices: [{ invoiceNo: "701", type: "For Logistics" }],
     salesman: "Maria Santos",
     team: "GIGA",
     pickupDate: null,
@@ -47,37 +47,30 @@ const handOver = async (sales, queueNum) =>
 const areasOf = (o) => o.areas.map(({ name, loaded }) => [name, loaded?.by.name]);
 
 describe("Logistics", () => {
-    test("each of its products is loaded at Logistics, by the Logistics department, then goes to the gate", async () => {
-        for (const type of PRODUCTS) await takeOrder({ purpose: type, invoices: [{ invoiceNo: `7-${type}`, type }] });
+    test("a For Logistics order is loaded at Logistics, by the Logistics department, then goes to the gate", async () => {
+        await takeOrder();
         const { maria, pedro, lito } = await staff();
+        await handOver(maria, 1);
 
-        for (const queueNum of [1, 2, 3]) {
-            await handOver(maria, queueNum);
-            // not the loading crew's
-            (await pedro.post(`/admin/loading/${queueNum}/call`)).assertStatus(409);
-            assert.equal(
-                (await lito.post(`/admin/logistics/${queueNum}/call`)).assertStatus(200).body.loadingArea,
-                "Logistics",
-            );
-            const started = (await lito.post(`/admin/logistics/${queueNum}/start`, { area: "Logistics" })).assertStatus(
-                200,
-            ).body;
-            assert.ok(started.loadingStartedAt);
-            const done = (await lito.post(`/admin/logistics/${queueNum}/done`)).assertStatus(200).body;
+        // not the loading crew's
+        (await pedro.post("/admin/loading/1/call")).assertStatus(409);
+        assert.equal((await lito.post("/admin/logistics/1/call")).assertStatus(200).body.loadingArea, "Logistics");
+        const started = (await lito.post("/admin/logistics/1/start", { area: "Logistics" })).assertStatus(200).body;
+        assert.ok(started.loadingStartedAt);
+        const done = (await lito.post("/admin/logistics/1/done")).assertStatus(200).body;
 
-            assert.equal(done.status, "done");
-            assert.deepEqual(areasOf(done), [["Logistics", "Lito Reyes"]]);
-            assert.equal(done.security, "waiting");
-        }
+        assert.equal(done.status, "done");
+        assert.deepEqual(areasOf(done), [["Logistics", "Lito Reyes"]]);
+        assert.equal(done.security, "waiting");
     });
 
-    test("an order for Steel, Plain Sheet and a Tire goes to Steel, then Logistics, then Service, one at a time", async () => {
+    test("an order for Steel, For Logistics and a Tire goes to Steel, then Logistics, then Service, one at a time", async () => {
         await takeOrder({
-            purpose: "Steel, Tire, Plain Sheet",
+            purpose: "Steel, Tire, For Logistics",
             invoices: [
                 { invoiceNo: "101", type: "Steel" },
                 { invoiceNo: "601", type: "Tire" },
-                { invoiceNo: "701", type: "Plain Sheet" },
+                { invoiceNo: "701", type: "For Logistics" },
             ],
         });
         const { maria, pedro, lito, tony } = await staff();
@@ -107,11 +100,7 @@ describe("Logistics", () => {
 
     test("its accounts see only the handed-over orders it has a part in; its routes are its own", async () => {
         await takeOrder({ name: "Ana Reyes", purpose: "Roofings", invoices: [{ invoiceNo: "1", type: "Roofings" }] });
-        await takeOrder({
-            name: "Liza Mendoza",
-            purpose: "Insulations",
-            invoices: [{ invoiceNo: "2", type: "Insulations" }],
-        });
+        await takeOrder({ name: "Liza Mendoza", invoices: [{ invoiceNo: "2", type: "For Logistics" }] });
         // still at the sales counter
         await takeOrder({ name: "Carlo Bautista" });
         const { maria, pedro, lito } = await staff();
@@ -130,27 +119,22 @@ describe("Logistics", () => {
         (await (await app.actingAsAdmin()).post("/admin/logistics/2/call")).assertStatus(200);
     });
 
-    test("History has one list per product, and only its own department may read it", async () => {
-        await takeOrder({
-            name: "Sheet Buyer",
-            purpose: "Plain Sheet",
-            invoices: [{ invoiceNo: "701", type: "Plain Sheet" }],
-        });
-        await takeOrder({
-            name: "Steel Buyer",
-            purpose: "Stainless Steel",
-            invoices: [{ invoiceNo: "702", type: "Stainless Steel" }],
-        });
+    test("History has the one For Logistics list, and only its own department may read it", async () => {
+        await takeOrder({ name: "Ana Reyes", invoices: [{ invoiceNo: "701", type: "For Logistics" }] });
+        await takeOrder({ name: "Liza Mendoza", invoices: [{ invoiceNo: "702", type: "For Logistics" }] });
         const { maria, pedro, lito } = await staff();
         for (const queueNum of [1, 2]) await handOver(maria, queueNum);
         const rows = async (list) =>
             (await lito.get(`/admin/department-history/logistics?list=${encodeURIComponent(list)}`))
                 .assertStatus(200)
-                .body.rows.map((r) => r.name);
+                .body.rows.map((r) => r.name)
+                .sort();
 
-        assert.deepEqual(await rows("Plain Sheet"), ["Sheet Buyer"]);
-        assert.deepEqual(await rows("Stainless Steel"), ["Steel Buyer"]);
-        assert.deepEqual(await rows("Insulations"), []);
+        assert.deepEqual(
+            HISTORY_LISTS.logistics.map((list) => list.name),
+            ["For Logistics"],
+        );
+        assert.deepEqual(await rows("For Logistics"), ["Ana Reyes", "Liza Mendoza"]);
         (await pedro.get("/admin/department-history/logistics")).assertStatus(403);
     });
 
@@ -174,20 +158,25 @@ describe("Logistics", () => {
         app.assertDatabaseHas("users", { username: "lito", role: "logistics" });
     });
 
-    test("its products have their ticket letters and sit under Construction & hardware on the sheet", () => {
-        assert.equal(formatQueueNum(1, "Plain Sheet"), "PS 01");
-        assert.equal(formatQueueNum(2, "Stainless Steel"), "SS 02");
-        assert.equal(formatQueueNum(3, "Insulations"), "I 03");
+    test("For Logistics tickets start LA, alone or after another type's letters", () => {
+        assert.equal(formatQueueNum(1, "For Logistics"), "LA 01");
+        assert.equal(formatQueueNum(2, "Steel, For Logistics"), "SLA 02");
+    });
 
+    test("For Logistics is the only way an order reaches Logistics on Customer order", () => {
+        const types = purpose.map((type) => type.name);
+
+        assert.ok(types.includes("For Logistics"));
+        for (const removed of ["Plain Sheet", "Stainless Steel", "Insulations"]) assert.ok(!types.includes(removed), removed);
+    });
+
+    test("its invoices sit under Construction & hardware on the sheet", () => {
         const columns = invoicesByColumn({
-            purpose: "Plain Sheet, Stainless Steel, Insulations",
-            invoices: [
-                { invoiceNo: "701", type: "Plain Sheet" },
-                { invoiceNo: "702", type: "Stainless Steel" },
-                { invoiceNo: "703", type: "Insulations" },
-            ],
+            purpose: "For Logistics",
+            invoices: [{ invoiceNo: "701", type: "For Logistics" }],
         });
-        assert.deepEqual(columns.construction, ["701", "702", "703"]);
+
+        assert.deepEqual(columns.construction, ["701"]);
         assert.deepEqual(columns.others, []);
     });
 });

@@ -1,4 +1,4 @@
-/* the Cashier page: every order with how it's paid, changed with one tap by sales and only looked at by the cashier */
+/* the Cashier page: every order with how it's paid, changed with one tap by sales or the cashier */
 .cashier {
     display: flex;
     flex-direction: column;
@@ -15,6 +15,47 @@
 .cashier-head .tab-hint {
     max-width: 640px;
     margin: 0;
+}
+
+/* whether it's saved, and how fresh the orders are, across from the hint */
+.cashier-head-status {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 16px;
+    margin-left: auto;
+}
+
+/* By product: each type of order under its own heading */
+.cashier-products {
+    margin-right: 0;
+}
+
+.cashier-groups {
+    display: grid;
+    gap: 24px;
+}
+
+.cashier .cashier-group-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 12px;
+    margin: 0 0 8px;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.cashier-group-count {
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--text-muted);
+}
+
+.cashier-group-invoices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
 }
 
 /* the ticket heads its row, but reads like the other cells rather than like the column headings */
@@ -40,11 +81,39 @@
     margin: 0;
 }
 
+/* the department's name in a column as wide as the longest one, so every number starts in the same place, on every
+   ticket; a second number that doesn't fit wraps under the first, not under the name */
 .cashier-invoices div {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: 148px 1fr;
     align-items: baseline;
     gap: 2px 8px;
+}
+
+.cashier-invoices .order-products-invoice {
+    padding: 1px 6px;
+    font-size: 14px;
+}
+
+/* room for two numbers side by side once the whole table fits on the screen */
+@media (min-width: 1440px) {
+    .cashier-invoices {
+        min-width: 334px;
+    }
+
+    .cashier .cashier-table th,
+    .cashier .cashier-table td {
+        padding-right: 12px;
+        padding-left: 12px;
+    }
+}
+
+/* with no room beside the name, on the narrowest phones and on laptops where the table is squeezed, every number sits
+   under it instead */
+@media (max-width: 380px), (min-width: 761px) and (max-width: 1365px) {
+    .cashier-invoices div {
+        grid-template-columns: 1fr;
+    }
 }
 
 .cashier-invoices dt {
@@ -56,9 +125,8 @@
 .cashier-invoices dd {
     display: flex;
     flex-wrap: wrap;
-    gap: 2px 8px;
+    gap: 4px;
     margin: 0;
-    font-variant-numeric: tabular-nums;
 }
 
 .cashier .order-status-search {
@@ -79,7 +147,7 @@
 .cashier-payment {
     min-width: 52px;
     white-space: nowrap;
-    min-height: 36px;
+    min-height: 44px;
     padding: 6px 10px;
     font: inherit;
     font-size: 13px;
@@ -143,95 +211,135 @@
     color: var(--text-muted);
 }
 
-/* what the cashier has instead of the buttons: a plain label, fully rounded so it doesn't look like one to tap; green
-   with a check once it's paid, and amber before that rather than red, since Vale and Terms aren't mistakes */
-.cashier-paid {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 10px;
-    font-size: 13px;
-    font-weight: 700;
-    white-space: nowrap;
-    border: 1px solid transparent;
-    border-radius: 999px;
+/* an order as a card: its details one under another, each with its heading */
+.cashier-table.is-cards thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
 }
 
-.cashier-paid .line-icon {
-    flex: none;
-    width: 14px;
-    height: 14px;
+.cashier-table.is-cards,
+.cashier-table.is-cards tbody,
+.cashier-table.is-cards tr,
+.cashier-table.is-cards th[scope="row"],
+.cashier-table.is-cards td {
+    display: block;
 }
 
-.cashier-paid.is-paid {
-    color: #166534;
-    background: #f0fdf4;
-    border-color: #bbf7d0;
+.cashier-table.is-cards tr {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--field-border);
 }
 
-.cashier-paid.is-unpaid {
-    color: #92400e;
-    background: #fffbeb;
-    border-color: #fde68a;
+.cashier-table.is-cards tbody tr:last-child {
+    border-bottom: none;
 }
 
-/* with no row of buttons to fit, the cashier's payment column shares the room like the others */
-.cashier-table.is-view-only td:last-child {
+.cashier-table.is-cards th[scope="row"],
+.cashier-table.is-cards td {
+    padding: 6px 14px;
+    border-bottom: none;
+}
+
+.cashier-table.is-cards td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 2px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text-muted);
+}
+
+.cashier-table.is-cards td:last-child {
     width: auto;
 }
 
-/* on a phone each order is a card: its details one under another, each with its heading */
-@media (max-width: 760px) {
-    .cashier-table thead {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        overflow: hidden;
-        clip: rect(0 0 0 0);
-    }
+.cashier-table.is-cards .cashier-payment {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 6px 2px;
+}
 
-    .cashier-table,
-    .cashier-table tbody,
-    .cashier-table tr,
-    .cashier-table th[scope="row"],
-    .cashier-table td {
-        display: block;
-    }
+/* By product: the same look as the rest of the staff pages, with the filters named, as it has two rows of them, and
+   corners that match the buttons rather than pills */
+.cashier-filter {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+}
 
-    .cashier-table tr {
-        padding: 8px 0;
-        border-bottom: 1px solid var(--field-border);
-    }
+.cashier-filter-label {
+    flex: none;
+    width: 104px;
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+}
 
-    .cashier-table tbody tr:last-child {
-        border-bottom: none;
-    }
+.is-by-product .status-chip {
+    padding: 6px 10px;
+    border-radius: 8px;
+}
 
-    .cashier-table th[scope="row"],
-    .cashier-table td {
-        padding: 6px 14px;
-        border-bottom: none;
-    }
+.is-by-product .status-chip .status-chip-count {
+    min-width: 0;
+    padding: 0;
+    font-size: 13px;
+    font-weight: 400;
+    background: none;
+    border-radius: 0;
+}
 
-    .cashier-table td::before {
-        content: attr(data-label);
-        display: block;
-        margin-bottom: 2px;
-        font-size: 11px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.4px;
-        color: var(--text-muted);
-    }
+.cashier-group .stage-badge {
+    white-space: normal;
+    border-radius: 6px;
+}
 
-    .cashier-table td:last-child {
-        width: auto;
-    }
+/* on a screen wide enough for the table: the same column widths in every product's list, so they run straight down the
+   page */
+.cashier-group .cashier-table:not(.is-cards) {
+    table-layout: fixed;
+}
 
-    .cashier-payment {
-        flex: 1 1 0;
-        min-width: 0;
-        min-height: 44px;
-        padding: 6px 2px;
-    }
+.cashier-group .cashier-table:not(.is-cards) th[scope="col"]:nth-child(1) {
+    width: 140px;
+}
+
+.cashier-group .cashier-table:not(.is-cards) th[scope="col"]:nth-child(3) {
+    width: 150px;
+}
+
+.cashier-group .cashier-table:not(.is-cards) th[scope="col"]:nth-child(4) {
+    width: 195px;
+}
+
+.cashier-group .cashier-table:not(.is-cards) th[scope="col"]:last-child {
+    width: 340px;
+}
+
+.cashier-group .cashier-table:not(.is-cards) th[scope="row"] {
+    white-space: normal;
+}
+
+/* cards side by side in columns where there's room, with the payment buttons across the whole card */
+.cashier-group .cashier-table.is-cards tr {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 2px 8px;
+}
+
+.cashier-group .cashier-table.is-cards td:last-child {
+    grid-column: 1 / -1;
+}
+
+.cashier-group .cashier-table.is-cards td::before {
+    font-size: 12px;
+    text-transform: none;
+    letter-spacing: 0;
 }

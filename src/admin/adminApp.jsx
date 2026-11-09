@@ -93,7 +93,7 @@ export default function AdminApp() {
                             <Route path="loading" element={<LoadingPage />} />
                         </Route>
 
-                        {/* the Logistics department (Plain Sheet, Stainless Steel, Insulations), the same as the loading crew for its own area */}
+                        {/* the Logistics department (For Logistics orders), the same as the loading crew for its own area */}
                         <Route element={<ProtectedRoute roles={["admin", "logistics"]} />}>
                             <Route path="logistics" element={<LogisticsPage />} />
                         </Route>

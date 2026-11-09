@@ -204,7 +204,7 @@ On every start, any `.sql` file not yet listed in `schema_migrations` runs, in n
 | [`019_area_loading_security_check.sql`](../server/migrations/019_area_loading_security_check.sql) | loading area by area, and the security check: adds `loading_area`, `security_pending`, `security_check_id` to `orders`, and the `order_loads` (each area loaded this visit, by whom and when) and `security_checks` (every guard's check: verified, or a report of something missing, over the quantity or stolen, with a note; kept even if the order is reopened) tables; orders already done stay done, with nothing to check |
 | [`020_cashier_staff.sql`](../server/migrations/020_cashier_staff.sql) | rebuilds `users` to allow the `cashier` role (changes how each order is paid, nothing else) |
 | [`040_service_staff.sql`](../server/migrations/040_service_staff.sql) | renames the TBA department to Service: rebuilds `users` so `role` allows `service` instead of `tba`, moves TBA accounts over, and changes the area from `TBA` to `Service` in `orders.loading_area`, `order_loads.area` and `security_checks.returned_to`; `orders.tba_priority` keeps its name |
-| [`043_logistics_staff.sql`](../server/migrations/043_logistics_staff.sql) | rebuilds `users` to allow the `logistics` role, for the Logistics department (Plain Sheet, Stainless Steel, Insulations) |
+| [`043_logistics_staff.sql`](../server/migrations/043_logistics_staff.sql) | rebuilds `users` to allow the `logistics` role, for the Logistics department (its orders are the For Logistics type, set in `src/data/purpose.js`) |
 
 **Changing the tables later:** never edit a file that has already run anywhere. Add the next number instead, for example `server/migrations/006_add_counter_number.sql`:
 
