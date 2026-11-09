@@ -31,5 +31,9 @@ export const departmentHistory = (department, query, options) => {
     return http.get(`/admin/department-history/${encodeURIComponent(department)}?${params}`, options);
 };
 
+// what's coming to the signed-in department: today's unfinished orders staff made or handed over, with only its own
+// part → [{ id, ticket, name, types, invoices: [invoiceNo], handedOver?: { by, at } }]
+export const listNewOrders = (options) => http.get("/admin/new-orders", options);
+
 export const sendBackFromLoading = (department, queueNum) =>
     http.post(`/admin/${department}/${encodeURIComponent(queueNum)}/back`);

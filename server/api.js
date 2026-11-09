@@ -27,6 +27,7 @@ import paymentStatus from "../src/data/paymentStatus.js";
 import teams from "../src/data/teams.js";
 import checkers, { CHECKER_ROUNDS } from "../src/data/checkers.js";
 import { splitList } from "../src/data/list.js";
+import formatQueueNum from "../src/data/queueNum.js";
 import loadingAreas, {
     DEPARTMENTS,
     capitalized,
@@ -266,6 +267,8 @@ const ROLE_ROUTES = {
         ["POST", /^\/admin\/loading\/[^/]+\/(call|start|done|back)$/],
         // the History tab: the orders handed over to the department, its own only
         ["GET", /^\/admin\/department-history\/loading$/],
+        // the pop-ups when staff make or hand over an order with something for the department
+        ["GET", /^\/admin\/new-orders$/],
         ...ACCOUNT_ROUTES,
         ...MESSAGE_ROUTES,
     ],
@@ -276,6 +279,8 @@ const ROLE_ROUTES = {
         ["POST", /^\/admin\/tba\/[^/]+\/(call|start|done|back)$/],
         // the History tab: the orders handed over to the department, its own only
         ["GET", /^\/admin\/department-history\/tba$/],
+        // the pop-ups when staff make or hand over an order with something for the department
+        ["GET", /^\/admin\/new-orders$/],
         ...ACCOUNT_ROUTES,
         ...MESSAGE_ROUTES,
     ],
@@ -286,6 +291,8 @@ const ROLE_ROUTES = {
         ["POST", /^\/admin\/chassis\/[^/]+\/(call|start|done|back)$/],
         // the History tab: the orders handed over to the department, its own only
         ["GET", /^\/admin\/department-history\/chassis$/],
+        // the pop-ups when staff make or hand over an order with something for the department
+        ["GET", /^\/admin\/new-orders$/],
         ...ACCOUNT_ROUTES,
         ...MESSAGE_ROUTES,
     ],
@@ -296,6 +303,8 @@ const ROLE_ROUTES = {
         ["POST", /^\/admin\/hardware\/[^/]+\/(call|start|done|back)$/],
         // the History tab: the orders handed over to the department, its own only
         ["GET", /^\/admin\/department-history\/hardware$/],
+        // the pop-ups when staff make or hand over an order with something for the department
+        ["GET", /^\/admin\/new-orders$/],
         ...ACCOUNT_ROUTES,
         ...MESSAGE_ROUTES,
     ],
@@ -2974,6 +2983,32 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             }));
             const totals = sql.myTotals.get({ user: me.id, ...starts });
             return send(res, 200, { period, from: range[0], to: range[1], totals, buckets });
+        }
+
+        // what's coming to a department: today's unfinished orders staff made, and any handed over (with who did it and
+        // when), with only the department's own types of order and invoices; a kiosk ticket has no maker, so it only
+        // counts from its hand-over
+        if (method === "GET" && path === "/admin/new-orders") {
+            const date = today();
+            const ours = loadingAreas.filter((area) => area.department === me.role).flatMap((area) => area.types);
+            const invoicesByOrder = Map.groupBy(sql.dayInvoices.all(date), (invoice) => invoice.order_id);
+            const newOrders = sql.dayOrders
+                .all(date)
+                .filter((row) => (row.created_by !== null || row.handed_over_by !== null) && row.status !== "done")
+                .map((row) => ({
+                    id: row.id,
+                    ticket: formatQueueNum(row.queue_num, row.purpose, { priority: row.priority, tbaPriority: row.tba_priority }),
+                    ...(row.handed_over_by !== null && {
+                        handedOver: { by: row.handed_over_by_name, at: row.handed_over_at },
+                    }),
+                    name: row.name,
+                    types: splitList(row.purpose).filter((type) => ours.includes(type)),
+                    invoices: (invoicesByOrder.get(row.id) ?? [])
+                        .filter((invoice) => ours.includes(invoice.type))
+                        .map((invoice) => invoice.invoice_no),
+                }))
+                .filter((order) => order.types.length > 0);
+            return send(res, 200, newOrders);
         }
 
         // a loading, TBA, chassis or hardware account only gets the orders sales has handed over that its department has a part in:
