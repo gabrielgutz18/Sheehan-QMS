@@ -1,21 +1,22 @@
 //func
-import { useEffect, useState } from 'react';
-import { getQueue } from '../api/queueController.js';
-import { DEFAULT_CALL_NOTE } from '../data/callNote.js';
-import './style/queueDisplay.css';
+import { useEffect, useState } from "react";
+import { getQueue } from "../api/queueController.js";
+import { DEFAULT_CALL_NOTE } from "../data/callNote.js";
+import "./style/queueDisplay.css";
 
 //assets
-import logo from '../assets/SheehanLogo.png';
+import logo from "../assets/SheehanLogo.png";
 
 //components
-import Call from './components/call.jsx';
-import Clock from '../components/clock.jsx';
-import NumberCard from './components/numberCard.jsx';
-import VideoUp from '../components/videoup.jsx';
+import Call from "./components/call.jsx";
+import Clock from "../components/clock.jsx";
+import NumberCard from "./components/numberCard.jsx";
+import VideoUp from "../components/videoup.jsx";
 
 const POLL_MS = 5000;
+// the list's rows are sized for this many (.upcoming-list in queueDisplay.css)
 const UPCOMING_LIMIT = 8;
-// one per counter; more than this and the video gets squeezed
+// one per counter; the right half of the slab stacks this many, and the rest show as "+2 more"
 const ALSO_SERVING_LIMIT = 3;
 
 const callNote = (o) => o.remarks || DEFAULT_CALL_NOTE;
@@ -50,121 +51,113 @@ export default function QueueDisplay() {
     }, []);
 
     const { serving, upcoming } = queue;
-    // several numbers can be served at once, one per counter: the newest call is the headline,
-    // and everyone else still at a counter is listed under it, newest first
+    // several numbers can be served at once, one per counter: the newest call is the headline on the left,
+    // and everyone else still at a counter stacks on the right, newest first
     const [current, ...alsoServing] = serving;
     const othersShown = alsoServing.slice(0, ALSO_SERVING_LIMIT);
     const othersHidden = alsoServing.length - othersShown.length;
     const shown = upcoming.slice(0, UPCOMING_LIMIT);
     const hidden = upcoming.length - shown.length;
+    const servingState = !current ? " serving--idle" : othersShown.length > 0 ? " serving--split" : "";
 
     return (
         <div className="queue-screen">
-            {/* two columns that meet at a divider; every block butts up against the next, closed off by a line */}
-            <main className="queue-board">
-                {/* left: who we are, then the line */}
-                <div className="queue-side">
-                    <header className="queue-brand">
-                        <img className="queue-logo" src={logo} alt="Sheehan Inc. logo" />
-                        <div className="queue-brand-text">
-                            <h1 className="queue-company">Sheehan, Inc.</h1>
-                            <p className="queue-subtitle">Queue Information Display</p>
-                        </div>
-                        <span className="waiting-count">{upcoming.length} in line</span>
-                    </header>
+            <header className="queue-top">
+                <img className="queue-logo" src={logo} alt="" />
+                <h1 className="queue-company">Sheehan, Inc.</h1>
+                <Clock />
+            </header>
 
-                    {error && <p className="queue-error" role="alert">{error}</p>}
+            {/* only there while the board can't reach the server, so a stale screen doesn't pass for a current one */}
+            {error && (
+                <p className="queue-error" role="alert">
+                    Offline. {error}
+                </p>
+            )}
 
-                    {/* upcoming */}
-                    <section className="upcoming-panel" aria-label="Up next">
-                        <table className="upcoming-table">
-                            <thead>
-                                <tr>
-                                    <th scope="col">Ticket No.</th>
-                                    <th scope="col">Customer Name</th>
-                                    <th scope="col">Station / Counter</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {shown.length > 0 ? (
-                                    shown.map((o) => (
-                                        <tr key={o.queueNum}>
-                                            <td>
-                                                <NumberCard number={o.queueNum} purpose={o.purpose} marks={o} />
-                                            </td>
-                                            <td className="upcoming-name">
-                                                {o.name}
-                                                {o.returning && <span className="upcoming-returning">Returning</span>}
-                                            </td>
-                                            <td><span className="upcoming-station">{o.purpose}</span></td>
-                                        </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan={3} className="upcoming-empty">{loaded ? "No one in line" : "Loading..."}</td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-
-                        {hidden > 0 && <p className="upcoming-more">+{hidden} more in line</p>}
-                    </section>
-                </div>
-
-                {/* right: now serving above the video, the clock along the bottom */}
-                <div className="queue-main">
-                    <section className="serving-panel" aria-labelledby="serving-title">
-                        <div className="serving-bar">
+            {/* the slab is red only while someone is being called, so red always means "look up" */}
+            <section className={`serving${servingState}`} aria-labelledby="serving-title">
+                <div aria-live="polite">
+                    <div className="serving-band">
+                        <div className="serving-head">
                             <h2 id="serving-title" className="serving-title">
-                                Now Serving
+                                Now serving
                             </h2>
-                            {/* goes to Offline while the board can't reach the server, so a stale screen doesn't claim to be live */}
-                            <span className={`live-badge${error ? " live-badge--off" : ""}`}>
-                                <span className="live-dot" aria-hidden="true" />
-                                {error ? "Offline" : "Live"}
-                            </span>
+                            {othersHidden > 0 && <p className="serving-more">+{othersHidden} more</p>}
                         </div>
 
-                        <div className="serving-list" aria-live="polite">
-                            {current ? (
-                                <>
-                                    {/* key on the call so a new number, or the same one called again, replays its animation */}
-                                    <div key={`${current.queueNum}-${current.calledAt}`} className="serving-call">
-                                        <NumberCard number={current.queueNum} purpose={current.purpose} marks={current} variant="serving" />
+                        {current ? (
+                            <div className="serving-calls">
+                                {/* key on the call so a new number, or the same one called again, replays its entrance */}
+                                <div key={`${current.queueNum}-${current.calledAt}`} className="serving-call">
+                                    <NumberCard
+                                        number={current.queueNum}
+                                        purpose={current.purpose}
+                                        marks={current}
+                                        variant="serving"
+                                    />
+                                    <div className="serving-who">
                                         <p className="serving-name">{current.name}</p>
-                                        <hr className="serving-rule" />
                                         <p className="serving-note">{callNote(current)}</p>
                                     </div>
+                                </div>
 
-                                    {othersShown.length > 0 && (
-                                        <ul className="serving-others" aria-label="Also being served">
-                                            {othersShown.map((o) => (
-                                                <li key={o.queueNum} className="serving-other">
-                                                    <NumberCard number={o.queueNum} purpose={o.purpose} marks={o} />
-                                                    <span className="serving-other-name">{o.name}</span>
-                                                    <span className="serving-other-note">{callNote(o)}</span>
-                                                </li>
-                                            ))}
-                                            {othersHidden > 0 && <li className="serving-more">+{othersHidden} more being served</li>}
-                                        </ul>
-                                    )}
-                                </>
-                            ) : (
-                                <p className="serving-empty">{loaded ? "Waiting for the next customer" : "Loading..."}</p>
-                            )}
-                        </div>
-                    </section>
-
-                    {/* video under now serving */}
-                    <section className="queue-video">
-                        <VideoUp />
-                    </section>
-
-                    <footer className="queue-footer">
-                        <Clock />
-                    </footer>
+                                {othersShown.length > 0 && (
+                                    <ul className="serving-others" aria-label="Also being served">
+                                        {othersShown.map((o) => (
+                                            <li key={o.queueNum} className="serving-other">
+                                                <NumberCard number={o.queueNum} purpose={o.purpose} marks={o} />
+                                                <span className="serving-other-name">{o.name}</span>
+                                                <span className="serving-other-note">{callNote(o)}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        ) : (
+                            <p className="serving-empty">{loaded ? "Waiting for the next customer" : "Loading..."}</p>
+                        )}
+                    </div>
                 </div>
-            </main>
+            </section>
+
+            <div className="queue-floor">
+                <section className="upcoming" aria-labelledby="upcoming-title">
+                    <div className="upcoming-head">
+                        <h2 id="upcoming-title" className="upcoming-title">
+                            Up next
+                        </h2>
+                        {upcoming.length > 0 && (
+                            <p className="upcoming-count">
+                                {hidden > 0
+                                    ? `Next ${shown.length} of ${upcoming.length}`
+                                    : `${upcoming.length} waiting`}
+                            </p>
+                        )}
+                    </div>
+
+                    {shown.length > 0 ? (
+                        <ol className="upcoming-list">
+                            {shown.map((o) => (
+                                <li key={o.queueNum} className="upcoming-row">
+                                    <NumberCard number={o.queueNum} purpose={o.purpose} marks={o} />
+                                    <span className="upcoming-name">
+                                        <span className="upcoming-name-text">{o.name}</span>
+                                        {o.returning && <span className="upcoming-returning">Returning</span>}
+                                    </span>
+                                    <span className="upcoming-station">{o.purpose}</span>
+                                </li>
+                            ))}
+                        </ol>
+                    ) : (
+                        <p className="upcoming-empty">{loaded ? "No one in line" : "Loading..."}</p>
+                    )}
+                </section>
+
+                <section className="queue-video">
+                    <VideoUp />
+                </section>
+            </div>
 
             {/* chime + voice for each new call */}
             <Call serving={serving} loaded={loaded} />
