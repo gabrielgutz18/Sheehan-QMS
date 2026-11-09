@@ -61,6 +61,7 @@ server/
   migrations/              numbered .sql files that create and change the tables
   server.js                production server: the built site + the API (npm start)
   backup.js                copies the database and video (npm run backup)
+  clearMessages.js         erases every chat and its pictures for good (npm run clear:messages)
   seed.js                  adds sample customers to today's queue (npm run seed)
   seedLoading.js           adds Loading staff accounts, one per crew (npm run seed:loading)
   seedSecurity.js          adds a Security account and customers at every stage (npm run seed:security)
@@ -165,6 +166,8 @@ Queue numbers start again at 1 every day (by the server's clock). The queue, the
 **Changing the tables:** add the next numbered file to `server/migrations/`, e.g. `002_add_counter_column.sql`. On the next start, the server runs every file it hasn't run yet, in order, and records it in `schema_migrations`. Existing data is kept. Never edit a migration that has already run; add a new one instead.
 
 **Backups:** `npm run backup` writes a dated copy of the database and the uploaded video to `backups/` in the data folder (or `BACKUP_DIR`), keeping the last 14. It's safe while the app is running. To restore, stop the app, copy a backup's `queue.db` and `videos/` into the data folder, and start it again.
+
+**Erasing every chat:** `npm run clear:messages` says how many messages and pictures there are and changes nothing. `npm run clear:messages -- --yes` erases the developer chat, SheeChat and their pictures for good, from the database file as well; concern reports stay. It's safe while the app is running. A copy goes to a `_before-clear-messages` folder in the backups first (`--no-backup` skips it), so delete that folder, and any older backups, if the messages mustn't be kept anywhere.
 
 **Moving to another computer:** stop the app and copy the whole data folder across.
 

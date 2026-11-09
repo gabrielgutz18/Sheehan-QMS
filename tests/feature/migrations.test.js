@@ -716,3 +716,81 @@ test("039 keeps every message as a text message with no report, and adds the rep
         db.close();
     }
 });
+
+// 041 rebuilds both chat tables so that a number, once given to a message, is never given to another
+test("041 keeps every message with its number, and a number isn't used again once the messages are erased", () => {
+    const old = databaseBefore("041");
+    old.exec(`
+        INSERT INTO users (id, username, name, role, password_hash, created_at)
+            VALUES (1, 'maria', 'Maria Santos', 'sales', 'x', '2026-10-20T08:00:00.000Z'),
+                   (2, 'jun', 'Jun Reyes', 'loading', 'x', '2026-10-20T08:00:00.000Z');
+        INSERT INTO concerns (id, staff_id, kind, area, details, impact, created_at, updated_at)
+            VALUES (3, 1, 'bug', 'Loading', 'Start does nothing', 'blocking', 'x', 'x');
+        INSERT INTO messages (id, staff_id, sender_id, body, sent_at, read_at, image, kind, concern_id)
+            VALUES (40, 1, 1, 'Report', 'sent', 'read', 'a.jpg', 'report', 3);
+        INSERT INTO direct_messages (id, sender_id, recipient_id, body, image, sent_at, read_at)
+            VALUES (50, 1, 2, 'Truck 2', 'b.jpg', 'sent', 'read');
+    `);
+    old.close();
+
+    const quiet = mock.method(console, "log", () => {});
+    const db = openDatabase(dataDir);
+    quiet.mock.restore();
+    try {
+        assert.deepEqual(
+            { ...db.prepare("SELECT * FROM messages").get() },
+            {
+                id: 40,
+                staff_id: 1,
+                sender_id: 1,
+                body: "Report",
+                sent_at: "sent",
+                read_at: "read",
+                image: "a.jpg",
+                kind: "report",
+                concern_id: 3,
+            },
+        );
+        assert.deepEqual(
+            { ...db.prepare("SELECT * FROM direct_messages").get() },
+            {
+                id: 50,
+                sender_id: 1,
+                recipient_id: 2,
+                body: "Truck 2",
+                image: "b.jpg",
+                sent_at: "sent",
+                read_at: "read",
+            },
+        );
+        for (const index of ["messages_staff", "direct_messages_pair", "direct_messages_unread"]) {
+            assert.ok(db.prepare("SELECT name FROM sqlite_master WHERE name = ?").get(index), index);
+        }
+
+        db.exec("DELETE FROM messages; DELETE FROM direct_messages");
+        const nextMessage = db
+            .prepare("INSERT INTO messages (staff_id, sender_id, body, sent_at) VALUES (1, 1, 'New', 'x')")
+            .run();
+        const nextDirect = db
+            .prepare("INSERT INTO direct_messages (sender_id, recipient_id, body, sent_at) VALUES (1, 2, 'New', 'x')")
+            .run();
+        assert.equal(Number(nextMessage.lastInsertRowid), 41);
+        assert.equal(Number(nextDirect.lastInsertRowid), 51);
+
+        // the rebuilt tables still check who a message is from, and still go with the account
+        assert.throws(
+            () =>
+                db
+                    .prepare(
+                        "INSERT INTO direct_messages (sender_id, recipient_id, body, sent_at) VALUES (9, 2, 'x', 'x')",
+                    )
+                    .run(),
+            /FOREIGN KEY/,
+        );
+        db.prepare("DELETE FROM users WHERE id = 1").run();
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM messages").get().n, 0);
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM direct_messages").get().n, 0);
+    } finally {
+        db.close();
+    }
+});
