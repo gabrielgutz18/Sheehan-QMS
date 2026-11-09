@@ -1,22 +1,28 @@
-import { useCallback, useEffect, useState } from 'react';
-import { useLocation } from 'react-router';
-import '../style/orderStatus.css';
-import '../style/chat.css';
+import { useCallback, useEffect, useState } from "react";
+import { useLocation } from "react-router";
+import "../style/orderStatus.css";
+import "../style/chat.css";
 
 import {
-    listSheeChat, listSheeChatPeople, listSheeChats, listSheeChatTyping, noteSheeChatTyping, sendSheeChat, sendSheeChatImage,
+    listSheeChat,
+    listSheeChatPeople,
+    listSheeChats,
+    listSheeChatTyping,
+    noteSheeChatTyping,
+    sendSheeChat,
+    sendSheeChatImage,
     sheeChatImageUrl,
-} from '../api/sheechatController.js';
-import { ROLE_LABELS } from '../auth/roles.js';
-import { useAuth } from '../auth/authContext.js';
-import Avatar from '../components/common/avatar.jsx';
-import MessageThread from '../components/chat/messageThread.jsx';
-import ProfileButton from '../components/chat/profileButton.jsx';
-import StaffList from '../components/chat/staffList.jsx';
-import StaffProfileDialog from '../components/chat/staffProfileDialog.jsx';
-import { useViewingConversation } from '../hooks/useMessageToasts.js';
-import useMessages from '../hooks/useMessages.js';
-import useTyping from '../hooks/useTyping.js';
+} from "../api/sheechatController.js";
+import { ROLE_LABELS } from "../auth/roles.js";
+import { useAuth } from "../auth/authContext.js";
+import Avatar from "../components/common/avatar.jsx";
+import MessageThread from "../components/chat/messageThread.jsx";
+import ProfileButton from "../components/chat/profileButton.jsx";
+import StaffList from "../components/chat/staffList.jsx";
+import StaffProfileDialog from "../components/chat/staffProfileDialog.jsx";
+import { useViewingConversation } from "../hooks/useMessageToasts.js";
+import useMessages from "../hooks/useMessages.js";
+import useTyping from "../hooks/useTyping.js";
 
 // new messages should show up while the page is open
 const REFRESH_MS = 5000;
@@ -48,7 +54,13 @@ function Conversation({ person, meId, onSent, onProfile }) {
                 typing={typing}
                 onTyping={typed}
                 imageUrl={sheeChatImageUrl}
-                disabled={person.disabled ? `${person.name}'s account is switched off, so you can't send them messages.` : ""}
+                disabled={
+                    person.deleted
+                        ? "This account has been deleted, so you can't send them messages."
+                        : person.disabled
+                          ? `${person.name}'s account is switched off, so you can't send them messages.`
+                          : ""
+                }
                 onSend={async (body, image) => {
                     added(await (image ? sendSheeChatImage(person.id, image, body) : sendSheeChat(person.id, body)));
                     onSent();
@@ -115,19 +127,36 @@ export default function SheeChatPage() {
         <section className="admin-page">
             <div>
                 <h1 className="admin-title">SheeChat</h1>
-                <p className="tab-hint">Chat with anyone on the staff. Pick a conversation, or someone on People to start one. Click a photo to see their profile.</p>
+                <p className="tab-hint">
+                    Chat with anyone on the staff. Pick a conversation, or someone on People to start one. Click a photo
+                    to see their profile.
+                </p>
             </div>
 
-            {listError && <p className="field-error" role="alert">{listError}</p>}
+            {listError && (
+                <p className="field-error" role="alert">
+                    {listError}
+                </p>
+            )}
 
             <div className="chat-layout">
                 <nav className="admin-panel chat-list" aria-label={view === "chats" ? "Conversations" : "People"}>
                     <div className="order-status-filters chat-views" role="group" aria-label="Show">
-                        <button type="button" className="status-chip" aria-pressed={view === "chats"} onClick={() => setView("chats")}>
+                        <button
+                            type="button"
+                            className="status-chip"
+                            aria-pressed={view === "chats"}
+                            onClick={() => setView("chats")}
+                        >
                             Conversations
                             {unread > 0 && <span className="status-chip-count">{unread}</span>}
                         </button>
-                        <button type="button" className="status-chip" aria-pressed={view === "people"} onClick={() => setView("people")}>
+                        <button
+                            type="button"
+                            className="status-chip"
+                            aria-pressed={view === "people"}
+                            onClick={() => setView("people")}
+                        >
                             People
                         </button>
                     </div>
@@ -153,18 +182,25 @@ export default function SheeChatPage() {
                                             <span className="chat-list-name">
                                                 <strong>{person.name}</strong>
                                                 <span className="history-note">
-                                                    {ROLE_LABELS[person.role] ?? person.role}{person.disabled && " · switched off"}
+                                                    {ROLE_LABELS[person.role] ?? person.role}
+                                                    {person.disabled && !person.deleted && " · switched off"}
                                                 </span>
                                             </span>
                                             <span className="chat-list-last">
                                                 {last.mine && "You: "}
-                                                {last.image ? (last.body ? `Picture · ${last.body}` : "Picture") : last.body}
+                                                {last.image
+                                                    ? last.body
+                                                        ? `Picture · ${last.body}`
+                                                        : "Picture"
+                                                    : last.body}
                                             </span>
                                         </span>
                                         <span className="chat-list-end">
                                             <time dateTime={last.sentAt}>{lastTime.format(new Date(last.sentAt))}</time>
                                             {count > 0 && (
-                                                <span className="chat-unread" aria-label={`${count} unread`}>{count}</span>
+                                                <span className="chat-unread" aria-label={`${count} unread`}>
+                                                    {count}
+                                                </span>
                                             )}
                                         </span>
                                     </button>
@@ -196,10 +232,14 @@ export default function SheeChatPage() {
                     key={profileOf.id}
                     person={profileOf}
                     onClose={() => setProfileOf(null)}
-                    onMessage={profileOf.id === openId ? null : () => {
-                        pick(profileOf);
-                        setProfileOf(null);
-                    }}
+                    onMessage={
+                        profileOf.id === openId
+                            ? null
+                            : () => {
+                                  pick(profileOf);
+                                  setProfileOf(null);
+                              }
+                    }
                 />
             )}
         </section>

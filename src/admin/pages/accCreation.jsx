@@ -1,12 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from "react";
 
-import { createUser, listUsers, updateUser } from '../api/adminUserController.js';
-import { useAuth } from '../auth/authContext.js';
-import { ROLE_LABELS } from '../auth/roles.js';
-import Avatar from '../components/common/avatar.jsx';
-import DepartmentTabs from '../components/accounts/departmentTabs.jsx';
-import EmployeeGrid from '../components/accounts/employeeGrid.jsx';
-import teams from '../../data/teams.js';
+import { createUser, dropUser, listUsers, updateUser } from "../api/adminUserController.js";
+import { useAuth } from "../auth/authContext.js";
+import { ROLE_LABELS } from "../auth/roles.js";
+import Avatar from "../components/common/avatar.jsx";
+import DepartmentTabs from "../components/accounts/departmentTabs.jsx";
+import EmployeeGrid from "../components/accounts/employeeGrid.jsx";
+import teams from "../../data/teams.js";
 
 // staff accounts, for admins and developers: create accounts (usually sales staff), set each person's sales team, reset passwords,
 // switch accounts off, and see how many customers each person has served
@@ -24,7 +24,19 @@ let nextRowKey = 0;
 const newRow = () => ({ ...EMPTY_FORM, key: nextRowKey++, showPassword: false, error: "" });
 const teamNames = teams.map((t) => t.name);
 // the roles to pick from on the create form, in the order the dropdown lists them
-const ROLE_CHOICES = ["sales", "loading", "service", "chassis", "hardware", "security", "cashier", "inventory", "developer", "admin"];
+const ROLE_CHOICES = [
+    "sales",
+    "loading",
+    "logistics",
+    "service",
+    "chassis",
+    "hardware",
+    "security",
+    "cashier",
+    "inventory",
+    "developer",
+    "admin",
+];
 
 // a small dialog for typing someone's new password
 function PasswordDialog({ account, busy, error, onSave, onClose }) {
@@ -44,7 +56,9 @@ function PasswordDialog({ account, busy, error, onSave, onClose }) {
                     onSave(password);
                 }}
             >
-                <h2 id="password-title" className="admin-dialog-title">New password for {account.name}</h2>
+                <h2 id="password-title" className="admin-dialog-title">
+                    New password for {account.name}
+                </h2>
                 <p className="admin-dialog-sub">They'll be signed out and use this password next time.</p>
                 <label className="admin-field">
                     New password
@@ -59,12 +73,25 @@ function PasswordDialog({ account, busy, error, onSave, onClose }) {
                     />
                 </label>
                 <p className="admin-dialog-hint">At least {MIN_PASSWORD} characters. Tell it to them in person.</p>
-                {error && <p className="field-error" role="alert">{error}</p>}
+                {error && (
+                    <p className="field-error" role="alert">
+                        {error}
+                    </p>
+                )}
                 <div className="admin-dialog-actions">
-                    <button type="button" className="admin-btn" onClick={() => dialogRef.current.close()} disabled={busy}>
+                    <button
+                        type="button"
+                        className="admin-btn"
+                        onClick={() => dialogRef.current.close()}
+                        disabled={busy}
+                    >
                         Cancel
                     </button>
-                    <button type="submit" className="admin-btn admin-btn-primary" disabled={busy || password.length < MIN_PASSWORD}>
+                    <button
+                        type="submit"
+                        className="admin-btn admin-btn-primary"
+                        disabled={busy || password.length < MIN_PASSWORD}
+                    >
                         {busy ? "Saving..." : "Save password"}
                     </button>
                 </div>
@@ -155,9 +182,11 @@ export default function AccCreation() {
         if (made.length) {
             edits.current += 1;
             setAccounts((prev) => [...prev, ...made]);
-            setNotice(made.length === 1
-                ? `Account created. ${made[0].name} can sign in with the username “${made[0].username}”.`
-                : `${made.length} accounts created: ${made.map((a) => a.username).join(", ")}.`);
+            setNotice(
+                made.length === 1
+                    ? `Account created. ${made[0].name} can sign in with the username “${made[0].username}”.`
+                    : `${made.length} accounts created: ${made.map((a) => a.username).join(", ")}.`,
+            );
         }
         if (failed.length) {
             setError(`${failed.length} of ${rows.length} weren't created. Fix them below and press Create again.`);
@@ -182,12 +211,43 @@ export default function AccCreation() {
     };
 
     const toggle = (account) => {
-        if (!account.disabled && !window.confirm(`Switch off ${account.name}'s account? They'll be signed out and can't sign in until it's switched back on.`)) {
+        if (
+            !account.disabled &&
+            !window.confirm(
+                `Switch off ${account.name}'s account? They'll be signed out and can't sign in until it's switched back on.`,
+            )
+        ) {
             return;
         }
-        change(account, { disabled: !account.disabled }, account.disabled
-            ? `${account.name} can sign in again.`
-            : `${account.name}'s account is switched off.`);
+        change(
+            account,
+            { disabled: !account.disabled },
+            account.disabled ? `${account.name} can sign in again.` : `${account.name}'s account is switched off.`,
+        );
+    };
+
+    // for good, and only for a switched-off account, so it always takes two deliberate steps
+    const drop = async (account) => {
+        if (
+            !window.confirm(
+                `Drop ${account.name}'s account for good? This can't be undone. Their photos and details are erased, and they show as "Deleted account" in the chats. Tickets they worked on keep their name.`,
+            )
+        ) {
+            return;
+        }
+        setBusy(account.id);
+        setError("");
+        setNotice("");
+        try {
+            await dropUser(account.id);
+            edits.current += 1;
+            setAccounts((prev) => prev.filter((a) => a.id !== account.id));
+            setNotice(`${account.name}'s account was dropped.`);
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setBusy(null);
+        }
     };
 
     const savePassword = async (password) => {
@@ -219,8 +279,16 @@ export default function AccCreation() {
         <section className="admin-page">
             <h1 className="admin-title">Accounts</h1>
 
-            {error && <p className="field-error" role="alert">{error}</p>}
-            {notice && <p className="admin-notice" role="status">{notice}</p>}
+            {error && (
+                <p className="field-error" role="alert">
+                    {error}
+                </p>
+            )}
+            {notice && (
+                <p className="admin-notice" role="status">
+                    {notice}
+                </p>
+            )}
 
             {accounts && <DepartmentTabs accounts={accounts} value={shownTab} onChange={setDepartment} />}
 
@@ -243,7 +311,13 @@ export default function AccCreation() {
                                 <div className="account-form">
                                     <label className="admin-field">
                                         Name
-                                        <input type="text" required maxLength={60} placeholder="Maria Santos" {...field(row.key, "name")} />
+                                        <input
+                                            type="text"
+                                            required
+                                            maxLength={60}
+                                            placeholder="Maria Santos"
+                                            {...field(row.key, "name")}
+                                        />
                                     </label>
                                     <label className="admin-field">
                                         Username
@@ -283,7 +357,9 @@ export default function AccCreation() {
                                         Role
                                         <select {...field(row.key, "role")}>
                                             {roleChoices.map((role) => (
-                                                <option key={role} value={role}>{ROLE_LABELS[role]}</option>
+                                                <option key={role} value={role}>
+                                                    {ROLE_LABELS[role]}
+                                                </option>
                                             ))}
                                         </select>
                                     </label>
@@ -291,11 +367,19 @@ export default function AccCreation() {
                                         Sales team
                                         <select {...field(row.key, "team")}>
                                             <option value="">No team</option>
-                                            {teamNames.map((name) => <option key={name} value={name}>{name}</option>)}
+                                            {teamNames.map((name) => (
+                                                <option key={name} value={name}>
+                                                    {name}
+                                                </option>
+                                            ))}
                                         </select>
                                     </label>
                                 </div>
-                                {row.error && <p className="field-error" role="alert">{row.error}</p>}
+                                {row.error && (
+                                    <p className="field-error" role="alert">
+                                        {row.error}
+                                    </p>
+                                )}
                             </fieldset>
                         ))}
                     </div>
@@ -308,9 +392,14 @@ export default function AccCreation() {
                         <button type="submit" className="admin-btn admin-btn-primary" disabled={creating}>
                             {creating
                                 ? "Creating..."
-                                : rows.length === 1 ? "Create account" : `Create ${rows.length} accounts`}
+                                : rows.length === 1
+                                  ? "Create account"
+                                  : `Create ${rows.length} accounts`}
                         </button>
-                        <span className="video-hint">Usernames: letters, numbers, dots, dashes or underscores. Passwords: at least {MIN_PASSWORD} characters.</span>
+                        <span className="video-hint">
+                            Usernames: letters, numbers, dots, dashes or underscores. Passwords: at least {MIN_PASSWORD}{" "}
+                            characters.
+                        </span>
                     </div>
                 </form>
             </div>
@@ -325,12 +414,18 @@ export default function AccCreation() {
                             <th scope="col">Served today</th>
                             <th scope="col">Total served</th>
                             <th scope="col">Status</th>
-                            <th scope="col"><span className="visually-hidden">Actions</span></th>
+                            <th scope="col">
+                                <span className="visually-hidden">Actions</span>
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
                         {!shown ? (
-                            <tr><td colSpan={7} className="admin-empty">Loading...</td></tr>
+                            <tr>
+                                <td colSpan={7} className="admin-empty">
+                                    Loading...
+                                </td>
+                            </tr>
                         ) : (
                             shown.map((a) => (
                                 <tr key={a.id} className={a.disabled ? "is-disabled" : undefined}>
@@ -345,7 +440,9 @@ export default function AccCreation() {
                                             </span>
                                         )}
                                         {a.id === me.id && <span className="history-note">You</span>}
-                                        {a.builtIn && <span className="history-note">Built-in admin (password set in .env)</span>}
+                                        {a.builtIn && (
+                                            <span className="history-note">Built-in admin (password set in .env)</span>
+                                        )}
                                     </td>
                                     <td>{a.username}</td>
                                     <td>
@@ -357,10 +454,18 @@ export default function AccCreation() {
                                                 aria-label={`Role for ${a.name}`}
                                                 value={a.role}
                                                 disabled={busy === a.id}
-                                                onChange={(e) => change(a, { role: e.target.value }, `${a.name} is now ${ROLE_LABELS[e.target.value]}.`)}
+                                                onChange={(e) =>
+                                                    change(
+                                                        a,
+                                                        { role: e.target.value },
+                                                        `${a.name} is now ${ROLE_LABELS[e.target.value]}.`,
+                                                    )
+                                                }
                                             >
                                                 {roleChoices.map((role) => (
-                                                    <option key={role} value={role}>{ROLE_LABELS[role]}</option>
+                                                    <option key={role} value={role}>
+                                                        {ROLE_LABELS[role]}
+                                                    </option>
                                                 ))}
                                             </select>
                                         )}
@@ -371,18 +476,30 @@ export default function AccCreation() {
                                             aria-label={`Sales team for ${a.name}`}
                                             value={a.team}
                                             disabled={busy === a.id || adminOnly(a)}
-                                            onChange={(e) => change(a, { team: e.target.value }, e.target.value
-                                                ? `${a.name} is now on team ${e.target.value}.`
-                                                : `${a.name} has no sales team now.`)}
+                                            onChange={(e) =>
+                                                change(
+                                                    a,
+                                                    { team: e.target.value },
+                                                    e.target.value
+                                                        ? `${a.name} is now on team ${e.target.value}.`
+                                                        : `${a.name} has no sales team now.`,
+                                                )
+                                            }
                                         >
                                             <option value="">No team</option>
-                                            {teamNames.map((name) => <option key={name} value={name}>{name}</option>)}
+                                            {teamNames.map((name) => (
+                                                <option key={name} value={name}>
+                                                    {name}
+                                                </option>
+                                            ))}
                                         </select>
                                     </td>
                                     <td>{whole.format(a.servedToday)}</td>
                                     <td>{whole.format(a.servedTotal)}</td>
                                     <td>
-                                        <span className={`history-badge ${a.disabled ? "history-badge--deleted" : "status-done"}`}>
+                                        <span
+                                            className={`history-badge ${a.disabled ? "history-badge--deleted" : "status-done"}`}
+                                        >
                                             {a.disabled ? "Switched off" : "Active"}
                                         </span>
                                     </td>
@@ -399,6 +516,16 @@ export default function AccCreation() {
                                                     }}
                                                 >
                                                     Reset password
+                                                </button>
+                                            )}
+                                            {a.disabled && !locked(a) && (
+                                                <button
+                                                    type="button"
+                                                    className="admin-btn admin-btn-danger"
+                                                    disabled={busy === a.id}
+                                                    onClick={() => drop(a)}
+                                                >
+                                                    Drop account
                                                 </button>
                                             )}
                                             {!locked(a) && (

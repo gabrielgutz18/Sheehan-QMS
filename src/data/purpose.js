@@ -9,6 +9,9 @@ const purpose = [
     { name: "Chassis" },
     { name: "Roofings Accessories" },
     { name: "Battery"},
+    { name: "Plain Sheet" },
+    { name: "Stainless Steel" },
+    { name: "Insulations" },
 ];
 
 export default purpose;

@@ -204,6 +204,7 @@ On every start, any `.sql` file not yet listed in `schema_migrations` runs, in n
 | [`019_area_loading_security_check.sql`](../server/migrations/019_area_loading_security_check.sql) | loading area by area, and the security check: adds `loading_area`, `security_pending`, `security_check_id` to `orders`, and the `order_loads` (each area loaded this visit, by whom and when) and `security_checks` (every guard's check: verified, or a report of something missing, over the quantity or stolen, with a note; kept even if the order is reopened) tables; orders already done stay done, with nothing to check |
 | [`020_cashier_staff.sql`](../server/migrations/020_cashier_staff.sql) | rebuilds `users` to allow the `cashier` role (changes how each order is paid, nothing else) |
 | [`040_service_staff.sql`](../server/migrations/040_service_staff.sql) | renames the TBA department to Service: rebuilds `users` so `role` allows `service` instead of `tba`, moves TBA accounts over, and changes the area from `TBA` to `Service` in `orders.loading_area`, `order_loads.area` and `security_checks.returned_to`; `orders.tba_priority` keeps its name |
+| [`043_logistics_staff.sql`](../server/migrations/043_logistics_staff.sql) | rebuilds `users` to allow the `logistics` role, for the Logistics department (Plain Sheet, Stainless Steel, Insulations) |
 
 **Changing the tables later:** never edit a file that has already run anywhere. Add the next number instead, for example `server/migrations/006_add_counter_number.sql`:
 
@@ -314,7 +315,7 @@ erDiagram
     order_loads {
         INTEGER id PK
         INTEGER order_id FK "orders.id, cascade"
-        TEXT area "Roofings, Steel, Service, Chassis or Hardware; once per order"
+        TEXT area "Roofings, Steel, Logistics, Service, Chassis or Hardware; once per order"
         INTEGER loaded_by FK "users.id; who pressed Done there"
         TEXT loaded_at
     }
@@ -349,10 +350,11 @@ erDiagram
         INTEGER id PK
         TEXT username "unique, any case"
         TEXT name
-        TEXT role "admin | sales | loading | service | chassis | hardware | security | cashier | inventory | developer"
+        TEXT role "admin | sales | loading | logistics | service | chassis | hardware | security | cashier | inventory | developer"
         TEXT password_hash "scrypt"
         TEXT created_at
         TEXT disabled_at
+        TEXT dropped_at
         TEXT first_name
         TEXT middle_name
         TEXT surname
@@ -418,7 +420,7 @@ Orders are never deleted from the app. Delete only sets `deleted_at`, so the cas
 | `sheet_cells` | what's typed in those columns, and over the cells the system works out, per order; a cleared cell has no row | `setSheetCell`, `clearSheetCell`, in `saveSheetCells()` and `createFromCells()` | `orderSheetCells`, `sheetCellsFor` → `sheetCells` on each order on the Order sheet |
 | `order_items` | the lines of each order | `saveItems()` → `deleteItems` + `insertItem` (L493-496) | `orderItems`, `dayItems` (L396-399), `itemsFor` (L380), stats joins |
 | `queue_counters` | last number given out each day | `nextQueueNum` (L330-333), on a new order and on a restore from an earlier day | same statement (`RETURNING last_num`) |
-| `users` | staff accounts and their profiles | built-in admin (L461-463), `insertUser` (L417), `updateUser` (L421), `updateProfile` (L426), `setPhoto` (L431) | `findUser` (L415), `findSession` join (L405), `ORDER_ROW` join (L313), `listUsers` (L432) |
+| `users` | staff accounts and their profiles; [`042_dropped_accounts.sql`](../server/migrations/042_dropped_accounts.sql) adds `dropped_at`: Drop account (`DELETE /admin/users/:id`) keeps the row with only `name`, because tickets, points, edits, loaded areas and security checks still point at it; it's left out of Accounts, and chats, reports and profiles show "Deleted account" | built-in admin (L461-463), `insertUser` (L417), `updateUser` (L421), `updateProfile` (L426), `setPhoto` (L431) | `findUser` (L415), `findSession` join (L405), `ORDER_ROW` join (L313), `listUsers` (L432) |
 | `sessions` | who is signed in; [`038_lasting_sign_ins.sql`](../server/migrations/038_lasting_sign_ins.sql) adds `created_at`, for the 30-day limit | `insertSession`, `touchSession` (pushes `expires` back as the app is used), `deleteSession`, `deleteExpiredSessions`, `deleteUserSessions` | `findSession` |
 | `serves` | the points | `addPoint` / `removePoint` (L340-343), from `changeStatus()` (L478-487), and `addPoint` on Hand over to loading (the point is the sales counter's; the crews finishing or reopening the order leave it alone) | `listUsers` (L432-437), `myTotals` / `myByHour` / `myByDay` / `myByMonth` (L440-455) |
 | `concerns` | the reports staff send through the three buttons on Message developer (a bug, a system concern or a feature for their department) and where each stands; [`039_concerns.sql`](../server/migrations/039_concerns.sql) also adds `kind` (`text`, `report` or `status`) and `concern_id` to `messages`, so each report has a card message from the staff member and each status change a message from the developer, which count as unread like any other | `insertConcern` + `insertMessage` in `POST /admin/concerns`; `setConcernStatus` + `insertMessage` in `PATCH /admin/concerns/:id`, each in one `transaction()` | `listConcerns` (the Chat page's Reports), `findConcern`, and the `concern` on report and status messages (`threadMessages`, `findMessage`) |

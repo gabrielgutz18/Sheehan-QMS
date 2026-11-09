@@ -937,6 +937,35 @@ test("039 keeps every message as a text message with no report, and adds the rep
     }
 });
 
+// 042 marks dropped accounts; every account already there is still in use
+test("042 leaves every account in use, and a dropped one still credits its tickets", () => {
+    const old = databaseBefore("042");
+    old.exec(`
+        INSERT INTO users (id, username, name, role, password_hash, created_at, disabled_at)
+            VALUES (1, 'maria', 'Maria Santos', 'sales', 'x', 'x', NULL), (2, 'jun', 'Jun Reyes', 'loading', 'x', 'x', 'off');
+    `);
+    old.close();
+
+    const quiet = mock.method(console, "log", () => {});
+    const db = openDatabase(dataDir);
+    quiet.mock.restore();
+    try {
+        assert.deepEqual(
+            db
+                .prepare("SELECT id, dropped_at FROM users ORDER BY id")
+                .all()
+                .map((u) => ({ ...u })),
+            [
+                { id: 1, dropped_at: null },
+                { id: 2, dropped_at: null },
+            ],
+        );
+        assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(), []);
+    } finally {
+        db.close();
+    }
+});
+
 // 041 rebuilds both chat tables so that a number, once given to a message, is never given to another
 test("041 keeps every message with its number, and a number isn't used again once the messages are erased", () => {
     const old = databaseBefore("041");
@@ -1090,6 +1119,65 @@ test("040 turns TBA accounts and areas into Service, and leaves everything else 
                     .prepare(
                         `INSERT INTO users (username, name, role, password_hash, created_at)
             VALUES ('old', 'Old Role', 'tba', 'x', '2026-11-09T08:00:00.000Z')`,
+                    )
+                    .run(),
+            /CHECK constraint/,
+        );
+        assert.throws(() => db.prepare("UPDATE users SET employee_id = 'e-1' WHERE id = 2").run(), /UNIQUE/);
+    } finally {
+        db.close();
+    }
+});
+
+// 043 rebuilds users again (the Logistics department): every account keeps its role, details and what points at it
+test("043 lets an account be Logistics staff and leaves every account as it was", () => {
+    const old = databaseBefore("043");
+    old.exec(`
+        INSERT INTO users (id, username, name, role, password_hash, created_at, employee_id, department, photo, sales_team, last_seen, cover_photo, dropped_at)
+            VALUES (1, 'maria', 'Maria Santos', 'sales', 'x', '2026-10-20T08:00:00.000Z', 'E-1', 'Sales', 'user-1.jpg', 'GIGA', 1761800000000, 'cover-1.jpg', NULL),
+                   (2, 'tony', 'Tony Gulong', 'service', 'x', '2026-10-30T08:00:00.000Z', NULL, '', NULL, '', NULL, NULL, '2026-11-09T09:00:00.000Z');
+        INSERT INTO direct_messages (sender_id, recipient_id, body, sent_at) VALUES (1, 2, 'Battery ready?', '2026-10-31T10:00:00.000Z');
+        INSERT INTO sessions (sid_hash, user_id, expires) VALUES ('abc', 1, 4102444800000);
+    `);
+    old.close();
+
+    const quiet = mock.method(console, "log", () => {});
+    const db = openDatabase(dataDir);
+    quiet.mock.restore();
+
+    try {
+        const maria = db
+            .prepare("SELECT role, employee_id, photo, sales_team, last_seen, cover_photo FROM users WHERE id = 1")
+            .get();
+        assert.deepEqual(
+            { ...maria },
+            {
+                role: "sales",
+                employee_id: "E-1",
+                photo: "user-1.jpg",
+                sales_team: "GIGA",
+                last_seen: 1761800000000,
+                cover_photo: "cover-1.jpg",
+            },
+        );
+        assert.deepEqual({ ...db.prepare("SELECT role, dropped_at FROM users WHERE id = 2").get() }, { role: "service", dropped_at: "2026-11-09T09:00:00.000Z" });
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sessions WHERE user_id = 1").get().n, 1);
+        assert.equal(
+            db.prepare("SELECT COUNT(*) AS n FROM direct_messages WHERE sender_id = 1 AND recipient_id = 2").get().n,
+            1,
+        );
+        assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(), []);
+
+        db.prepare(
+            `INSERT INTO users (username, name, role, password_hash, created_at)
+            VALUES ('lito', 'Lito Reyes', 'logistics', 'x', '2026-11-09T08:00:00.000Z')`,
+        ).run();
+        assert.throws(
+            () =>
+                db
+                    .prepare(
+                        `INSERT INTO users (username, name, role, password_hash, created_at)
+            VALUES ('teller', 'Someone', 'teller', 'x', '2026-11-09T08:00:00.000Z')`,
                     )
                     .run(),
             /CHECK constraint/,

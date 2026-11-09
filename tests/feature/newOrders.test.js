@@ -74,6 +74,29 @@ describe("new orders", () => {
         assert.equal((await newOrders(service))[0].handedOver.by, "Maria Santos");
     });
 
+    test("Logistics is told about its products, the same as Loading about theirs", async () => {
+        const maria = await app.actingAsSales("Maria Santos");
+        const logistics = await app.actingAsLogistics();
+        const sale = {
+            ...MIXED,
+            purpose: "Steel, Plain Sheet, Insulations",
+            invoices: [
+                { invoiceNo: "2231", type: "Steel" },
+                { invoiceNo: "701", type: "Plain Sheet" },
+                { invoiceNo: "703", type: "Insulations" },
+            ],
+        };
+        (await maria.post("/orders", sale)).assertStatus(201);
+
+        const [coming] = await newOrders(logistics);
+        assert.deepEqual(coming.types, ["Plain Sheet", "Insulations"]);
+        assert.deepEqual(coming.invoices, ["701", "703"]);
+        assert.equal(coming.handedOver, undefined);
+
+        (await maria.post("/admin/orders/1/handover")).assertStatus(200);
+        assert.equal((await newOrders(logistics))[0].handedOver.by, "Maria Santos");
+    });
+
     test("a ticket from the kiosk and a Customer Report aren't orders from sales", async () => {
         (await app.client().post("/orders", MIXED)).assertStatus(201);
         const report = { name: "Liza Cruz", purpose: "Customer Report", orders: [], concern: "Leaking." };

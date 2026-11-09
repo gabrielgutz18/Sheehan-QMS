@@ -1,9 +1,9 @@
 import { splitList } from './list.js';
 
 // the departments that take a customer once sales hands them over, each with its own staff role and page: the
-// loading crew (Roofings, Steel), Service (Tire, Battery), Chassis and Hardware; a customer who bought from several goes
+// loading crew (Roofings, Steel), Logistics (Plain Sheet, Stainless Steel, Insulations), Service (Tire, Battery), Chassis and Hardware; a customer who bought from several goes
 // to each in turn, one at a time
-export const DEPARTMENTS = { loading: "Loading", service: "Service", chassis: "Chassis", hardware: "Hardware" };
+export const DEPARTMENTS = { loading: "Loading", logistics: "Logistics", service: "Service", chassis: "Chassis", hardware: "Hardware" };
 
 // a department's name inside a sentence: "loading", "service", "hardware"
 export const departmentWord = (department) => DEPARTMENTS[department].toLowerCase();
@@ -15,13 +15,14 @@ export const departmentWord = (department) => DEPARTMENTS[department].toLowerCas
 const loadingAreas = [
     { name: "Roofings", types: ["Roofings", "Roofings Accessories"], department: "loading" },
     { name: "Steel", types: ["Steel"], department: "loading" },
+    { name: "Logistics", types: ["Plain Sheet", "Stainless Steel", "Insulations"], department: "logistics" },
     { name: "Service", types: ["Tire", "Battery"], department: "service" },
     { name: "Chassis", types: ["Chassis"], department: "chassis" },
     // Hardware hands small items over the counter, not onto a truck, so its crew prepares the order (WORK below)
     { name: "Hardware", types: ["Hardwares"], department: "hardware", work: "preparing" },
 ];
 
-// how the pages and the server word an area's work: a truck is loaded at Roofings, Steel, Service and Chassis, but at
+// how the pages and the server word an area's work: a truck is loaded at Roofings, Steel, Logistics, Service and Chassis, but at
 // Hardware the crew gets the items ready, so it's "Start preparing at Hardware", "Prepared by Juan" there; only the
 // words differ, the steps (Call, Start, Done) and the records are the same
 // verb: "Load it at an area ..."; doing: "Loading at Roofings", "Start loading"; done: "Loaded by", "Not loaded"; what:
@@ -75,6 +76,11 @@ export const HISTORY_LISTS = {
     loading: [
         { name: "Roofings", types: ["Roofings", "Roofings Accessories"], area: "Roofings" },
         { name: "Steel", types: ["Steel"], area: "Steel" },
+    ],
+    logistics: [
+        { name: "Plain Sheet", types: ["Plain Sheet"], area: "Logistics" },
+        { name: "Stainless Steel", types: ["Stainless Steel"], area: "Logistics" },
+        { name: "Insulations", types: ["Insulations"], area: "Logistics" },
     ],
     service: [
         { name: "Tire", types: ["Tire"], area: "Service" },

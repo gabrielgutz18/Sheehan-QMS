@@ -5,7 +5,7 @@ import { splitList } from '../../data/list.js';
 // ticket's invoice with no type, goes under Others
 export const INVOICE_COLUMNS = [
     { key: "roofing", header: "Roofing", types: ["Roofings", "Roofings Accessories"] },
-    { key: "construction", header: "Construction & hardware", types: ["Steel", "Hardwares"] },
+    { key: "construction", header: "Construction & hardware", types: ["Steel", "Hardwares", "Plain Sheet", "Stainless Steel", "Insulations"] },
     // tires, batteries and accessories
     { key: "tba", header: "TBA", types: ["Tire", "Battery"] },
     { key: "chassis", header: "Chassis", types: ["Chassis"] },
