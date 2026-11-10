@@ -5,6 +5,10 @@
         <!-- the Sheehan logo: favicon.ico (16, 32 and 48 px) for the browser tab, apple-touch-icon.png for a phone's home screen -->
         <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <!-- lets Edge and Chrome install the staff area as an app (its own window and desktop icon); they only offer
+             it over https, see docs/DEPLOY-UBUNTU.md, Optional: HTTPS -->
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <meta name="theme-color" content="#c8202a" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

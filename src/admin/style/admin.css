@@ -265,6 +265,13 @@
     cursor: not-allowed;
 }
 
+/* Install app, over Sign out while the browser offers it: in the brand red, so it reads as an offer, not a page */
+.admin-install {
+    font-weight: 600;
+    color: var(--brand-red);
+    background: var(--brand-tint);
+}
+
 /* a profile photo, or initials when there's none */
 .avatar {
     flex: none;

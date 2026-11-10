@@ -15,12 +15,15 @@ import Icon from '../common/icon.jsx';
 import OrderNotices from '../notification/orderNotices.jsx';
 import OrderStatusDrawer, { BOARD_DOCKS } from '../orderStatus/orderStatusDrawer.jsx';
 import logo from '../../../assets/SheehanLogo.png';
+import { canInstall, installApp, subscribeToInstall } from '../../../installPrompt.js';
 
 // windows this narrow have no room for the sidebar beside the page: it slides over it from the menu button instead
 const SIDEBAR_SLIDES = "(max-width: 900px)";
 const SIDEBAR_ICON = "M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zM9.5 4v16";
 const SIGN_OUT_ICON = "M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4";
 const CHEVRON_ICON = "M9 6l6 6-6 6";
+// a screen with an arrow coming down into it
+const INSTALL_ICON = "M4 5h16v11H4zM8 20h8M12 7v6M9 10l3 3 3-3";
 
 // the red dot for messages nobody has opened yet
 function UnreadDot() {
@@ -106,6 +109,8 @@ export default function AdminLayout() {
     const current = links.find(({ to, end = false }) => matchPath({ path: to, end }, pathname));
     const sidebarShown = slides ? menuOpen : !collapsed;
     const { toasts, dismiss, unreadSheeChat } = useMessageToasts(user?.id);
+    // Install app, only while the browser offers it: over https, in Edge or Chrome, and not already installed
+    const installable = useSyncExternalStore(subscribeToInstall, canInstall);
 
     useEffect(() => {
         if (!menuOpen) return;
@@ -152,6 +157,17 @@ export default function AdminLayout() {
                             <span className="admin-user-role">{ROLE_LABELS[user?.role] ?? "Staff"}</span>
                         </span>
                     </NavLink>
+                    {installable && (
+                        <button
+                            type="button"
+                            className="admin-signout admin-install"
+                            onClick={installApp}
+                            title="Put Sheehan QMS on this PC's desktop and Start menu, in its own window"
+                        >
+                            <Icon d={INSTALL_ICON} className="admin-nav-icon" />
+                            Install app
+                        </button>
+                    )}
                     <button type="button" className="admin-signout" onClick={handleLogout} disabled={signingOut}>
                         <Icon d={SIGN_OUT_ICON} className="admin-nav-icon" />
                         {signingOut ? "Signing out..." : "Sign out"}

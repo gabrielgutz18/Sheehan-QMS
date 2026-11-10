@@ -31,6 +31,8 @@ const CONTENT_TYPES = {
     ".wav": "audio/wav",
     ".mp4": "video/mp4",
     ".txt": "text/plain; charset=utf-8",
+    // what makes the staff area installable as an app (public/manifest.webmanifest)
+    ".webmanifest": "application/manifest+json",
 };
 
 const plain = (res, status, text) => {

@@ -64,6 +64,8 @@
         <li>Restart the browser: type <code>edge://restart</code> in Edge, or <code>chrome://restart</code> in Chrome,
           and press Enter.</li>
         <li>Open this page again: it should say the device is set up.</li>
+        <li>Open the queue, sign in, and click <strong>Install app</strong> at the bottom of the menu on the left:
+          <em>Sheehan QMS</em> gets its own icon on the desktop and in the Start menu, and opens in its own window.</li>
       </ol>
     </div>
   </details>
@@ -78,6 +80,8 @@
         <li>Choose <strong>CA certificate</strong>, tap <strong>Install anyway</strong>, and pick
           <code>sheehan-ca.crt</code> from your downloads.</li>
         <li>Close Chrome completely and open this page again.</li>
+        <li>To keep it on the home screen: open the queue, then Chrome's menu (&#8942;), then
+          <strong>Add to home screen</strong> or <strong>Install app</strong>.</li>
       </ol>
     </div>
   </details>
@@ -92,6 +96,8 @@
         <li>Go to Settings, then General, then About, then <em>Certificate Trust Settings</em>, and turn on
           <strong>Sheehan QMS local certificate authority</strong>.</li>
         <li>Open this page again.</li>
+        <li>To keep it on the home screen: open the queue in Safari, tap Share, then
+          <strong>Add to Home Screen</strong>.</li>
       </ol>
     </div>
   </details>
@@ -118,7 +124,8 @@
     try {
       await fetch(QUEUE, { mode: "no-cors", cache: "no-store", signal: AbortSignal.timeout(6000) });
       status.className = "status is-ok";
-      status.innerHTML = `This device is set up. <a href="${QUEUE}">Open the queue</a>`;
+      // straight to the staff pages, where Install app is at the bottom of the menu
+      status.innerHTML = `This device is set up. <a href="${QUEUE}staff">Open the queue and install the app</a>`;
     } catch {
       status.innerHTML = 'This device isn\'t set up yet: follow the steps below. <button type="button" class="link">Check again</button>';
       status.querySelector("button").addEventListener("click", check);
