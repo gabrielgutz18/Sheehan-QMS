@@ -114,7 +114,7 @@ describe("SheeChat profile", () => {
 
     test("every role but the developers can open one", async () => {
         const inventory = await app.actingAsInventory();
-        for (const who of [await app.actingAsAdmin(), await app.actingAsSecurity(), await app.actingAsChassis()]) {
+        for (const who of [await app.actingAsAdmin(), await app.actingAsSecurity(), await app.actingAsService()]) {
             (await who.get(`/admin/sheechat/${inventory.account.id}/profile`)).assertStatus(200);
         }
 

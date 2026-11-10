@@ -9,7 +9,7 @@ import ProfileButton from './profileButton.jsx';
 // who's online changes as staff come and go, so it checks again now and then
 const REFRESH_MS = 15000;
 // the departments, in the order the sidebar has their pages; each is a kind of staff account
-const DEPARTMENTS = ["admin", "sales", "loading", "service", "chassis", "hardware", "security", "cashier", "inventory"];
+const DEPARTMENTS = ["admin", "sales", "loading", "service", "hardware", "security", "cashier", "inventory"];
 
 // the Chat page's Staff list: every staff member by department, online ones first in each, with a green dot on the
 // ones online and when the others were last on; picking one opens a conversation with them

@@ -1,7 +1,7 @@
 // the backend API, shared by the Vite dev server (npm run dev) and server/server.js (npm start)
 // orders, settings, staff accounts and sign-ins are saved in a SQLite database in the data folder
 // (see server/db.js), and an uploaded display video next to it in videos/, so nothing is lost on restart
-// ten roles: admins can do everything; sales, loading, service, chassis, hardware, security, cashier, inventory and developer staff only what
+// nine roles: admins can do everything; sales, loading, service, hardware, security, cashier, inventory and developer staff only what
 // ROLE_ROUTES lists for them
 import { createHash, randomBytes, scrypt, scryptSync, timingSafeEqual } from "node:crypto";
 import { createReadStream, createWriteStream, mkdirSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
@@ -132,8 +132,8 @@ const DEPARTMENT_HISTORY_PAGE = 50;
 const MAX_PICKED = 500;
 const PICK_TICKETS = "Pick the tickets first.";
 const ANNOUNCER_REPEATS = [1, 2];
-// loading: the loading crew, one shared line for its areas (Roofings, Steel, Logistics); service: the Service department (Tire, Battery),
-// chassis: the Chassis department and hardware: the Hardware department, each the same as loading but for its own area
+// loading: the loading crew, one shared line for its areas (Roofings, Steel, Logistics, Chassis); service: the Service
+// department (Tire, Battery) and hardware: the Hardware department, each the same as loading but for its own area
 // (src/data/loadingAreas.js); security: the guards at the gate, the last stage, who check what each customer leaves
 // with; cashier: who sets how each order is paid when its salesman isn't around; inventory: the inventory department, with no work page of its own
 // yet; developer: the team that builds the app, who answer staff on the Chat page when something doesn't go well
@@ -142,7 +142,6 @@ const ROLES = [
     "sales",
     "loading",
     "service",
-    "chassis",
     "hardware",
     "security",
     "cashier",
@@ -150,7 +149,7 @@ const ROLES = [
     "developer",
 ];
 const NO_SUCH_ROLE =
-    "Pick admin, sales, loading, service, chassis, hardware, security, cashier, inventory or developer.";
+    "Pick admin, sales, loading, service, hardware, security, cashier, inventory or developer.";
 // a developer makes and changes accounts on Accounts too, but not admin ones, so they can't give themselves everything
 const ADMINS_ONLY = "Only an admin can make or change an admin account.";
 // who a dropped account is in the chats, reports and profiles; tickets and points keep the person's real name
@@ -177,7 +176,7 @@ const SECURITY_RESULTS = ["verified", "missing", "over", "stolen"];
 const MAX_SECURITY_NOTE = 300;
 const NO_SUCH_TEAM = `Pick a sales team from the list (${TEAMS.join(", ")}), or none.`;
 const NO_SUCH_CREW_AREA = `Pick a loading area (${CREW_AREAS.join(", ")}), or none.`;
-// a loading account's area, Roofings, Steel or Logistics; every other kind of account has none
+// a loading account's area, Roofings, Steel, Logistics or Chassis; every other kind of account has none
 const crewAreaFor = (role, area) => (role === "loading" ? area : "");
 const USERNAME = /^[a-z0-9._-]{3,32}$/i;
 const MIN_PASSWORD = 8;
@@ -278,7 +277,7 @@ const ROLE_ROUTES = {
         ["POST", /^\/admin\/loading\/[^/]+\/(call|start|done|back)$/],
         // the History tab: the orders handed over to the department, its own only
         ["GET", /^\/admin\/department-history\/loading$/],
-        // the Crew tab: who's on the loading crew, by area (Roofings, Steel, Logistics), and who's online
+        // the Crew tab: who's on the loading crew, by area (Roofings, Steel, Logistics, Chassis), and who's online
         ["GET", /^\/admin\/loading\/crew$/],
         // the pop-ups when staff make or hand over an order with something for the department
         ["GET", /^\/admin\/new-orders$/],
@@ -292,18 +291,6 @@ const ROLE_ROUTES = {
         ["POST", /^\/admin\/service\/[^/]+\/(call|start|done|back)$/],
         // the History tab: the orders handed over to the department, its own only
         ["GET", /^\/admin\/department-history\/service$/],
-        // the pop-ups when staff make or hand over an order with something for the department
-        ["GET", /^\/admin\/new-orders$/],
-        ...ACCOUNT_ROUTES,
-        ...MESSAGE_ROUTES,
-    ],
-    // the Chassis page: the same as loading's, for the customers handed over with a Chassis
-    chassis: [
-        ["GET", /^\/admin\/orders$/],
-        ["GET", /^\/admin\/order-status$/],
-        ["POST", /^\/admin\/chassis\/[^/]+\/(call|start|done|back)$/],
-        // the History tab: the orders handed over to the department, its own only
-        ["GET", /^\/admin\/department-history\/chassis$/],
         // the pop-ups when staff make or hand over an order with something for the department
         ["GET", /^\/admin\/new-orders$/],
         ...ACCOUNT_ROUTES,
@@ -856,7 +843,7 @@ const toMe = (row) => ({
     // their own sales team (GIGA, MEGA, ... from src/data/teams.js), set by an admin on Accounts; "" for none; an edit
     // they save on Customer order is marked with it
     team: row.sales_team,
-    // the loading crew's area they work in (Roofings, Steel, Logistics), set by an admin on Accounts; "" for none, and
+    // the loading crew's area they work in (Roofings, Steel, Logistics, Chassis), set by an admin on Accounts; "" for none, and
     // for anyone not on the loading crew
     loadingArea: row.loading_area ?? "",
     // the photo's file name doubles as a version for its URL, or null
@@ -1177,7 +1164,7 @@ const toPayment = (row, invoices, edits, todayDate) => {
 // from older tickets, which could be anyone's), who loaded the list's area, and the guard's report that sent it back,
 // when it was to this area; nothing about payment or sales
 // an older order whose loads weren't kept area by area (from before the areas, or a Chassis order loaded at Service before
-// Chassis had its own department) has none for its areas now: who pressed its last Done (orders.loaded_by) is who
+// Chassis had an area of its own) has none for its areas now: who pressed its last Done (orders.loaded_by) is who
 // loaded it; a send-back or a reopen clears that too, so it never says loaded when it isn't
 const toDepartmentRow = (row, invoices, list) => {
     const areaLoad = row.area_load ? JSON.parse(row.area_load) : null;
@@ -3150,7 +3137,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             return send(res, 200, newOrders);
         }
 
-        // a loading, service, chassis or hardware account only gets the orders sales has handed over that its department has a part in:
+        // a loading, service or hardware account only gets the orders sales has handed over that its department has a part in:
         // the department's one shared line
         if (method === "GET" && path === "/admin/orders") {
             const date = today();
@@ -3421,7 +3408,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             }
         }
 
-        // the Loading, Service, Chassis and Hardware pages: a department's crew calls a customer sales has handed over to one of its
+        // the Loading, Service and Hardware pages: a department's crew calls a customer sales has handed over to one of its
         // areas, marks them done, or sends them back to waiting; each is one shared line, so any of the department's
         // accounts (or an admin) can call any of them, and finish or send back one the department is serving; a
         // customer is in one place at a time, so while a sales counter or another department has them, they can't
@@ -3433,7 +3420,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         // then on the customer can't be called or loaded at another area until that one is done (or sends them back to
         // waiting), e.g. Steel waits while Roofings is loading; Done needs Loading first
         const loadingMatch = path.match(
-            /^\/admin\/(loading|service|chassis|hardware)\/([^/]+)\/(call|start|done|back)$/,
+            /^\/admin\/(loading|service|hardware)\/([^/]+)\/(call|start|done|back)$/,
         );
         if (method === "POST" && loadingMatch) {
             const [, department, queueNum, action] = loadingMatch;

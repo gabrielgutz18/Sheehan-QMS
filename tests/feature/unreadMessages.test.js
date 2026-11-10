@@ -127,7 +127,6 @@ describe("unread messages", () => {
             await app.actingAsAdmin(),
             await app.actingAsLoading(),
             await app.actingAsService(),
-            await app.actingAsChassis(),
             await app.actingAsHardware(),
             await app.actingAsSecurity(),
             await app.actingAsInventory(),

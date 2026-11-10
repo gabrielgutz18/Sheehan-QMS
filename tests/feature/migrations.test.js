@@ -758,10 +758,7 @@ test("rebuilding users for chassis accounts keeps every account, sign-in, last s
         );
         assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(), []);
 
-        db.prepare(
-            `INSERT INTO users (username, name, role, password_hash, created_at)
-            VALUES ('carlos', 'Carlos Tsasis', 'chassis', 'x', '2026-10-31T08:00:00.000Z')`,
-        ).run();
+        // a Chassis account itself is 046's to check: it turns them into loading ones
         assert.throws(
             () =>
                 db

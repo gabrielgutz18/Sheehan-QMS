@@ -49,6 +49,7 @@ describe("Logistics", () => {
                 ["Roofings", ["Roofings", "Roofings Accessories"]],
                 ["Steel", ["Steel"]],
                 ["Logistics", ["For Logistics"]],
+                ["Chassis", ["Chassis"]],
             ],
         );
         assert.deepEqual(areasFor("Steel"), ["Steel"]);
@@ -120,7 +121,7 @@ describe("Logistics", () => {
         (await admin.get("/admin/department-history/logistics")).assertStatus(404);
     });
 
-    test("Loading's History has a For Logistics list after Roofings and Steel", async () => {
+    test("Loading's History has a For Logistics list after Roofings and Steel, then Chassis", async () => {
         await takeOrder({ name: "Ana Reyes" });
         await takeOrder({ name: "Carlo Bautista", purpose: "Steel", invoices: [{ invoiceNo: "101", type: "Steel" }] });
         const maria = await app.actingAsSales();
@@ -137,6 +138,7 @@ describe("Logistics", () => {
                 ["Roofings", "Roofings"],
                 ["Steel", "Steel"],
                 ["For Logistics", "Logistics"],
+                ["Chassis", "Chassis"],
             ],
         );
         assert.deepEqual(await rows("For Logistics"), ["Ana Reyes"]);

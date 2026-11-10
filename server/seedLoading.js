@@ -1,10 +1,10 @@
-// adds Loading staff accounts, and one each for Service and Chassis, like Laravel's db:seed, for trying the Loading, Service and Chassis pages; each signs in to the admin area
+// adds Loading staff accounts, one of them at Chassis, and one for Service, like Laravel's db:seed, for trying the Loading and Service pages; each signs in to the admin area
 // for Loading and My account only, with no admin or sales rights, and sees every order sales has handed over (loading
 // is one shared line)
 // they're made through the same POST /admin/users an admin uses on Accounts, signed in as the built-in admin from
 // .env; safe to run while the app is running, and running it again leaves existing accounts alone
 // run: npm run seed:loading                                 four demo accounts, password loading123:
-//                                                           loading1 and loading2 (loading), service1 (Service), chassis1 (Chassis)
+//                                                           loading1, loading2 and chassis1 (loading, chassis1 at Chassis), service1 (Service)
 //      npm run seed:loading -- pedro crew-password-1        one account: your own username and password
 // don't run it on the live server with the default password
 import { createServer } from 'node:http';
@@ -14,12 +14,13 @@ import { DEPARTMENTS } from '../src/data/loadingAreas.js';
 
 const DEFAULT_PASSWORD = "loading123";
 
-// two, to see them share the one loading line, and one each at Service and Chassis, their own departments
+// three on the loading crew, to see them share the one loading line, chassis1 set to the Chassis area, and one at
+// Service, its own department
 const DEMO_ACCOUNTS = [
     { username: "loading1", name: "Loading Staff 1", role: "loading" },
     { username: "loading2", name: "Loading Staff 2", role: "loading" },
+    { username: "chassis1", name: "Chassis Staff 1", role: "loading", loadingArea: "Chassis" },
     { username: "service1", name: "Service Staff 1", role: "service" },
-    { username: "chassis1", name: "Chassis Staff 1", role: "chassis" },
 ];
 
 const [username, password = DEFAULT_PASSWORD] = process.argv.slice(2);

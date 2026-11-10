@@ -118,8 +118,6 @@ export async function bootApp({ googleSheet } = {}) {
     const actingAsLoading = (name = "Pedro Garcia") => actingAsStaff("loading", name);
     // someone in the Service department (Tire, Battery)
     const actingAsService = (name = "Tony Gulong") => actingAsStaff("service", name);
-    // someone in the Chassis department
-    const actingAsChassis = (name = "Carlos Tsasis") => actingAsStaff("chassis", name);
     // someone in the Hardware department
     const actingAsHardware = (name = "Ben Martillo") => actingAsStaff("hardware", name);
     // a security guard at the gate
@@ -145,7 +143,6 @@ export async function bootApp({ googleSheet } = {}) {
         actingAsSales,
         actingAsLoading,
         actingAsService,
-        actingAsChassis,
         actingAsHardware,
         actingAsSecurity,
         actingAsCashier,

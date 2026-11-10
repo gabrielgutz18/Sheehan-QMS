@@ -1253,9 +1253,9 @@ test("a loading account reports a bug through the guided chat, and a developer m
     await devs.close();
 });
 
-// the loading crew by area: on Accounts, the Loading tab has its own browser-style tabs, Roofings, Steel and Logistics,
-// and an admin moves someone to another area from the table below
-test("Accounts groups the loading crew into Roofings, Steel and Logistics tabs", async ({ page }) => {
+// the loading crew by area: on Accounts, the Loading tab has its own browser-style tabs, Roofings, Steel, Logistics and
+// Chassis, and an admin moves someone to another area from the table below
+test("Accounts groups the loading crew into Roofings, Steel, Logistics and Chassis tabs", async ({ page }) => {
     const stamp = Date.now();
     const steel = {
         username: `e2e-steel-${stamp}`,
@@ -1265,6 +1265,7 @@ test("Accounts groups the loading crew into Roofings, Steel and Logistics tabs",
         loadingArea: "Steel",
     };
     const logistics = { ...steel, username: `e2e-logi-${stamp}`, name: `Logistics ${stamp}`, loadingArea: "Logistics" };
+    const chassis = { ...steel, username: `e2e-chas-${stamp}`, name: `Chassis ${stamp}`, loadingArea: "Chassis" };
 
     await page.goto("/staff/accounts");
     await signIn(page, ADMIN.username, ADMIN.password);
@@ -1284,7 +1285,7 @@ test("Accounts groups the loading crew into Roofings, Steel and Logistics tabs",
                 if (!res.ok) throw new Error(`making ${account.username} failed (${res.status})`);
             }
         },
-        [steel, logistics],
+        [steel, logistics, chassis],
     );
     await page.reload();
 
@@ -1293,7 +1294,7 @@ test("Accounts groups the loading crew into Roofings, Steel and Logistics tabs",
         .getByRole("tab", { name: /^Loading/ })
         .click();
     const areas = page.getByRole("tablist", { name: "Loading areas" });
-    for (const name of ["All loading", "Roofings", "Steel", "Logistics"]) {
+    for (const name of ["All loading", "Roofings", "Steel", "Logistics", "Chassis"]) {
         await expect(areas.getByRole("tab", { name: new RegExp(`^${name} \\d+$`) })).toBeVisible();
     }
     const grid = page.locator(".employee-grid");
@@ -1305,6 +1306,10 @@ test("Accounts groups the loading crew into Roofings, Steel and Logistics tabs",
     await expect(grid.getByRole("article", { name: steel.name })).toBeVisible();
     await expect(grid.getByRole("article", { name: logistics.name })).toBeHidden();
     await page.screenshot({ path: "test-results/crew-tabs.png", fullPage: false });
+    await areas.getByRole("tab", { name: /^Chassis/ }).click();
+    await expect(grid.getByRole("article", { name: chassis.name })).toBeVisible();
+    await expect(grid.getByRole("article", { name: steel.name })).toBeHidden();
+    await areas.getByRole("tab", { name: /^Steel/ }).click();
 
     // moved to Roofings, they leave the Steel tab and show under Roofings
     await page.getByLabel(`Loading area for ${steel.name}`).selectOption("Roofings");
@@ -1314,8 +1319,8 @@ test("Accounts groups the loading crew into Roofings, Steel and Logistics tabs",
     await expect(grid.getByRole("article", { name: logistics.name })).toBeHidden();
 });
 
-// a loading member's own view of the crew: the Loading page's Crew tab, the same Roofings, Steel and Logistics tabs,
-// opening on their own area
+// a loading member's own view of the crew: the Loading page's Crew tab, the same Roofings, Steel, Logistics and Chassis
+// tabs, opening on their own area
 test("a loading account sees its crew by area on the Loading page's Crew tab", async ({ page, browser }) => {
     const stamp = Date.now();
     const me = {
@@ -1356,7 +1361,7 @@ test("a loading account sees its crew by area on the Loading page's Crew tab", a
     await loading.getByRole("tab", { name: "Crew" }).click();
 
     const areas = loading.getByRole("tablist", { name: "Loading areas" });
-    for (const name of ["All loading", "Roofings", "Steel", "Logistics"]) {
+    for (const name of ["All loading", "Roofings", "Steel", "Logistics", "Chassis"]) {
         await expect(areas.getByRole("tab", { name: new RegExp(`^${name} \\d+$`) })).toBeVisible();
     }
     // it opens on their own area, with them on it, online

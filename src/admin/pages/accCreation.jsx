@@ -31,7 +31,6 @@ const ROLE_CHOICES = [
     "sales",
     "loading",
     "service",
-    "chassis",
     "hardware",
     "security",
     "cashier",
