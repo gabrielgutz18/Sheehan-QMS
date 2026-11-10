@@ -23,7 +23,7 @@ import ChatPage from "./pages/chatPage.jsx";
 import DeletedTicketsPage from "./pages/deletedTicketsPage.jsx";
 import MessagesPage from "./pages/messagesPage.jsx";
 
-// every kind of staff account but the developers, who are written to from Message developer and have no Dashboard
+// every kind of staff account but the developers, who are written to from Message developer
 const NOT_DEVELOPER = ["admin", "sales", "loading", "service", "hardware", "security", "cashier", "inventory"];
 
 // the browser tab: "Sheehan Inc. — Staff" until someone signs in, then their role ("Sheehan Inc. — Sales")
@@ -48,11 +48,14 @@ export default function AdminApp() {
                     <Route element={<AdminLayout />}>
                         <Route path="account" element={<AccountPage />} />
 
-                        {/* the live queue and their own profile, for everyone but the developers (admins' has the
-                            day's counts and sales graph too), SheeChat with one another, and writing to the developers
-                            when something doesn't go well */}
+                        {/* the live queue, who is in charge of each customer and their own profile, for everyone
+                            (admins' has the day's counts and sales graph too, and the developers' the reports staff
+                            sent through the bot) */}
+                        <Route index element={<DashboardPage />} />
+
+                        {/* SheeChat with one another, and writing to the developers when something doesn't go well,
+                            for everyone but the developers */}
                         <Route element={<ProtectedRoute roles={NOT_DEVELOPER} />}>
-                            <Route index element={<DashboardPage />} />
                             {/* SheeChat has Message developer as its second tab */}
                             <Route path="sheechat" element={<MessagesPage />} />
                             <Route

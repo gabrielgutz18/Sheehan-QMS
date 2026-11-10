@@ -17,7 +17,7 @@ export const NAV_FOLDERS = {
 // icon: one 24 × 24 SVG path, drawn by Icon; blurb: what the page is for, on the Dashboard's links to a role's pages
 // folder: the NAV_FOLDERS folder it sits in, left out for one straight in its group
 const navItems = [
-    { to: "/staff", label: "Dashboard", end: true, group: "Overview", roles: NOT_DEVELOPER, icon: "M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z", blurb: "The live queue and your profile" },
+    { to: "/staff", label: "Dashboard", end: true, group: "Overview", roles: STAFF, icon: "M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z", blurb: "The live queue and your profile" },
     { to: "/staff/sheechat", label: "SheeChat", group: "Overview", roles: NOT_DEVELOPER, icon: "M3 6h12v8H7l-4 3zM9 14v2h8l4 3V9h-6", blurb: "Chat with anyone on the staff, or message the developers" },
     { to: "/staff/chat", label: "Chat", group: "My work", roles: ["developer"], icon: "M4 5h16v11H9l-5 4zM8 9h8M8 12h5", blurb: "What staff write when something doesn't go well, and your answers" },
     { to: "/staff/customer-order", label: "Customer order", group: "My work", roles: ["admin", "sales"], icon: "M9 3h6v3H9zM9 4.5H5V21h14V4.5h-4M12 10v7M8.5 13.5h7", blurb: "Take orders, print tickets, and today's orders and the history" },

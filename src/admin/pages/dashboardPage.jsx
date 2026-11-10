@@ -1,19 +1,21 @@
-import { useAuth } from '../auth/authContext.js';
-import useLiveQueue from '../hooks/useLiveQueue.js';
-import Greetings from '../components/common/greetings.jsx';
-import QueueOverview from '../components/dashboard/queueOverview.jsx';
-import TotalViewer from '../components/dashboard/totalViewer.jsx';
-import Statistics from '../components/dashboard/statistics.jsx';
-import QuickLinks from '../components/dashboard/quickLinks.jsx';
-import ProfileSummary from '../components/accounts/profileSummary.jsx';
-import LiveQueue from '../components/dashboard/liveQueue.jsx';
-import InChargeTable from '../components/dashboard/inChargeTable.jsx';
-import LifeCycleTable from '../components/orderStatus/lifeCycleTable.jsx';
-import { BOARD_ON_DASHBOARD } from '../data/navItems.js';
+import { useAuth } from "../auth/authContext.js";
+import useLiveQueue from "../hooks/useLiveQueue.js";
+import Greetings from "../components/common/greetings.jsx";
+import QueueOverview from "../components/dashboard/queueOverview.jsx";
+import TotalViewer from "../components/dashboard/totalViewer.jsx";
+import Statistics from "../components/dashboard/statistics.jsx";
+import QuickLinks from "../components/dashboard/quickLinks.jsx";
+import ProfileSummary from "../components/accounts/profileSummary.jsx";
+import LiveQueue from "../components/dashboard/liveQueue.jsx";
+import InChargeTable from "../components/dashboard/inChargeTable.jsx";
+import LifeCycleTable from "../components/orderStatus/lifeCycleTable.jsx";
+import StaffConcerns from "../components/dashboard/staffConcerns.jsx";
+import { BOARD_ON_DASHBOARD } from "../data/navItems.js";
 
 // every staff member's Dashboard: the live queue (how many are being served and in line, the next number, and the
 // tickets themselves) beside their own profile, and who is in charge of each customer in progress; admins also get
-// the day's orders by status and the sales graph, and everyone else a link to each of their own pages
+// the day's orders by status and the sales graph, the developers the reports staff sent through the bot that are still
+// waiting, and everyone but admins a link to each of their own pages
 export default function DashboardPage() {
     const { user } = useAuth();
     const isAdmin = user.role === "admin";
@@ -27,12 +29,21 @@ export default function DashboardPage() {
                     <Greetings name={user.firstName || user.name} role={user.role} />
                 </div>
 
-                {error && <p className="field-error" role="alert">{error}</p>}
+                {error && (
+                    <p className="field-error" role="alert">
+                        {error}
+                    </p>
+                )}
 
                 <section className="overview-section" aria-labelledby="overview-queue">
-                    <h2 id="overview-queue" className="overview-heading">Overview</h2>
+                    <h2 id="overview-queue" className="overview-heading">
+                        Overview
+                    </h2>
                     <QueueOverview orders={orders} loading={loading} />
                 </section>
+
+                {/* what staff reported through the bot on Message developer, before the queue's own work */}
+                {user.role === "developer" && <StaffConcerns />}
 
                 <InChargeTable />
 
@@ -42,7 +53,9 @@ export default function DashboardPage() {
                 {isAdmin ? (
                     <>
                         <section className="overview-section" aria-labelledby="overview-status">
-                            <h2 id="overview-status" className="overview-heading">Queue status</h2>
+                            <h2 id="overview-status" className="overview-heading">
+                                Queue status
+                            </h2>
                             <TotalViewer orders={orders} loading={loading} />
                         </section>
 
@@ -50,7 +63,9 @@ export default function DashboardPage() {
                     </>
                 ) : (
                     <section className="overview-section" aria-labelledby="overview-pages">
-                        <h2 id="overview-pages" className="overview-heading">Your pages</h2>
+                        <h2 id="overview-pages" className="overview-heading">
+                            Your pages
+                        </h2>
                         <QuickLinks role={user.role} />
                     </section>
                 )}
