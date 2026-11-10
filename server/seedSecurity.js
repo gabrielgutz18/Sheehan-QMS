@@ -179,7 +179,8 @@ try {
 
     const added = [];
     for (const { order, steps } of CUSTOMERS) {
-        const { body: taken } = await admin("POST", "/orders", order);
+        // made by the sales account that hands them over: only a ticket's maker (or whoever assists) may
+        const { body: taken } = await sales("POST", "/orders", order);
         await steps(taken.queueNum, sales, { admin, loading }, guard ?? admin, admin);
         added.push(taken.queueNum);
     }
