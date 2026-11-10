@@ -1373,3 +1373,37 @@ test("a loading account sees its crew by area on the Loading page's Crew tab", a
     await expect(mine).toBeHidden();
     await theirs.close();
 });
+
+// the staff area installs as an app (public/manifest.webmanifest): the browser offers it once, early (over https,
+// or on this test's localhost), and the sidebar's Install app button shows that offer, then goes once it's used
+test("the staff area can be installed as an app from the Install app button", async ({ page }) => {
+    const manifest = await page.request.get("/manifest.webmanifest");
+    expect(manifest.headers()["content-type"]).toContain("application/manifest+json");
+    const app = await manifest.json();
+    expect(app).toMatchObject({ name: "Sheehan QMS", start_url: "/staff", display: "standalone" });
+    for (const { src } of app.icons) expect((await page.request.get(src)).ok()).toBe(true);
+
+    await page.goto("/staff/customer-order");
+    await signIn(page, ADMIN.username, ADMIN.password);
+    await expect(page.getByRole("heading", { name: "Customer order" })).toBeVisible();
+    await expect(page.locator('link[rel="manifest"]')).toHaveAttribute("href", "/manifest.webmanifest");
+
+    // no offer, no button (a browser that can't install it, or plain http)
+    const install = page.getByRole("button", { name: "Install app" });
+    await expect(install).toBeHidden();
+
+    // the browser's offer, as Edge and Chrome make it, answered "installed"
+    await page.evaluate(() => {
+        const offer = Object.assign(new Event("beforeinstallprompt", { cancelable: true }), {
+            prompt: async () => {
+                window.installPrompted = true;
+            },
+            userChoice: Promise.resolve({ outcome: "accepted" }),
+        });
+        window.dispatchEvent(offer);
+    });
+    await expect(install).toBeVisible();
+    await install.click();
+    await expect.poll(() => page.evaluate(() => window.installPrompted)).toBe(true);
+    await expect(install).toBeHidden();
+});

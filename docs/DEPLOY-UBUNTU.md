@@ -275,6 +275,15 @@ scp -r <user>@<server-ip>:/var/backups/sheehan-queue ./sheehan-backups
 
 On the Windows PC that drives the display screen, copy [`deploy/display-screen.cmd`](../deploy/display-screen.cmd) from this repo, set `SERVER` at the top to the server's address (with nginx, `http://<server-ip>`), and double-click it. It opens the display full screen in its own Microsoft Edge window (Chrome if Edge isn't installed) that's allowed to play sound, so calls are read out without anyone clicking the page. Edge has Microsoft's natural voices (Ava, Emma, Jenny, Rosa for Philippine English, ...): pick one under Admin → Call announcements with the admin page open in Edge, so it's a voice the display has too. Put a shortcut to it in `shell:startup` to open the display when Windows starts. Opened any other way, the browser keeps the display silent after every start or reload until someone clicks on the page.
 
+**The staff app on every PC.** The staff pages can sit on each PC like a program, a **Sheehan QMS** icon on the desktop and in the Start menu that opens in its own window, with no address bar or tabs. Two ways, per PC:
+
+| | How | Needs |
+|---|---|---|
+| **Install app** (best) | Open the queue in Edge or Chrome, sign in, and click **Install app** at the bottom of the menu on the left, then **Install**. Edge and Chrome keep it up to date by themselves, since it's the same site. | HTTPS (*Optional: HTTPS* above): Edge and Chrome only offer it over `https://`. The device setup page `http://sheehanqms.local/install` ends with this step. |
+| **`install-app.cmd`** (works now, over plain http) | Download `http://<server>/install-app.cmd` on the PC (nginx serves it from the code; or copy [`deploy/install-app.cmd`](../deploy/install-app.cmd) by USB or a shared folder), double-click it, and choose *More info* → *Run anyway* if Windows asks. It makes the icon, with the Sheehan logo, for that Windows account; no administrator needed. Set `SERVER` at its top if the server isn't `http://sheehanqms.local`. | Nothing; after changing `deploy/nginx.conf` or `deploy/nginx-https.conf`, copy it into `/etc/nginx/sites-available/sheehan-queue` again and reload nginx. |
+
+Either way it's the same app on the same server: nothing is installed that needs updating, and every PC sees the same orders. Right-click the icon in the taskbar → *Pin to taskbar* to keep it there.
+
 Orders are taken by staff in Admin → Customer order; there is no customer kiosk. Tickets print through the browser: after Serve, **Print ticket** opens the print preview with just the ticket, and staff pick the printer there. Any printer installed in Windows on that PC works, including one shared from another computer on the network (add it once in Windows: Settings → Printers & scanners → Add device, or open `\\<computer>` in File Explorer and double-click the printer). Nothing needs to run on the staff PCs.
 
 ## 11. Updating (the GitHub workflow)
