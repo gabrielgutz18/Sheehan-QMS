@@ -161,6 +161,11 @@
     -webkit-line-clamp: 2;
 }
 
+/* the area's gate, on its own line under "Please proceed to Roofings" */
+.serving-gate {
+    font-weight: 800;
+}
+
 .serving-empty {
     flex: 1;
     display: flex;
@@ -413,6 +418,10 @@
         margin-top: calc(var(--px) * 6);
         font-size: calc(var(--px) * 42);
         -webkit-line-clamp: 1;
+    }
+    /* one line here, so the gate follows "Please proceed to Roofings" on it */
+    .serving--split .serving-note br {
+        display: none;
     }
     .serving-others {
         padding-left: calc(var(--px) * 40);

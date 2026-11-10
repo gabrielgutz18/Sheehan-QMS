@@ -14,9 +14,11 @@ export const departmentWord = (department) => DEPARTMENTS[department].toLowerCas
 // this list too, so the two always agree
 // the loading crew works four areas, each with only its own products: Roofings (Roofings, Roofings Accessories), Steel
 // (steel only), Logistics (plain sheets, stainless steel, insulation, all as For Logistics for now) and Chassis
+// gate: the gate of the yard a customer drives to for the area, told with the call ("Please proceed to Roofings (Gate Y:
+// Yero)"); Yero is where the roofing sheets are, Bakalan the steel; an area with none is just named
 const loadingAreas = [
-    { name: "Roofings", types: ["Roofings", "Roofings Accessories"], department: "loading" },
-    { name: "Steel", types: ["Steel"], department: "loading" },
+    { name: "Roofings", types: ["Roofings", "Roofings Accessories"], department: "loading", gate: "Gate Y: Yero" },
+    { name: "Steel", types: ["Steel"], department: "loading", gate: "Gate B: Bakalan" },
     { name: "Logistics", types: ["For Logistics"], department: "loading" },
     { name: "Chassis", types: ["Chassis"], department: "loading" },
     { name: "Service", types: ["Tire", "Battery"], department: "service" },
@@ -56,6 +58,14 @@ const WORK = {
 // an area's words (WORK); the loading ones for an order from before the areas ("") or an unknown area
 /** @param {string | null | undefined} area */
 export const workOf = (area) => WORK[loadingAreas.find(({ name }) => name === area)?.work ?? "loading"];
+
+// what the display shows under the number when a department calls a customer to an area, with the area's gate:
+// "Please proceed to Roofings (Gate Y: Yero)", "Please proceed to Hardware"
+/** @param {string} area */
+export const proceedTo = (area) => {
+    const gate = loadingAreas.find(({ name }) => name === area)?.gate;
+    return `Please proceed to ${area}${gate ? ` (${gate})` : ""}`;
+};
 
 // "Loaded", "Prepared": the start of a sentence
 /** @param {string} word */

@@ -1,4 +1,4 @@
-import loadingAreas, { areasFor, departmentHas, departmentOf, departmentWord, workOf } from '../../data/loadingAreas.js';
+import loadingAreas, { areasFor, departmentHas, departmentOf, departmentWord, proceedTo, workOf } from '../../data/loadingAreas.js';
 
 // where a department's crew sends a customer it calls: one-tap "Please proceed to …" messages in the Loading, Service and
 // Hardware pages' call dialog (the message can still be changed before calling); the areas are departments of the
@@ -12,8 +12,8 @@ export const handOverTo = (purpose) => {
     return words.length > 1 ? `${words.slice(0, -1).join(", ")} and ${words.at(-1)}` : words[0];
 };
 
-// what the display shows under the number when a department calls a customer
-export const proceedTo = (area) => `Please proceed to ${area}`;
+// what the display shows under the number when a department calls a customer, with the area's gate (src/data/loadingAreas.js)
+export { proceedTo };
 
 // the order's areas still to load, in turn: ["Steel"] once Roofings is done
 export const areasLeft = (order) => (order.areas ?? []).filter((area) => !area.loaded).map(({ name }) => name);

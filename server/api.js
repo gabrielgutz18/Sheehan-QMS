@@ -35,6 +35,7 @@ import loadingAreas, {
     areasFor,
     departmentHas,
     departmentOf,
+    proceedTo,
     historyListsOf,
     workOf,
 } from "../src/data/loadingAreas.js";
@@ -3465,7 +3466,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                 if (!servingHere || area !== order.loading_area) {
                     changeStatus(order, "serving", me, {
                         calledAt: Date.now(),
-                        remarks: area ? `Please proceed to ${area}` : "",
+                        remarks: area ? proceedTo(area) : "",
                         servedBy: me.id,
                         atLoading: 1,
                         loadingArea: area,

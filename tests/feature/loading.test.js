@@ -360,7 +360,7 @@ describe("loading at a station", () => {
         assert.equal(straight.servedBy.name, "Rico Steel");
         assert.ok(straight.loadingStartedAt);
         const { serving } = (await app.client().get("/queue")).assertStatus(200).body;
-        assert.equal(serving[0].remarks, "Please proceed to Steel");
+        assert.equal(serving[0].remarks, "Please proceed to Steel (Gate B: Bakalan)");
 
         // called to Roofings, but the truck went to Steel
         (await pedro.post("/admin/loading/2/call", { area: "Roofings" })).assertStatus(200);

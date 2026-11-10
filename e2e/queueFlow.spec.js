@@ -158,6 +158,8 @@ test("a customer goes from their ticket, through hand-over and loading, with the
     await expect(page.getByRole("dialog")).toBeHidden();
     await expect(page.getByRole("status").filter({ hasText: /^✓ Called / })).toBeVisible();
     await expect(nowServing.getByText(customer)).toBeVisible();
+    // told which gate the Roofings yard is, on a line of its own
+    await expect(nowServing.locator(".serving-gate")).toHaveText("(Gate Y: Yero)");
 
     // the truck arrives and the crew finishes, so the customer leaves the display
     const ticket = page.getByRole("listitem").filter({ hasText: customer });
