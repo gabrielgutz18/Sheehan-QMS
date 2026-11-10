@@ -1160,7 +1160,10 @@ test("043 lets an account be Logistics staff and leaves every account as it was"
                 cover_photo: "cover-1.jpg",
             },
         );
-        assert.deepEqual({ ...db.prepare("SELECT role, dropped_at FROM users WHERE id = 2").get() }, { role: "service", dropped_at: "2026-11-09T09:00:00.000Z" });
+        assert.deepEqual(
+            { ...db.prepare("SELECT role, dropped_at FROM users WHERE id = 2").get() },
+            { role: "service", dropped_at: "2026-11-09T09:00:00.000Z" },
+        );
         assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sessions WHERE user_id = 1").get().n, 1);
         assert.equal(
             db.prepare("SELECT COUNT(*) AS n FROM direct_messages WHERE sender_id = 1 AND recipient_id = 2").get().n,
@@ -1168,10 +1171,7 @@ test("043 lets an account be Logistics staff and leaves every account as it was"
         );
         assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(), []);
 
-        db.prepare(
-            `INSERT INTO users (username, name, role, password_hash, created_at)
-            VALUES ('lito', 'Lito Reyes', 'logistics', 'x', '2026-11-09T08:00:00.000Z')`,
-        ).run();
+        // a Logistics account itself is 044's to check: it turns them into loading ones
         assert.throws(
             () =>
                 db
@@ -1183,6 +1183,87 @@ test("043 lets an account be Logistics staff and leaves every account as it was"
             /CHECK constraint/,
         );
         assert.throws(() => db.prepare("UPDATE users SET employee_id = 'e-1' WHERE id = 2").run(), /UNIQUE/);
+    } finally {
+        db.close();
+    }
+});
+
+// 044 rebuilds users once more (Logistics joins the loading crew): a Logistics account becomes a loading one, with its
+// sessions, chats and loaded areas, and every other account stays as it was
+test("044 turns Logistics accounts into loading ones and leaves every other account as it was", () => {
+    const old = databaseBefore("044");
+    old.exec(`
+        INSERT INTO users (id, username, name, role, password_hash, created_at, employee_id, department, photo, sales_team, last_seen, cover_photo, dropped_at)
+            VALUES (1, 'maria', 'Maria Santos', 'sales', 'x', '2026-10-20T08:00:00.000Z', 'E-1', 'Sales', 'user-1.jpg', 'GIGA', 1761800000000, 'cover-1.jpg', NULL),
+                   (2, 'lito', 'Lito Reyes', 'logistics', 'x', '2026-11-09T08:00:00.000Z', 'E-2', 'Logistics', 'user-2.jpg', '', 1762600000000, NULL, NULL),
+                   (3, 'tony', 'Tony Gulong', 'service', 'x', '2026-10-30T08:00:00.000Z', NULL, '', NULL, '', NULL, NULL, '2026-11-09T09:00:00.000Z');
+        INSERT INTO direct_messages (sender_id, recipient_id, body, sent_at) VALUES (2, 1, 'Plain sheets loaded', '2026-11-09T10:00:00.000Z');
+        INSERT INTO sessions (sid_hash, user_id, expires) VALUES ('abc', 2, 4102444800000);
+    `);
+    old.close();
+
+    const quiet = mock.method(console, "log", () => {});
+    const db = openDatabase(dataDir);
+    quiet.mock.restore();
+
+    try {
+        const roles = db
+            .prepare("SELECT id, role FROM users ORDER BY id")
+            .all()
+            .map(({ id, role }) => [id, role]);
+        assert.deepEqual(roles, [
+            [1, "sales"],
+            [2, "loading"],
+            [3, "service"],
+        ]);
+        assert.deepEqual(
+            { ...db.prepare("SELECT employee_id, department, photo, last_seen FROM users WHERE id = 2").get() },
+            { employee_id: "E-2", department: "Logistics", photo: "user-2.jpg", last_seen: 1762600000000 },
+        );
+        assert.equal(
+            db.prepare("SELECT dropped_at FROM users WHERE id = 3").get().dropped_at,
+            "2026-11-09T09:00:00.000Z",
+        );
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sessions WHERE user_id = 2").get().n, 1);
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM direct_messages WHERE sender_id = 2").get().n, 1);
+        assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(), []);
+
+        assert.throws(
+            () =>
+                db
+                    .prepare(
+                        `INSERT INTO users (username, name, role, password_hash, created_at)
+            VALUES ('ben', 'Ben Cruz', 'logistics', 'x', '2026-11-10T08:00:00.000Z')`,
+                    )
+                    .run(),
+            /CHECK constraint/,
+        );
+        assert.throws(() => db.prepare("UPDATE users SET employee_id = 'e-1' WHERE id = 2").run(), /UNIQUE/);
+    } finally {
+        db.close();
+    }
+});
+
+// 045 gives each account a loading area, '' for every account already there, which an admin then sets on Accounts
+test("045 adds a loading area to every account, none to start with", () => {
+    const old = databaseBefore("045");
+    old.exec(`
+        INSERT INTO users (id, username, name, role, password_hash, created_at)
+            VALUES (1, 'pedro', 'Pedro Garcia', 'loading', 'x', '2026-10-20T08:00:00.000Z'),
+                   (2, 'maria', 'Maria Santos', 'sales', 'x', '2026-10-20T08:00:00.000Z');
+    `);
+    old.close();
+
+    const quiet = mock.method(console, "log", () => {});
+    const db = openDatabase(dataDir);
+    quiet.mock.restore();
+
+    try {
+        const areas = db.prepare("SELECT id, role, loading_area FROM users ORDER BY id").all().map((r) => ({ ...r }));
+        assert.deepEqual(areas, [
+            { id: 1, role: "loading", loading_area: "" },
+            { id: 2, role: "sales", loading_area: "" },
+        ]);
     } finally {
         db.close();
     }

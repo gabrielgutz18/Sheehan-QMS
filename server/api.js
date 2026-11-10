@@ -1,7 +1,7 @@
 // the backend API, shared by the Vite dev server (npm run dev) and server/server.js (npm start)
 // orders, settings, staff accounts and sign-ins are saved in a SQLite database in the data folder
 // (see server/db.js), and an uploaded display video next to it in videos/, so nothing is lost on restart
-// eleven roles: admins can do everything; sales, loading, logistics, service, chassis, hardware, security, cashier, inventory and developer staff only what
+// ten roles: admins can do everything; sales, loading, service, chassis, hardware, security, cashier, inventory and developer staff only what
 // ROLE_ROUTES lists for them
 import { createHash, randomBytes, scrypt, scryptSync, timingSafeEqual } from "node:crypto";
 import { createReadStream, createWriteStream, mkdirSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
@@ -29,6 +29,7 @@ import checkers, { CHECKER_ROUNDS } from "../src/data/checkers.js";
 import { splitList } from "../src/data/list.js";
 import formatQueueNum from "../src/data/queueNum.js";
 import loadingAreas, {
+    CREW_AREAS,
     DEPARTMENTS,
     capitalized,
     areasFor,
@@ -131,7 +132,7 @@ const DEPARTMENT_HISTORY_PAGE = 50;
 const MAX_PICKED = 500;
 const PICK_TICKETS = "Pick the tickets first.";
 const ANNOUNCER_REPEATS = [1, 2];
-// loading: the loading crew, one shared line for its areas (Roofings, Steel); logistics: the Logistics department (For Logistics orders); service: the Service department (Tire, Battery),
+// loading: the loading crew, one shared line for its areas (Roofings, Steel, Logistics); service: the Service department (Tire, Battery),
 // chassis: the Chassis department and hardware: the Hardware department, each the same as loading but for its own area
 // (src/data/loadingAreas.js); security: the guards at the gate, the last stage, who check what each customer leaves
 // with; cashier: who sets how each order is paid when its salesman isn't around; inventory: the inventory department, with no work page of its own
@@ -140,7 +141,6 @@ const ROLES = [
     "admin",
     "sales",
     "loading",
-    "logistics",
     "service",
     "chassis",
     "hardware",
@@ -150,7 +150,7 @@ const ROLES = [
     "developer",
 ];
 const NO_SUCH_ROLE =
-    "Pick admin, sales, loading, logistics, service, chassis, hardware, security, cashier, inventory or developer.";
+    "Pick admin, sales, loading, service, chassis, hardware, security, cashier, inventory or developer.";
 // a developer makes and changes accounts on Accounts too, but not admin ones, so they can't give themselves everything
 const ADMINS_ONLY = "Only an admin can make or change an admin account.";
 // who a dropped account is in the chats, reports and profiles; tickets and points keep the person's real name
@@ -176,6 +176,9 @@ const TYPING_MS = 4000;
 const SECURITY_RESULTS = ["verified", "missing", "over", "stolen"];
 const MAX_SECURITY_NOTE = 300;
 const NO_SUCH_TEAM = `Pick a sales team from the list (${TEAMS.join(", ")}), or none.`;
+const NO_SUCH_CREW_AREA = `Pick a loading area (${CREW_AREAS.join(", ")}), or none.`;
+// a loading account's area, Roofings, Steel or Logistics; every other kind of account has none
+const crewAreaFor = (role, area) => (role === "loading" ? area : "");
 const USERNAME = /^[a-z0-9._-]{3,32}$/i;
 const MIN_PASSWORD = 8;
 
@@ -275,18 +278,8 @@ const ROLE_ROUTES = {
         ["POST", /^\/admin\/loading\/[^/]+\/(call|start|done|back)$/],
         // the History tab: the orders handed over to the department, its own only
         ["GET", /^\/admin\/department-history\/loading$/],
-        // the pop-ups when staff make or hand over an order with something for the department
-        ["GET", /^\/admin\/new-orders$/],
-        ...ACCOUNT_ROUTES,
-        ...MESSAGE_ROUTES,
-    ],
-    // the Logistics page: the same as loading's, for the customers handed over with a For Logistics order
-    logistics: [
-        ["GET", /^\/admin\/orders$/],
-        ["GET", /^\/admin\/order-status$/],
-        ["POST", /^\/admin\/logistics\/[^/]+\/(call|start|done|back)$/],
-        // the History tab: the orders handed over to the department, its own only
-        ["GET", /^\/admin\/department-history\/logistics$/],
+        // the Crew tab: who's on the loading crew, by area (Roofings, Steel, Logistics), and who's online
+        ["GET", /^\/admin\/loading\/crew$/],
         // the pop-ups when staff make or hand over an order with something for the department
         ["GET", /^\/admin\/new-orders$/],
         ...ACCOUNT_ROUTES,
@@ -863,6 +856,9 @@ const toMe = (row) => ({
     // their own sales team (GIGA, MEGA, ... from src/data/teams.js), set by an admin on Accounts; "" for none; an edit
     // they save on Customer order is marked with it
     team: row.sales_team,
+    // the loading crew's area they work in (Roofings, Steel, Logistics), set by an admin on Accounts; "" for none, and
+    // for anyone not on the loading crew
+    loadingArea: row.loading_area ?? "",
     // the photo's file name doubles as a version for its URL, or null
     photo: row.photo,
     // the cover photo's file name, which doubles as a version the same way, or null
@@ -1552,7 +1548,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         // a disabled account's sign-ins stop working at once
         findSession: db.prepare(`
             SELECT s.expires, s.created_at AS signed_in_at, u.id, u.username, u.name, u.role, u.first_name, u.middle_name, u.surname,
-                u.employee_id, u.department, u.sales_team, u.photo, u.cover_photo, u.created_at
+                u.employee_id, u.department, u.sales_team, u.loading_area, u.photo, u.cover_photo, u.created_at
             FROM sessions s JOIN users u ON u.id = s.user_id
             WHERE s.sid_hash = ? AND u.disabled_at IS NULL`),
         deleteSession: db.prepare("DELETE FROM sessions WHERE sid_hash = ?"),
@@ -1564,21 +1560,21 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         // on Accounts, so it never gets in the way of a new one, and the password is random, so nobody knows it
         dropUser: db.prepare(`
             UPDATE users SET username = :username, password_hash = :passwordHash, dropped_at = :now, first_name = '',
-                middle_name = '', surname = '', employee_id = NULL, department = '', sales_team = '', photo = NULL,
+                middle_name = '', surname = '', employee_id = NULL, department = '', sales_team = '', loading_area = '', photo = NULL,
                 cover_photo = NULL, last_seen = NULL
             WHERE id = :id`),
 
         findUser: db.prepare("SELECT * FROM users WHERE username = ?"),
         findUserById: db.prepare("SELECT * FROM users WHERE id = ?"),
         insertUser: db.prepare(`
-            INSERT INTO users (username, name, first_name, surname, role, sales_team, password_hash, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`),
+            INSERT INTO users (username, name, first_name, surname, role, sales_team, loading_area, password_hash, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`),
         resetBuiltInAdmin: db.prepare(
             "UPDATE users SET role = 'admin', disabled_at = NULL, password_hash = ? WHERE id = ?",
         ),
         updateUser: db.prepare(`
             UPDATE users SET name = :name, first_name = :firstName, surname = :surname, role = :role,
-                sales_team = :team, disabled_at = :disabledAt, password_hash = :passwordHash
+                sales_team = :team, loading_area = :loadingArea, disabled_at = :disabledAt, password_hash = :passwordHash
             WHERE id = :id`),
         // My account
         updateProfile: db.prepare(`
@@ -1704,7 +1700,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         setLastSeen: db.prepare("UPDATE users SET last_seen = ? WHERE id = ?"),
         // every account but switched-off ones, with whether a sign-in of theirs is still open, for who's online
         listPresence: db.prepare(`
-            SELECT u.id, u.name, u.first_name, u.surname, u.role, u.department, u.photo, u.last_seen,
+            SELECT u.id, u.name, u.first_name, u.surname, u.role, u.department, u.loading_area, u.photo, u.last_seen,
                 EXISTS (SELECT 1 FROM sessions s WHERE s.user_id = u.id AND s.expires > :now) AS signed_in
             FROM users u
             WHERE u.disabled_at IS NULL
@@ -1746,6 +1742,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             adminUsername,
             "",
             "admin",
+            "",
             "",
             hashPasswordSync(adminPassword),
             new Date().toISOString(),
@@ -2499,7 +2496,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
 
         // admins and developers get here (see ROLE_ROUTES); new accounts are usually sales staff
         if (method === "POST" && path === "/admin/users") {
-            const { username, name, password, role = "sales", team = "" } = await readBody(req);
+            const { username, name, password, role = "sales", team = "", loadingArea = "" } = await readBody(req);
             if (me.role === "developer" && role === "admin") return send(res, 403, { message: ADMINS_ONLY });
             if (typeof username !== "string" || !USERNAME.test(username.trim())) {
                 return send(res, 400, { message: "Usernames are 3–32 letters, numbers, dots, dashes or underscores." });
@@ -2509,6 +2506,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                 return send(res, 400, { message: `Passwords need at least ${MIN_PASSWORD} characters.` });
             if (!ROLES.includes(role)) return send(res, 400, { message: NO_SUCH_ROLE });
             if (!optionalPick(team, TEAMS)) return send(res, 400, { message: NO_SUCH_TEAM });
+            if (!optionalPick(loadingArea, CREW_AREAS)) return send(res, 400, { message: NO_SUCH_CREW_AREA });
             if (sql.findUser.get(username.trim())) return send(res, 409, { message: "That username is taken." });
             // they can add a middle name, employee ID and department themselves on My account
             const [firstName, surname] = splitName(name);
@@ -2519,6 +2517,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                 surname,
                 role,
                 team,
+                crewAreaFor(role, loadingArea),
                 await hashPassword(password),
                 new Date().toISOString(),
             );
@@ -2564,7 +2563,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             return send(res, 204);
         }
 
-        // { name?, role?, team?, password?, disabled? }; team is "" for none
+        // { name?, role?, team?, loadingArea?, password?, disabled? }; team and loadingArea are "" for none
         const userMatch = path.match(/^\/admin\/users\/(\d+)$/);
         if (method === "PATCH" && userMatch) {
             const account = sql.findUserById.get(Number(userMatch[1]));
@@ -2579,6 +2578,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                 surname: account.surname,
                 role: account.role,
                 team: account.sales_team,
+                loadingArea: account.loading_area,
                 disabledAt: account.disabled_at,
                 passwordHash: account.password_hash,
             };
@@ -2598,6 +2598,15 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                 if (lockedOut) return send(res, 400, { message: "You can't change the role of this account." });
                 changes.role = body.role;
             }
+            // only a loading account has an area; one moved to another role loses it
+            if (body.loadingArea !== undefined) {
+                if (!optionalPick(body.loadingArea, CREW_AREAS)) return send(res, 400, { message: NO_SUCH_CREW_AREA });
+                if (body.loadingArea && changes.role !== "loading") {
+                    return send(res, 400, { message: "Only loading staff have a loading area." });
+                }
+                changes.loadingArea = body.loadingArea;
+            }
+            changes.loadingArea = crewAreaFor(changes.role, changes.loadingArea);
             if (body.disabled !== undefined && body.disabled !== (account.disabled_at !== null)) {
                 if (lockedOut) return send(res, 400, { message: "You can't switch off this account." });
                 changes.disabledAt = body.disabled ? new Date().toISOString() : null;
@@ -2794,6 +2803,30 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                 }))
                 .toSorted((a, b) => Number(b.online) - Number(a.online));
         };
+
+        // the Loading page's Crew tab, for the loading crew and admins: everyone on the crew still able to sign in, each
+        // with the area an admin set them to on Accounts ("" for none yet), online ones first; only what a coworker may
+        // see, never a username or employee ID
+        if (method === "GET" && path === "/admin/loading/crew") {
+            const now = Date.now();
+            return send(
+                res,
+                200,
+                sql.listPresence
+                    .all({ now })
+                    .filter((row) => row.role === "loading")
+                    .map((row) => ({
+                        id: row.id,
+                        name: row.name,
+                        photo: row.photo,
+                        loadingArea: row.loading_area,
+                        online: isOnline(row, now),
+                        lastSeen: row.last_seen,
+                        you: row.id === me.id,
+                    }))
+                    .toSorted((a, b) => Number(b.online) - Number(a.online)),
+            );
+        }
 
         // SheeChat, for every role but the developers (ROLE_ROUTES leaves them out too; they have the Chat page)
         if (path.startsWith("/admin/sheechat") && me.role === "developer") {
@@ -3117,7 +3150,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             return send(res, 200, newOrders);
         }
 
-        // a loading, logistics, service, chassis or hardware account only gets the orders sales has handed over that its department has a part in:
+        // a loading, service, chassis or hardware account only gets the orders sales has handed over that its department has a part in:
         // the department's one shared line
         if (method === "GET" && path === "/admin/orders") {
             const date = today();
@@ -3388,7 +3421,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             }
         }
 
-        // the Loading, Logistics, Service, Chassis and Hardware pages: a department's crew calls a customer sales has handed over to one of its
+        // the Loading, Service, Chassis and Hardware pages: a department's crew calls a customer sales has handed over to one of its
         // areas, marks them done, or sends them back to waiting; each is one shared line, so any of the department's
         // accounts (or an admin) can call any of them, and finish or send back one the department is serving; a
         // customer is in one place at a time, so while a sales counter or another department has them, they can't
@@ -3400,7 +3433,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         // then on the customer can't be called or loaded at another area until that one is done (or sends them back to
         // waiting), e.g. Steel waits while Roofings is loading; Done needs Loading first
         const loadingMatch = path.match(
-            /^\/admin\/(loading|logistics|service|chassis|hardware)\/([^/]+)\/(call|start|done|back)$/,
+            /^\/admin\/(loading|service|chassis|hardware)\/([^/]+)\/(call|start|done|back)$/,
         );
         if (method === "POST" && loadingMatch) {
             const [, department, queueNum, action] = loadingMatch;

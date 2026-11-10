@@ -14,7 +14,6 @@ import CustomerOrderPage from "./pages/customerOrderPage.jsx";
 import AccCreation from "./pages/accCreation.jsx";
 import AccountPage from "./pages/accountPage.jsx";
 import LoadingPage from "./pages/loadingPage.jsx";
-import LogisticsPage from "./pages/logisticsPage.jsx";
 import ServicePage from "./pages/servicePage.jsx";
 import ChassisPage from "./pages/chassisPage.jsx";
 import HardwarePage from "./pages/hardwarePage.jsx";
@@ -26,7 +25,7 @@ import DeletedTicketsPage from "./pages/deletedTicketsPage.jsx";
 import MessagesPage from "./pages/messagesPage.jsx";
 
 // every kind of staff account but the developers, who are written to from Message developer and have no Dashboard
-const NOT_DEVELOPER = ["admin", "sales", "loading", "logistics", "service", "chassis", "hardware", "security", "cashier", "inventory"];
+const NOT_DEVELOPER = ["admin", "sales", "loading", "service", "chassis", "hardware", "security", "cashier", "inventory"];
 
 // the browser tab: "Sheehan Inc. — Staff" until someone signs in, then their role ("Sheehan Inc. — Sales")
 function StaffTitle() {
@@ -93,10 +92,6 @@ export default function AdminApp() {
                             <Route path="loading" element={<LoadingPage />} />
                         </Route>
 
-                        {/* the Logistics department (For Logistics orders), the same as the loading crew for its own area */}
-                        <Route element={<ProtectedRoute roles={["admin", "logistics"]} />}>
-                            <Route path="logistics" element={<LogisticsPage />} />
-                        </Route>
                         {/* the Service department (Tire, Battery), the same as the loading crew for its own area */}
                         <Route element={<ProtectedRoute roles={["admin", "service"]} />}>
                             <Route path="service" element={<ServicePage />} />
@@ -117,7 +112,7 @@ export default function AdminApp() {
                         <Route
                             element={
                                 <ProtectedRoute
-                                    roles={["admin", "loading", "logistics", "service", "chassis", "hardware", "inventory", "developer"]}
+                                    roles={["admin", "loading", "service", "chassis", "hardware", "inventory", "developer"]}
                                 />
                             }
                         >
