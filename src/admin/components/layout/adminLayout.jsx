@@ -12,6 +12,7 @@ import useMessageToasts from '../../hooks/useMessageToasts.js';
 import MessageToasts from '../chat/messageToasts.jsx';
 import Avatar from '../common/avatar.jsx';
 import Icon from '../common/icon.jsx';
+import ProfileViewer from '../common/profileViewer.jsx';
 import OrderNotices from '../notification/orderNotices.jsx';
 import OrderStatusDrawer, { BOARD_DOCKS } from '../orderStatus/orderStatusDrawer.jsx';
 import logo from '../../../assets/SheehanLogo.png';
@@ -126,6 +127,8 @@ export default function AdminLayout() {
     };
 
     return (
+        // any photo or name in a ProfileLink, on any page, opens that person's profile over it
+        <ProfileViewer>
         <div className={`admin-shell${collapsed ? " is-collapsed" : ""}`}>
             <aside id="admin-sidebar" className={`admin-sidebar${menuOpen ? " is-open" : ""}`}>
                 <div className="admin-sidebar-brand">
@@ -213,5 +216,6 @@ export default function AdminLayout() {
             <MessageToasts toasts={toasts} dismiss={dismiss} />
             {DEPARTMENTS[user?.role] && <OrderNotices userId={user.id} department={user.role} />}
         </div>
+        </ProfileViewer>
     );
 }

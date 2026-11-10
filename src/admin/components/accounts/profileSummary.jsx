@@ -17,6 +17,7 @@ export default function ProfileSummary({ account }) {
         { label: "Role", value: ROLE_LABELS[account.role] ?? account.role },
         { label: "Employee ID", value: account.employeeId },
         { label: "Department", value: account.department },
+        { label: "Specialization", value: account.specialization },
         { label: "Sales team", value: account.team },
         { label: "Joined on", value: account.createdAt && dayFormat.format(new Date(account.createdAt)) },
     ].filter(({ value }) => value);

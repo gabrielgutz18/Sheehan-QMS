@@ -206,6 +206,8 @@ const ACCOUNT_ROUTES = [
     ["DELETE", /^\/admin\/me\/cover$/],
     // the pop-ups in the corner of every page when someone writes to you
     ["GET", /^\/admin\/unread-messages$/],
+    // a coworker's profile, opened from their photo or name wherever it shows (Dashboard, Accounts, the chats)
+    ["GET", /^\/admin\/profiles\/\d+$/],
 ];
 // SheeChat: every staff member but the developers chats with any other of them, one conversation per pair
 const SHEECHAT_ROUTES = [
@@ -701,6 +703,8 @@ const validPassword = (password) =>
 const NAME_PART_MAX = 40;
 const EMPLOYEE_ID = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,29}$/;
 const DEPARTMENT_MAX = 60;
+// a developer's specialization on My account, e.g. "Network and systems"
+const SPECIALIZATION_MAX = 60;
 
 // "Maria" + "Santos" → "Maria Santos", the name shown around the app (users.name)
 const displayName = (first, surname) => [first, surname].filter(Boolean).join(" ");
@@ -841,6 +845,8 @@ const toMe = (row) => ({
     surname: row.surname,
     employeeId: row.employee_id,
     department: row.department,
+    // what a developer (the IT department) does, typed on My account; "" for none, and for every other role
+    specialization: row.specialization ?? "",
     // their own sales team (GIGA, MEGA, ... from src/data/teams.js), set by an admin on Accounts; "" for none; an edit
     // they save on Customer order is marked with it
     team: row.sales_team,
@@ -865,6 +871,7 @@ const droppedProfile = (row) => ({
     surname: "",
     role: "",
     department: "",
+    specialization: "",
     team: "",
     photo: null,
     coverPhoto: null,
@@ -885,6 +892,7 @@ const toProfile = (row, now) =>
               surname: row.surname,
               role: row.role,
               department: row.department,
+              specialization: row.specialization,
               team: row.sales_team,
               photo: row.photo,
               coverPhoto: row.cover_photo,
@@ -1536,7 +1544,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         // a disabled account's sign-ins stop working at once
         findSession: db.prepare(`
             SELECT s.expires, s.created_at AS signed_in_at, u.id, u.username, u.name, u.role, u.first_name, u.middle_name, u.surname,
-                u.employee_id, u.department, u.sales_team, u.loading_area, u.photo, u.cover_photo, u.created_at
+                u.employee_id, u.department, u.specialization, u.sales_team, u.loading_area, u.photo, u.cover_photo, u.created_at
             FROM sessions s JOIN users u ON u.id = s.user_id
             WHERE s.sid_hash = ? AND u.disabled_at IS NULL`),
         deleteSession: db.prepare("DELETE FROM sessions WHERE sid_hash = ?"),
@@ -1548,7 +1556,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         // on Accounts, so it never gets in the way of a new one, and the password is random, so nobody knows it
         dropUser: db.prepare(`
             UPDATE users SET username = :username, password_hash = :passwordHash, dropped_at = :now, first_name = '',
-                middle_name = '', surname = '', employee_id = NULL, department = '', sales_team = '', loading_area = '', photo = NULL,
+                middle_name = '', surname = '', employee_id = NULL, department = '', specialization = '', sales_team = '', loading_area = '', photo = NULL,
                 cover_photo = NULL, last_seen = NULL
             WHERE id = :id`),
 
@@ -1567,7 +1575,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         // My account
         updateProfile: db.prepare(`
             UPDATE users SET name = :name, first_name = :firstName, middle_name = :middleName, surname = :surname,
-                employee_id = :employeeId, department = :department
+                employee_id = :employeeId, department = :department, specialization = :specialization
             WHERE id = :id`),
         employeeIdTaken: db.prepare("SELECT id FROM users WHERE employee_id = ? COLLATE NOCASE AND id != ?"),
         setPhoto: db.prepare("UPDATE users SET photo = ? WHERE id = ?"),
@@ -1688,7 +1696,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         setLastSeen: db.prepare("UPDATE users SET last_seen = ? WHERE id = ?"),
         // every account but switched-off ones, with whether a sign-in of theirs is still open, for who's online
         listPresence: db.prepare(`
-            SELECT u.id, u.name, u.first_name, u.surname, u.role, u.department, u.loading_area, u.photo, u.last_seen,
+            SELECT u.id, u.name, u.first_name, u.surname, u.role, u.department, u.specialization, u.loading_area, u.photo, u.last_seen,
                 EXISTS (SELECT 1 FROM sessions s WHERE s.user_id = u.id AND s.expires > :now) AS signed_in
             FROM users u
             WHERE u.disabled_at IS NULL
@@ -2785,6 +2793,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                     surname: row.surname,
                     role: row.role,
                     department: row.department,
+                    specialization: row.specialization,
                     photo: row.photo,
                     online: isOnline(row, now),
                     lastSeen: row.last_seen,
@@ -2853,6 +2862,17 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                 200,
                 presence().filter((account) => account.role !== "developer" && account.id !== me.id),
             );
+        }
+
+        // a coworker's profile, opened from their photo or name on the Dashboard, Accounts, the Crew tab or a chat, for
+        // every staff member, the developers too: anyone's, yours and the developers' included, switched off or not, and
+        // only what a coworker may see (toProfile); looking at it reads nothing
+        const anyProfileMatch = path.match(/^\/admin\/profiles\/(\d+)$/);
+        if (method === "GET" && anyProfileMatch) {
+            const now = Date.now();
+            const other = sql.findProfile.get({ now, id: Number(anyProfileMatch[1]) });
+            if (!other) return send(res, 404, { message: "Staff member not found." });
+            return send(res, 200, toProfile(other, now));
         }
 
         // the person on the other side of a SheeChat conversation: any staff member but a developer or yourself
@@ -3013,7 +3033,8 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             return send(res, 201, toMessage(sql.findMessage.get(lastInsertRowid)));
         }
 
-        // My account: { firstName, middleName, surname, employeeId, department } → your account
+        // My account: { firstName, middleName, surname, employeeId, department, specialization? } → your account;
+        // specialization is a developer's only, and left as it is when it isn't sent
         if (method === "PATCH" && path === "/admin/me") {
             const body = await readBody(req);
             const text = (value) => (typeof value === "string" ? value.trim() : "");
@@ -3023,7 +3044,17 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                 surname: text(body.surname),
                 employeeId: text(body.employeeId) || null,
                 department: text(body.department),
+                specialization:
+                    body.specialization === undefined
+                        ? sql.findUserById.get(me.id).specialization
+                        : text(body.specialization),
             };
+            if (profile.specialization && me.role !== "developer") {
+                return send(res, 400, { message: "Only developers have a specialization." });
+            }
+            if (profile.specialization.length > SPECIALIZATION_MAX) {
+                return send(res, 400, { message: `Specializations can be up to ${SPECIALIZATION_MAX} characters.` });
+            }
             if (!profile.firstName || profile.firstName.length > NAME_PART_MAX) {
                 return send(res, 400, { message: `Enter your first name (up to ${NAME_PART_MAX} characters).` });
             }

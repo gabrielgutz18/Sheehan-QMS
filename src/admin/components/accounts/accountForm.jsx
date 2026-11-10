@@ -10,17 +10,32 @@ const FIELDS = [
     { key: "employeeId", label: "Employee ID", maxLength: 30, placeholder: "e.g. SHN-0042" },
     { key: "department", label: "Department", maxLength: 60, placeholder: "e.g. Roofings" },
 ];
+// the developers are the IT department: what each of them does, on their profile for staff to see
+const DEVELOPER_FIELDS = [
+    {
+        key: "specialization",
+        label: "Specialization",
+        maxLength: 60,
+        placeholder: "e.g. Web developer",
+        list: "it-specializations",
+    },
+];
+// a few the IT department has, to pick from or type over
+const SPECIALIZATIONS = ["Software developer", "Web developer", "Network and systems", "IT support", "Hardware technician"];
 
-const formFrom = (account) => Object.fromEntries(FIELDS.map(({ key }) => [key, account[key] ?? ""]));
+// the fields this account has: a developer's specialization too
+const fieldsFor = (account) => (account.role === "developer" ? [...FIELDS, ...DEVELOPER_FIELDS] : FIELDS);
+const formFrom = (account) => Object.fromEntries(fieldsFor(account).map(({ key }) => [key, account[key] ?? ""]));
 
 export default function AccountForm({ account, onChange }) {
+    const fields = fieldsFor(account);
     const [form, setForm] = useState(() => formFrom(account));
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
     const [notice, setNotice] = useState("");
 
     const saved = formFrom(account);
-    const changed = FIELDS.some(({ key }) => form[key].trim() !== saved[key]);
+    const changed = fields.some(({ key }) => form[key].trim() !== saved[key]);
 
     const submit = async (e) => {
         e.preventDefault();
@@ -41,7 +56,7 @@ export default function AccountForm({ account, onChange }) {
 
     return (
         <form className="account-details" onSubmit={submit}>
-            {FIELDS.map(({ key, label, required, ...input }) => (
+            {fields.map(({ key, label, required, ...input }) => (
                 <label key={key} className={`admin-field account-field--${key}`}>
                     <span>
                         {label}
@@ -59,6 +74,12 @@ export default function AccountForm({ account, onChange }) {
                     />
                 </label>
             ))}
+
+            <datalist id="it-specializations">
+                {SPECIALIZATIONS.map((name) => (
+                    <option key={name} value={name} />
+                ))}
+            </datalist>
 
             {error && <p className="field-error account-details-full" role="alert">{error}</p>}
             {notice && <p className="admin-notice account-details-full" role="status">{notice}</p>}

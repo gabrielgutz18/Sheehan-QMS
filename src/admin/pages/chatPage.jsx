@@ -20,6 +20,8 @@ import DeveloperHeads from "../components/chat/developerHeads.jsx";
 import MessageThread from "../components/chat/messageThread.jsx";
 import ReportList from "../components/chat/reportList.jsx";
 import StaffList from "../components/chat/staffList.jsx";
+import ProfileLink from "../components/common/profileLink.jsx";
+import { useProfileViewer } from "../components/common/profileViewerContext.js";
 import { useViewingConversation } from "../hooks/useMessageToasts.js";
 import useMessages from "../hooks/useMessages.js";
 import useTyping from "../hooks/useTyping.js";
@@ -40,7 +42,9 @@ function Conversation({ staff, onSent }) {
 
     return (
         <>
-            <h2>{staff.name}</h2>
+            <h2>
+                <ProfileLink person={staff}>{staff.name}</ProfileLink>
+            </h2>
             <MessageThread
                 messages={messages}
                 loading={loading}
@@ -97,6 +101,8 @@ function Conversation({ staff, onSent }) {
 // member by department and who's online, and picking one opens a conversation with them, even before they've written
 export default function ChatPage() {
     const { user } = useAuth();
+    // the photo on each row of the Staff list opens that person's profile
+    const openProfile = useProfileViewer();
     const [chats, setChats] = useState(null);
     const [listError, setListError] = useState("");
     // the reports staff sent through Message developer's buttons, or null until they load
@@ -207,7 +213,7 @@ export default function ChatPage() {
                     {view === "reports" ? (
                         <ReportList reports={reports} openId={openId} onPick={pick} />
                     ) : view === "staff" ? (
-                        <StaffList openId={openId} onPick={pick} />
+                        <StaffList openId={openId} onPick={pick} onProfile={openProfile} />
                     ) : !chats ? (
                         <p className="admin-empty">Loading...</p>
                     ) : chats.length === 0 ? (

@@ -69,6 +69,12 @@
   color: var(--text-dark);
 }
 
+/* the sender's photo beside a message keeps its place at the bottom of the bubble */
+.chat-message-photo {
+  align-self: flex-end;
+  border-radius: 50%;
+}
+
 .chat-body {
   margin: 0;
   white-space: pre-wrap;
@@ -572,9 +578,34 @@
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  width: 64px;
+  width: 84px;
   flex: none;
   text-align: center;
+}
+
+/* the whole head opens that developer's profile */
+.chat-head-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  padding: 4px 2px;
+  border-radius: 10px;
+}
+
+.chat-head-link:hover {
+  background: var(--surface-muted);
+}
+
+/* what they do in the IT department, e.g. Web developer */
+.chat-head-skill {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .chat-head-photo {

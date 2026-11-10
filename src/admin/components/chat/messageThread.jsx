@@ -4,6 +4,7 @@ import { chatImageUrl } from '../../api/chatController.js';
 import { ROLE_LABELS } from '../../auth/roles.js';
 import Avatar from '../common/avatar.jsx';
 import Icon from '../common/icon.jsx';
+import ProfileLink from '../common/profileLink.jsx';
 import ConcernCard from './concernCard.jsx';
 import { BotBubble } from './concernFlow.jsx';
 import ImageViewer from './imageViewer.jsx';
@@ -151,10 +152,15 @@ export default function MessageThread({
                         <BotBubble key={m.id} sentAt={m.sentAt}>{m.body}</BotBubble>
                     ) : (
                         <li key={m.id} className={`chat-message${mine(m) ? " is-mine" : ""}`}>
-                            <Avatar account={m.from} size={28} />
+                            {/* the sender's photo and name open their profile */}
+                            <ProfileLink person={m.from} photo className="chat-message-photo">
+                                <Avatar account={m.from} size={28} />
+                            </ProfileLink>
                             <div className="chat-bubble">
                                 <p className="chat-meta">
-                                    <strong>{m.from.name}</strong>
+                                    <ProfileLink person={m.from} className="chat-meta-name">
+                                        <strong>{m.from.name}</strong>
+                                    </ProfileLink>
                                     <span>{ROLE_LABELS[m.from.role] ?? m.from.role}</span>
                                     <time dateTime={m.sentAt}>{sentTime.format(new Date(m.sentAt))}</time>
                                 </p>

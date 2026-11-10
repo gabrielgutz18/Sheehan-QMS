@@ -3,8 +3,13 @@ import http, { apiUrl } from '../../api/http.js';
 // the signed-in account's own details, for My account (admin or sales)
 // account: { id, username, name, role, firstName, middleName, surname, employeeId, department, photo, coverPhoto }
 
-// profile: { firstName, middleName, surname, employeeId, department } → the updated account
+// profile: { firstName, middleName, surname, employeeId, department, specialization? } → the updated account;
+// specialization is a developer's only
 export const updateMyAccount = (profile) => http.patch("/admin/me", profile);
+
+// a coworker's profile, anyone's, opened from their photo or name: { id, name, firstName, surname, role, department,
+// specialization, team, photo, coverPhoto, createdAt, disabled, deleted?, online, lastSeen }; looking at it reads nothing
+export const getProfile = (userId, options) => http.get(`/admin/profiles/${encodeURIComponent(userId)}`, options);
 
 // photo: an image Blob (JPEG, PNG or WebP, up to 2 MB) → the updated account
 export const uploadMyPhoto = (photo) => http.put("/admin/me/photo", photo);

@@ -1414,3 +1414,45 @@ test("the staff area can be installed as an app from the Install app button", as
     await expect.poll(() => page.evaluate(() => window.installPrompted)).toBe(true);
     await expect(install).toBeHidden();
 });
+
+// a coworker's profile opens from their photo or name outside SheeChat too: on Accounts and from the developers' chat
+// heads on Message developer, where a developer's specialization (what they do in the IT department) shows
+test("a profile opens from Accounts and from the developer heads, with a developer's specialization", async ({ page, browser }) => {
+    const stamp = Date.now();
+    const dev = { username: `e2e-it-${stamp}`, password: "e2e-password", name: `Ivy Tech${stamp}`, role: "developer" };
+
+    await page.goto("/staff/accounts");
+    await signIn(page, ADMIN.username, ADMIN.password);
+    await expect(page.getByRole("heading", { name: "Accounts", exact: true })).toBeVisible();
+    await api(page, "POST", "/admin/users", dev);
+
+    // the developer types their specialization on My account
+    const theirs = await browser.newContext();
+    const devPage = await theirs.newPage();
+    watch(devPage);
+    await devPage.goto("/staff/account");
+    await signIn(devPage, dev.username, dev.password);
+    await devPage.getByLabel(/^Specialization/).fill("Network and systems");
+    await devPage.getByRole("button", { name: "Update account" }).click();
+    await expect(devPage.getByRole("status").filter({ hasText: "Account updated." })).toBeVisible();
+    await theirs.close();
+
+    // on Accounts, their name opens the profile
+    await page.reload();
+    const grid = page.locator(".employee-grid");
+    await grid.getByRole("button", { name: `View ${dev.name}'s profile` }).click();
+    const profile = page.getByRole("dialog", { name: `${dev.name}'s profile` });
+    await expect(profile).toBeVisible();
+    await expect(profile.getByText("Network and systems")).toBeVisible();
+    await page.screenshot({ path: "test-results/profile-from-accounts.png" });
+    await profile.getByRole("button", { name: "Close" }).click();
+    await expect(profile).toBeHidden();
+
+    // on Message developer, their chat head opens it too
+    await page.goto("/staff/sheechat?tab=developer");
+    await page.getByRole("tab", { name: "Message developer" }).click();
+    await page.getByRole("button", { name: `View ${dev.name}'s profile` }).click();
+    await expect(profile).toBeVisible();
+    await expect(profile.getByText("Specialization")).toBeVisible();
+    await page.screenshot({ path: "test-results/profile-from-developer-heads.png" });
+});

@@ -1265,3 +1265,85 @@ test("045 adds a loading area to every account, none to start with", () => {
         db.close();
     }
 });
+
+// 046 rebuilds users once more (Chassis joins the loading crew): a Chassis account becomes a loading one already set to
+// the Chassis area, with its sessions and chats, and every other account stays as it was, its own area too
+test("046 turns Chassis accounts into loading ones at the Chassis area and leaves every other account as it was", () => {
+    const old = databaseBefore("046");
+    old.exec(`
+        INSERT INTO users (id, username, name, role, password_hash, created_at, employee_id, department, photo, sales_team, last_seen, cover_photo, dropped_at, loading_area)
+            VALUES (1, 'maria', 'Maria Santos', 'sales', 'x', '2026-10-20T08:00:00.000Z', 'E-1', 'Sales', 'user-1.jpg', 'GIGA', 1761800000000, 'cover-1.jpg', NULL, ''),
+                   (2, 'carlos', 'Carlos Tsasis', 'chassis', 'x', '2026-10-31T08:00:00.000Z', 'E-2', 'Chassis', 'user-2.jpg', '', 1762600000000, NULL, NULL, ''),
+                   (3, 'pedro', 'Pedro Garcia', 'loading', 'x', '2026-10-20T08:00:00.000Z', NULL, '', NULL, '', NULL, NULL, NULL, 'Steel'),
+                   (4, 'dropped.4', 'Deleted', 'chassis', 'x', '2026-10-31T08:00:00.000Z', NULL, '', NULL, '', NULL, NULL, '2026-11-09T09:00:00.000Z', '');
+        INSERT INTO direct_messages (sender_id, recipient_id, body, sent_at) VALUES (2, 1, 'Chassis loaded', '2026-11-10T10:00:00.000Z');
+        INSERT INTO sessions (sid_hash, user_id, expires) VALUES ('abc', 2, 4102444800000);
+    `);
+    old.close();
+
+    const quiet = mock.method(console, "log", () => {});
+    const db = openDatabase(dataDir);
+    quiet.mock.restore();
+
+    try {
+        const accounts = db
+            .prepare("SELECT id, role, loading_area FROM users ORDER BY id")
+            .all()
+            .map(({ id, role, loading_area }) => [id, role, loading_area]);
+        assert.deepEqual(accounts, [
+            [1, "sales", ""],
+            [2, "loading", "Chassis"],
+            [3, "loading", "Steel"],
+            // a deleted account has no area, as Delete leaves it
+            [4, "loading", ""],
+        ]);
+        assert.deepEqual(
+            { ...db.prepare("SELECT employee_id, department, photo, last_seen FROM users WHERE id = 2").get() },
+            { employee_id: "E-2", department: "Chassis", photo: "user-2.jpg", last_seen: 1762600000000 },
+        );
+        assert.equal(db.prepare("SELECT cover_photo FROM users WHERE id = 1").get().cover_photo, "cover-1.jpg");
+        assert.equal(db.prepare("SELECT dropped_at FROM users WHERE id = 4").get().dropped_at, "2026-11-09T09:00:00.000Z");
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sessions WHERE user_id = 2").get().n, 1);
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM direct_messages WHERE sender_id = 2").get().n, 1);
+        assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(), []);
+
+        assert.throws(
+            () =>
+                db
+                    .prepare(
+                        `INSERT INTO users (username, name, role, password_hash, created_at)
+            VALUES ('ben', 'Ben Cruz', 'chassis', 'x', '2026-11-10T08:00:00.000Z')`,
+                    )
+                    .run(),
+            /CHECK constraint/,
+        );
+        assert.throws(() => db.prepare("UPDATE users SET employee_id = 'e-1' WHERE id = 2").run(), /UNIQUE/);
+    } finally {
+        db.close();
+    }
+});
+
+// 047 gives each account a specialization, '' for every account already there, which a developer then types on My account
+test("047 adds a specialization to every account, none to start with", () => {
+    const old = databaseBefore("047");
+    old.exec(`
+        INSERT INTO users (id, username, name, role, password_hash, created_at, department)
+            VALUES (1, 'dev', 'Dev Coder', 'developer', 'x', '2026-10-29T08:00:00.000Z', 'IT'),
+                   (2, 'maria', 'Maria Santos', 'sales', 'x', '2026-10-20T08:00:00.000Z', 'Sales');
+    `);
+    old.close();
+
+    const quiet = mock.method(console, "log", () => {});
+    const db = openDatabase(dataDir);
+    quiet.mock.restore();
+
+    try {
+        const rows = db.prepare("SELECT id, department, specialization FROM users ORDER BY id").all().map((r) => ({ ...r }));
+        assert.deepEqual(rows, [
+            { id: 1, department: "IT", specialization: "" },
+            { id: 2, department: "Sales", specialization: "" },
+        ]);
+    } finally {
+        db.close();
+    }
+});
