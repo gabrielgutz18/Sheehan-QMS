@@ -174,13 +174,6 @@ test("a customer goes from their ticket, through hand-over and loading, with the
     await expect(upNext.getByText(customer)).toBeHidden();
 });
 
-// For Logistics orders have their own department and page
-test("the Logistics page opens at its own address", async ({ page }) => {
-    await page.goto("/staff/logistics");
-    await signIn(page, ADMIN.username, ADMIN.password);
-    await expect(page.getByText(/^Waiting for logistics \(\d+\)$/)).toBeVisible();
-});
-
 // Tire and Battery's own page, at the address it got when the department stopped being called TBA
 test("the Service page opens at its own address", async ({ page }) => {
     await page.goto("/staff/service");
@@ -1258,4 +1251,125 @@ test("a loading account reports a bug through the guided chat, and a developer m
 
     await theirs.close();
     await devs.close();
+});
+
+// the loading crew by area: on Accounts, the Loading tab has its own browser-style tabs, Roofings, Steel and Logistics,
+// and an admin moves someone to another area from the table below
+test("Accounts groups the loading crew into Roofings, Steel and Logistics tabs", async ({ page }) => {
+    const stamp = Date.now();
+    const steel = {
+        username: `e2e-steel-${stamp}`,
+        password: "e2e-password",
+        name: `Steel ${stamp}`,
+        role: "loading",
+        loadingArea: "Steel",
+    };
+    const logistics = { ...steel, username: `e2e-logi-${stamp}`, name: `Logistics ${stamp}`, loadingArea: "Logistics" };
+
+    await page.goto("/staff/accounts");
+    await signIn(page, ADMIN.username, ADMIN.password);
+    await expect(page.getByRole("heading", { name: "Accounts", exact: true })).toBeVisible();
+    await page.evaluate(
+        async (accounts) => {
+            for (const account of accounts) {
+                const res = await fetch("/api/admin/users", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Requested-With": "XMLHttpRequest",
+                        "X-Tab-Id": sessionStorage.getItem("tabId"),
+                    },
+                    body: JSON.stringify(account),
+                });
+                if (!res.ok) throw new Error(`making ${account.username} failed (${res.status})`);
+            }
+        },
+        [steel, logistics],
+    );
+    await page.reload();
+
+    await page
+        .getByRole("tablist", { name: "Departments" })
+        .getByRole("tab", { name: /^Loading/ })
+        .click();
+    const areas = page.getByRole("tablist", { name: "Loading areas" });
+    for (const name of ["All loading", "Roofings", "Steel", "Logistics"]) {
+        await expect(areas.getByRole("tab", { name: new RegExp(`^${name} \\d+$`) })).toBeVisible();
+    }
+    const grid = page.locator(".employee-grid");
+    await expect(grid.getByRole("article", { name: steel.name })).toBeVisible();
+    await expect(grid.getByRole("article", { name: logistics.name })).toBeVisible();
+
+    await areas.getByRole("tab", { name: /^Steel/ }).click();
+    await expect(areas.getByRole("tab", { name: /^Steel/ })).toHaveAttribute("aria-selected", "true");
+    await expect(grid.getByRole("article", { name: steel.name })).toBeVisible();
+    await expect(grid.getByRole("article", { name: logistics.name })).toBeHidden();
+    await page.screenshot({ path: "test-results/crew-tabs.png", fullPage: false });
+
+    // moved to Roofings, they leave the Steel tab and show under Roofings
+    await page.getByLabel(`Loading area for ${steel.name}`).selectOption("Roofings");
+    await expect(page.getByRole("status").filter({ hasText: `${steel.name} now works at Roofings.` })).toBeVisible();
+    await areas.getByRole("tab", { name: /^Roofings/ }).click();
+    await expect(grid.getByRole("article", { name: steel.name })).toBeVisible();
+    await expect(grid.getByRole("article", { name: logistics.name })).toBeHidden();
+});
+
+// a loading member's own view of the crew: the Loading page's Crew tab, the same Roofings, Steel and Logistics tabs,
+// opening on their own area
+test("a loading account sees its crew by area on the Loading page's Crew tab", async ({ page, browser }) => {
+    const stamp = Date.now();
+    const me = {
+        username: `e2e-roof-${stamp}`,
+        password: "e2e-password",
+        name: `Roofer ${stamp}`,
+        role: "loading",
+        loadingArea: "Roofings",
+    };
+    const mate = { ...me, username: `e2e-mate-${stamp}`, name: `Logi ${stamp}`, loadingArea: "Logistics" };
+
+    await page.goto("/staff/accounts");
+    await signIn(page, ADMIN.username, ADMIN.password);
+    await expect(page.getByRole("heading", { name: "Accounts", exact: true })).toBeVisible();
+    await page.evaluate(
+        async (accounts) => {
+            for (const account of accounts) {
+                const res = await fetch("/api/admin/users", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Requested-With": "XMLHttpRequest",
+                        "X-Tab-Id": sessionStorage.getItem("tabId"),
+                    },
+                    body: JSON.stringify(account),
+                });
+                if (!res.ok) throw new Error(`making ${account.username} failed (${res.status})`);
+            }
+        },
+        [me, mate],
+    );
+
+    const theirs = await browser.newContext();
+    const loading = await theirs.newPage();
+    watch(loading);
+    await loading.goto("/staff/loading");
+    await signIn(loading, me.username, me.password);
+    await loading.getByRole("tab", { name: "Crew" }).click();
+
+    const areas = loading.getByRole("tablist", { name: "Loading areas" });
+    for (const name of ["All loading", "Roofings", "Steel", "Logistics"]) {
+        await expect(areas.getByRole("tab", { name: new RegExp(`^${name} \\d+$`) })).toBeVisible();
+    }
+    // it opens on their own area, with them on it, online
+    await expect(areas.getByRole("tab", { name: /^Roofings/ })).toHaveAttribute("aria-selected", "true");
+    const grid = loading.locator(".employee-grid");
+    const mine = grid.getByRole("article", { name: me.name });
+    await expect(mine).toContainText("(you)");
+    await expect(mine).toContainText("Online");
+    await expect(grid.getByRole("article", { name: mate.name })).toBeHidden();
+    await loading.screenshot({ path: "test-results/loading-crew.png" });
+
+    await areas.getByRole("tab", { name: /^Logistics/ }).click();
+    await expect(grid.getByRole("article", { name: mate.name })).toBeVisible();
+    await expect(mine).toBeHidden();
+    await theirs.close();
 });

@@ -1,6 +1,6 @@
 import http from "../../api/http.js";
 
-// the Loading, Logistics, Service, Chassis and Hardware pages (department: "loading", "logistics", "service", "chassis" or "hardware", src/data/loadingAreas.js): each is one shared
+// the Loading, Service, Chassis and Hardware pages (department: "loading", "service", "chassis" or "hardware", src/data/loadingAreas.js): each is one shared
 // line, so the department's crew calls any customer sales has handed over to one of the order's areas it works, marks
 // that area done (the order then waits for its next area, here or at the other department, or goes on to the security
 // check after the last), or sends them back to waiting
@@ -34,6 +34,10 @@ export const departmentHistory = (department, query, options) => {
 // what's coming to the signed-in department: today's unfinished orders staff made or handed over, with only its own
 // part → [{ id, ticket, name, types, invoices: [invoiceNo], handedOver?: { by, at } }]
 export const listNewOrders = (options) => http.get("/admin/new-orders", options);
+
+// the Loading page's Crew tab: everyone on the loading crew, online first →
+// [{ id, name, photo, loadingArea, online, lastSeen, you }]; loadingArea is Roofings, Steel, Logistics or "" for none yet
+export const getLoadingCrew = (options) => http.get("/admin/loading/crew", options);
 
 export const sendBackFromLoading = (department, queueNum) =>
     http.post(`/admin/${department}/${encodeURIComponent(queueNum)}/back`);

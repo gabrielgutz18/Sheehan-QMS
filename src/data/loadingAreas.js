@@ -1,9 +1,9 @@
 import { splitList } from './list.js';
 
 // the departments that take a customer once sales hands them over, each with its own staff role and page: the
-// loading crew (Roofings, Steel), Logistics (For Logistics), Service (Tire, Battery), Chassis and Hardware; a customer who bought from several goes
-// to each in turn, one at a time
-export const DEPARTMENTS = { loading: "Loading", logistics: "Logistics", service: "Service", chassis: "Chassis", hardware: "Hardware" };
+// loading crew (Roofings, Steel, Logistics), Service (Tire, Battery), Chassis and Hardware; a customer who bought from
+// several goes to each in turn, one at a time
+export const DEPARTMENTS = { loading: "Loading", service: "Service", chassis: "Chassis", hardware: "Hardware" };
 
 // a department's name inside a sentence: "loading", "service", "hardware"
 export const departmentWord = (department) => DEPARTMENTS[department].toLowerCase();
@@ -12,15 +12,21 @@ export const departmentWord = (department) => DEPARTMENTS[department].toLowerCas
 // the types of order (purpose.js) it loads and the department whose staff work it; a ticket for several types is
 // loaded in each of their areas in turn, e.g. "Roofings, Hardwares" at Roofings, then Hardware; server/api.js imports
 // this list too, so the two always agree
+// the loading crew works three areas, each with only its own products: Roofings (Roofings, Roofings Accessories), Steel
+// (steel only) and Logistics (plain sheets, stainless steel, insulation, all as For Logistics for now)
 const loadingAreas = [
     { name: "Roofings", types: ["Roofings", "Roofings Accessories"], department: "loading" },
     { name: "Steel", types: ["Steel"], department: "loading" },
-    { name: "Logistics", types: ["For Logistics"], department: "logistics" },
+    { name: "Logistics", types: ["For Logistics"], department: "loading" },
     { name: "Service", types: ["Tire", "Battery"], department: "service" },
     { name: "Chassis", types: ["Chassis"], department: "chassis" },
     // Hardware hands small items over the counter, not onto a truck, so its crew prepares the order (WORK below)
     { name: "Hardware", types: ["Hardwares"], department: "hardware", work: "preparing" },
 ];
+
+// the loading crew's own areas, in order: ["Roofings", "Steel", "Logistics"]; each loading account is set to one of
+// them on Accounts (users.loading_area), so the crew shows grouped by area
+export const CREW_AREAS = loadingAreas.filter(({ department }) => department === "loading").map(({ name }) => name);
 
 // how the pages and the server word an area's work: a truck is loaded at Roofings, Steel, Logistics, Service and Chassis, but at
 // Hardware the crew gets the items ready, so it's "Start preparing at Hardware", "Prepared by Juan" there; only the
@@ -76,8 +82,6 @@ export const HISTORY_LISTS = {
     loading: [
         { name: "Roofings", types: ["Roofings", "Roofings Accessories"], area: "Roofings" },
         { name: "Steel", types: ["Steel"], area: "Steel" },
-    ],
-    logistics: [
         { name: "For Logistics", types: ["For Logistics"], area: "Logistics" },
     ],
     service: [

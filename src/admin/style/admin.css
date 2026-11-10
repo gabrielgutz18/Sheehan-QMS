@@ -3446,6 +3446,143 @@ html:has(.sale-actions) {
     border-radius: 9px;
 }
 
+/* the Loading tab's areas on Accounts (crewAreaTabs.jsx), drawn like a browser's tabs: a gray strip under the Loading
+   folder tab, with the picked tab white, its bottom corners curving out into the Employees panel below, and a thin line
+   between the others */
+.crew-tabs {
+    --crew-strip: #ececee;
+    --crew-divider: #c4c4ca;
+    display: flex;
+    align-items: flex-end;
+    padding: 6px 10px 0;
+    overflow-x: auto;
+    background: var(--crew-strip);
+    border: 1px solid var(--field-border);
+    border-bottom: 0;
+    border-radius: 12px 12px 0 0;
+    scrollbar-width: none;
+}
+
+/* the Loading folder tab joins the strip, so the two read as one shape; the page's gap between sections is taken back
+   (the folder tabs already overlap by 1px) */
+.folder-tabs + .crew-tabs {
+    margin-top: -24px;
+    border-top-left-radius: 0;
+}
+
+.folder-tabs:has(+ .crew-tabs) .folder-tab[aria-selected="true"] {
+    background: #ececee;
+    border-bottom-color: #ececee;
+}
+
+/* and the panel under the strip loses its top edge (and on Accounts the page's gap), so the picked tab runs straight
+   into it; the Loading page's Crew tab has the strip and panel on their own */
+.crew-tabs + .admin-panel {
+    border-top: 0;
+    border-radius: 0 0 12px 12px;
+}
+
+.admin-page > .crew-tabs + .admin-panel {
+    margin-top: -24px;
+}
+
+.crew-tab {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex: 0 0 auto;
+    min-width: 132px;
+    max-width: 200px;
+    height: 36px;
+    padding: 0 14px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: transparent;
+    border: 0;
+    border-radius: 9px 9px 0 0;
+    cursor: pointer;
+}
+
+.crew-tab-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* the thin line between two tabs, gone beside the picked one and on hover */
+.crew-tab + .crew-tab::before {
+    content: "";
+    position: absolute;
+    top: 10px;
+    bottom: 10px;
+    left: 0;
+    width: 1px;
+    background: var(--crew-divider);
+}
+
+.crew-tab[aria-selected="true"]::before,
+.crew-tab[aria-selected="true"] + .crew-tab::before,
+.crew-tab:hover::before,
+.crew-tab:hover + .crew-tab::before {
+    opacity: 0;
+}
+
+.crew-tab:hover:not([aria-selected="true"]) {
+    color: var(--text-dark);
+    background: rgba(255, 255, 255, 0.55);
+}
+
+.crew-tab:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: -2px;
+}
+
+.crew-tab[aria-selected="true"] {
+    z-index: 1;
+    font-weight: 600;
+    color: var(--text-dark);
+    background: #ffffff;
+}
+
+/* the picked tab's feet: a quarter circle cut out on each side, so it flares into the panel as a browser tab does */
+.crew-tab[aria-selected="true"]::after {
+    content: "";
+    position: absolute;
+    right: -9px;
+    bottom: 0;
+    left: -9px;
+    height: 9px;
+    pointer-events: none;
+    background:
+        radial-gradient(circle at 0 0, transparent 8.5px, #ffffff 9px) left bottom / 9px 9px no-repeat,
+        radial-gradient(circle at 100% 0, transparent 8.5px, #ffffff 9px) right bottom / 9px 9px no-repeat;
+}
+
+.crew-tab-count {
+    min-width: 20px;
+    padding: 0 6px;
+    font-size: 12px;
+    line-height: 18px;
+    text-align: center;
+    color: var(--text-muted);
+    background: rgba(0, 0, 0, 0.07);
+    border-radius: 9px;
+}
+
+.crew-tab[aria-selected="true"] .crew-tab-count {
+    color: var(--brand-red);
+    background: var(--brand-tint);
+}
+
+/* the ones an admin hasn't set to an area yet */
+.crew-tab--none .crew-tab-label {
+    font-style: italic;
+}
+
 /* the Employees grid: one card per account */
 .employee-grid-head {
     display: flex;

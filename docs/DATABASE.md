@@ -205,6 +205,8 @@ On every start, any `.sql` file not yet listed in `schema_migrations` runs, in n
 | [`020_cashier_staff.sql`](../server/migrations/020_cashier_staff.sql) | rebuilds `users` to allow the `cashier` role (changes how each order is paid, nothing else) |
 | [`040_service_staff.sql`](../server/migrations/040_service_staff.sql) | renames the TBA department to Service: rebuilds `users` so `role` allows `service` instead of `tba`, moves TBA accounts over, and changes the area from `TBA` to `Service` in `orders.loading_area`, `order_loads.area` and `security_checks.returned_to`; `orders.tba_priority` keeps its name |
 | [`043_logistics_staff.sql`](../server/migrations/043_logistics_staff.sql) | rebuilds `users` to allow the `logistics` role, for the Logistics department (its orders are the For Logistics type, set in `src/data/purpose.js`) |
+| [`044_logistics_joins_loading.sql`](../server/migrations/044_logistics_joins_loading.sql) | Logistics becomes one of the loading crew's areas, beside Roofings and Steel: rebuilds `users` without the `logistics` role and moves its accounts to `loading`; the area keeps its name, so `orders.loading_area`, `order_loads.area` and `security_checks.returned_to` are left alone |
+| [`045_loading_member_area.sql`](../server/migrations/045_loading_member_area.sql) | adds `loading_area` to `users`: the loading crew's area a loading account works in (Roofings, Steel or Logistics), set by an admin on Accounts so the crew shows grouped by area; `''` for none and for every other role |
 
 **Changing the tables later:** never edit a file that has already run anywhere. Add the next number instead, for example `server/migrations/006_add_counter_number.sql`:
 
@@ -350,7 +352,7 @@ erDiagram
         INTEGER id PK
         TEXT username "unique, any case"
         TEXT name
-        TEXT role "admin | sales | loading | logistics | service | chassis | hardware | security | cashier | inventory | developer"
+        TEXT role "admin | sales | loading | service | chassis | hardware | security | cashier | inventory | developer"
         TEXT password_hash "scrypt"
         TEXT created_at
         TEXT disabled_at
@@ -361,6 +363,7 @@ erDiagram
         TEXT employee_id "unique when set"
         TEXT department
         TEXT sales_team "their own sales team, e.g. GIGA; '' for none"
+        TEXT loading_area "Roofings, Steel or Logistics for a loading account; '' for none"
         TEXT photo "file in photos/"
         TEXT cover_photo "file in photos/, or NULL"
     }

@@ -6,7 +6,7 @@ import { resultLabel } from "../../data/securityCheck.js";
 import { DEPARTMENTS, capitalized, historyListsOf, workOf } from "../../../data/loadingAreas.js";
 import formatQueueNum from "../../../data/queueNum.js";
 
-// a department's History tab (department: "loading", "logistics", "service", "chassis" or "hardware"): every order sales handed over to
+// a department's History tab (department: "loading", "service", "chassis" or "hardware"): every order sales handed over to
 // it, one list at a time so different products never mix (Roofings or Steel at loading, Tire or Battery at Service), each
 // with only that list's part: its invoices and who loaded its area, never another department's or the sale's details
 // the filter (list, All / One day / Range, the days and the search) is kept in the address, so Back and reloading keep

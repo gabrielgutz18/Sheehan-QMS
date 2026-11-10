@@ -4,21 +4,24 @@ import { createUser, dropUser, listUsers, updateUser } from "../api/adminUserCon
 import { useAuth } from "../auth/authContext.js";
 import { ROLE_LABELS } from "../auth/roles.js";
 import Avatar from "../components/common/avatar.jsx";
+import CrewAreaTabs from "../components/accounts/crewAreaTabs.jsx";
 import DepartmentTabs from "../components/accounts/departmentTabs.jsx";
 import EmployeeGrid from "../components/accounts/employeeGrid.jsx";
+import { CREW_AREAS } from "../../data/loadingAreas.js";
 import teams from "../../data/teams.js";
 
 // staff accounts, for admins and developers: create accounts (usually sales staff), set each person's sales team, reset passwords,
 // switch accounts off, and see how many customers each person has served
 // an account is switched off rather than deleted, so the customers it served stay on record
 // the sales team marks the edits they save on Customer order ("Edited by Maria Santos · GIGA")
+// a loading account also has the area it works in (Roofings, Steel, Logistics), and the Loading tab groups the crew by it
 // a developer can't make an admin account or change one (the backend refuses it too)
 
 const MIN_PASSWORD = 8;
 // who's signed in and serving keeps changing, so the list refreshes while the page is open
 const REFRESH_MS = 30000;
 const whole = new Intl.NumberFormat();
-const EMPTY_FORM = { name: "", username: "", password: "", role: "sales", team: "" };
+const EMPTY_FORM = { name: "", username: "", password: "", role: "sales", team: "", loadingArea: "" };
 // one row of the create form; key tells React the rows apart when one is removed
 let nextRowKey = 0;
 const newRow = () => ({ ...EMPTY_FORM, key: nextRowKey++, showPassword: false, error: "" });
@@ -27,7 +30,6 @@ const teamNames = teams.map((t) => t.name);
 const ROLE_CHOICES = [
     "sales",
     "loading",
-    "logistics",
     "service",
     "chassis",
     "hardware",
@@ -105,6 +107,8 @@ export default function AccCreation() {
     const [accounts, setAccounts] = useState(null);
     const [rows, setRows] = useState(() => [newRow()]);
     const [department, setDepartment] = useState("all");
+    // on the Loading tab: "all", one of the crew's areas, or "" for the ones not assigned yet
+    const [crewArea, setCrewArea] = useState("all");
     const [creating, setCreating] = useState(false);
     const [busy, setBusy] = useState(null);
     const [resetting, setResetting] = useState(null);
@@ -172,8 +176,12 @@ export default function AccCreation() {
         for (const row of rows) {
             // only the account's details go to the server, not the row's key, Show toggle or error
             const { name, username, password, role, team } = row;
+            // only a loading account has an area
+            const loadingArea = role === "loading" ? row.loadingArea : "";
             try {
-                made.push(await createUser({ name: name.trim(), username: username.trim(), password, role, team }));
+                made.push(
+                    await createUser({ name: name.trim(), username: username.trim(), password, role, team, loadingArea }),
+                );
             } catch (err) {
                 failed.push({ ...row, error: err.message });
             }
@@ -266,7 +274,11 @@ export default function AccCreation() {
 
     // a tab whose last account moved to another role goes back to All
     const shownTab = department === "all" || accounts?.some((a) => a.role === department) ? department : "all";
-    const shown = shownTab === "all" ? accounts : accounts?.filter((a) => a.role === shownTab);
+    const inTab = shownTab === "all" ? accounts : accounts?.filter((a) => a.role === shownTab);
+    // the Loading tab narrows again to one area; a tab whose last member moved goes back to All loading
+    const onLoadingTab = shownTab === "loading";
+    const shownArea = crewArea === "all" || inTab?.some((a) => a.loadingArea === crewArea) ? crewArea : "all";
+    const shown = onLoadingTab && shownArea !== "all" ? inTab.filter((a) => a.loadingArea === shownArea) : inTab;
 
     const isDeveloper = me.role === "developer";
     const roleChoices = isDeveloper ? ROLE_CHOICES.filter((role) => role !== "admin") : ROLE_CHOICES;
@@ -291,6 +303,7 @@ export default function AccCreation() {
             )}
 
             {accounts && <DepartmentTabs accounts={accounts} value={shownTab} onChange={setDepartment} />}
+            {onLoadingTab && <CrewAreaTabs accounts={inTab} value={shownArea} onChange={setCrewArea} />}
 
             <EmployeeGrid accounts={shown} meId={me.id} />
 
@@ -363,6 +376,19 @@ export default function AccCreation() {
                                             ))}
                                         </select>
                                     </label>
+                                    {row.role === "loading" && (
+                                        <label className="admin-field">
+                                            Loading area
+                                            <select {...field(row.key, "loadingArea")}>
+                                                <option value="">Not assigned</option>
+                                                {CREW_AREAS.map((area) => (
+                                                    <option key={area} value={area}>
+                                                        {area}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </label>
+                                    )}
                                     <label className="admin-field">
                                         Sales team
                                         <select {...field(row.key, "team")}>
@@ -465,6 +491,30 @@ export default function AccCreation() {
                                                 {roleChoices.map((role) => (
                                                     <option key={role} value={role}>
                                                         {ROLE_LABELS[role]}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        )}
+                                        {a.role === "loading" && (
+                                            <select
+                                                className="status-select account-team"
+                                                aria-label={`Loading area for ${a.name}`}
+                                                value={a.loadingArea}
+                                                disabled={busy === a.id}
+                                                onChange={(e) =>
+                                                    change(
+                                                        a,
+                                                        { loadingArea: e.target.value },
+                                                        e.target.value
+                                                            ? `${a.name} now works at ${e.target.value}.`
+                                                            : `${a.name} has no loading area now.`,
+                                                    )
+                                                }
+                                            >
+                                                <option value="">Not assigned</option>
+                                                {CREW_AREAS.map((area) => (
+                                                    <option key={area} value={area}>
+                                                        {area}
                                                     </option>
                                                 ))}
                                             </select>
