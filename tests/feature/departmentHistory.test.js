@@ -60,9 +60,9 @@ describe("department history", () => {
         ]) {
             (await history(other, "hardware")).assertStatus(403);
         }
-        for (const department of ["loading", "service", "chassis", "hardware"])
-            (await history(admin, department)).assertStatus(200);
-        (await history(admin, "nowhere")).assertStatus(404);
+        for (const department of ["loading", "service", "hardware"]) (await history(admin, department)).assertStatus(200);
+        // Chassis is one of the loading crew's lists now, not a department
+        for (const department of ["nowhere", "chassis"]) (await history(admin, department)).assertStatus(404);
     });
 
     test("only orders handed over and not deleted are listed, and Customer Reports never", async () => {
@@ -88,7 +88,7 @@ describe("department history", () => {
             rows.map((r) => r.queueNum),
             [1],
         );
-        for (const department of ["loading", "service", "chassis"]) assert.deepEqual(await rowsOf(admin, department), []);
+        for (const department of ["loading", "service"]) assert.deepEqual(await rowsOf(admin, department), []);
     });
 
     test("an order shows in every list it has a type of, with only that list's part", async () => {
@@ -285,19 +285,19 @@ describe("department history", () => {
         await takeOrder({ purpose: "Chassis", invoices: [{ invoiceNo: "C-8", type: "Chassis" }] });
         const maria = await app.actingAsSales();
         const pedro = await app.actingAsLoading();
-        const carlos = await app.actingAsChassis();
+        const carlos = await app.actingAsLoading("Carlos Tsasis");
         await handOver(maria, 1);
         await handOver(maria, 2);
         await load(pedro, "loading", 1, "Roofings");
-        await load(carlos, "chassis", 2, "Chassis");
+        await load(carlos, "loading", 2, "Chassis");
         // before areas had loads of their own only the order's Done was kept; and Chassis was loaded at Service before it
-        // had its own department
+        // had an area of its own
         app.db.prepare("DELETE FROM order_loads WHERE area = 'Roofings'").run();
         app.db.prepare("UPDATE order_loads SET area = 'Service' WHERE area = 'Chassis'").run();
 
         const [roofings] = await rowsOf(pedro, "loading");
         assert.equal(roofings.loaded?.by.name, "Pedro Garcia");
-        const [chassis] = await rowsOf(carlos, "chassis");
+        const [chassis] = await rowsOf(carlos, "loading", "?list=Chassis");
         assert.equal(chassis.loaded?.by.name, "Carlos Tsasis");
         assert.equal(chassis.loaded?.by.id, carlos.account.id);
     });

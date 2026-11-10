@@ -15,7 +15,6 @@ import AccCreation from "./pages/accCreation.jsx";
 import AccountPage from "./pages/accountPage.jsx";
 import LoadingPage from "./pages/loadingPage.jsx";
 import ServicePage from "./pages/servicePage.jsx";
-import ChassisPage from "./pages/chassisPage.jsx";
 import HardwarePage from "./pages/hardwarePage.jsx";
 import OrderStatusPage from "./pages/orderStatusPage.jsx";
 import SecurityPage from "./pages/securityPage.jsx";
@@ -25,7 +24,7 @@ import DeletedTicketsPage from "./pages/deletedTicketsPage.jsx";
 import MessagesPage from "./pages/messagesPage.jsx";
 
 // every kind of staff account but the developers, who are written to from Message developer and have no Dashboard
-const NOT_DEVELOPER = ["admin", "sales", "loading", "service", "chassis", "hardware", "security", "cashier", "inventory"];
+const NOT_DEVELOPER = ["admin", "sales", "loading", "service", "hardware", "security", "cashier", "inventory"];
 
 // the browser tab: "Sheehan Inc. — Staff" until someone signs in, then their role ("Sheehan Inc. — Sales")
 function StaffTitle() {
@@ -97,11 +96,6 @@ export default function AdminApp() {
                             <Route path="service" element={<ServicePage />} />
                         </Route>
 
-                        {/* the Chassis department, the same as the loading crew for its own area */}
-                        <Route element={<ProtectedRoute roles={["admin", "chassis"]} />}>
-                            <Route path="chassis" element={<ChassisPage />} />
-                        </Route>
-
                         {/* the Hardware department, the same as the loading crew for its own area */}
                         <Route element={<ProtectedRoute roles={["admin", "hardware"]} />}>
                             <Route path="hardware" element={<HardwarePage />} />
@@ -112,7 +106,7 @@ export default function AdminApp() {
                         <Route
                             element={
                                 <ProtectedRoute
-                                    roles={["admin", "loading", "service", "chassis", "hardware", "inventory", "developer"]}
+                                    roles={["admin", "loading", "service", "hardware", "inventory", "developer"]}
                                 />
                             }
                         >

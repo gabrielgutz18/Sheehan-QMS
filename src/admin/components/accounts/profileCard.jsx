@@ -1,21 +1,26 @@
 import { ROLE_LABELS } from '../../auth/roles.js';
 import availabilityOf from '../../data/availability.js';
 import Avatar from '../common/avatar.jsx';
+import ProfileLink from '../common/profileLink.jsx';
 
 // one employee in the Accounts grid: photo, name, role (with the area, for the loading crew), employee ID, department
-// and availability
+// and availability; the photo and name open their profile
 export default function ProfileCard({ account, isMe = false }) {
     const availability = availabilityOf(account);
 
     return (
         <article className={`profile-card${account.disabled ? " is-disabled" : ""}`} aria-label={account.name}>
-            <Avatar account={account} size={72} />
+            <ProfileLink person={account} photo>
+                <Avatar account={account} size={72} />
+            </ProfileLink>
             <h3 className="profile-card-name">
-                {account.name}
+                <ProfileLink person={account}>{account.name}</ProfileLink>
                 {isMe && <span className="profile-card-you"> (you)</span>}
             </h3>
             <p className="profile-card-role">
-                {[ROLE_LABELS[account.role], account.loadingArea, account.employeeId].filter(Boolean).join(" · ")}
+                {[ROLE_LABELS[account.role], account.loadingArea, account.specialization, account.employeeId]
+                    .filter(Boolean)
+                    .join(" · ")}
             </p>
             <p className={`profile-card-dept${account.department ? "" : " is-empty"}`}>
                 {account.department || "No department yet"}

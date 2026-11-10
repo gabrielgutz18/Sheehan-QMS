@@ -4,6 +4,7 @@ import { createUser, dropUser, listUsers, updateUser } from "../api/adminUserCon
 import { useAuth } from "../auth/authContext.js";
 import { ROLE_LABELS } from "../auth/roles.js";
 import Avatar from "../components/common/avatar.jsx";
+import ProfileLink from "../components/common/profileLink.jsx";
 import CrewAreaTabs from "../components/accounts/crewAreaTabs.jsx";
 import DepartmentTabs from "../components/accounts/departmentTabs.jsx";
 import EmployeeGrid from "../components/accounts/employeeGrid.jsx";
@@ -31,7 +32,6 @@ const ROLE_CHOICES = [
     "sales",
     "loading",
     "service",
-    "chassis",
     "hardware",
     "security",
     "cashier",
@@ -456,10 +456,10 @@ export default function AccCreation() {
                             shown.map((a) => (
                                 <tr key={a.id} className={a.disabled ? "is-disabled" : undefined}>
                                     <td>
-                                        <span className="account-person">
+                                        <ProfileLink person={a} className="account-person">
                                             <Avatar account={a} size={32} />
                                             <strong>{a.name}</strong>
-                                        </span>
+                                        </ProfileLink>
                                         {(a.employeeId || a.department) && (
                                             <span className="history-note">
                                                 {[a.employeeId, a.department].filter(Boolean).join(" · ")}

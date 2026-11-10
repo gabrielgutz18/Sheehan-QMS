@@ -3,11 +3,13 @@ import { useEffect, useState } from 'react';
 import { listDevelopers } from '../../api/chatController.js';
 import { seenAgo } from '../../data/lastSeen.js';
 import Avatar from '../common/avatar.jsx';
+import ProfileLink from '../common/profileLink.jsx';
 
 // who's online changes as developers come and go, so it checks again now and then
 const REFRESH_MS = 15000;
 
-// the developer team as a row of chat heads, a green dot on each one online, online ones first
+// the developer team as a row of chat heads, a green dot on each one online, online ones first; each opens that
+// developer's profile, with their specialization (what they do in the IT department)
 // meId: the signed-in developer, marked You on the Chat page; onTeam(team): told each time the team is read, so
 // Message developer can say when none of them is on
 /** @param {{ meId?: number, onTeam?: (team: any[]) => void }} props */
@@ -49,14 +51,17 @@ export default function DeveloperHeads({ meId, onTeam }) {
                 <ul className="chat-heads-list">
                     {team.map((d) => (
                         <li key={d.id} className={`chat-head${d.online ? " is-online" : ""}`}>
-                            <span className={`chat-head-photo${d.online ? " is-online" : ""}`}>
-                                <Avatar account={d} size={40} />
-                                <span className="chat-head-dot" aria-hidden="true" />
-                            </span>
-                            <span className="chat-head-name">{d.id === meId ? "You" : d.firstName || d.name}</span>
-                            <span className="chat-head-status">
-                                {d.online ? "Online" : seenAgo(d.lastSeen)}
-                            </span>
+                            <ProfileLink person={d} className="chat-head-link">
+                                <span className={`chat-head-photo${d.online ? " is-online" : ""}`}>
+                                    <Avatar account={d} size={40} />
+                                    <span className="chat-head-dot" aria-hidden="true" />
+                                </span>
+                                <span className="chat-head-name">{d.id === meId ? "You" : d.firstName || d.name}</span>
+                                {d.specialization && <span className="chat-head-skill">{d.specialization}</span>}
+                                <span className="chat-head-status">
+                                    {d.online ? "Online" : seenAgo(d.lastSeen)}
+                                </span>
+                            </ProfileLink>
                         </li>
                     ))}
                 </ul>

@@ -24,8 +24,8 @@ const account = (overrides = {}) => ({
 });
 
 describe("a loading member's loading area", () => {
-    test("the crew's areas are Roofings, Steel and Logistics", () => {
-        assert.deepEqual(CREW_AREAS, ["Roofings", "Steel", "Logistics"]);
+    test("the crew's areas are Roofings, Steel, Logistics and Chassis", () => {
+        assert.deepEqual(CREW_AREAS, ["Roofings", "Steel", "Logistics", "Chassis"]);
     });
 
     test("an admin makes a loading account at an area, or with none yet", async () => {

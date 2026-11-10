@@ -4,6 +4,7 @@ import { getLoadingCrew } from "../../api/loadingController.js";
 import { seenAgo } from "../../data/lastSeen.js";
 import CrewAreaTabs from "../accounts/crewAreaTabs.jsx";
 import Avatar from "../common/avatar.jsx";
+import ProfileLink from "../common/profileLink.jsx";
 
 // who's online keeps changing, so the crew refreshes while the tab is open
 const REFRESH_MS = 30000;
@@ -71,9 +72,11 @@ export default function LoadingCrew() {
                         {shown.map((member) => (
                             <li key={member.id}>
                                 <article className="profile-card" aria-label={member.name}>
-                                    <Avatar account={member} size={72} />
+                                    <ProfileLink person={member} photo>
+                                        <Avatar account={member} size={72} />
+                                    </ProfileLink>
                                     <h3 className="profile-card-name">
-                                        {member.name}
+                                        <ProfileLink person={member}>{member.name}</ProfileLink>
                                         {member.you && <span className="profile-card-you"> (you)</span>}
                                     </h3>
                                     <p className={`profile-card-dept${member.loadingArea ? "" : " is-empty"}`}>

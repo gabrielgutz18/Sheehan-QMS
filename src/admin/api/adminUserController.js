@@ -1,7 +1,7 @@
 import http from "../../api/http.js";
 
 // staff accounts, for admins and developers (a developer can't make or change an admin account: 403)
-// account: { id, username, name, role: "admin" | "sales" | "loading" | "service" | "chassis" | "hardware" | "security" | "cashier" | "inventory" | "developer", team, createdAt, disabled, builtIn, servedToday,
+// account: { id, username, name, role: "admin" | "sales" | "loading" | "service" | "hardware" | "security" | "cashier" | "inventory" | "developer", team, createdAt, disabled, builtIn, servedToday,
 //            servedTotal, servingNow, signedIn } plus the profile fields from accountController.js
 // team is their own sales team from src/data/teams.js ("" for none); the edits they save on Customer order show it
 // loadingArea is the loading crew's area a loading account works in, Roofings, Steel or Logistics ("" for none, and

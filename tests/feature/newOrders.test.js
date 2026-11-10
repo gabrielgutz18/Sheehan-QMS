@@ -48,7 +48,6 @@ describe("new orders", () => {
         assert.deepEqual(forHardware.invoices, ["8812"]);
 
         assert.deepEqual(await newOrders(await app.actingAsService()), []);
-        assert.deepEqual(await newOrders(await app.actingAsChassis()), []);
     });
 
     test("Service is told about a Tire or Battery, the same as Loading and Hardware about theirs", async () => {

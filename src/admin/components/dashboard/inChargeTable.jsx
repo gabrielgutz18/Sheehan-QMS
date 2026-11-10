@@ -7,6 +7,7 @@ import { areasLeft } from '../../data/loadingAreas.js';
 import { DEPARTMENTS, departmentOf } from '../../../data/loadingAreas.js';
 import Avatar from '../common/avatar.jsx';
 import Icon from '../common/icon.jsx';
+import ProfileLink from '../common/profileLink.jsx';
 
 const FLAG_ICON = "M5 21V4M5 4h11l-2.5 4L16 12H5";
 const TAG_ICON = "M3 12V4h8l9 9-8 8zM7.5 7.5h.01";
@@ -25,7 +26,7 @@ const nobodyFor = (order, stage) => {
 
 // the Dashboard's In charge list, for every staff member, from the Order status board: each customer still in progress
 // today, in queue order, with where they are, who is with them now (the sales staff member serving them or the loading
-// crew member loading them, with their photo; "you" for the signed-in staff member, whose customers are tinted), and
+// crew member loading them, with their photo, which opens their profile; "you" for the signed-in staff member, whose customers are tinted), and
 // their types of order
 export default function InChargeTable() {
     const { user } = useAuth();
@@ -77,13 +78,13 @@ export default function InChargeTable() {
                                         </td>
                                         <td>
                                             {person ? (
-                                                <span className="charge-person">
+                                                <ProfileLink person={person} className="charge-person">
                                                     <Avatar account={person} size={26} />
                                                     <span>
                                                         {person.name}
                                                         {mine && <span className="charge-you"> (you)</span>}
                                                     </span>
-                                                </span>
+                                                </ProfileLink>
                                             ) : (
                                                 <span className="charge-nobody">{nobodyFor(o, stage)}</span>
                                             )}

@@ -5046,3 +5046,34 @@ html:has(.sale-actions) {
     margin-bottom: 20px;
     border-bottom: 1px solid var(--cream-border);
 }
+
+/* someone's photo or name that opens their profile (profileLink.jsx): it looks as it did, with a hand for a pointer
+   and the name underlined on hover */
+.profile-link {
+    display: inline-flex;
+    align-items: center;
+    gap: inherit;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    text-align: inherit;
+    background: none;
+    border: 0;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.profile-link:hover strong,
+.profile-link:hover > span:not(.chat-head-photo):not(.chat-head-status):not(.chat-head-skill),
+.profile-link:hover:not(:has(*)) {
+    text-decoration: underline;
+}
+
+.profile-link:hover .avatar {
+    filter: brightness(0.92);
+}
+
+.profile-link:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--focus-ring);
+}

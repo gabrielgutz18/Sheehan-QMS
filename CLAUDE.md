@@ -40,7 +40,7 @@ CI blocks on lint, `npm run typecheck` (non-strict `--checkJs`), `test:coverage`
 
 **Sessions are per browser tab.** The page sends `X-Tab-Id` and the session cookie is named after it, so two tabs can be signed in as different people. `<img>` requests can't send that header and accept any of the browser's sessions. `/admin` and `/auth` requests must also send `X-Requested-With: XMLHttpRequest`.
 
-**A ticket's path:** Customer order creates it → My counter hands it over → each department calls, starts and finishes it, one area at a time → Security checks it at the gate → done. `src/data/loadingAreas.js` maps order types to areas and departments, and `DepartmentLine` is the shared page for Loading (its Roofings, Steel and Logistics areas), Service, Chassis and Hardware. A customer is in one place at a time, and the server refuses calls that break this.
+**A ticket's path:** Customer order creates it → My counter hands it over → each department calls, starts and finishes it, one area at a time → Security checks it at the gate → done. `src/data/loadingAreas.js` maps order types to areas and departments, and `DepartmentLine` is the shared page for Loading (its Roofings, Steel, Logistics and Chassis areas), Service and Hardware. A customer is in one place at a time, and the server refuses calls that break this.
 
 **Queue numbers restart daily.** `:queueNum` in a route always means today's ticket; `:id` routes work across days (Order sheet, Cashier, history). Tickets are soft-deleted and can be restored; Purge (admins, and developers on their Deleted tickets page) erases deleted ones for good, after saving a copy of the database, and their points stay (`serves.order_id` becomes NULL).
 
@@ -52,7 +52,7 @@ CI blocks on lint, `npm run typecheck` (non-strict `--checkJs`), `test:coverage`
 
 ## Making changes
 
-- **Database:** add the next numbered file to `server/migrations/`; never edit one that has run. SQLite can't alter a CHECK, so changing the allowed roles means rebuilding `users` (see `031_chassis_staff.sql`). Add a case to `tests/feature/migrations.test.js`, and update `docs/DATABASE.md`, which documents every table.
+- **Database:** add the next numbered file to `server/migrations/`; never edit one that has run. SQLite can't alter a CHECK, so changing the allowed roles means rebuilding `users` (see `046_chassis_joins_loading.sql`). Add a case to `tests/feature/migrations.test.js`, and update `docs/DATABASE.md`, which documents every table.
 - **New role or department:** this crosses many files. Use commit `2e66d46` (Chassis) as the checklist: `ROLES` and `ROLE_ROUTES`, a migration, `src/admin/auth/roles.js`, `navItems.js`, `adminApp.jsx`, `loadingAreas.js`, the account and chat lists, and tests.
 - **API changes:** the route table in `README.md` is the API contract, so keep it current.
 - **Limits exist on both sides:** constants like `MAX_NAME` are repeated between pages and `server/api.js`, so change them together.

@@ -1,7 +1,7 @@
 //func
 import { useEffect, useState } from "react";
 import { getQueue } from "../api/queueController.js";
-import { DEFAULT_CALL_NOTE } from "../data/callNote.js";
+import { DEFAULT_CALL_NOTE, splitGate } from "../data/callNote.js";
 import "./style/queueDisplay.css";
 
 //assets
@@ -20,6 +20,32 @@ const UPCOMING_LIMIT = 8;
 const ALSO_SERVING_LIMIT = 3;
 
 const callNote = (o) => o.remarks || DEFAULT_CALL_NOTE;
+
+// the line under the called number, with an area's gate on a line of its own: "Please proceed to Roofings" over
+// "(Gate Y: Yero)"; with others called beside it there's room for one line, so the gate follows on it
+// (.serving--split in queueDisplay.css)
+function CallNote({ note }) {
+    const [where, gate] = splitGate(note);
+    return (
+        <p className="serving-note">
+            {where}
+            {gate && (
+                <>
+                    {" "}
+                    <br />
+                    <span className="serving-gate">{gate}</span>
+                </>
+            )}
+        </p>
+    );
+}
+
+// the short line beside each of the others called: their area and its gate, "Roofings (Gate Y: Yero)", since the whole
+// sentence wouldn't fit and the gate is what they need
+const otherNote = (o) => {
+    const [where, gate] = splitGate(callNote(o));
+    return gate ? `${where.replace(/^Please proceed to /, "")} ${gate}` : where;
+};
 
 export default function QueueDisplay() {
     const [queue, setQueue] = useState({ serving: [], upcoming: [] });
@@ -98,7 +124,7 @@ export default function QueueDisplay() {
                                     />
                                     <div className="serving-who">
                                         <p className="serving-name">{current.name}</p>
-                                        <p className="serving-note">{callNote(current)}</p>
+                                        <CallNote note={callNote(current)} />
                                     </div>
                                 </div>
 
@@ -108,7 +134,7 @@ export default function QueueDisplay() {
                                             <li key={o.queueNum} className="serving-other">
                                                 <NumberCard number={o.queueNum} purpose={o.purpose} marks={o} />
                                                 <span className="serving-other-name">{o.name}</span>
-                                                <span className="serving-other-note">{callNote(o)}</span>
+                                                <span className="serving-other-note">{otherNote(o)}</span>
                                             </li>
                                         ))}
                                     </ul>
