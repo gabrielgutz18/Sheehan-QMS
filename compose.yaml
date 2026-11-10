@@ -1,0 +1,47 @@
+# runs the queue system in docker on the Ubuntu VM; steps in docs/DEPLOY-DOCKER.md
+#   start or update:  docker compose up -d --build
+#   logs:             docker compose logs -f
+#   backup now:       docker compose exec app node server/backup.js
+services:
+    app:
+        build: .
+        # each build is also tagged with its commit by deploy/update-docker.sh, so IMAGE_TAG=<commit> goes back to it
+        image: sheehan-queue:${IMAGE_TAG:-latest}
+        restart: unless-stopped
+        init: true
+
+        # host networking, not docker's usual bridge: on a bridge every kiosk would reach the app from the same
+        # docker address, so server/rateLimit.js would count the whole shop as one client and start refusing them;
+        # it also keeps ufw in charge of who can reach PORT, which published bridge ports skip
+        network_mode: host
+
+        # ADMIN_*, PORT and GOOGLE_SHEET_* come from the same .env as without docker
+        env_file: .env
+        environment:
+            # the folders inside the container; the volumes below decide where they are on the VM
+            DATA_DIR: /data
+            BACKUP_DIR: /backups
+            # queue numbers restart at midnight by this clock, and containers default to UTC
+            TZ: ${TZ:-Asia/Manila}
+
+        # the same folders the systemd setup uses, so switching over keeps every order and backup
+        volumes:
+            - ${HOST_DATA_DIR:-/var/lib/sheehan-queue/data}:/data
+            - ${HOST_BACKUP_DIR:-/var/backups/sheehan-queue}:/backups
+        # run as the owner of those folders (the sheehan user: id -u sheehan, id -g sheehan)
+        user: "${APP_UID:-1000}:${APP_GID:-1000}"
+
+        # like the systemd service's sandbox: nothing writable but the two folders
+        read_only: true
+        tmpfs:
+            - /tmp
+        cap_drop:
+            - ALL
+        security_opt:
+            - no-new-privileges:true
+
+        logging:
+            driver: json-file
+            options:
+                max-size: 10m
+                max-file: "5"

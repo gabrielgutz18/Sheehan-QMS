@@ -319,4 +319,6 @@ On the display PC, open the display with [`deploy/display-screen.cmd`](deploy/di
 
 Step by step in **[DEPLOY-UBUNTU.md](docs/DEPLOY-UBUNTU.md)**: the code is a `git clone` of this repo in `/opt/sheehan-queue`, the data lives in `/var/lib/sheehan-queue`, a systemd service ([`deploy/sheehan-queue.service`](deploy/sheehan-queue.service)) keeps it running, and `bash deploy/update.sh` pulls `master` from GitHub, rebuilds and restarts. Optionally, a self-hosted GitHub Actions runner on the server runs it on every merge to `master` (the *Deploy to the Ubuntu server* job in the CI workflow).
 
+**In Docker instead:** [DEPLOY-DOCKER.md](docs/DEPLOY-DOCKER.md). [`compose.yaml`](compose.yaml) runs the same app from the [`Dockerfile`](Dockerfile), on the same data folders, and `bash deploy/update-docker.sh` takes the place of `update.sh`.
+
 **Public / online:** same setup behind HTTPS. If the API lives on another domain, set `VITE_API_URL=https://api.example.com/api` before building.
