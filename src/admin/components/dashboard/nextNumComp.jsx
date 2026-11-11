@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { Link } from 'react-router';
+import { useState } from "react";
+import { Link } from "react-router";
 
-import formatQueueNum from '../../../data/queueNum.js';
-import TicketDialog from '../orders/ticketDialog.jsx';
-import { inLine } from '../../data/orderStatus.js';
+import { ticketNumber } from "../../../data/queueNum.js";
+import TicketNumber from "../common/ticketNumber.jsx";
+import TicketDialog from "../orders/ticketDialog.jsx";
+import { inLine } from "../../data/orderStatus.js";
 
 // the line, as the queue display lists it but smaller: the next waiting or returning tickets in queue order, each with
 // the customer's name and their type of order, and how many are in line altogether
@@ -20,7 +21,9 @@ export default function NextNumComp({ orders, loading, limit = 6, manage = false
     return (
         <section className="mini-line" aria-labelledby="mini-line-title">
             <div className="mini-line-head">
-                <h2 id="mini-line-title" className="mini-line-title">In line</h2>
+                <h2 id="mini-line-title" className="mini-line-title">
+                    In line
+                </h2>
                 <span className="mini-line-count">{loading ? "–" : line.length} in line</span>
             </div>
 
@@ -37,7 +40,7 @@ export default function NextNumComp({ orders, loading, limit = 6, manage = false
                     </thead>
                     <tbody>
                         {shown.map((o) => {
-                            const ticket = formatQueueNum(o.queueNum, o.purpose, o);
+                            const ticket = ticketNumber(o);
                             return (
                                 <tr key={o.queueNum}>
                                     <td>
@@ -47,19 +50,25 @@ export default function NextNumComp({ orders, loading, limit = 6, manage = false
                                                 className="mini-num mini-line-view"
                                                 aria-haspopup="dialog"
                                                 aria-label={`View ${ticket}`}
-                                                onClick={() => setViewing({ queueNum: o.queueNum, openedAt: Date.now() })}
+                                                onClick={() =>
+                                                    setViewing({ queueNum: o.queueNum, openedAt: Date.now() })
+                                                }
                                             >
-                                                {ticket}
+                                                <TicketNumber order={o} />
                                             </button>
                                         ) : (
-                                            <span className="mini-num">{ticket}</span>
+                                            <span className="mini-num">
+                                                <TicketNumber order={o} />
+                                            </span>
                                         )}
                                     </td>
                                     <td className="mini-name">
                                         {o.name}
                                         {o.status === "returning" && <span className="mini-returning">Returning</span>}
                                     </td>
-                                    <td><span className="mini-pill">{o.purpose}</span></td>
+                                    <td>
+                                        <span className="mini-pill">{o.purpose}</span>
+                                    </td>
                                 </tr>
                             );
                         })}
@@ -68,7 +77,11 @@ export default function NextNumComp({ orders, loading, limit = 6, manage = false
             )}
 
             {hidden > 0 && <p className="mini-more">+{hidden} more in line</p>}
-            {manage && <Link to="/staff/customer-order?tab=orders" className="admin-link mini-line-manage">Manage orders →</Link>}
+            {manage && (
+                <Link to="/staff/customer-order?tab=orders" className="admin-link mini-line-manage">
+                    Manage orders →
+                </Link>
+            )}
 
             {viewed && <TicketDialog order={viewed} openedAt={viewing.openedAt} onClose={() => setViewing(null)} />}
         </section>

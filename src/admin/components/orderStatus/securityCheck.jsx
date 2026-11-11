@@ -5,7 +5,7 @@ import Icon from "../common/icon.jsx";
 import { checkAtSecurity } from "../../api/adminOrderController.js";
 import { stageOf } from "../../data/orderStage.js";
 import { REPORTS, resultLabel } from "../../data/securityCheck.js";
-import formatQueueNum from "../../../data/queueNum.js";
+import { ticketNumber } from "../../../data/queueNum.js";
 
 // must match the backend (server/api.js)
 const MAX_NOTE = 300;
@@ -24,7 +24,7 @@ export default function SecurityDetails({ order, refresh }) {
     const [error, setError] = useState("");
     const [reporting, setReporting] = useState(false);
     const atCheck = stageOf(order) === "security";
-    const ticket = formatQueueNum(order.queueNum, order.purpose, order);
+    const ticket = ticketNumber(order);
 
     const verify = async () => {
         setBusy(true);

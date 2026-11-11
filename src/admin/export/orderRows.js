@@ -1,4 +1,4 @@
-import formatQueueNum from '../../data/queueNum.js';
+import { ticketNumber } from '../../data/queueNum.js';
 import { checkerSummary } from '../../data/checkers.js';
 import { splitList } from '../../data/list.js';
 import orderStatus from '../data/orderStatus.js';
@@ -89,7 +89,7 @@ export const orderExportRows = (orders) =>
         .toSorted((a, b) => a.date.localeCompare(b.date) || a.queueNum - b.queueNum)
         .map((order) => ({
             date: excelDate(order.date),
-            ticket: formatQueueNum(order.queueNum, order.purpose, order),
+            ticket: ticketNumber(order),
             name: order.name,
             purpose: order.purpose,
             invoices: invoiceText(order),

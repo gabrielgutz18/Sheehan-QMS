@@ -4,7 +4,7 @@ import { useSearchParams } from "react-router";
 import { departmentHistory } from "../../api/loadingController.js";
 import { resultLabel } from "../../data/securityCheck.js";
 import { DEPARTMENTS, capitalized, historyListsOf, workOf } from "../../../data/loadingAreas.js";
-import formatQueueNum from "../../../data/queueNum.js";
+import TicketNumber from "../common/ticketNumber.jsx";
 
 // a department's History tab (department: "loading", "service" or "hardware"): every order sales handed over to
 // it, one list at a time so different products never mix (Roofings or Steel at loading, Tire or Battery at Service), each
@@ -300,7 +300,7 @@ export default function DepartmentHistory({ department }) {
                                     {rows.map((row) => (
                                         <li key={row.id} className="dept-history-row">
                                             <strong className="dept-history-ticket">
-                                                {formatQueueNum(row.queueNum, row.purpose, row)}
+                                                <TicketNumber order={row} />
                                             </strong>
                                             <div className="dept-history-customer">
                                                 <span className="dept-history-name">{row.name}</span>

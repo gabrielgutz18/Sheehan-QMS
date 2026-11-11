@@ -1,16 +1,22 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from "react";
 
-import useOrders from '../../hooks/useOrders.js';
+import useOrders from "../../hooks/useOrders.js";
 import {
-    addSheetColumn, createOrderSheetRow, listOrderSheet, listSheetColumns, removeSheetColumn, updateOrderSheet,
-} from '../../api/adminOrderController.js';
-import GoogleSheetSync from './googleSheetSync.jsx';
-import { STAGES, stageOf, whereNow } from '../../data/orderStage.js';
-import { changedDetails, editTime, editVerb } from '../../data/orderEdits.js';
-import { INVOICE_COLUMNS, sheetDate, sheetValues } from '../../data/sheetColumns.js';
-import formatQueueNum from '../../../data/queueNum.js';
-import paymentStatus from '../../../data/paymentStatus.js';
-import teams from '../../../data/teams.js';
+    addSheetColumn,
+    createOrderSheetRow,
+    listOrderSheet,
+    listSheetColumns,
+    removeSheetColumn,
+    updateOrderSheet,
+} from "../../api/adminOrderController.js";
+import GoogleSheetSync from "./googleSheetSync.jsx";
+import { STAGES, stageOf, whereNow } from "../../data/orderStage.js";
+import { changedDetails, editTime, editVerb } from "../../data/orderEdits.js";
+import { INVOICE_COLUMNS, sheetDate, sheetValues } from "../../data/sheetColumns.js";
+import { ticketNumber } from "../../../data/queueNum.js";
+import TicketNumber from "../common/ticketNumber.jsx";
+import paymentStatus from "../../../data/paymentStatus.js";
+import teams from "../../../data/teams.js";
 
 // several people work on the sheet at once, so it fetches again sooner than the other pages
 const REFRESH_MS = 5000;
@@ -41,15 +47,19 @@ const CELLS = [
 ];
 const CUSTOM_CELL_MAX = 500;
 
-const ticketOf = (o) => formatQueueNum(o.queueNum, o.purpose, o);
+const ticketOf = (o) => ticketNumber(o);
 const stageLabel = (order) => STAGES.find((s) => s.value === stageOf(order)).label;
 
 // "Juan", "RT 03" or "3" finds the order, and "Oct-24" every order that day
 const matches = (order, search) => {
     const text = search.trim().toLowerCase();
     if (!text) return true;
-    return order.name.toLowerCase().includes(text) || ticketOf(order).toLowerCase().includes(text) ||
-        String(order.queueNum) === text || sheetDate(order.createdAt).toLowerCase().includes(text);
+    return (
+        order.name.toLowerCase().includes(text) ||
+        ticketOf(order).toLowerCase().includes(text) ||
+        String(order.queueNum) === text ||
+        sheetDate(order.createdAt).toLowerCase().includes(text)
+    );
 };
 
 // a dropdown's choices, with the order's own value first if the list no longer has it, so it still shows
@@ -91,7 +101,13 @@ function TextCell({ value, label, maxLength, onSave }) {
 
     if (!editing) {
         return (
-            <button type="button" className="sheet-cell" aria-label={label} onClick={() => setDraft(value)} onFocus={() => setDraft(value)}>
+            <button
+                type="button"
+                className="sheet-cell"
+                aria-label={label}
+                onClick={() => setDraft(value)}
+                onFocus={() => setDraft(value)}
+            >
                 {value}
             </button>
         );
@@ -126,14 +142,30 @@ function TextCell({ value, label, maxLength, onSave }) {
 // one editable cell of a row, by what its column takes; clearable: a dropdown can be set back to nothing; the terms can
 // be changed, but not cleared once set, the same as on the Cashier page
 function SheetCell({ cell, value, label, onSave }) {
-    const className = ["is-editable", cell.caps && "sheet-caps", cell.time && "sheet-time", cell.invoices && "sheet-invoices", cell.runner && "sheet-runner"]
-        .filter(Boolean).join(" ");
+    const className = [
+        "is-editable",
+        cell.caps && "sheet-caps",
+        cell.time && "sheet-time",
+        cell.invoices && "sheet-invoices",
+        cell.runner && "sheet-runner",
+    ]
+        .filter(Boolean)
+        .join(" ");
     return (
         <td className={className}>
             {cell.list ? (
-                <select className="sheet-select sheet-caps" aria-label={label} value={value} onChange={(e) => onSave(e.target.value)}>
+                <select
+                    className="sheet-select sheet-caps"
+                    aria-label={label}
+                    value={value}
+                    onChange={(e) => onSave(e.target.value)}
+                >
                     {(cell.key !== "terms" || !value) && <option value="">—</option>}
-                    {choicesWith(cell.list, value).map((choice) => <option key={choice} value={choice}>{choice}</option>)}
+                    {choicesWith(cell.list, value).map((choice) => (
+                        <option key={choice} value={choice}>
+                            {choice}
+                        </option>
+                    ))}
                 </select>
             ) : (
                 <TextCell value={value} label={label} maxLength={cell.max} onSave={onSave} />
@@ -148,9 +180,14 @@ function StatusCell({ order }) {
     const [latest] = order.edits ?? [];
     return (
         <>
-            <span className={`stage-badge is-${stageOf(order)}`} title={whereNow(order)}>{stageLabel(order)}</span>
+            <span className={`stage-badge is-${stageOf(order)}`} title={whereNow(order)}>
+                {stageLabel(order)}
+            </span>
             {latest && (
-                <span className="sheet-edit" title={changedDetails(latest.changes) && `Changed ${changedDetails(latest.changes)}`}>
+                <span
+                    className="sheet-edit"
+                    title={changedDetails(latest.changes) && `Changed ${changedDetails(latest.changes)}`}
+                >
                     {editVerb(latest)} <strong>{latest.by.name}</strong>
                     {latest.team && <> · {latest.team}</>} · {editTime(latest.at)}
                 </span>
@@ -164,7 +201,10 @@ function useSheetColumns() {
     const [columns, setColumns] = useState([]);
     useEffect(() => {
         const controller = new AbortController();
-        const load = () => listSheetColumns({ signal: controller.signal }).then((data) => setColumns(data ?? [])).catch(() => {});
+        const load = () =>
+            listSheetColumns({ signal: controller.signal })
+                .then((data) => setColumns(data ?? []))
+                .catch(() => {});
         load();
         const id = setInterval(load, REFRESH_MS);
         return () => {
@@ -203,13 +243,22 @@ export default function OrderSheet({ onOpen }) {
     const visible = orders.filter((o) => matches(o, search));
     const put = (saved) => setOrders((prev) => prev.map((o) => (o.id === saved.id ? saved : o)));
 
-    const allCells = [...CELLS, ...columns.map(({ key, name }) => ({ key, label: name, col: "c-custom", max: CUSTOM_CELL_MAX, removable: true }))];
+    const allCells = [
+        ...CELLS,
+        ...columns.map(({ key, name }) => ({
+            key,
+            label: name,
+            col: "c-custom",
+            max: CUSTOM_CELL_MAX,
+            removable: true,
+        })),
+    ];
 
     // the order's text for a cell: what's on its way, or else what it has; by id, since queue numbers repeat every day
     const valueOf = (order, key) => {
         const waiting = pending[`${order.id}|${key}`];
         if (waiting !== undefined) return waiting;
-        return key.startsWith("c:") ? order.sheetCells?.[key] ?? "" : sheetValues(order)[key];
+        return key.startsWith("c:") ? (order.sheetCells?.[key] ?? "") : sheetValues(order)[key];
     };
 
     // saved one at a time; if it doesn't save, the old value shows again, with the reason
@@ -267,7 +316,12 @@ export default function OrderSheet({ onOpen }) {
     };
 
     const removeColumn = async ({ id, name }) => {
-        if (!window.confirm(`Take the ${name} column off the Order sheet? What's typed in it is kept if the column is added again, and it stays in the Google sheet but no longer syncs.`)) return;
+        if (
+            !window.confirm(
+                `Take the ${name} column off the Order sheet? What's typed in it is kept if the column is added again, and it stays in the Google sheet but no longer syncs.`,
+            )
+        )
+            return;
         setSaveError("");
         try {
             await removeSheetColumn(id);
@@ -284,7 +338,14 @@ export default function OrderSheet({ onOpen }) {
                 {cell.label}
                 {cell.sub && <small>{cell.sub}</small>}
                 {column && (
-                    <button type="button" className="sheet-column-remove" aria-label={`Remove the ${cell.label} column`} onClick={() => removeColumn(column)}>×</button>
+                    <button
+                        type="button"
+                        className="sheet-column-remove"
+                        aria-label={`Remove the ${cell.label} column`}
+                        onClick={() => removeColumn(column)}
+                    >
+                        ×
+                    </button>
                 )}
             </th>
         );
@@ -296,9 +357,11 @@ export default function OrderSheet({ onOpen }) {
                 <div>
                     <h2 id="order-sheet-title">Order sheet</h2>
                     <p className="tab-hint">
-                        Every day's orders, newest first, with all the priority orders together below the regular ones, shared by everyone in sales.
-                        Click any cell but the date, number and status to change it; it saves when you leave the cell, and the others see it within a few
-                        seconds. Put several invoice numbers one above the other with Shift+Enter. Click one of today's queue numbers to open its ticket.
+                        Every day's orders, newest first, with all the priority orders together below the regular ones,
+                        shared by everyone in sales. Click any cell but the date, number and status to change it; it
+                        saves when you leave the cell, and the others see it within a few seconds. Put several invoice
+                        numbers one above the other with Shift+Enter. Click one of today's queue numbers to open its
+                        ticket.
                     </p>
                 </div>
                 <p className="order-sheet-status" role="status">
@@ -307,8 +370,22 @@ export default function OrderSheet({ onOpen }) {
                 <div className="order-sheet-tools">
                     <GoogleSheetSync />
                     <div className="sheet-tool-row">
-                        <button type="button" className="sheet-tool" disabled={newRow !== null} onClick={() => setNewRow({})}>Add row</button>
-                        <button type="button" className="sheet-tool" disabled={newColumn !== null} onClick={() => setNewColumn("")}>Add column</button>
+                        <button
+                            type="button"
+                            className="sheet-tool"
+                            disabled={newRow !== null}
+                            onClick={() => setNewRow({})}
+                        >
+                            Add row
+                        </button>
+                        <button
+                            type="button"
+                            className="sheet-tool"
+                            disabled={newColumn !== null}
+                            onClick={() => setNewColumn("")}
+                        >
+                            Add column
+                        </button>
                     </div>
                     <input
                         type="search"
@@ -324,13 +401,27 @@ export default function OrderSheet({ onOpen }) {
             {newColumn !== null && (
                 <form className="sheet-new-column" onSubmit={addColumn}>
                     <label htmlFor="sheet-new-column-name">New column's name</label>
-                    <input id="sheet-new-column-name" autoFocus maxLength={MAX_COLUMN_NAME} value={newColumn} onChange={(e) => setNewColumn(e.target.value)} />
-                    <button type="submit" className="sheet-tool" disabled={!newColumn.trim()}>Add</button>
-                    <button type="button" className="sheet-tool" onClick={() => setNewColumn(null)}>Cancel</button>
+                    <input
+                        id="sheet-new-column-name"
+                        autoFocus
+                        maxLength={MAX_COLUMN_NAME}
+                        value={newColumn}
+                        onChange={(e) => setNewColumn(e.target.value)}
+                    />
+                    <button type="submit" className="sheet-tool" disabled={!newColumn.trim()}>
+                        Add
+                    </button>
+                    <button type="button" className="sheet-tool" onClick={() => setNewColumn(null)}>
+                        Cancel
+                    </button>
                 </form>
             )}
 
-            {(saveError || error) && <p className="field-error" role="alert">{saveError || `Couldn't refresh the sheet: ${error}`}</p>}
+            {(saveError || error) && (
+                <p className="field-error" role="alert">
+                    {saveError || `Couldn't refresh the sheet: ${error}`}
+                </p>
+            )}
 
             {loading ? (
                 <p className="admin-status">Loading the sheet...</p>
@@ -344,7 +435,9 @@ export default function OrderSheet({ onOpen }) {
                         <colgroup>
                             <col className="c-date" />
                             <col className="c-que" />
-                            {allCells.map((cell) => <col key={cell.key} className={cell.col} />)}
+                            {allCells.map((cell) => (
+                                <col key={cell.key} className={cell.col} />
+                            ))}
                             <col className="c-status" />
                         </colgroup>
                         <thead>
@@ -359,14 +452,25 @@ export default function OrderSheet({ onOpen }) {
                             {newRow !== null && (
                                 <tr className="sheet-new-row">
                                     <td className="sheet-date">New</td>
-                                    <th scope="row" className="sheet-que">—</th>
+                                    <th scope="row" className="sheet-que">
+                                        —
+                                    </th>
                                     {allCells.map((cell) => (
-                                        <SheetCell key={cell.key} cell={cell} value={newRow[cell.key] ?? ""} label={`${cell.label} for the new row`}
-                                            onSave={(value) => saveNewCell(cell.key, value)} />
+                                        <SheetCell
+                                            key={cell.key}
+                                            cell={cell}
+                                            value={newRow[cell.key] ?? ""}
+                                            label={`${cell.label} for the new row`}
+                                            onSave={(value) => saveNewCell(cell.key, value)}
+                                        />
                                     ))}
                                     <td className="sheet-status">
-                                        <span className="sheet-edit">Needs a customer's name, a type of order and an invoice number.</span>
-                                        <button type="button" className="sheet-tool" onClick={() => setNewRow(null)}>Cancel</button>
+                                        <span className="sheet-edit">
+                                            Needs a customer's name, a type of order and an invoice number.
+                                        </span>
+                                        <button type="button" className="sheet-tool" onClick={() => setNewRow(null)}>
+                                            Cancel
+                                        </button>
                                     </td>
                                 </tr>
                             )}
@@ -377,18 +481,31 @@ export default function OrderSheet({ onOpen }) {
                                         <td className="sheet-date">{sheetDate(o.createdAt)}</td>
                                         <th scope="row" className="sheet-que">
                                             {/* Customer order only opens today's tickets */}
-                                            {!o.isToday ? ticket : (
-                                                <button type="button" className="sheet-que-btn" title={`Open ${ticket} on Queue ticket`}
-                                                    onClick={() => onOpen(o.queueNum)}>
-                                                    {ticket}
+                                            {!o.isToday ? (
+                                                <TicketNumber order={o} />
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    className="sheet-que-btn"
+                                                    title={`Open ${ticket} on Queue ticket`}
+                                                    onClick={() => onOpen(o.queueNum)}
+                                                >
+                                                    <TicketNumber order={o} />
                                                 </button>
                                             )}
                                         </th>
                                         {allCells.map((cell) => (
-                                            <SheetCell key={cell.key} cell={cell} value={valueOf(o, cell.key)} label={`${cell.label} for ${ticket}`}
-                                                onSave={(value) => save(o, cell, value)} />
+                                            <SheetCell
+                                                key={cell.key}
+                                                cell={cell}
+                                                value={valueOf(o, cell.key)}
+                                                label={`${cell.label} for ${ticket}`}
+                                                onSave={(value) => save(o, cell, value)}
+                                            />
                                         ))}
-                                        <td className="sheet-status"><StatusCell order={o} /></td>
+                                        <td className="sheet-status">
+                                            <StatusCell order={o} />
+                                        </td>
                                     </tr>
                                 );
                             })}

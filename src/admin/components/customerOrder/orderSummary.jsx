@@ -1,5 +1,5 @@
-import formatQueueNum from '../../../data/queueNum.js';
-import { formatPickup } from '../../../data/pickupDate.js';
+import { ticketNumber } from "../../../data/queueNum.js";
+import { formatPickup } from "../../../data/pickupDate.js";
 
 // Customer order's summary, beside Serve at the bottom of the form: the ticket's number as it will print and, in one
 // line, who it's for, what for and how many invoices, filled in as the form is; Ticket preview shows the whole ticket
@@ -7,7 +7,12 @@ import { formatPickup } from '../../../data/pickupDate.js';
 export default function OrderSummary({ fields, ticket }) {
     const invoices = fields.invoices.filter((invoice) => invoice.invoiceNo.trim()).length;
     const purpose = fields.types.join(", ");
-    const number = formatQueueNum(ticket?.queueNum ?? "--", purpose || ticket?.purpose, fields);
+    const number = ticketNumber({
+        ...fields,
+        queueNum: ticket?.queueNum ?? "--",
+        purpose: purpose || ticket?.purpose,
+        pickup: ticket?.pickup,
+    });
     const parts = [
         fields.name.trim(),
         purpose,
@@ -25,7 +30,9 @@ export default function OrderSummary({ fields, ticket }) {
             {parts.length ? (
                 <p className="sale-summary-line">{parts.join(" · ")}</p>
             ) : (
-                <p className="sale-summary-line is-empty">Fill in the order, then press Serve. The ticket shows after, to print.</p>
+                <p className="sale-summary-line is-empty">
+                    Fill in the order, then press Serve. The ticket shows after, to print.
+                </p>
             )}
         </div>
     );

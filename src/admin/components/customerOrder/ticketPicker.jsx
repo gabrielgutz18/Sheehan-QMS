@@ -1,5 +1,5 @@
 import useOrders from '../../hooks/useOrders.js';
-import formatQueueNum from '../../../data/queueNum.js';
+import { ticketNumber } from '../../../data/queueNum.js';
 
 // View queue ticket on Customer order: today's tickets, newest first, to open one's ticket and print it again
 // (the list keeps itself fresh, so a ticket served a moment ago joins it within a few seconds)
@@ -22,7 +22,7 @@ export default function TicketPicker({ current, onView }) {
                 </option>
                 {newestFirst.map((o) => (
                     <option key={o.queueNum} value={o.queueNum}>
-                        {formatQueueNum(o.queueNum, o.purpose, o)} · {o.name}
+                        {ticketNumber(o)} · {o.name}
                     </option>
                 ))}
             </select>

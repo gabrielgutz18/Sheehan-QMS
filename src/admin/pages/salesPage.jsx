@@ -11,7 +11,8 @@ import AnnouncerVolume from '../components/counter/announcerVolume.jsx';
 import { readLastRemarks, saveLastRemarks } from '../data/lastRemarks.js';
 import { handOverTo } from '../data/loadingAreas.js';
 import { inLine } from '../data/orderStatus.js';
-import formatQueueNum from '../../data/queueNum.js';
+import { ticketNumber } from '../../data/queueNum.js';
+import TicketNumber from "../components/common/ticketNumber.jsx";
 import Greetings from '../components/common/greetings.jsx';
 import ServedBy from '../components/orders/servedBy.jsx';
 import Avatar from '../components/common/avatar.jsx';
@@ -28,7 +29,7 @@ import TicketDialog from '../components/orders/ticketDialog.jsx';
 // while they're away from their counter someone else in sales presses Assist to take the customer, which everyone
 // sees, and can then hand them over to the department themselves
 
-const ticketOf = (o) => formatQueueNum(o.queueNum, o.purpose, o);
+const ticketOf = (o) => ticketNumber(o);
 // the note after Done, Back to waiting or Returning, e.g. "A-12 is done."
 const STATUS_NOTES = { done: "is done", pending: "is back to waiting", returning: "is back in line as returning" };
 // Served today lists this many of the latest; the rest are counted under it
@@ -200,7 +201,7 @@ export default function SalesPage() {
                                 {mine.map((o) => (
                                     <li key={o.queueNum} className="counter-ticket">
                                         <div className="counter-ticket-main">
-                                            <strong className="counter-number">{ticketOf(o)}</strong>
+                                            <strong className="counter-number"><TicketNumber order={o} /></strong>
                                             <span className="counter-name">{o.name}</span>
                                             <span className="counter-meta">{o.purpose}{o.remarks && ` · “${o.remarks}”`}</span>
                                             <OrderDetails order={o} />
@@ -272,7 +273,7 @@ export default function SalesPage() {
                             {waiting.map((o) => (
                                 <li key={o.queueNum} className="counter-ticket">
                                     <div className="counter-ticket-main">
-                                        <strong className="counter-number">{ticketOf(o)}</strong>
+                                        <strong className="counter-number"><TicketNumber order={o} /></strong>
                                         <span className="counter-name">
                                             {o.name}
                                             {o.status === "returning" && <span className="history-badge status-returning returning-tag">Returning</span>}
@@ -372,7 +373,7 @@ export default function SalesPage() {
                         {servedToday.slice(0, SERVED_SHOWN).map((o) => (
                             <li key={o.queueNum} className="counter-ticket">
                                 <div className="counter-ticket-main">
-                                    <strong className="counter-number">{ticketOf(o)}</strong>
+                                    <strong className="counter-number"><TicketNumber order={o} /></strong>
                                     <span className="counter-name">{o.name}</span>
                                     {o.handedOver ? (
                                         <>

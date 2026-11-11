@@ -23,3 +23,20 @@ const formatQueueNum = (n, purpose, marks) => {
 };
 
 export default formatQueueNum;
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// "2026-11-11" → "Nov 11", the same on every computer
+export const shortDay = (day) => `${MONTHS[Number(day.slice(5, 7)) - 1]} ${Number(day.slice(8, 10))}`;
+
+// the number on the customer's paper: a pick-up's is the one it was given on the day they ordered (order.pickup, { num,
+// date }), not the one it's kept under today, which is never shown
+/** @param {{ queueNum: any, purpose?: string, priority?: any, tbaPriority?: any, pickup?: { num: number, date: string } }} order */
+export const paperNumber = (order) => formatQueueNum(order.pickup?.num ?? order.queueNum, order.purpose ?? "", order);
+
+// how staff screens show a ticket: a pick-up (back on a later day for the items) goes by its paper's number and the day
+// it was given, "RS 01 · PICK-UP · Nov 11", since numbers restart daily and today's RS 01, or another pick-up's from
+// Nov 12, is someone else; any other ticket is just its number, "RS 01"
+/** @param {{ queueNum: any, purpose?: string, priority?: any, tbaPriority?: any, pickup?: { num: number, date: string } }} order */
+export const ticketNumber = (order) =>
+    order.pickup ? `${paperNumber(order)} · PICK-UP · ${shortDay(order.pickup.date)}` : paperNumber(order);

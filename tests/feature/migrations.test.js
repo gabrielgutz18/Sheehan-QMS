@@ -1421,3 +1421,31 @@ test("049 adds the recalls, kept with their order and gone with it", () => {
         db.close();
     }
 });
+
+// 050 marks pick-ups, the tickets moved into the day their customer comes back for the items; none are, to start with
+test("050 adds the pick-up mark, with every ticket already taken left as it was", () => {
+    const old = databaseBefore("050");
+    old.exec(`
+        INSERT INTO orders (id, queue_date, queue_num, name, purpose, status, created_at, pickup_date)
+            VALUES (1, '2026-11-11', 1, 'Juan Dela Cruz', 'Roofings, Steel', 'done', '2026-11-11T09:00:00.000Z', '2026-11-14'),
+                   (2, '2026-11-11', 2, 'Ana Reyes', 'Steel', 'pending', '2026-11-11T09:00:00.000Z', NULL);
+    `);
+    old.close();
+
+    const quiet = mock.method(console, "log", () => {});
+    const db = openDatabase(dataDir);
+    quiet.mock.restore();
+
+    try {
+        const rows = db
+            .prepare("SELECT id, queue_date, queue_num, pickup_date, pickup_at FROM orders ORDER BY id")
+            .all()
+            .map((r) => ({ ...r }));
+        assert.deepEqual(rows, [
+            { id: 1, queue_date: "2026-11-11", queue_num: 1, pickup_date: "2026-11-14", pickup_at: null },
+            { id: 2, queue_date: "2026-11-11", queue_num: 2, pickup_date: null, pickup_at: null },
+        ]);
+    } finally {
+        db.close();
+    }
+});

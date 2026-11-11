@@ -1,6 +1,6 @@
 import { useAuth } from '../../auth/authContext.js';
 import useOrderStatus from '../../hooks/useOrderStatus.js';
-import formatQueueNum from '../../../data/queueNum.js';
+import TicketNumber from "../common/ticketNumber.jsx";
 import { splitList } from '../../../data/list.js';
 import { stageOf, whereNow } from '../../data/orderStage.js';
 import { areasLeft } from '../../data/loadingAreas.js';
@@ -67,7 +67,7 @@ export default function InChargeTable() {
                                 return (
                                     <tr key={o.queueNum} className={mine ? "is-mine" : undefined}>
                                         <th scope="row">
-                                            <span className="charge-ticket">{formatQueueNum(o.queueNum, o.purpose, o)}</span>
+                                            <span className="charge-ticket"><TicketNumber order={o} /></span>
                                             <span className="charge-name">{o.name}</span>
                                         </th>
                                         <td>

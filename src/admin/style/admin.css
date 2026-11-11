@@ -1824,8 +1824,9 @@
     border-color: #9fd3ae;
 }
 
-/* the order's areas in turn: finished, where they are now, and what's left */
-.serving-areas {
+/* the order's areas in turn (AreaSteps): finished in green, where they are now in black, the next one in red, and
+   what's left in gray */
+.area-steps {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
@@ -1834,7 +1835,7 @@
     list-style: none;
 }
 
-.serving-area {
+.area-step {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -1844,67 +1845,284 @@
     color: var(--text-muted);
     border: 1px solid var(--field-border);
     border-radius: 999px;
-    white-space: pre-wrap;
+    white-space: nowrap;
 }
 
-.serving-area.is-done {
+.area-step.is-done {
     color: #1a6b32;
     background: #e8f6ec;
     border-color: #9fd3ae;
 }
 
-.serving-area.is-now {
+.area-step.is-now {
     font-weight: 700;
     color: #ffffff;
     background: var(--text-dark);
     border-color: var(--text-dark);
 }
 
-.serving-area-now {
+.area-step.is-next {
+    font-weight: 700;
+    color: var(--brand-red);
+    background: var(--brand-tint);
+    border-color: var(--brand-tint-border);
+}
+
+.area-step-tag {
     font-size: 11px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.04em;
 }
 
-.serving-facts {
+/* on Done today's rows, under the name, for an order the other department still has a part of */
+.counter-ticket .area-steps {
+    margin: 4px 0 2px;
+}
+
+/* ---------- waiting at a department ---------- */
+
+/* a customer in line, one card each like the serving cards: who and where they stand, the areas, the order, then
+   Call and Start loading along the bottom */
+.waiting-list {
     display: grid;
-    gap: 4px;
-    margin: 0;
-    font-size: 14px;
+    gap: 12px;
 }
 
-.serving-facts > div {
-    display: grid;
-    grid-template-columns: 72px minmax(0, 1fr);
-    gap: 8px;
+.waiting-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+    padding: 14px 16px 16px;
+    background: #ffffff;
+    border: 1px solid var(--field-border);
+    border-radius: 10px;
 }
 
-.serving-facts dt {
-    color: var(--text-muted);
+/* the one Call next calls: a red edge, so the crew sees who that is without reading every number */
+.waiting-card.is-next {
+    border-color: var(--brand-tint-border);
+    box-shadow: inset 4px 0 0 var(--brand-red);
 }
 
-.serving-facts dd {
-    margin: 0;
-    font-weight: 600;
+.waiting-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+}
+
+/* someone else has them: the details fade, but the reason and the buttons' place stay clear */
+.waiting-card.is-elsewhere {
+    background: var(--surface-muted);
+}
+
+.waiting-card.is-elsewhere .waiting-body {
+    opacity: 0.6;
+}
+
+.waiting-head {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+/* the number and its pills share a line, the pills going under it in a narrow column */
+.waiting-top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 4px 12px;
+}
+
+.waiting-number {
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: 0.04em;
+    color: var(--brand-red);
+}
+
+.waiting-name {
+    font-size: 16px;
+    font-weight: 700;
     overflow-wrap: anywhere;
 }
 
-/* the sale's details, in tidy columns rather than one long line */
-.serving-card .sale-facts {
+.waiting-purpose {
+    font-size: 14px;
+    color: var(--text-muted);
+}
+
+.waiting-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.waiting-pill {
+    padding: 3px 10px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    color: #52525b;
+    background: var(--cream);
+    border: 1px solid var(--cream-border);
+    border-radius: 999px;
+}
+
+.waiting-pill.is-next {
+    color: var(--brand-red);
+    background: var(--brand-tint);
+    border-color: var(--brand-tint-border);
+}
+
+.waiting-pill.is-returning {
+    color: #5b3aa8;
+    background: #f3ecfd;
+    border-color: #c4aef0;
+}
+
+.waiting-actions {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-    gap: 4px 16px;
-    padding-top: 10px;
+    gap: 8px;
+    padding-top: 12px;
     border-top: 1px solid var(--field-border);
 }
 
-.serving-card .sale-pay {
-    justify-self: start;
+.waiting-actions .wait-hint {
+    flex-basis: auto;
+}
+
+/* Call first and widest, any Start loading buttons sharing the row, all big enough to tap with gloves on */
+.waiting-main-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.waiting-main-actions .admin-btn {
+    flex: 1 1 170px;
+    min-height: 44px;
+}
+
+.waiting-main-actions .admin-btn-call {
+    flex-grow: 1.4;
+    font-weight: 600;
+}
+
+.waiting-main-actions .admin-btn-call:disabled {
+    color: #6f6f6f;
+    background: #e4e4e1;
+    border-color: #d4d4d0;
+    opacity: 1;
+}
+
+/* Recall, set apart with what it's for, since it fixes a mistake rather than moving the line on */
+.waiting-recall {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px 12px;
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+/* the order on a department card (OrderFacts), like a small spreadsheet: a shaded label column, a value column, and
+   grid lines between the cells, in a rounded frame */
+.order-facts {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 14px;
+    border: 1px solid var(--field-border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.order-facts th,
+.order-facts td {
+    padding: 7px 12px;
+    text-align: left;
+    vertical-align: top;
+    border-top: 1px solid var(--field-border);
+}
+
+.order-facts tr:first-child th,
+.order-facts tr:first-child td {
+    border-top: none;
+}
+
+.order-facts th {
+    width: 96px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    color: #52525b;
+    background: var(--surface-muted);
+    border-right: 1px solid var(--field-border);
+}
+
+.order-facts td {
+    line-height: 20px;
+    overflow-wrap: anywhere;
+}
+
+/* several values in one cell (invoices, items, areas done) each get a line of their own */
+.order-facts-invoice,
+.order-facts-line {
+    display: block;
+}
+
+.order-facts-invoice + .order-facts-invoice,
+.order-facts-line + .order-facts-line {
+    margin-top: 4px;
+}
+
+/* paid in green; anything still to collect in amber */
+.order-facts-pay {
+    display: inline-block;
+    padding: 0 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #7a4f00;
+    background: #fdf3dc;
+    border: 1px solid #f0d9a0;
+    border-radius: 999px;
+}
+
+.order-facts-pay.is-paid {
+    color: #1a6b32;
+    background: #e8f6ec;
+    border-color: #9fd3ae;
+}
+
+.order-facts .is-pickup td {
+    font-weight: 600;
+    color: #5b3aa8;
+}
+
+.order-facts .is-security td {
+    font-weight: 600;
+    color: #5b3a8c;
+}
+
+.order-facts .is-reported td {
+    font-weight: 600;
+    color: #8f1d1d;
 }
 
 .serving-card .served-by,
-.serving-card .sent-back-note {
+.serving-card .sent-back-note,
+.waiting-card .sent-back-note {
     margin-top: 0;
 }
 
@@ -5076,4 +5294,23 @@ html:has(.sale-actions) {
 .profile-link:focus-visible {
     outline: none;
     box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+/* under a pick-up's number (TicketNumber): the day it was ordered, so RS 05 from Nov 8, from Nov 9 and today's RS 05
+   are told apart; on its own line so the number keeps its column */
+.pickup-tag {
+    display: block;
+    width: fit-content;
+    margin-top: 3px;
+    padding: 1px 6px;
+    border: 1px solid #fde68a;
+    border-radius: 4px;
+    background: #fffbeb;
+    color: #92400e;
+    font-size: max(0.55em, 10px);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    line-height: 1.4;
+    text-transform: uppercase;
+    white-space: nowrap;
 }

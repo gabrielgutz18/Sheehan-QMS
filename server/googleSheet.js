@@ -5,9 +5,9 @@
 // column but DATE, QUE and STATUS, which run the queue), for new rows, which become tickets once they have a TYPE OF
 // ORDER, and for columns people added, which join the Order sheet
 // set GOOGLE_SHEET_URL (the web app's /exec link) and GOOGLE_SHEET_TOKEN (the script's SYNC_TOKEN) in .env to turn it on
-import { sheetDate, sheetValues } from '../src/admin/data/sheetColumns.js';
-import { whereNow } from '../src/admin/data/orderStage.js';
-import formatQueueNum, { markOf } from '../src/data/queueNum.js';
+import { sheetDate, sheetValues } from "../src/admin/data/sheetColumns.js";
+import { whereNow } from "../src/admin/data/orderStage.js";
+import formatQueueNum, { markOf } from "../src/data/queueNum.js";
 
 // rows per request, so one request stays well inside Apps Script's time limit on the first sync of a large sheet
 const CHUNK = 300;
@@ -15,10 +15,11 @@ const REQUEST_TIMEOUT_MS = 60 * 1000;
 
 // where an order goes on the sheet: every regular order first, then all the priority orders together below them, then
 // all the TBA priority ones, whatever their day, so a day doesn't split them up; oldest first within each group, in
-// number order within a day; the script sorts the rows by this text: "0 2026-10-29 0003"
+// number order within a day; the script sorts the rows by this text: "0 2026-10-29 0003"; a pick-up stays on the day it
+// was ordered, by the number on the customer's paper
 const GROUPS = { "": 0, "*": 1, "**": 2 };
 export const sortKey = (order) =>
-    `${GROUPS[markOf(order)]} ${order.date} ${String(order.queueNum).padStart(4, "0")}`;
+    `${GROUPS[markOf(order)]} ${order.pickup?.date ?? order.date} ${String(order.pickup?.num ?? order.queueNum).padStart(4, "0")}`;
 
 // an order from the Order sheet (toHistory's shape) as one row of the Google sheet, { [column key]: text }; id is
 // how the script finds the row again; a priority order's QUE is just its mark, "*", and a TBA priority one's "**", in
@@ -26,7 +27,7 @@ export const sortKey = (order) =>
 export const sheetRow = (order, columns = []) => ({
     id: String(order.id),
     date: sheetDate(order.createdAt),
-    que: markOf(order) || formatQueueNum(order.queueNum, order.purpose),
+    que: markOf(order) || formatQueueNum(order.pickup?.num ?? order.queueNum, order.purpose),
     status: whereNow(order, { named: false }),
     ...sheetValues(order),
     ...Object.fromEntries(columns.map(({ key }) => [key, order.sheetCells?.[key] ?? ""])),
@@ -48,7 +49,16 @@ export const sheetRow = (order, columns = []) => ({
 // listColumns(): the columns people added, [{ key, name }]; takeHeaders(headers): the sheet's other columns, [{ key, name
 // }], join them, and it answers the list as it is now; any of those the sheet doesn't have yet are added to it
 export function createSheetSync({
-    url, token, listOrders, listColumns = () => [], takeHeaders, applyEdit, applyNewRow, intervalMs = 15000, fetch = globalThis.fetch, log = console,
+    url,
+    token,
+    listOrders,
+    listColumns = () => [],
+    takeHeaders,
+    applyEdit,
+    applyNewRow,
+    intervalMs = 15000,
+    fetch = globalThis.fetch,
+    log = console,
 }) {
     // id -> the row as last sent (JSON)
     const sent = new Map();
@@ -104,7 +114,10 @@ export function createSheetSync({
         const { edits, newRows, headers } = await request({ pull: true });
         // a version of the script from before edits came back: the rows still go, so it's only worth a line in the log
         if (!edits) {
-            if (!toldOldScript) log.log("Google sheet: edits typed in the sheet can't come back until the script's new version is deployed");
+            if (!toldOldScript)
+                log.log(
+                    "Google sheet: edits typed in the sheet can't come back until the script's new version is deployed",
+                );
             toldOldScript = true;
             return;
         }
@@ -133,7 +146,9 @@ export function createSheetSync({
         if (made.length) {
             const orders = new Map(listOrders().map((order) => [order.id, order]));
             const columns = listColumns();
-            const created = made.filter(({ id }) => orders.has(id)).map(({ key, id }) => ({ key, row: sheetRow(orders.get(id), columns) }));
+            const created = made
+                .filter(({ id }) => orders.has(id))
+                .map(({ key, id }) => ({ key, row: sheetRow(orders.get(id), columns) }));
             if (created.length) await post({ created });
         }
 
@@ -147,7 +162,8 @@ export function createSheetSync({
                 ...(freshRows.length && { refusedRows: freshRows }),
             });
         }
-        for (const { id, key, problem } of freshEdits) log.error(`Google sheet: didn't take the ${key} of order ${id}: ${problem}`);
+        for (const { id, key, problem } of freshEdits)
+            log.error(`Google sheet: didn't take the ${key} of order ${id}: ${problem}`);
         for (const { problem } of freshRows) log.error(`Google sheet: didn't make a ticket from a new row: ${problem}`);
         toldRefused = new Set([...refused.map(toldEdit), ...refusedRows.map(toldRow)]);
     };
