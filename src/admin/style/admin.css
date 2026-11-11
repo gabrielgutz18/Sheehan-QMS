@@ -2840,7 +2840,8 @@
     grid-column: 1 / -1;
     display: flex;
     flex-direction: column;
-    align-items: center;
+    /* safe: a ticket wider than the window scrolls instead of losing its left side */
+    align-items: safe center;
     gap: 14px;
     overflow-x: auto;
 }
@@ -3452,6 +3453,125 @@ html:has(.sale-actions) {
 .volume-field {
     flex: 1 1 240px;
     max-width: 420px;
+}
+
+/* ---------- settings ---------- */
+
+/* Settings: Install app and Install certificate side by side, one under the other on a narrow screen */
+.settings-head {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.settings-intro {
+    margin: 0;
+    font-size: 14px;
+    color: var(--text-muted);
+}
+
+.settings-columns {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+    gap: 16px;
+    align-items: start;
+}
+
+.settings-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.settings-card h2 {
+    margin: 0;
+}
+
+.settings-text,
+.settings-note {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.settings-note,
+.settings-alt {
+    color: var(--text-muted);
+}
+
+.settings-text code {
+    font-size: 13px;
+    padding: 1px 5px;
+    background: var(--field-bg);
+    border-radius: 4px;
+}
+
+/* green when the device is ready, amber while something is still to do */
+.settings-status {
+    margin: 0;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    border: 1px solid;
+    border-radius: 8px;
+}
+
+.settings-status.is-ok {
+    color: #166534;
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+}
+
+.settings-status.is-wait {
+    color: #92400e;
+    background: #fffbeb;
+    border-color: #fde68a;
+}
+
+.settings-status a {
+    color: inherit;
+}
+
+/* the one thing to click, only as wide as its words */
+.settings-action {
+    align-self: flex-start;
+}
+
+.settings-action.admin-btn-primary {
+    align-self: flex-start;
+    width: auto;
+    height: auto;
+    min-height: 40px;
+    padding: 8px 18px;
+    font-weight: 600;
+}
+
+.settings-inline-link {
+    padding: 0;
+    font: inherit;
+    color: var(--brand-red);
+    text-decoration: underline;
+    background: none;
+    border: 0;
+    cursor: pointer;
+}
+
+.settings-status .settings-inline-link {
+    color: inherit;
+}
+
+.settings-subhead {
+    margin: 8px 0 0;
+    padding-top: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    border-top: 1px solid var(--field-border);
+}
+
+.settings-downloads {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
 /* ---------- my account ---------- */

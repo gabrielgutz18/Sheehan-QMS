@@ -365,6 +365,43 @@ test("the display and printer settings are one menu item, and SheeChat holds Mes
     await expect(page.getByRole("heading", { name: "SheeChat" })).toBeVisible();
 });
 
+test("Settings in the menu has Install app and Install certificate for this device", async ({ page }) => {
+    await page.goto("/staff");
+    await signIn(page, ADMIN.username, ADMIN.password);
+    await page.getByRole("navigation", { name: "Admin" }).getByRole("link", { name: "Settings" }).click();
+    await expect(page).toHaveURL(/\/staff\/settings$/);
+    await expect(page.getByRole("heading", { name: "Install app" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Install certificate" })).toBeVisible();
+    // the tests run over plain http, so the app can't be installed from the browser here
+    await expect(page.getByText("Edge and Chrome only offer Install app over https.")).toBeVisible();
+    // from nginx on port 80, by the same name the app was opened on
+    await expect(page.getByRole("link", { name: "Windows installer" })).toHaveAttribute(
+        "href",
+        "http://127.0.0.1/install-certificate.cmd",
+    );
+
+    // the ticket paper's set-up, with the manual that shows each window, served as a PDF to open in the browser
+    await expect(page.getByRole("heading", { name: "Ticket paper" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Open the setup manual (PDF)" })).toHaveAttribute(
+        "href",
+        "/setup-manual.pdf",
+    );
+    const manual = await page.request.get("/setup-manual.pdf");
+    expect(manual.ok()).toBe(true);
+    expect(manual.headers()["content-type"]).toBe("application/pdf");
+
+    // once the browser offers it (Edge and Chrome over https), the page's own Install app button takes it
+    await page.evaluate(() => {
+        const offer = Object.assign(new Event("beforeinstallprompt", { cancelable: true }), {
+            prompt: async () => {},
+            userChoice: Promise.resolve({ outcome: "accepted" }),
+        });
+        window.dispatchEvent(offer);
+    });
+    await page.getByRole("main").getByRole("button", { name: "Install app" }).click();
+    await expect(page.getByText("Installed. Open Sheehan QMS from the desktop or the Start menu.")).toBeVisible();
+});
+
 test("a message pops up in the corner of any page, and clicking it opens the conversation", async ({
     page,
     browser,
@@ -1457,7 +1494,10 @@ test("the staff area can be installed as an app from the Install app button", as
 
 // a coworker's profile opens from their photo or name outside SheeChat too: on Accounts and from the developers' chat
 // heads on Message developer, where a developer's specialization (what they do in the IT department) shows
-test("a profile opens from Accounts and from the developer heads, with a developer's specialization", async ({ page, browser }) => {
+test("a profile opens from Accounts and from the developer heads, with a developer's specialization", async ({
+    page,
+    browser,
+}) => {
     const stamp = Date.now();
     const dev = { username: `e2e-it-${stamp}`, password: "e2e-password", name: `Ivy Tech${stamp}`, role: "developer" };
 
@@ -1504,8 +1544,18 @@ test("Send a message on a profile opens SheeChat with them, and a developer's Sh
     browser,
 }) => {
     const stamp = Date.now();
-    const dev = { username: `e2e-msg-dev-${stamp}`, password: "e2e-password", name: `Dina Dev${stamp}`, role: "developer" };
-    const crew = { username: `e2e-msg-crew-${stamp}`, password: "e2e-password", name: `Lito Load${stamp}`, role: "loading" };
+    const dev = {
+        username: `e2e-msg-dev-${stamp}`,
+        password: "e2e-password",
+        name: `Dina Dev${stamp}`,
+        role: "developer",
+    };
+    const crew = {
+        username: `e2e-msg-crew-${stamp}`,
+        password: "e2e-password",
+        name: `Lito Load${stamp}`,
+        role: "loading",
+    };
 
     await page.goto("/staff/accounts");
     await signIn(page, ADMIN.username, ADMIN.password);
@@ -1515,7 +1565,10 @@ test("Send a message on a profile opens SheeChat with them, and a developer's Sh
 
     // an admin opens the developer's profile on Accounts and writes to them from it
     await page.reload();
-    await page.locator(".employee-grid").getByRole("button", { name: `View ${dev.name}'s profile` }).click();
+    await page
+        .locator(".employee-grid")
+        .getByRole("button", { name: `View ${dev.name}'s profile` })
+        .click();
     const profile = page.getByRole("dialog", { name: `${dev.name}'s profile` });
     await profile.getByRole("button", { name: "Send a message" }).click();
     await expect(profile).toBeHidden();
@@ -1573,7 +1626,12 @@ test("Recall calls a done customer back to Roofings with a reason, from Done at 
     await signIn(page, ADMIN.username, ADMIN.password);
     await expect(page.getByRole("heading", { name: "Loading", exact: true })).toBeVisible();
     // an order loaded at Roofings and done, as the crew would have it
-    const { queueNum } = await api(page, "POST", "/orders", sale(customer, "Roofings", [{ invoiceNo: `R-${stamp}`, type: "Roofings" }]));
+    const { queueNum } = await api(
+        page,
+        "POST",
+        "/orders",
+        sale(customer, "Roofings", [{ invoiceNo: `R-${stamp}`, type: "Roofings" }]),
+    );
     await api(page, "POST", `/admin/orders/${queueNum}/handover`, {});
     await api(page, "POST", `/admin/loading/${queueNum}/start`, { area: "Roofings" });
     await api(page, "POST", `/admin/loading/${queueNum}/done`);

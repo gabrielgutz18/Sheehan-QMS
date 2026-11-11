@@ -1,0 +1,1466 @@
+<!doctype html>
+<!-- the device setup manual, made into public/setup-manual.pdf by build.js (npm run manual): each picture slot (a name in double braces) is swapped for a
+     fresh screenshot of the app, so the pictures always match it; the Windows and browser windows are drawn here,
+     since they can't be captured, and look close to the real ones -->
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Sheehan QMS — Device setup manual</title>
+        <style>
+            :root {
+                --red: #c8202a;
+                --red-dark: #9e1820;
+                --tint: #fef2f2;
+                --tint-line: #fecaca;
+                --ink: #18181b;
+                --muted: #5f5f68;
+                --line: #e4e4e7;
+                --soft: #f6f6f7;
+                --pin: #f59e0b;
+                --pin-ink: #1c1203;
+                --ok: #166534;
+                --ok-bg: #f0fdf4;
+                --ok-line: #bbf7d0;
+                --bad: #b91c1c;
+                --bad-bg: #fef2f2;
+            }
+            * {
+                box-sizing: border-box;
+            }
+            html {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            body {
+                margin: 0;
+                color: var(--ink);
+                font:
+                    10.5pt/1.5 "Segoe UI",
+                    system-ui,
+                    -apple-system,
+                    Roboto,
+                    sans-serif;
+            }
+            h1,
+            h2,
+            h3 {
+                margin: 0;
+                line-height: 1.2;
+                letter-spacing: -0.01em;
+            }
+            p {
+                margin: 0 0 8px;
+            }
+            strong {
+                font-weight: 650;
+            }
+            code {
+                font-family: "Cascadia Mono", Consolas, monospace;
+                font-size: 0.92em;
+                background: var(--soft);
+                border: 1px solid var(--line);
+                border-radius: 4px;
+                padding: 0 4px;
+            }
+            kbd {
+                font-family: inherit;
+                font-size: 0.88em;
+                font-weight: 600;
+                background: #fff;
+                border: 1px solid #c9c9cf;
+                border-bottom-width: 2px;
+                border-radius: 4px;
+                padding: 0 5px;
+            }
+
+            /* ---------- cover ---------- */
+            .cover {
+                height: 9.6in;
+                display: flex;
+                flex-direction: column;
+            }
+            .cover-band {
+                background: var(--red);
+                color: #fff;
+                border-radius: 14px;
+                padding: 34px 36px 30px;
+            }
+            .cover-brand {
+                display: flex;
+                align-items: center;
+                gap: 14px;
+                margin-bottom: 40px;
+            }
+            .cover-brand img {
+                width: 54px;
+                height: 54px;
+                background: #fff;
+                border-radius: 12px;
+                padding: 6px;
+            }
+            .cover-brand span {
+                font-size: 13pt;
+                font-weight: 600;
+                letter-spacing: 0.04em;
+                text-transform: uppercase;
+            }
+            .cover h1 {
+                font-size: 34pt;
+                font-weight: 750;
+                margin-bottom: 10px;
+            }
+            .cover-sub {
+                font-size: 13pt;
+                opacity: 0.92;
+                max-width: 5.4in;
+            }
+            .cover-who {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 14px;
+                margin-top: 26px;
+            }
+            .who {
+                border: 1px solid var(--line);
+                border-radius: 12px;
+                padding: 16px 18px;
+            }
+            .who h3 {
+                font-size: 11.5pt;
+                margin-bottom: 8px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .who ul {
+                margin: 0;
+                padding-left: 18px;
+            }
+            .who li {
+                margin: 2px 0;
+            }
+            .contents {
+                margin-top: 22px;
+                border-top: 2px solid var(--ink);
+                padding-top: 12px;
+            }
+            .contents h2 {
+                font-size: 11pt;
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+                margin-bottom: 8px;
+            }
+            .toc {
+                list-style: none;
+                margin: 0;
+                padding: 0;
+                counter-reset: toc;
+            }
+            .toc li {
+                counter-increment: toc;
+                display: flex;
+                gap: 12px;
+                align-items: baseline;
+                padding: 7px 0;
+                border-bottom: 1px solid var(--line);
+            }
+            .toc li::before {
+                content: counter(toc);
+                font-weight: 700;
+                color: var(--red);
+                width: 18px;
+            }
+            .toc b {
+                font-weight: 650;
+            }
+            .toc span {
+                color: var(--muted);
+            }
+            .cover-foot {
+                margin-top: auto;
+                color: var(--muted);
+                font-size: 9pt;
+                display: flex;
+                justify-content: space-between;
+            }
+
+            /* ---------- sections ---------- */
+            .section {
+                break-before: page;
+            }
+            .section-head {
+                display: flex;
+                align-items: center;
+                gap: 14px;
+                padding-bottom: 12px;
+                margin-bottom: 14px;
+                border-bottom: 2px solid var(--ink);
+            }
+            .section-num {
+                flex: none;
+                width: 38px;
+                height: 38px;
+                border-radius: 10px;
+                background: var(--red);
+                color: #fff;
+                display: grid;
+                place-items: center;
+                font-size: 17pt;
+                font-weight: 750;
+            }
+            .section-head h2 {
+                font-size: 19pt;
+                font-weight: 750;
+            }
+            .section-head p {
+                margin: 2px 0 0;
+                color: var(--muted);
+            }
+            h3.sub {
+                font-size: 12.5pt;
+                margin: 18px 0 8px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            h3.sub .tag {
+                font-size: 8.5pt;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                color: var(--red);
+                background: var(--tint);
+                border: 1px solid var(--tint-line);
+                border-radius: 999px;
+                padding: 1px 8px;
+            }
+
+            .lead {
+                font-size: 11pt;
+                color: #3f3f46;
+            }
+            .two {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 18px;
+                align-items: start;
+            }
+            .two-wide {
+                display: grid;
+                grid-template-columns: 1.25fr 1fr;
+                gap: 18px;
+                align-items: start;
+            }
+            .keep {
+                break-inside: avoid;
+            }
+
+            /* numbered steps */
+            ol.steps {
+                list-style: none;
+                margin: 0 0 10px;
+                padding: 0;
+                counter-reset: step;
+            }
+            ol.steps > li {
+                counter-increment: step;
+                position: relative;
+                padding: 0 0 9px 34px;
+                break-inside: avoid;
+            }
+            ol.steps > li::before {
+                content: counter(step);
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 23px;
+                height: 23px;
+                border-radius: 50%;
+                background: var(--ink);
+                color: #fff;
+                font-weight: 700;
+                font-size: 9.5pt;
+                display: grid;
+                place-items: center;
+            }
+            ol.steps.pins > li::before {
+                background: var(--pin);
+                color: var(--pin-ink);
+            }
+
+            /* notes */
+            .note {
+                border-radius: 10px;
+                padding: 10px 14px;
+                margin: 10px 0;
+                break-inside: avoid;
+                border: 1px solid;
+            }
+            .note b:first-child {
+                display: block;
+                margin-bottom: 2px;
+            }
+            .note.tip {
+                background: var(--ok-bg);
+                border-color: var(--ok-line);
+                color: #14532d;
+            }
+            .note.warn {
+                background: #fffbeb;
+                border-color: #fde68a;
+                color: #78350f;
+            }
+            .note.info {
+                background: var(--soft);
+                border-color: var(--line);
+            }
+
+            /* screenshots and drawings */
+            figure {
+                margin: 6px 0 12px;
+                break-inside: avoid;
+            }
+            figcaption {
+                font-size: 8.8pt;
+                color: var(--muted);
+                margin-top: 6px;
+            }
+            .shot {
+                display: block;
+                width: 100%;
+                border: 1px solid #d4d4d8;
+                border-radius: 10px;
+                box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+            }
+            .drawn {
+                font-size: 8pt;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                color: #a1a1aa;
+            }
+
+            /* a Windows window, drawn */
+            .win {
+                position: relative;
+                background: #fff;
+                border: 1px solid #b8b8c0;
+                border-radius: 8px;
+                overflow: visible;
+                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+                font:
+                    8.6pt/1.35 "Segoe UI",
+                    system-ui,
+                    sans-serif;
+            }
+            .win-title {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 7px 10px;
+                background: #f3f3f3;
+                border-bottom: 1px solid #ddd;
+                border-radius: 8px 8px 0 0;
+                font-weight: 600;
+            }
+            .win-title i {
+                font-style: normal;
+                color: #777;
+                letter-spacing: 6px;
+            }
+            .win-tabs {
+                display: flex;
+                gap: 2px;
+                padding: 8px 10px 0;
+                border-bottom: 1px solid #d0d0d6;
+            }
+            .win-tabs span {
+                padding: 4px 10px;
+                border: 1px solid transparent;
+                border-bottom: 0;
+                border-radius: 4px 4px 0 0;
+                color: #444;
+            }
+            .win-tabs span.on {
+                background: #fff;
+                border-color: #d0d0d6;
+                margin-bottom: -1px;
+                color: #000;
+                font-weight: 600;
+            }
+            .win-body {
+                padding: 10px 12px 12px;
+            }
+            .win-list {
+                border: 1px solid #c8c8ce;
+                height: 54px;
+                padding: 3px 6px;
+                color: #333;
+                margin-bottom: 8px;
+            }
+            .win-list div {
+                padding: 1px 3px;
+            }
+            .win-list .sel {
+                background: #cce4f7;
+            }
+            .win-row {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin: 5px 0;
+            }
+            .win-field {
+                flex: 1;
+                border: 1px solid #8a8a92;
+                border-radius: 3px;
+                padding: 2px 6px;
+                background: #fff;
+                min-height: 21px;
+            }
+            .win-field.sm {
+                flex: none;
+                width: 66px;
+            }
+            .win-field.dd::after {
+                content: "⌄";
+                float: right;
+                color: #555;
+            }
+            .win-box {
+                border: 1px solid #d0d0d6;
+                border-radius: 4px;
+                padding: 8px 10px 6px;
+                margin-top: 10px;
+                position: relative;
+            }
+            .win-box > legend,
+            .win-legend {
+                position: absolute;
+                top: -8px;
+                left: 8px;
+                background: #fff;
+                padding: 0 4px;
+                color: #333;
+            }
+            .win-grid {
+                display: grid;
+                grid-template-columns: auto 70px auto 70px;
+                gap: 5px 8px;
+                align-items: center;
+            }
+            .chk {
+                display: inline-block;
+                width: 13px;
+                height: 13px;
+                border: 1px solid #555;
+                border-radius: 2px;
+                vertical-align: -2px;
+                margin-right: 5px;
+                background: #fff;
+                position: relative;
+            }
+            .chk.on {
+                background: #0067c0;
+                border-color: #0067c0;
+            }
+            .chk.on::after {
+                content: "";
+                position: absolute;
+                left: 3.5px;
+                top: 0.5px;
+                width: 3.5px;
+                height: 7px;
+                border: solid #fff;
+                border-width: 0 2px 2px 0;
+                transform: rotate(45deg);
+            }
+            .radio {
+                display: inline-block;
+                width: 13px;
+                height: 13px;
+                border: 1px solid #555;
+                border-radius: 50%;
+                vertical-align: -2px;
+                margin-right: 4px;
+                background: #fff;
+            }
+            .radio.on {
+                border: 4px solid #0067c0;
+            }
+            .wbtn {
+                display: inline-block;
+                border: 1px solid #b0b0b8;
+                background: #fdfdfd;
+                border-radius: 4px;
+                padding: 3px 12px;
+            }
+            .wbtn.blue {
+                background: #0067c0;
+                border-color: #0067c0;
+                color: #fff;
+            }
+            .win-foot {
+                display: flex;
+                justify-content: flex-end;
+                gap: 6px;
+                padding: 8px 12px;
+                border-top: 1px solid #e3e3e3;
+                background: #fafafa;
+                border-radius: 0 0 8px 8px;
+            }
+            .muted {
+                color: #888;
+            }
+
+            /* amber marks and numbered pins over the drawings */
+            .hl {
+                outline: 2.5px solid var(--pin);
+                outline-offset: 2px;
+                border-radius: 3px;
+            }
+            .pin.in {
+                position: static;
+                display: inline-block;
+                flex: none;
+                margin-left: 6px;
+                vertical-align: middle;
+                box-shadow: none;
+            }
+            label .pin.in {
+                margin: 0 6px 0 0;
+            }
+            .pin {
+                position: absolute;
+                width: 21px;
+                height: 21px;
+                border-radius: 50%;
+                background: var(--pin);
+                color: var(--pin-ink);
+                font:
+                    700 9pt/21px "Segoe UI",
+                    sans-serif;
+                text-align: center;
+                box-shadow: 0 0 0 2px #fff;
+                z-index: 2;
+            }
+
+            /* the browser's print dialog, drawn */
+            .chrome {
+                display: grid;
+                grid-template-columns: 1fr 1.15fr;
+                background: #fff;
+                border: 1px solid #b8b8c0;
+                border-radius: 10px;
+                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+                overflow: hidden;
+                font:
+                    8.8pt/1.35 "Segoe UI",
+                    system-ui,
+                    sans-serif;
+            }
+            .chrome-preview {
+                background: #525659;
+                padding: 22px 16px;
+                display: grid;
+                place-items: center;
+            }
+            .out {
+                display: grid;
+                grid-template-columns: 2.1in 60px 1fr;
+                gap: 14px;
+                align-items: center;
+                text-align: center;
+            }
+            .out p {
+                margin: 6px 0 0;
+                font-size: 9pt;
+                font-weight: 600;
+                color: var(--muted);
+            }
+            .chrome-preview img {
+                width: auto;
+                height: 3.2in;
+                background: #fff;
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+            }
+            .chrome-side {
+                position: relative;
+                padding: 14px 16px;
+            }
+            .chrome-side h4 {
+                margin: 0 0 4px;
+                font-size: 13pt;
+                font-weight: 500;
+                display: flex;
+                justify-content: space-between;
+            }
+            .chrome-side h4 span {
+                font-size: 8.5pt;
+                color: #666;
+                font-weight: 400;
+            }
+            .c-row {
+                display: grid;
+                grid-template-columns: 96px 1fr;
+                align-items: center;
+                gap: 8px;
+                padding: 6px 0;
+            }
+            .c-row label {
+                color: #3c4043;
+            }
+            .c-sel {
+                border: 1px solid #dadce0;
+                border-radius: 4px;
+                padding: 4px 8px;
+                min-height: 26px;
+            }
+            .c-sel::after {
+                content: "⌄";
+                float: right;
+                color: #5f6368;
+            }
+            .c-more {
+                color: #1a73e8;
+                padding: 6px 0;
+                font-weight: 600;
+                border-top: 1px solid #e8eaed;
+                margin-top: 4px;
+            }
+            .c-btns {
+                display: flex;
+                justify-content: flex-end;
+                gap: 8px;
+                margin-top: 12px;
+            }
+            .c-btn {
+                border: 1px solid #dadce0;
+                border-radius: 4px;
+                padding: 5px 16px;
+                color: #1a73e8;
+                font-weight: 600;
+            }
+            .c-btn.go {
+                background: #1a73e8;
+                color: #fff;
+                border-color: #1a73e8;
+            }
+
+            /* a small Run box */
+            .run {
+                width: 3.3in;
+            }
+
+            /* troubleshooting */
+            table.trouble {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 9.8pt;
+            }
+            table.trouble th {
+                text-align: left;
+                font-size: 8.5pt;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                color: var(--muted);
+                border-bottom: 2px solid var(--ink);
+                padding: 6px 8px;
+            }
+            table.trouble td {
+                vertical-align: top;
+                padding: 9px 8px;
+                border-bottom: 1px solid var(--line);
+            }
+            table.trouble tr {
+                break-inside: avoid;
+            }
+            table.trouble td:first-child {
+                width: 36%;
+                font-weight: 650;
+            }
+
+            .phones {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 9.6pt;
+            }
+            .phones td,
+            .phones th {
+                border: 1px solid var(--line);
+                padding: 7px 9px;
+                vertical-align: top;
+                text-align: left;
+            }
+            .phones th {
+                background: var(--soft);
+                width: 22%;
+            }
+        </style>
+    </head>
+    <body>
+        <!-- ================= cover ================= -->
+        <section class="cover">
+            <div class="cover-band">
+                <div class="cover-brand"><img src="{{logo}}" alt="" /><span>Sheehan Inc.</span></div>
+                <h1>Device setup manual</h1>
+                <p class="cover-sub">
+                    Set up a PC or phone for Sheehan QMS: the certificate, the app, and the ticket printer's 5.5 × 8.5
+                    in paper. Step by step, with pictures.
+                </p>
+            </div>
+
+            <div class="cover-who">
+                <div class="who">
+                    <h3>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#c8202a" stroke-width="2">
+                            <rect x="3" y="4" width="18" height="12" rx="1.5" />
+                            <path d="M8 20h8M12 16v4" />
+                        </svg>
+                        Every PC and phone
+                    </h3>
+                    <ul>
+                        <li><b>Install the certificate</b>, so the queue opens securely, with no warning.</li>
+                        <li><b>Install the app</b>, so Sheehan QMS has its own icon and window.</li>
+                    </ul>
+                </div>
+                <div class="who">
+                    <h3>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#c8202a" stroke-width="2">
+                            <path
+                                d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a1 1 0 0 1-1 1h-2"
+                            />
+                            <rect x="6" y="14" width="12" height="7" />
+                        </svg>
+                        The PC that prints tickets
+                    </h3>
+                    <ul>
+                        <li>
+                            <b>Set the ticket paper</b> to 5.5 × 8.5 in, once, so tickets aren't cut in half or printed
+                            on Letter.
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="contents">
+                <h2>Contents</h2>
+                <ol class="toc">
+                    <li><b>Open Settings</b><span>where every set-up tool is, in the menu</span></li>
+                    <li><b>Install the certificate</b><span>once per device, for the secure address</span></li>
+                    <li><b>Install the app</b><span>an icon on the desktop and Start menu</span></li>
+                    <li><b>Set the ticket paper to 5.5 × 8.5 in</b><span>on the PC with the ticket printer</span></li>
+                    <li><b>If something goes wrong</b><span>the usual problems and their fixes</span></li>
+                </ol>
+            </div>
+
+            <div class="note info" style="margin-top: 18px">
+                <b>Before you start</b>
+                Steps marked <b>NEEDS ADMINISTRATOR</b> need a Windows administrator account. The app's own steps don't.
+                Windows and your printer's windows may look a little different from the drawings here; the names of the
+                settings are the same.
+            </div>
+        </section>
+
+        <!-- ================= 1. settings ================= -->
+        <section class="section">
+            <div class="section-head">
+                <div class="section-num">1</div>
+                <div>
+                    <h2>Open Settings</h2>
+                    <p>Every set-up tool for this device is on one page.</p>
+                </div>
+            </div>
+
+            <p class="lead">
+                Sign in to the queue as usual. In the menu on the left, under <b>Account</b>, click <b>Settings</b>.
+                Every role has it.
+            </p>
+
+            <figure>
+                <img class="shot" src="{{settings-full}}" alt="" />
+                <figcaption>
+                    <b>Settings</b> in the menu (outlined in amber). The page has three parts: Install app, Install
+                    certificate and Ticket paper.
+                </figcaption>
+            </figure>
+
+            <div class="two">
+                <div class="note tip">
+                    <b>Green box</b>
+                    This device is ready. Nothing to do.
+                </div>
+                <div class="note warn">
+                    <b>Amber box</b>
+                    Something is still to do. The box says what, and the button under it starts it.
+                </div>
+            </div>
+            <p>On a phone the menu is folded away: tap the menu button at the top left to open it.</p>
+        </section>
+
+        <!-- ================= 2. certificate ================= -->
+        <section class="section">
+            <div class="section-head">
+                <div class="section-num">2</div>
+                <div>
+                    <h2>Install the certificate</h2>
+                    <p>Once per device, so the secure address opens with no warning.</p>
+                </div>
+            </div>
+
+            <p class="lead">
+                The queue server makes its own certificate, so each device has to be told once to trust it. Until then
+                the browser shows a warning instead of the queue.
+            </p>
+
+            <figure>
+                <svg viewBox="0 0 700 120" width="100%" role="img" aria-label="Before and after the certificate">
+                    <g font-family="Segoe UI, sans-serif" font-size="13">
+                        <text x="0" y="16" font-weight="700" fill="#b91c1c">BEFORE</text>
+                        <rect x="0" y="26" width="330" height="36" rx="18" fill="#fff" stroke="#d4d4d8" />
+                        <path d="M18 36l9 16H9z" fill="#b91c1c" />
+                        <text x="17" y="50" font-size="10" fill="#fff" font-weight="700" text-anchor="middle">!</text>
+                        <text x="36" y="49" fill="#b91c1c" font-weight="600">Not secure</text>
+                        <text x="122" y="49" fill="#71717a">https://sheehanqms.local/staff</text>
+                        <rect x="0" y="72" width="330" height="40" rx="8" fill="#fef2f2" stroke="#fecaca" />
+                        <text x="14" y="97" fill="#7f1d1d" font-weight="600">Your connection isn't private</text>
+
+                        <path d="M345 70h24" stroke="#a1a1aa" stroke-width="2" marker-end="url(#arr)" />
+
+                        <text x="384" y="16" font-weight="700" fill="#166534">AFTER</text>
+                        <rect x="384" y="26" width="316" height="36" rx="18" fill="#fff" stroke="#d4d4d8" />
+                        <rect x="399" y="40" width="12" height="10" rx="2" fill="#166534" />
+                        <path d="M401 40v-3a4 4 0 0 1 8 0v3" stroke="#166534" stroke-width="2" fill="none" />
+                        <text x="420" y="49" fill="#27272a">https://sheehanqms.local/staff</text>
+                        <rect x="384" y="72" width="316" height="40" rx="8" fill="#f0fdf4" stroke="#bbf7d0" />
+                        <text x="398" y="97" fill="#14532d" font-weight="600">
+                            The queue opens, and Install app works
+                        </text>
+                    </g>
+                    <defs>
+                        <marker
+                            id="arr"
+                            viewBox="0 0 10 10"
+                            refX="8"
+                            refY="5"
+                            markerWidth="7"
+                            markerHeight="7"
+                            orient="auto"
+                        >
+                            <path d="M0 0l10 5-10 5z" fill="#a1a1aa" />
+                        </marker>
+                    </defs>
+                </svg>
+            </figure>
+
+            <h3 class="sub">On a Windows PC <span class="tag">needs administrator</span></h3>
+            <div class="two-wide">
+                <ol class="steps">
+                    <li>
+                        In <b>Settings</b>, under <b>Install certificate</b>, click <b>Set up this device</b>. The setup
+                        page opens and the installer, <code>install-certificate.cmd</code>, starts downloading by
+                        itself.
+                    </li>
+                    <li>If the browser warns about the file, choose <b>Keep</b>.</li>
+                    <li>
+                        Open the file from your downloads. If Windows says <i>Windows protected your PC</i>, click
+                        <b>More info</b>, then <b>Run anyway</b>.
+                    </li>
+                    <li>Click <b>Yes</b> on the administrator prompt and wait until it says <b>Done</b>.</li>
+                    <li>
+                        Restart the browser: type <code>edge://restart</code> in Edge or
+                        <code>chrome://restart</code> in Chrome, and press <kbd>Enter</kbd>.
+                    </li>
+                    <li>
+                        Open <b>Settings</b> again on the secure address (<code>https://</code>). The box turns green.
+                    </li>
+                </ol>
+                <figure>
+                    <img class="shot" src="{{settings-cert}}" alt="" />
+                    <figcaption>
+                        Not set up yet: the amber box, and <b>Set up this device</b> under it. The two buttons at the
+                        bottom are the files themselves, for setting up another device.
+                    </figcaption>
+                </figure>
+            </div>
+
+            <h3 class="sub">On a phone or tablet</h3>
+            <table class="phones keep">
+                <tr>
+                    <th>Android</th>
+                    <td>
+                        In Settings, tap <b>Certificate for a phone</b> to download it. Open the phone's
+                        <b>Settings</b>, search for <b>CA certificate</b>, tap <b>Install anyway</b> and pick
+                        <code>sheehan-ca.crt</code>. Close Chrome completely and open the queue again.
+                    </td>
+                </tr>
+                <tr>
+                    <th>iPhone / iPad</th>
+                    <td>
+                        In <b>Safari</b>, tap <b>Certificate for a phone</b>, then <b>Allow</b>. Open
+                        <b>Settings → Profile Downloaded → Install</b>. Then
+                        <b>Settings → General → About → Certificate Trust Settings</b> and turn on
+                        <b>Sheehan QMS local certificate authority</b>.
+                    </td>
+                </tr>
+            </table>
+            <div class="note info">
+                <b>Is this safe?</b>It only makes the device trust the shop's own queue server. Nothing else on the
+                device changes.
+            </div>
+        </section>
+
+        <!-- ================= 3. app ================= -->
+        <section class="section">
+            <div class="section-head">
+                <div class="section-num">3</div>
+                <div>
+                    <h2>Install the app</h2>
+                    <p>Sheehan QMS gets its own icon and window, like any program.</p>
+                </div>
+            </div>
+
+            <p class="lead">
+                Installed, the staff pages open from a <b>Sheehan QMS</b> icon on the desktop and in the Start menu, in
+                their own window with no address bar or tabs. It stays up to date by itself: it's the same site, on the
+                same server.
+            </p>
+
+            <div class="two-wide">
+                <div>
+                    <h3 class="sub" style="margin-top: 0">On a Windows PC</h3>
+                    <ol class="steps">
+                        <li>
+                            Install the certificate first (part 2). Edge and Chrome only offer Install app on the secure
+                            address.
+                        </li>
+                        <li>Open the queue in <b>Edge</b> or <b>Chrome</b> and sign in.</li>
+                        <li>
+                            In <b>Settings</b>, under <b>Install app</b>, click <b>Install app</b>. The same button is
+                            also at the bottom of the menu.
+                        </li>
+                        <li>In the browser's window, click <b>Install</b>.</li>
+                        <li>To keep it in the taskbar: right-click its icon there and choose <b>Pin to taskbar</b>.</li>
+                    </ol>
+                </div>
+                <figure>
+                    <img class="shot" src="{{settings-install}}" alt="" />
+                    <figcaption>When the browser can install it, the <b>Install app</b> button shows here.</figcaption>
+                </figure>
+            </div>
+
+            <figure>
+                <svg viewBox="0 0 700 150" width="100%" role="img" aria-label="The installed app">
+                    <g font-family="Segoe UI, sans-serif" font-size="12">
+                        <rect x="0" y="0" width="700" height="150" rx="10" fill="#1f3a5f" />
+                        <rect x="0" y="118" width="700" height="32" fill="#18181b" opacity="0.85" />
+                        <rect x="333" y="123" width="24" height="22" rx="5" fill="#fff" />
+                        <text x="345" y="139" text-anchor="middle" font-weight="800" fill="#c8202a" font-size="12">
+                            S
+                        </text>
+                        <rect x="329" y="146" width="32" height="3" rx="1.5" fill="#60a5fa" />
+                        <rect x="26" y="20" width="54" height="54" rx="12" fill="#fff" />
+                        <text x="53" y="56" text-anchor="middle" font-weight="800" fill="#c8202a" font-size="26">
+                            S
+                        </text>
+                        <text x="53" y="94" text-anchor="middle" fill="#fff">Sheehan QMS</text>
+                        <rect x="180" y="16" width="480" height="94" rx="8" fill="#fff" />
+                        <rect x="180" y="16" width="480" height="24" rx="8" fill="#c8202a" />
+                        <rect x="180" y="30" width="480" height="10" fill="#c8202a" />
+                        <text x="194" y="33" fill="#fff" font-weight="600">Sheehan QMS</text>
+                        <text x="640" y="33" fill="#fff" text-anchor="end" letter-spacing="6">–▢✕</text>
+                        <rect x="190" y="50" width="90" height="52" rx="4" fill="#f4f4f5" />
+                        <rect x="290" y="50" width="360" height="22" rx="4" fill="#f4f4f5" />
+                        <rect x="290" y="78" width="250" height="24" rx="4" fill="#f4f4f5" />
+                    </g>
+                </svg>
+                <figcaption>
+                    Installed: the icon on the desktop and in the taskbar, and the app in its own window.
+                </figcaption>
+            </figure>
+
+            <div class="two">
+                <div class="note info">
+                    <b>No Install app button?</b>It only shows in Edge or Chrome, on the secure address, while the app
+                    isn't installed yet. Already installed: open Sheehan QMS from the Start menu.
+                </div>
+                <div class="note info">
+                    <b>No certificate yet?</b>In Settings, <b>download install-app.cmd</b>, open it, and choose
+                    <i>More info → Run anyway</i>. It makes the same icon, over the plain address.
+                </div>
+            </div>
+            <p>
+                <b>On a phone:</b> in Chrome, open the menu (⋮) and tap <b>Add to home screen</b>. In Safari on an
+                iPhone, tap <b>Share → Add to Home Screen</b>.
+            </p>
+        </section>
+
+        <!-- ================= 4. ticket paper ================= -->
+        <section class="section">
+            <div class="section-head">
+                <div class="section-num">4</div>
+                <div>
+                    <h2>Set the ticket paper to 5.5 × 8.5 in</h2>
+                    <p>Once, on the PC with the ticket printer.</p>
+                </div>
+            </div>
+
+            <p class="lead">
+                Tickets print on half letter paper, <b>5.5 × 8.5 in</b>, fed in standing up. The app asks the browser for that
+                size, but the browser can only use sizes the printer has in Windows. If it isn't there, the browser falls back to
+                <b>Letter (8.5 × 11 in)</b> and the ticket comes out cut in half or in the wrong place.
+            </p>
+
+            <h3 class="sub">How the paper goes in</h3>
+            <figure>
+                <svg viewBox="0 0 700 250" width="100%" role="img" aria-label="Feed the paper standing up, 5.5 inches wide">
+                    <defs>
+                        <marker id="down" viewBox="0 0 10 10" refX="5" refY="8" markerWidth="8" markerHeight="8" orient="auto">
+                            <path d="M0 0l10 5-10 5z" fill="#c8202a" />
+                        </marker>
+                        <marker id="dim" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                            <path d="M0 0l10 5-10 5z" fill="#52525b" />
+                        </marker>
+                    </defs>
+                    <g font-family="Segoe UI, sans-serif" font-size="12">
+                        <!-- right way: standing up, the short side first; the ticket on it turned a quarter turn -->
+                        <text x="10" y="16" font-weight="700" fill="#166534">✓ RIGHT: standing up, the short side goes in first</text>
+                        <line x1="138" y1="34" x2="222" y2="34" stroke="#52525b" marker-start="url(#dim)" marker-end="url(#dim)" />
+                        <text x="180" y="29" text-anchor="middle" font-weight="700">5.5 in</text>
+                        <line x1="122" y1="42" x2="122" y2="172" stroke="#52525b" marker-start="url(#dim)" marker-end="url(#dim)" />
+                        <text x="116" y="111" text-anchor="end" font-weight="700">8.5 in</text>
+                        <rect x="138" y="42" width="84" height="130" fill="#fff" stroke="#27272a" stroke-width="1.5" />
+                        <line x1="146" y1="48" x2="146" y2="166" stroke="#27272a" stroke-dasharray="3 2" />
+                        <rect x="152" y="104" width="10" height="60" fill="#e4e4e7" />
+                        <rect x="166" y="104" width="46" height="60" fill="none" stroke="#a1a1aa" />
+                        <rect x="152" y="50" width="60" height="48" fill="none" stroke="#a1a1aa" />
+                        <line x1="180" y1="176" x2="180" y2="196" stroke="#c8202a" stroke-width="3" marker-end="url(#down)" />
+                        <rect x="30" y="200" width="300" height="48" rx="10" fill="#3f3f46" />
+                        <rect x="130" y="207" width="100" height="8" rx="3" fill="#18181b" />
+                        <text x="180" y="236" text-anchor="middle" fill="#fff" font-weight="600">printer</text>
+                        <text x="236" y="100" fill="#3f3f46" font-size="11">the ticket prints</text>
+                        <text x="236" y="114" fill="#3f3f46" font-size="11">on its side</text>
+                        <!-- wrong way: lying across -->
+                        <text x="400" y="16" font-weight="700" fill="#b91c1c">✗ WRONG: lying across</text>
+                        <rect x="430" y="50" width="180" height="116" fill="#fff" stroke="#b91c1c" stroke-width="1.5" stroke-dasharray="5 3" />
+                        <line x1="430" y1="50" x2="610" y2="166" stroke="#b91c1c" stroke-width="3" />
+                        <line x1="610" y1="50" x2="430" y2="166" stroke="#b91c1c" stroke-width="3" />
+                        <text x="520" y="42" text-anchor="middle" fill="#b91c1c" font-size="11">8.5 in wide</text>
+                        <rect x="370" y="200" width="300" height="48" rx="10" fill="#d4d4d8" />
+                        <rect x="392" y="207" width="256" height="8" rx="3" fill="#a1a1aa" />
+                        <text x="520" y="236" text-anchor="middle" fill="#52525b" font-weight="600">the ticket comes out cut off</text>
+                    </g>
+                </svg>
+                <figcaption>
+                    Slide the printer's paper guides to 5.5 in. The ticket prints turned a quarter turn, its top (the
+                    dashed line) along the left edge, so it reads across when you turn the paper.
+                </figcaption>
+            </figure>
+
+            <h3 class="sub">Which PC to set up</h3>
+            <figure>
+                <svg viewBox="0 0 700 170" width="100%" role="img" aria-label="Shared printer or network printer">
+                    <g font-family="Segoe UI, sans-serif" font-size="11.5">
+                        <rect x="0" y="0" width="340" height="170" rx="12" fill="#f0fdf4" stroke="#bbf7d0" />
+                        <text x="16" y="22" font-weight="700" font-size="12.5" fill="#14532d">
+                            A. Shared from one PC
+                        </text>
+                        <rect
+                            x="24"
+                            y="52"
+                            width="70"
+                            height="46"
+                            rx="5"
+                            fill="#fff"
+                            stroke="#166534"
+                            stroke-width="2.5"
+                        />
+                        <text x="59" y="80" text-anchor="middle" font-weight="700" fill="#166534">PC 1</text>
+                        <rect x="34" y="118" width="50" height="26" rx="4" fill="#3f3f46" />
+                        <text x="59" y="135" text-anchor="middle" fill="#fff" font-size="10">printer</text>
+                        <line x1="59" y1="98" x2="59" y2="118" stroke="#3f3f46" stroke-width="2" />
+                        <g fill="#fff" stroke="#a1a1aa">
+                            <rect x="200" y="36" width="60" height="34" rx="5" />
+                            <rect x="200" y="80" width="60" height="34" rx="5" />
+                            <rect x="200" y="124" width="60" height="34" rx="5" />
+                        </g>
+                        <g text-anchor="middle" fill="#52525b">
+                            <text x="230" y="57">PC 2</text>
+                            <text x="230" y="101">PC 3</text>
+                            <text x="230" y="145">PC 4</text>
+                        </g>
+                        <g stroke="#a1a1aa" stroke-dasharray="4 3">
+                            <line x1="94" y1="75" x2="200" y2="53" />
+                            <line x1="94" y1="75" x2="200" y2="97" />
+                            <line x1="94" y1="75" x2="200" y2="141" />
+                        </g>
+                        <text x="270" y="62" fill="#14532d" font-size="10.5">uses PC 1's</text>
+                        <text x="270" y="75" fill="#14532d" font-size="10.5">paper sizes</text>
+                        <text x="16" y="164" fill="#14532d" font-weight="700">Set up once, on PC 1 only.</text>
+
+                        <rect x="360" y="0" width="340" height="170" rx="12" fill="#fffbeb" stroke="#fde68a" />
+                        <text x="376" y="22" font-weight="700" font-size="12.5" fill="#78350f">
+                            B. Each PC goes to the printer directly
+                        </text>
+                        <rect x="490" y="70" width="80" height="34" rx="5" fill="#3f3f46" />
+                        <text x="530" y="91" text-anchor="middle" fill="#fff" font-size="10">printer (IP)</text>
+                        <g fill="#fff" stroke="#b45309" stroke-width="2.5">
+                            <rect x="384" y="40" width="60" height="34" rx="5" />
+                            <rect x="384" y="104" width="60" height="34" rx="5" />
+                            <rect x="616" y="40" width="60" height="34" rx="5" />
+                            <rect x="616" y="104" width="60" height="34" rx="5" />
+                        </g>
+                        <g text-anchor="middle" fill="#78350f" font-weight="700">
+                            <text x="414" y="61">PC 1</text>
+                            <text x="414" y="125">PC 2</text>
+                            <text x="646" y="61">PC 3</text>
+                            <text x="646" y="125">PC 4</text>
+                        </g>
+                        <g stroke="#a1a1aa" stroke-dasharray="4 3">
+                            <line x1="444" y1="57" x2="490" y2="80" />
+                            <line x1="444" y1="121" x2="490" y2="94" />
+                            <line x1="616" y1="57" x2="570" y2="80" />
+                            <line x1="616" y1="121" x2="570" y2="94" />
+                        </g>
+                        <text x="376" y="164" fill="#78350f" font-weight="700">
+                            Set up on every PC that prints tickets.
+                        </text>
+                    </g>
+                </svg>
+                <figcaption>
+                    To tell which: open <b>Settings → Bluetooth &amp; devices → Printers &amp; scanners</b> on a PC.
+                    <i>"Printer on PC1"</i> means shared (A). Just the printer's name means direct (B).
+                </figcaption>
+            </figure>
+        </section>
+
+        <section class="section">
+            <h3 class="sub" style="margin-top: 0">
+                Step 1 · Create the paper size, if the printer has none <span class="tag">needs administrator</span>
+            </h3>
+            <div class="note tip">
+                <b>Most printers already have it: Statement (5.5 × 8.5 in)</b>Look in the printer's
+                <b>Printing preferences</b> (Step 2) first. If <b>Statement</b> is in its Paper size list, pick it and
+                skip this step.
+            </div>
+            <div class="two-wide">
+                <div>
+                    <ol class="steps pins">
+                        <li>
+                            Press <kbd>Win</kbd> + <kbd>R</kbd>, type <code>printui /s /t0</code> and press
+                            <kbd>Enter</kbd>. <b>Print Server Properties</b> opens on the <b>Forms</b> tab.
+                        </li>
+                        <li>
+                            Tick <b>Create a new form</b>. If it's greyed out, click <b>Change form settings</b> at the
+                            bottom first.
+                        </li>
+                        <li>Name it <code>Ticket 5.5x8.5</code>.</li>
+                        <li>
+                            Choose <b>English</b>, then type Width <code>5.50in</code> and Height <code>8.50in</code>.
+                            Set all four margins to <code>0.00in</code>.
+                        </li>
+                        <li>Click <b>Save Form</b>, then <b>Close</b>.</li>
+                    </ol>
+                    <figure class="run">
+                        <div class="win">
+                            <div class="win-title"><span>Run</span><i>✕</i></div>
+                            <div class="win-body">
+                                <div class="win-row">
+                                    <span style="width: 36px">Open:</span>
+                                    <div class="win-field hl">printui /s /t0</div>
+                                    <span class="pin in">1</span>
+                                </div>
+                            </div>
+                            <div class="win-foot">
+                                <span class="wbtn blue">OK</span><span class="wbtn">Cancel</span>
+                            </div>
+                        </div>
+                    </figure>
+                </div>
+                <figure>
+                    <div class="win">
+                        <div class="win-title"><span>Print Server Properties</span><i>✕</i></div>
+                        <div class="win-tabs">
+                            <span class="on">Forms</span><span>Ports</span><span>Drivers</span><span>Security</span
+                            ><span>Advanced</span>
+                        </div>
+                        <div class="win-body">
+                            <div class="muted" style="margin-bottom: 4px">Forms on: PC1</div>
+                            <div class="win-list">
+                                <div>Letter</div>
+                                <div>Statement</div>
+                                <div class="sel">Ticket 5.5x8.5</div>
+                            </div>
+                            <div class="win-row">
+                                <span style="width: 74px">Form name:</span>
+                                <div class="win-field hl">Ticket 5.5x8.5</div>
+                                <span class="pin in">3</span>
+                            </div>
+                            <div class="win-row">
+                                <span><span class="chk on hl"></span>Create a new form</span
+                                ><span class="pin in">2</span>
+                            </div>
+                            <div class="win-box">
+                                <span class="win-legend">Form description (measurements)</span>
+                                <div class="win-row" style="margin-top: 2px">
+                                    Units: <span><span class="radio"></span>Metric</span>
+                                    <span class="hl" style="padding: 0 3px"><span class="radio on"></span>English</span
+                                    ><span class="pin in">4</span>
+                                </div>
+                                <div class="win-grid" style="margin-top: 6px">
+                                    <span style="grid-column: span 2"><b>Paper size</b></span
+                                    ><span style="grid-column: span 2"><b>Printer area margins</b></span>
+                                    <span>Width:</span>
+                                    <div class="win-field hl">5.50in</div>
+                                    <span>Left:</span>
+                                    <div class="win-field">0.00in</div>
+                                    <span>Height:</span>
+                                    <div class="win-field hl">8.50in</div>
+                                    <span>Right:</span>
+                                    <div class="win-field">0.00in</div>
+                                    <span></span><span></span><span>Top:</span>
+                                    <div class="win-field">0.00in</div>
+                                    <span></span><span></span><span>Bottom:</span>
+                                    <div class="win-field">0.00in</div>
+                                </div>
+                                <div class="win-row" style="justify-content: flex-end; margin-top: 8px">
+                                    <span class="wbtn hl">Save Form</span><span class="wbtn muted">Delete</span
+                                    ><span class="pin in">5</span>
+                                </div>
+                            </div>
+                            <div class="win-row" style="margin-top: 8px">
+                                <span class="wbtn">🛡 Change form settings</span>
+                            </div>
+                        </div>
+                        <div class="win-foot">
+                            <span class="wbtn">Close</span><span class="wbtn">Cancel</span
+                            ><span class="wbtn muted">Apply</span>
+                        </div>
+                    </div>
+                    <figcaption><span class="drawn">Drawing</span> · the Forms tab, filled in</figcaption>
+                </figure>
+            </div>
+
+            <div class="keep">
+<h3 class="sub">Step 2 · Make it the printer's paper</h3>
+            <div class="two-wide">
+                <div>
+                    <ol class="steps pins">
+                        <li>
+                            Open <b>Settings → Bluetooth &amp; devices → Printers &amp; scanners</b> and click the
+                            ticket printer.
+                        </li>
+                        <li>
+                            Click <b>Printing preferences</b>. On a shared printer (A), set it on the PC with the
+                            printer under <b>Printer properties → Advanced → Printing Defaults</b> instead, so every PC
+                            gets it.
+                        </li>
+                        <li>
+                            Set <b>Paper size</b> to <b>Statement</b>, or <b>Ticket 5.5x8.5</b> if you made it. It may be on a <i>Paper</i>,
+                            <i>Paper/Quality</i> or <i>Advanced</i> page.
+                        </li>
+                        <li>
+                            Set <b>Orientation</b> to <b>Portrait</b>: the paper goes in standing up. Click <b>OK</b>.
+                        </li>
+                    </ol>
+                </div>
+                <figure>
+                    <div class="win">
+                        <div class="win-title"><span>Ticket Printer Printing Preferences</span><i>✕</i></div>
+                        <div class="win-tabs">
+                            <span class="on">Paper/Quality</span><span>Layout</span><span>Advanced</span>
+                        </div>
+                        <div class="win-body">
+                            <div class="win-row">
+                                <span style="width: 76px">Paper size:</span>
+                                <div class="win-field dd hl">Statement (5.5 × 8.5 in)</div>
+                                <span class="pin in">3</span>
+                            </div>
+                            <div class="win-row">
+                                <span style="width: 76px">Paper source:</span>
+                                <div class="win-field dd">Manual feed</div>
+                            </div>
+                            <div class="win-box">
+                                <span class="win-legend">Orientation</span>
+                                <div class="win-row" style="gap: 18px">
+                                    <span class="hl" style="padding: 0 3px"><span class="radio on"></span>Portrait</span
+                                    ><span><span class="radio"></span>Landscape</span><span class="pin in">4</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="win-foot">
+                            <span class="wbtn blue">OK</span><span class="wbtn">Cancel</span
+                            ><span class="wbtn muted">Apply</span>
+                        </div>
+                    </div>
+                    <figcaption>
+                        <span class="drawn">Drawing</span> · names differ by printer; look for Paper size and
+                        Orientation
+                    </figcaption>
+                    <div class="note info">
+                        <b>Epson and some other printers</b>Their own window may not list Windows' sizes. Look for
+                        <b>User Defined</b> or <b>Custom</b> paper and type 5.5 in wide and 8.5 in long there.
+                    </div>
+                </figure>
+            </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <h3 class="sub" style="margin-top: 0">Step 3 · Restart the browser</h3>
+            <p>
+                Close <b>every</b> Edge or Chrome window, then open the queue again. The browser only reads the
+                printer's paper sizes when it starts.
+            </p>
+
+            <h3 class="sub">Step 4 · Print a ticket</h3>
+            <div>
+                <figure>
+                    <div class="chrome" style="position: relative">
+                        <div class="chrome-preview"><img src="{{ticket-page}}" alt="" /></div>
+                        <div class="chrome-side">
+                            <h4>Print <span>1 sheet of paper</span></h4>
+                            <div class="c-row">
+                                <label>Destination</label>
+                                <div class="c-sel">Ticket Printer</div>
+                            </div>
+                            <div class="c-row">
+                                <label>Pages</label>
+                                <div class="c-sel">All</div>
+                            </div>
+                            <div class="c-row">
+                                <label>Copies</label>
+                                <div class="c-sel" style="width: 50px">1</div>
+                            </div>
+                            <div class="c-more">More settings</div>
+                            <div class="c-row">
+                                <label><span class="pin in">2</span>Paper size</label>
+                                <div class="c-sel hl">Statement</div>
+                            </div>
+                            <div class="c-row">
+                                <label><span class="pin in">3</span>Margins</label>
+                                <div class="c-sel hl">None</div>
+                            </div>
+                            <div class="c-row">
+                                <label><span class="pin in">4</span>Scale</label>
+                                <div class="c-sel hl">Default</div>
+                            </div>
+                            <div class="c-btns">
+                                <span class="c-btn go">Print</span><span class="c-btn">Cancel</span>
+                            </div>
+                        </div>
+                    </div>
+                    <figcaption>
+                        <span class="drawn">Drawing</span> · the browser's print window, with the real ticket in the
+                        preview
+                    </figcaption>
+                </figure>
+                <div class="two">
+                    <ol class="steps pins">
+                        <li>
+                            On <b>Customer order</b>, press <b>Serve</b>, then <b>Print ticket</b>. The print window
+                            opens.
+                        </li>
+                        <li>
+                            Open <b>More settings</b>. <b>Paper size</b> should already say <b>Statement</b> (or <b>Ticket
+                            5.5x8.5</b>). If it says Letter, pick it once; the browser remembers it for this printer.
+                        </li>
+                        <li><b>Margins</b>: <b>None</b>.</li>
+                        <li><b>Scale</b>: <b>Default</b> (100%), never <i>Fit to page</i>.</li>
+                    </ol>
+                    <div class="note tip" style="margin-top: 0">
+                        <b>Check the preview</b>It should say <b>1 sheet of paper</b>, standing up, with the whole
+                        ticket on it, turned on its side.
+                    </div>
+                </div>
+            </div>
+
+            <div class="keep">
+<h3 class="sub">What comes out</h3>
+            <figure>
+                <div class="out">
+                    <div><img class="shot" src="{{ticket-page}}" alt="" /><p>As it comes out of the printer</p></div>
+                    <svg viewBox="0 0 60 40" width="60" aria-hidden="true"><path d="M8 26a16 16 0 0 1 30-10" fill="none" stroke="#a1a1aa" stroke-width="3"/><path d="M34 6l6 11-12 1z" fill="#a1a1aa"/></svg>
+                    <div><img class="shot" src="{{ticket}}" alt="" /><p>Turned a quarter turn, to read</p></div>
+                </div>
+                <figcaption style="text-align: center">
+                    The whole ticket on one half letter sheet: the ticket's boxes and the invoice table, nothing cut off.
+                </figcaption>
+            </figure>
+            </div>
+        </section>
+
+        <!-- ================= 5. troubleshooting ================= -->
+        <section class="section">
+            <div class="section-head">
+                <div class="section-num">5</div>
+                <div>
+                    <h2>If something goes wrong</h2>
+                    <p>The usual problems and what fixes them.</p>
+                </div>
+            </div>
+
+            <table class="trouble">
+                <tr>
+                    <th>What you see</th>
+                    <th>What to do</th>
+                </tr>
+                <tr>
+                    <td>The ticket is cut in half</td>
+                    <td>
+                        The browser printed on <b>Letter</b>, because the printer doesn't have the 5.5 × 8.5 in size, or the paper
+                        went in lying across. Feed it standing up, the short side first, and set the paper size to
+                        <b>Statement</b> (or <b>Ticket 5.5x8.5</b>), <b>Portrait</b> (part 4).
+                    </td>
+                </tr>
+                <tr>
+                    <td>The print window still says Letter (8.5 × 11)</td>
+                    <td>
+                        The paper size isn't on this printer yet, or the browser was open while you added it. Do Step 1
+                        and 2 on the right PC (shared or direct), close every browser window, and try again.
+                    </td>
+                </tr>
+                <tr>
+                    <td>Neither <i>Statement</i> nor <i>Ticket 5.5x8.5</i> is in the printer's list</td>
+                    <td>
+                        Some printers keep their own list. Use their <b>User Defined</b> or <b>Custom</b> size, 5.5 in
+                        wide and 8.5 in long.
+                    </td>
+                </tr>
+                <tr>
+                    <td>The ticket prints small, or in a corner</td>
+                    <td>In the print window set <b>Scale</b> to <b>Default</b> and <b>Margins</b> to <b>None</b>.</td>
+                </tr>
+                <tr>
+                    <td>A blank sheet comes out after the ticket</td>
+                    <td>
+                        The printer still thinks the paper is Letter. Check its <b>Printing preferences</b> (Step 2).
+                    </td>
+                </tr>
+                <tr>
+                    <td><i>Your connection isn't private</i></td>
+                    <td>
+                        This device doesn't have the certificate yet. Open
+                        <code>http://sheehanqms.local/install</code> and do part 2.
+                    </td>
+                </tr>
+                <tr>
+                    <td>No <b>Install app</b> button</td>
+                    <td>
+                        Use Edge or Chrome, on the <code>https://</code> address, after the certificate. If it's already
+                        installed, open Sheehan QMS from the Start menu instead.
+                    </td>
+                </tr>
+                <tr>
+                    <td>A download link in Settings doesn't open</td>
+                    <td>HTTPS isn't set up on the server yet. Message the developers from SheeChat.</td>
+                </tr>
+            </table>
+
+            <div class="note info" style="margin-top: 16px">
+                <b>Still stuck?</b>Open <b>SheeChat → Message developer</b> and say which PC, which printer, and what
+                the print window shows. A photo of the printed ticket helps.
+            </div>
+        </section>
+    </body>
+</html>

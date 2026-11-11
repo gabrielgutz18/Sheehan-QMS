@@ -105,9 +105,11 @@
   max-width: calc(var(--u, 1px) * 900);
   display: flex;
   align-items: center;
-  justify-content: center;
+  /* safe: on a window narrower than the ticket it scrolls instead of losing its left side */
+  justify-content: safe center;
   flex-wrap: wrap;
   gap: calc(var(--u, 1px) * 24) calc(var(--u, 1px) * 56);
+  overflow-x: auto;
 }
 
 .receipt-section .receipt {
@@ -139,12 +141,18 @@
   color: var(--text-muted);
 }
 
-/* Print ticket (or Ctrl+P): only the ticket goes on paper, filling a 90 x 148 mm page;
-   the admin layout around it is dropped only while a ticket is showing, so other admin pages print as usual */
+/* Print ticket (or Ctrl+P): only the ticket goes on paper. the paper is half letter, fed into the printer standing
+   up (5.5 in wide, short side first), so the page is 5.5 x 8.5 in portrait and the 8.5 x 5.5 in ticket is turned a
+   quarter turn onto it, its top along the page's left edge; the printer needs that paper size in Windows (Statement,
+   or a custom 5.5 x 8.5 in one), or the browser falls back to Letter and the ticket comes out cut off; the admin
+   layout around it is dropped only while a ticket is showing, so other admin pages print as usual */
 @media print {
   @page {
-    size: 90mm 148mm;
-    margin: 4mm;
+    size: 5.5in 8.5in;
+    margin: 0;
+  }
+  body:has(.receipt-section) {
+    margin: 0;
   }
   .admin-shell:has(.receipt-section) {
     display: block;
@@ -164,21 +172,25 @@
     border: none;
     background: none;
   }
-  .receipt-section .receipt {
-    width: 100%;
-    max-width: none;
-    /* the page less its margins, a hair short so rounding never spills onto a blank second page */
-    min-height: 139mm;
-    padding: 0;
-    box-shadow: none;
+  /* exactly one page, a hair short so rounding never spills onto a blank second one; that hair is in the margin */
+  .receipt-section {
+    position: relative;
+    width: 5.5in;
+    height: calc(8.5in - 2px);
+    overflow: hidden;
   }
-  /* the page itself is the sheet */
+  /* the page itself is the paper: the sheet keeps its margins, and is turned from lying across to standing up */
   .receipt-section .ticket-sheet {
-    width: auto;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 8.5in;
+    height: 5.5in;
     min-height: 0;
-    padding: 0;
     background: none;
     border: none;
     box-shadow: none;
+    transform-origin: top left;
+    transform: translateY(8.5in) rotate(-90deg);
   }
 }
