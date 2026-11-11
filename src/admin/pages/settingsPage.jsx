@@ -23,6 +23,8 @@ const SECURE_HOME = `https://${host}/staff/settings`;
 const secure = location.protocol === "https:";
 // opened from the installed app's own icon rather than a browser tab
 const standalone = window.matchMedia("(display-mode: standalone)").matches;
+// every step below with pictures, as a PDF (tools/setup-manual, npm run manual)
+const MANUAL = "/setup-manual.pdf";
 
 // whether this device trusts the server's certificate: a request to it over https only goes through when it does
 // (the same check as the setup page, deploy/install.html); "checking", "trusted" or "untrusted"
@@ -193,16 +195,42 @@ function CertificateCard() {
     );
 }
 
+// the ticket printer's paper: a browser can't add a paper size to Windows, so this only says what to set, with the
+// manual (public/setup-manual.pdf, made by npm run manual) showing each window
+function TicketPaperCard() {
+    return (
+        <div className="admin-panel settings-card">
+            <h2>Ticket paper</h2>
+            <p className="settings-text">
+                Tickets print on half letter paper, <strong>5.5 × 8.5 in</strong>, fed into the printer standing up,
+                short side first. Set the ticket printer's paper size to <strong>Statement</strong> (5.5 × 8.5 in), or
+                the browser falls back to Letter and the ticket comes out cut off.
+            </p>
+            <a className="admin-btn settings-action" href={MANUAL} target="_blank" rel="noreferrer">
+                Open the setup manual (PDF)
+            </a>
+            <p className="settings-note">Step by step, with pictures of each window: part 4 of the manual.</p>
+        </div>
+    );
+}
+
 export default function SettingsPage() {
     return (
         <section className="admin-page">
             <div className="settings-head">
                 <h1 className="admin-title">Settings</h1>
-                <p className="settings-intro">Set up this PC or phone for the queue.</p>
+                <p className="settings-intro">
+                    Set up this PC or phone for the queue. Step by step, with pictures:{" "}
+                    <a className="settings-inline-link" href={MANUAL} target="_blank" rel="noreferrer">
+                        setup manual (PDF)
+                    </a>
+                    .
+                </p>
             </div>
             <div className="settings-columns">
                 <InstallAppCard />
                 <CertificateCard />
+                <TicketPaperCard />
             </div>
         </section>
     );

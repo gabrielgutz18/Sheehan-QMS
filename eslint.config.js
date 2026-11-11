@@ -19,7 +19,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['server/**/*.js', 'tests/**/*.js', 'e2e/**/*.js', 'vite.config.js', 'playwright.config.js'],
+    files: ['server/**/*.js', 'tests/**/*.js', 'e2e/**/*.js', 'tools/**/*.js', 'vite.config.js', 'playwright.config.js'],
     languageOptions: { globals: globals.node },
   },
 ])

@@ -31,6 +31,8 @@ const CONTENT_TYPES = {
     ".wav": "audio/wav",
     ".mp4": "video/mp4",
     ".txt": "text/plain; charset=utf-8",
+    // the device setup manual (public/setup-manual.pdf), opened in the browser rather than downloaded
+    ".pdf": "application/pdf",
     // what makes the staff area installable as an app (public/manifest.webmanifest)
     ".webmanifest": "application/manifest+json",
 };

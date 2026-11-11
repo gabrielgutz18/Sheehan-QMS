@@ -3533,6 +3533,10 @@ html:has(.sale-actions) {
 }
 
 /* the one thing to click, only as wide as its words */
+.settings-action {
+    align-self: flex-start;
+}
+
 .settings-action.admin-btn-primary {
     align-self: flex-start;
     width: auto;

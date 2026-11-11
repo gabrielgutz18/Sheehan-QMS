@@ -22,6 +22,7 @@
     "seed:snapshot": "node --env-file-if-exists=.env server/snapshot.js load",
     "test:coverage": "node --test --experimental-test-coverage --test-coverage-exclude=tests/** --test-coverage-lines=88 --test-coverage-branches=90 --test-coverage-functions=83",
     "test:e2e": "vite build && playwright test",
+    "manual": "vite build && node tools/setup-manual/build.js",
     "typecheck": "tsc -p jsconfig.json --checkJs",
     "knip": "knip",
     "format": "prettier --write",

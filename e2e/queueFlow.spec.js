@@ -380,6 +380,16 @@ test("Settings in the menu has Install app and Install certificate for this devi
         "http://127.0.0.1/install-certificate.cmd",
     );
 
+    // the ticket paper's set-up, with the manual that shows each window, served as a PDF to open in the browser
+    await expect(page.getByRole("heading", { name: "Ticket paper" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Open the setup manual (PDF)" })).toHaveAttribute(
+        "href",
+        "/setup-manual.pdf",
+    );
+    const manual = await page.request.get("/setup-manual.pdf");
+    expect(manual.ok()).toBe(true);
+    expect(manual.headers()["content-type"]).toBe("application/pdf");
+
     // once the browser offers it (Edge and Chrome over https), the page's own Install app button takes it
     await page.evaluate(() => {
         const offer = Object.assign(new Event("beforeinstallprompt", { cancelable: true }), {
