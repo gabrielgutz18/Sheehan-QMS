@@ -1530,3 +1530,33 @@ test("Send a message on a profile opens SheeChat with them, and a developer's Sh
     await expect(own.getByRole("button", { name: "Send a message" })).toHaveCount(0);
     await theirs.close();
 });
+
+// Recall: a customer sent away with the wrong receipt is called straight back from Done at loading today, with a
+// reason, and the crew sees why on the customer it's serving again
+test("Recall calls a done customer back to Roofings with a reason, from Done at loading today", async ({ page }) => {
+    const stamp = Date.now();
+    const customer = `Recall ${stamp}`;
+
+    await page.goto("/staff/loading");
+    await signIn(page, ADMIN.username, ADMIN.password);
+    await expect(page.getByRole("heading", { name: "Loading", exact: true })).toBeVisible();
+    // an order loaded at Roofings and done, as the crew would have it
+    const { queueNum } = await api(page, "POST", "/orders", sale(customer, "Roofings", [{ invoiceNo: `R-${stamp}`, type: "Roofings" }]));
+    await api(page, "POST", `/admin/orders/${queueNum}/handover`, {});
+    await api(page, "POST", `/admin/loading/${queueNum}/start`, { area: "Roofings" });
+    await api(page, "POST", `/admin/loading/${queueNum}/done`);
+
+    const done = page.getByRole("listitem").filter({ hasText: customer });
+    await done.getByRole("button", { name: "Recall" }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByText("Please proceed to Roofings (Gate Y: Yero)")).toBeVisible();
+    // no reason, no recall
+    await expect(dialog.getByRole("button", { name: "Recall now" })).toBeDisabled();
+    await dialog.getByRole("button", { name: "Wrong receipt" }).click();
+    await dialog.getByRole("button", { name: "Recall now" }).click();
+
+    await expect(page.getByRole("status").filter({ hasText: /^✓ Recalled .* to Roofings\.$/ })).toBeVisible();
+    const serving = page.locator(".serving-card").filter({ hasText: customer });
+    await expect(serving.getByText("Recalled to Roofings · “Wrong receipt”")).toBeVisible();
+    await expect(serving.getByRole("button", { name: "Start loading at Roofings" })).toBeVisible();
+});

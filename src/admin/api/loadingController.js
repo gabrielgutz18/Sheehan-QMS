@@ -19,6 +19,11 @@ export const startLoading = (department, queueNum, area) =>
 export const finishAtLoading = (department, queueNum) =>
     http.post(`/admin/${department}/${encodeURIComponent(queueNum)}/done`);
 
+// Recall: calls a customer straight back to an area the department had already done (area), e.g. with the wrong
+// receipt, saying why (reason); refused while someone else has them (409)
+export const recallToArea = (department, queueNum, area, reason) =>
+    http.post(`/admin/${department}/${encodeURIComponent(queueNum)}/recall`, { area, reason });
+
 // the History tab: the orders handed over to one of the department's lists, 50 at a time → { rows, more }; before is
 // "YYYY-MM-DD:N", the day and number of the last row shown, for Show more; empty values are left out
 /**

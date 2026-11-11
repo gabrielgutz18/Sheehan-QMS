@@ -1393,3 +1393,31 @@ test("048 turns For Logistics orders and invoices into Stainless ones and leaves
         db.close();
     }
 });
+
+// 049 adds the recalls, none to start with; one goes with its order when the order is purged
+test("049 adds the recalls, kept with their order and gone with it", () => {
+    const old = databaseBefore("049");
+    old.exec(`
+        INSERT INTO users (id, username, name, role, password_hash, created_at)
+            VALUES (1, 'pedro', 'Pedro Garcia', 'loading', 'x', '2026-10-20T08:00:00.000Z');
+        INSERT INTO orders (id, queue_date, queue_num, name, purpose, status, created_at)
+            VALUES (1, '2026-11-11', 1, 'Juan Dela Cruz', 'Roofings', 'done', '2026-11-11T09:00:00.000Z');
+    `);
+    old.close();
+
+    const quiet = mock.method(console, "log", () => {});
+    const db = openDatabase(dataDir);
+    quiet.mock.restore();
+
+    try {
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM order_recalls").get().n, 0);
+        db.prepare(
+            "INSERT INTO order_recalls (order_id, area, user_id, reason, recalled_at) VALUES (1, 'Roofings', 1, 'Wrong receipt', '2026-11-11T10:00:00.000Z')",
+        ).run();
+        db.prepare("DELETE FROM orders WHERE id = 1").run();
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM order_recalls").get().n, 0);
+        assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(), []);
+    } finally {
+        db.close();
+    }
+});

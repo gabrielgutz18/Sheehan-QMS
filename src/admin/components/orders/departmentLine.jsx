@@ -4,10 +4,11 @@ import useOrders from '../../hooks/useOrders.js';
 import useActionNote from '../../hooks/useActionNote.js';
 import useNewCustomerAlert from '../../hooks/useNewCustomerAlert.js';
 import { useAuth } from '../../auth/authContext.js';
-import { callAtLoading, finishAtLoading, sendBackFromLoading, startLoading } from '../../api/loadingController.js';
+import { callAtLoading, finishAtLoading, recallToArea, sendBackFromLoading, startLoading } from '../../api/loadingController.js';
 import CallDialog from './callDialog.jsx';
 import Greetings from '../common/greetings.jsx';
 import OrderDetails from './orderDetails.jsx';
+import RecallDialog from './recallDialog.jsx';
 import SentBackNote from './sentBackNote.jsx';
 import ServedBy from './servedBy.jsx';
 import ServingCard from './servingCard.jsx';
@@ -15,7 +16,7 @@ import {
     areasLeft, areasLeftIn, areasToStart, atDepartment, defaultLoadingRemarks, departmentHasOrder, departmentStillNeeds,
     proceedTo, quickRemarksFor, startLoadingLabel,
 } from '../../data/loadingAreas.js';
-import { DEPARTMENTS, departmentWord } from '../../../data/loadingAreas.js';
+import { DEPARTMENTS, departmentOf, departmentWord } from '../../../data/loadingAreas.js';
 import formatQueueNum from '../../../data/queueNum.js';
 
 // a department's counter, the Loading, Service and Hardware pages' (department: "loading", "service" or "hardware",
@@ -35,6 +36,9 @@ import formatQueueNum from '../../../data/queueNum.js';
 // customer was called there, to another area, or not yet, and only then Done; until that area is done, the customer
 // can't be called or loaded at another one (the backend refuses it)
 // an order a guard sent back from the security check to one area says so, with what the guard saw
+// Recall: a customer whose area here was already done (they got the wrong receipt or the wrong order) is called
+// straight back to it, any time today, even after the gate checked them, with why; only that area is done again, and
+// the order goes through the security check again
 
 const ticketOf = (o) => formatQueueNum(o.queueNum, o.purpose, o);
 
@@ -47,6 +51,10 @@ const areaProgress = (order) => {
         .map(({ name, loaded }) => (loaded ? `${name} ✓` : name === now ? `${name} now` : !now && name === next ? `${name} next` : name))
         .join(" · ");
 };
+// the order's areas this department has already done, the ones Recall can call the customer back to
+const doneAreasIn = (order, department) =>
+    (order.areas ?? []).filter(({ name, loaded }) => loaded && departmentOf(name) === department).map(({ name }) => name);
+
 // Done here lists this many of the latest; the rest are counted under it
 const DONE_SHOWN = 8;
 
@@ -57,6 +65,8 @@ export default function DepartmentLine({ department }) {
     const [actionError, setActionError] = useState("");
     const [calling, setCalling] = useState(null);
     const [callError, setCallError] = useState("");
+    const [recalling, setRecalling] = useState(null);
+    const [recallError, setRecallError] = useState("");
     const label = DEPARTMENTS[department];
     const here = departmentWord(department);
 
@@ -127,6 +137,41 @@ export default function DepartmentLine({ department }) {
             setBusy(null);
         }
     };
+
+    const openRecall = (order) => {
+        setRecallError("");
+        setRecalling(order);
+    };
+
+    // errors stay inside the dialog, e.g. when another counter called them first
+    const recall = async (area, reason) => {
+        const { queueNum } = recalling;
+        setBusy(queueNum);
+        setRecallError("");
+        showNote("");
+        try {
+            replace(await recallToArea(department, queueNum, area, reason));
+            showNote(`Recalled ${ticketOf(recalling)} to ${area}.`);
+            setRecalling(null);
+        } catch (err) {
+            setRecallError(err.message);
+        } finally {
+            setBusy(null);
+        }
+    };
+
+    // the Recall button, on a customer with an area here already done; grayed out while someone else has them
+    const recallButton = (o) =>
+        doneAreasIn(o, department).length > 0 && (
+            <button
+                type="button"
+                className="admin-btn"
+                disabled={o.status === "serving" || busy === o.queueNum}
+                onClick={() => openRecall(o)}
+            >
+                Recall
+            </button>
+        );
 
     return (
         <section className="admin-page">
@@ -228,6 +273,7 @@ export default function DepartmentLine({ department }) {
                                                     {startLoadingLabel(area)}
                                                 </button>
                                             ))}
+                                            {recallButton(o)}
                                         </div>
                                         {elsewhere && (
                                             <p id={`wait-${o.queueNum}`} className="wait-hint">
@@ -250,18 +296,33 @@ export default function DepartmentLine({ department }) {
                     <p className="admin-empty">No one yet. Orders {here} has finished loading are listed here.</p>
                 ) : (
                     <ul className="counter-list">
-                        {doneHere.slice(0, DONE_SHOWN).map((o) => (
-                            <li key={o.queueNum} className="counter-ticket">
-                                <div className="counter-ticket-main">
-                                    <strong className="counter-number">{ticketOf(o)}</strong>
-                                    <span className="counter-name">{o.name}</span>
-                                    <span className="counter-meta">{o.purpose}</span>
-                                    {/* the other department may still have its part to do */}
-                                    {o.status !== "done" && areaProgress(o) && <span className="counter-meta">{areaProgress(o)}</span>}
-                                    <ServedBy order={o} />
-                                </div>
-                            </li>
-                        ))}
+                        {doneHere.slice(0, DONE_SHOWN).map((o) => {
+                            // a sales counter or the other department has the customer right now
+                            const elsewhere = o.status === "serving";
+                            return (
+                                <li key={o.queueNum} className="counter-ticket">
+                                    <div className="counter-ticket-main">
+                                        <strong className="counter-number">{ticketOf(o)}</strong>
+                                        <span className="counter-name">{o.name}</span>
+                                        <span className="counter-meta">{o.purpose}</span>
+                                        {/* the other department may still have its part to do */}
+                                        {o.status !== "done" && areaProgress(o) && <span className="counter-meta">{areaProgress(o)}</span>}
+                                        {o.recalled && (
+                                            <span className="counter-meta">
+                                                Recalled to {o.recalled.area} · “{o.recalled.reason}” · {o.recalled.by.name}
+                                            </span>
+                                        )}
+                                        <ServedBy order={o} />
+                                    </div>
+                                    <div className="row-actions loading-call">{recallButton(o)}</div>
+                                    {elsewhere && (
+                                        <p className="wait-hint">
+                                            Please wait until {o.servedBy?.name ?? "the other counter"} finishes.
+                                        </p>
+                                    )}
+                                </li>
+                            );
+                        })}
                     </ul>
                 )}
                 {doneHere.length > DONE_SHOWN && (
@@ -279,6 +340,17 @@ export default function DepartmentLine({ department }) {
                     error={callError}
                     onCall={call}
                     onClose={() => setCalling(null)}
+                />
+            )}
+
+            {recalling && (
+                <RecallDialog
+                    order={recalling}
+                    areas={doneAreasIn(recalling, department)}
+                    busy={busy === recalling.queueNum}
+                    error={recallError}
+                    onRecall={recall}
+                    onClose={() => setRecalling(null)}
                 />
             )}
         </section>

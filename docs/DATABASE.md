@@ -210,6 +210,7 @@ On every start, any `.sql` file not yet listed in `schema_migrations` runs, in n
 | [`046_chassis_joins_loading.sql`](../server/migrations/046_chassis_joins_loading.sql) | Chassis becomes one of the loading crew's areas, beside Roofings, Steel and Logistics: rebuilds `users` without the `chassis` role, moves its accounts to `loading` and sets their `loading_area` to `Chassis` (not a deleted one's); the area keeps its name, so orders, loads and security checks are left alone |
 | [`047_developer_specialization.sql`](../server/migrations/047_developer_specialization.sql) | adds `specialization` to `users`: what a developer (the IT department) does, e.g. Web developer, typed on My account and shown on their profile; `''` for none and for every other role |
 | [`048_stainless_order_type.sql`](../server/migrations/048_stainless_order_type.sql) | the For Logistics type of order becomes Stainless (tickets start ST, not LS): renames it in `orders.purpose`, alone or in a list, and in `order_invoices.type`; the area stays Logistics, and the edits already kept are left as they were |
+| [`049_order_recalls.sql`](../server/migrations/049_order_recalls.sql) | `order_recalls`: every Recall on the Loading, Service and Hardware pages, a customer called back to an area already done (e.g. the wrong receipt or the wrong order), with who, why and when; the area's `order_loads` row is taken off so it's loaded again, and the order needs a new security check |
 
 **Changing the tables later:** never edit a file that has already run anywhere. Add the next number instead, for example `server/migrations/006_add_counter_number.sql`:
 
@@ -238,6 +239,8 @@ erDiagram
     orders ||--o{ serves : "one point per visit"
     orders ||--o{ order_loads : "loaded area by area"
     users ||--o{ order_loads : "loaded an area"
+    orders ||--o{ order_recalls : "recalled to an area"
+    users ||--o{ order_recalls : "recalled a customer"
     orders ||--o{ security_checks : "checked at the gate"
     users ||--o{ security_checks : "checked an order"
     security_checks |o--o| orders : "this visit's check (security_check_id)"
@@ -323,6 +326,14 @@ erDiagram
         TEXT area "Roofings, Steel, Logistics, Chassis, Service or Hardware; once per order"
         INTEGER loaded_by FK "users.id; who pressed Done there"
         TEXT loaded_at
+    }
+    order_recalls {
+        INTEGER id PK
+        INTEGER order_id FK "orders.id, cascade"
+        TEXT area "the area they were called back to, already done"
+        INTEGER user_id FK "users.id; who pressed Recall"
+        TEXT reason "e.g. Wrong receipt"
+        TEXT recalled_at
     }
     security_checks {
         INTEGER id PK
@@ -636,7 +647,7 @@ restoreToToday: db.prepare(`
     WHERE id = ?`),
 ```
 
-**Delete and Purge several at once** (Delete: admins and sales on Orders & history; Purge: admins there, and developers from their Deleted tickets page): on All tickets, the tickets picked are deleted the same way (`deletePicked`, `POST /admin/history/delete`), which also takes them off the Google sheet. On Deleted, Purge erases the picked tickets for good (`purgePicked`, `POST /admin/history/purge`); only rows with `deleted_at` set are ever purged. Their `order_items`, `order_invoices`, `order_edits`, `order_loads`, `security_checks`, `google_sheet_edits` and `sheet_cells` rows go with them by cascade. Their `serves` rows stay, with `order_id` set to NULL ([`036`](../server/migrations/036_points_outlive_tickets.sql)), so staff totals don't change. Before anything goes, a copy of the database is saved as `<BACKUP_DIR>/<date_time>_before-purge/queue.db` (backups/ in the data folder by default), and nothing is purged if that fails. `VACUUM` then shrinks the file, since SQLite doesn't give the space back by itself.
+**Delete and Purge several at once** (Delete: admins and sales on Orders & history; Purge: admins there, and developers from their Deleted tickets page): on All tickets, the tickets picked are deleted the same way (`deletePicked`, `POST /admin/history/delete`), which also takes them off the Google sheet. On Deleted, Purge erases the picked tickets for good (`purgePicked`, `POST /admin/history/purge`); only rows with `deleted_at` set are ever purged. Their `order_items`, `order_invoices`, `order_edits`, `order_loads`, `order_recalls`, `security_checks`, `google_sheet_edits` and `sheet_cells` rows go with them by cascade. Their `serves` rows stay, with `order_id` set to NULL ([`036`](../server/migrations/036_points_outlive_tickets.sql)), so staff totals don't change. Before anything goes, a copy of the database is saved as `<BACKUP_DIR>/<date_time>_before-purge/queue.db` (backups/ in the data folder by default), and nothing is purged if that fails. `VACUUM` then shrinks the file, since SQLite doesn't give the space back by itself.
 
 ### 5.6 Signing in → `users` and `sessions`
 

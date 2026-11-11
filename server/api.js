@@ -164,6 +164,9 @@ const TYPING_MS = 4000;
 // or stolen (the last three are reports, with a note saying what)
 const SECURITY_RESULTS = ["verified", "missing", "over", "stolen"];
 const MAX_SECURITY_NOTE = 300;
+// why a department's crew recalls a customer whose area was already done, e.g. "Wrong receipt"; the same on the pages
+// (src/admin/components/orders/recallDialog.jsx)
+const MAX_RECALL_REASON = 120;
 const NO_SUCH_TEAM = `Pick a sales team from the list (${TEAMS.join(", ")}), or none.`;
 const NO_SUCH_CREW_AREA = `Pick a loading area (${CREW_AREAS.join(", ")}), or none.`;
 // a loading account's area, Roofings, Steel, Logistics or Chassis; every other kind of account has none
@@ -268,7 +271,7 @@ const ROLE_ROUTES = {
         ["GET", /^\/admin\/orders$/],
         // the Order status board: every order, not just the ones handed over, with none of the sales details
         ["GET", /^\/admin\/order-status$/],
-        ["POST", /^\/admin\/loading\/[^/]+\/(call|start|done|back)$/],
+        ["POST", /^\/admin\/loading\/[^/]+\/(call|start|done|back|recall)$/],
         // the History tab: the orders handed over to the department, its own only
         ["GET", /^\/admin\/department-history\/loading$/],
         // the Crew tab: who's on the loading crew, by area (Roofings, Steel, Logistics, Chassis), and who's online
@@ -282,7 +285,7 @@ const ROLE_ROUTES = {
     service: [
         ["GET", /^\/admin\/orders$/],
         ["GET", /^\/admin\/order-status$/],
-        ["POST", /^\/admin\/service\/[^/]+\/(call|start|done|back)$/],
+        ["POST", /^\/admin\/service\/[^/]+\/(call|start|done|back|recall)$/],
         // the History tab: the orders handed over to the department, its own only
         ["GET", /^\/admin\/department-history\/service$/],
         // the pop-ups when staff make or hand over an order with something for the department
@@ -294,7 +297,7 @@ const ROLE_ROUTES = {
     hardware: [
         ["GET", /^\/admin\/orders$/],
         ["GET", /^\/admin\/order-status$/],
-        ["POST", /^\/admin\/hardware\/[^/]+\/(call|start|done|back)$/],
+        ["POST", /^\/admin\/hardware\/[^/]+\/(call|start|done|back|recall)$/],
         // the History tab: the orders handed over to the department, its own only
         ["GET", /^\/admin\/department-history\/hardware$/],
         // the pop-ups when staff make or hand over an order with something for the department
@@ -1007,7 +1010,8 @@ const securityOf = (row) =>
 // area the loading crew has the customer at right now, and loadingStartedAt when they pressed Loading there (ISO
 // 8601; left out while the customer is only called): until that area is done no other area can take them
 // returned: the report that sent the order back from the security check to one of its areas, with what the guard saw,
-// until the next check
+// until the next check; recalled: the last time a department's crew recalled the customer to an area it had already
+// done this visit, { area, reason, by: { name }, at }
 const progressOf = (row) => ({
     areas: areasOf(row),
     ...(row.at_loading === 1 && row.loading_area && { loadingArea: row.loading_area }),
@@ -1022,6 +1026,7 @@ const progressOf = (row) => ({
             at: row.returned_at,
         },
     }),
+    ...(row.recall_json && { recalled: JSON.parse(row.recall_json) }),
 });
 // this visit's security check: the result, the guard's note (for a report), who checked it and when (ISO 8601)
 const checkOf = (row) =>
@@ -1216,13 +1221,19 @@ const toHistory = (row, items, invoices, edits, todayDate, cells = []) => ({
 // loading, who finished loading them, and, once it's done, when they marked it Done: this visit's point, if the point
 // is theirs (at most one per order and day)
 // the areas loading has finished so far, as JSON ([{ area, by, at }], see areasOf), this visit's security check
-// with the guard who did it, and the report that last sent it back to an area, with its guard
+// with the guard who did it, and the report that last sent it back to an area, with its guard; and
+// the last time a department's crew recalled the customer to an area it had already done, on this visit (since sales
+// handed them over)
 const ORDER_ROW = `o.*, u.name AS served_by_name, u.photo AS served_by_photo, h.name AS handed_over_by_name,
     cu.name AS created_by_name, au.name AS assisted_by_name, au.photo AS assisted_by_photo,
     l.name AS loaded_by_name, l.photo AS loaded_by_photo, s.served_at,
     (SELECT json_group_array(json_object('area', ol.area, 'by', lu.name, 'at', ol.loaded_at))
         FROM order_loads ol JOIN users lu ON lu.id = ol.loaded_by WHERE ol.order_id = o.id) AS loads_json,
     sc.result AS check_result, sc.note AS check_note, sc.checked_at, su.name AS checked_by_name,
+    (SELECT json_object('area', r.area, 'reason', r.reason, 'at', r.recalled_at, 'by', json_object('name', ru2.name))
+        FROM order_recalls r JOIN users ru2 ON ru2.id = r.user_id
+        WHERE r.order_id = o.id AND r.recalled_at >= COALESCE(o.handed_over_at, '')
+        ORDER BY r.id DESC LIMIT 1) AS recall_json,
     rc.returned_to AS return_area, rc.result AS return_result, rc.note AS return_note, rc.checked_at AS returned_at,
     ru.name AS returned_by_name
     FROM orders o
@@ -1353,6 +1364,17 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                 security_check_id = NULL, return_check_id = :check
             WHERE id = :id`),
         clearLoad: db.prepare("DELETE FROM order_loads WHERE order_id = ? AND area = ?"),
+        // a department's crew recalls a customer to an area it had already done (the wrong receipt, the wrong order):
+        // kept for good, and the customer is called straight back there, with that area to load again (its load is
+        // taken off), the others still loaded, and a new security check to come, even after the gate checked them
+        insertRecall: db.prepare(
+            "INSERT INTO order_recalls (order_id, area, user_id, reason, recalled_at) VALUES (?, ?, ?, ?, ?)",
+        ),
+        recallToArea: db.prepare(`
+            UPDATE orders SET status = 'serving', called_at = :calledAt, remarks = :remarks, served_by = :servedBy,
+                at_loading = 1, loading_area = :area, loading_started_at = NULL, loaded_by = NULL, loaded_at = NULL,
+                security_pending = 0, security_check_id = NULL, return_check_id = NULL
+            WHERE id = :id`),
         // sales hands the customer over to loading: back in line, for the loading crew now, with the counter's
         // remarks cleared so they don't follow the customer; the order keeps its sales team
         handOver: db.prepare(`
@@ -3431,7 +3453,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         // Steel, ...: start, with the area), whether they called the customer there, to another area, or not yet; from
         // then on the customer can't be called or loaded at another area until that one is done (or sends them back to
         // waiting), e.g. Steel waits while Roofings is loading; Done needs Loading first
-        const loadingMatch = path.match(/^\/admin\/(loading|service|hardware)\/([^/]+)\/(call|start|done|back)$/);
+        const loadingMatch = path.match(/^\/admin\/(loading|service|hardware)\/([^/]+)\/(call|start|done|back|recall)$/);
         if (method === "POST" && loadingMatch) {
             const [, department, queueNum, action] = loadingMatch;
             const label = DEPARTMENTS[department];
@@ -3451,7 +3473,43 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             // how the messages word it: a truck loaded at Roofings, an order prepared at Hardware
             const work = workOf(loadingAt ?? order.loading_area ?? leftHere[0]);
 
-            if (action === "start") {
+            if (action === "recall") {
+                // Recall: a customer whose area here was already done comes back to it, e.g. they got the wrong
+                // receipt or the wrong order; any time today, even after the gate checked them, but only while no one
+                // else has them (one place at a time); they're called there straight away, so the display tells them
+                // where to go, and only that area is loaded again
+                const { area = "", reason = "" } = body;
+                const doneHere = loaded.filter((name) => departmentOf(name) === department);
+                if (typeof area !== "string" || !doneHere.includes(area)) {
+                    return send(res, 400, {
+                        message: doneHere.length
+                            ? `Recall them to an area ${label} has already done: ${doneHere.join(", ")}.`
+                            : `${label} hasn't finished any area of this order yet.`,
+                    });
+                }
+                if (typeof reason !== "string" || !reason.trim()) {
+                    return send(res, 400, { message: "Say why they're recalled, e.g. Wrong receipt." });
+                }
+                if (reason.trim().length > MAX_RECALL_REASON) {
+                    return send(res, 400, { message: `The reason must be ${MAX_RECALL_REASON} characters or fewer.` });
+                }
+                if (order.status === "serving") {
+                    return send(res, 409, {
+                        message: `Please wait until ${order.served_by_name ?? "the other counter"} finishes.`,
+                    });
+                }
+                transaction(db, () => {
+                    sql.insertRecall.run(order.id, area, me.id, reason.trim(), new Date().toISOString());
+                    sql.recallToArea.run({
+                        id: order.id,
+                        calledAt: Date.now(),
+                        remarks: proceedTo(area),
+                        servedBy: me.id,
+                        area,
+                    });
+                    sql.clearLoad.run(order.id, area);
+                });
+            } else if (action === "start") {
                 if (order.status === "done")
                     return send(res, 409, { message: `${label} has already finished this order.` });
                 if (order.status === "serving" && !servingHere) {
