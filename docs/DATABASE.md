@@ -211,6 +211,7 @@ On every start, any `.sql` file not yet listed in `schema_migrations` runs, in n
 | [`047_developer_specialization.sql`](../server/migrations/047_developer_specialization.sql) | adds `specialization` to `users`: what a developer (the IT department) does, e.g. Web developer, typed on My account and shown on their profile; `''` for none and for every other role |
 | [`048_stainless_order_type.sql`](../server/migrations/048_stainless_order_type.sql) | the For Logistics type of order becomes Stainless (tickets start ST, not LS): renames it in `orders.purpose`, alone or in a list, and in `order_invoices.type`; the area stays Logistics, and the edits already kept are left as they were |
 | [`049_order_recalls.sql`](../server/migrations/049_order_recalls.sql) | `order_recalls`: every Recall on the Loading, Service and Hardware pages, a customer called back to an area already done (e.g. the wrong receipt or the wrong order), with who, why and when; the area's `order_loads` row is taken off so it's loaded again, and the order needs a new security check |
+| [`050_pickups.sql`](../server/migrations/050_pickups.sql) | adds `pickup_at` to `orders`, and an index on `pickup_date`: on a customer's pick-up day their ticket from an earlier day comes into the day's line for a sales counter by itself (`bringInPickups` in `server/api.js`, on every request), with `queue_num` from 1001 so it takes none of the day's walk-in numbers, `original_date`/`original_num` set to the number on the customer's paper, and `pickup_at` to when it came in; unlike Restore its `order_loads` stay, and the stats and the Order sheet keep it on the day it was ordered |
 
 **Changing the tables later:** never edit a file that has already run anywhere. Add the next number instead, for example `server/migrations/006_add_counter_number.sql`:
 
@@ -273,8 +274,9 @@ erDiagram
         INTEGER called_at "ms since 1970"
         TEXT deleted_at "set while in History"
         TEXT restored_at
-        TEXT original_date
-        INTEGER original_num
+        TEXT original_date "the first day, for a restored ticket or a pick-up"
+        INTEGER original_num "the first number, the one on a pick-up's paper"
+        TEXT pickup_at "when a pick-up came into its pick-up day, else NULL"
         INTEGER served_by FK "users.id"
         INTEGER handed_over_by FK "users.id; NULL while still with sales"
         TEXT handed_over_at

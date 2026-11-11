@@ -21,7 +21,7 @@ npm run test:coverage                        # with the coverage minimums CI enf
 npm run test:e2e                             # builds, then runs the Playwright browser tests
 npx playwright test -g "wrong password"      # one browser test, against the existing dist/
 
-npm run seed -- 12                           # sample customers (also seed:loading, seed:security, seed:handover, seed:priority)
+npm run seed -- 12                           # sample customers (also seed:loading, seed:security, seed:handover, seed:priority, seed:pickup)
 ```
 
 CI blocks on lint, `npm run typecheck` (non-strict `--checkJs`), `test:coverage`, build and the browser tests. Types are JSDoc comments, with `src/global.d.ts` for browser globals; add a JSDoc type to fix an error rather than `@ts-ignore`, and mark optional component props there, because TypeScript treats destructured props as required.
@@ -65,6 +65,7 @@ CI blocks on lint, `npm run typecheck` (non-strict `--checkJs`), `test:coverage`
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
 
 Rules:
+
 - When graphify-out/graph.json exists, run `graphify query "<question>"` before your first grep, search or source-file read for a codebase question, and put this rule in every subagent prompt that explores code. Read raw files only for lines the graph or an earlier read already located. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
 - If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.

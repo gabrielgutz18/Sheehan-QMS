@@ -10,7 +10,7 @@ import Greetings from "../components/common/greetings.jsx";
 import PageTabs from "../components/common/pageTabs.jsx";
 import { NO_PRODUCT, groupsByProduct, ticketCount } from "../data/productGroups.js";
 import { sheetDate } from "../data/sheetColumns.js";
-import formatQueueNum from "../../data/queueNum.js";
+import { ticketNumber } from "../../data/queueNum.js";
 import paymentStatus from "../../data/paymentStatus.js";
 
 // sales take new orders all day, so it fetches again as often as the Order sheet does
@@ -27,7 +27,7 @@ const ALL_PRODUCTS = "all";
 
 const clockFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit", second: "2-digit" });
 
-const ticketOf = (o) => formatQueueNum(o.queueNum, o.purpose, o);
+const ticketOf = (o) => ticketNumber(o);
 
 const clean = (search) => search.trim().toLowerCase();
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-import formatQueueNum from '../../../data/queueNum.js';
+import { ticketNumber } from '../../../data/queueNum.js';
 import OrderDetails from './orderDetails.jsx';
 import ServedBy from './servedBy.jsx';
 import { inLine } from '../../data/orderStatus.js';
@@ -37,7 +37,7 @@ export default function TicketDialog({ order, openedAt, day, children, onServe, 
         <dialog ref={dialogRef} className="admin-dialog" aria-labelledby="ticket-title" onClose={onClose}>
             <div className="admin-dialog-body">
                 <h2 id="ticket-title" className="admin-dialog-title">
-                    <strong>{formatQueueNum(order.queueNum, order.purpose, order)}</strong> {order.name}
+                    <strong>{ticketNumber(order)}</strong> {order.name}
                 </h2>
 
                 <dl className="ticket-facts">

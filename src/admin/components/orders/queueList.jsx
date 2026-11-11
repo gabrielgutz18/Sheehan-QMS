@@ -1,12 +1,12 @@
-import { useState } from 'react';
+import { useState } from "react";
 
-import orderStatus from '../../data/orderStatus.js';
-import { useAuth } from '../../auth/authContext.js';
-import { callOrder, deleteOrder, updateOrderStatus } from '../../api/adminOrderController.js';
-import CallDialog from './callDialog.jsx';
-import TicketCard, { TicketLinks } from './ticketCard.jsx';
-import formatQueueNum from '../../../data/queueNum.js';
-import { readLastRemarks, saveLastRemarks } from '../../data/lastRemarks.js';
+import orderStatus from "../../data/orderStatus.js";
+import { useAuth } from "../../auth/authContext.js";
+import { callOrder, deleteOrder, updateOrderStatus } from "../../api/adminOrderController.js";
+import CallDialog from "./callDialog.jsx";
+import TicketCard, { TicketLinks } from "./ticketCard.jsx";
+import { ticketNumber } from "../../../data/queueNum.js";
+import { readLastRemarks, saveLastRemarks } from "../../data/lastRemarks.js";
 
 // today's tickets as cards with their actions (status, call, view, edit, delete) and the call dialog
 // admins and sales staff can both set the status, edit and delete (sales, a ticket made by mistake; it can be restored);
@@ -64,9 +64,15 @@ export default function QueueList({ orders, setOrders, loading, error }) {
         }
     };
 
-    const remove = (queueNum, purpose, marks) => {
-        const ticket = formatQueueNum(queueNum, purpose, marks);
-        if (!window.confirm(`Delete ticket ${ticket}? It leaves the queue and the display, and can be restored from the Deleted tab.`)) return;
+    const remove = (order) => {
+        const { queueNum } = order;
+        const ticket = ticketNumber(order);
+        if (
+            !window.confirm(
+                `Delete ticket ${ticket}? It leaves the queue and the display, and can be restored from the Deleted tab.`,
+            )
+        )
+            return;
         runAction(queueNum, async () => {
             await deleteOrder(queueNum);
             setOrders((prev) => prev.filter((o) => o.queueNum !== queueNum));
@@ -75,7 +81,11 @@ export default function QueueList({ orders, setOrders, loading, error }) {
 
     return (
         <>
-            {(error || actionError) && <p className="field-error" role="alert">{actionError || error}</p>}
+            {(error || actionError) && (
+                <p className="field-error" role="alert">
+                    {actionError || error}
+                </p>
+            )}
 
             {loading ? (
                 <p className="ticket-cards-empty">Loading orders...</p>
@@ -84,12 +94,12 @@ export default function QueueList({ orders, setOrders, loading, error }) {
             ) : (
                 <ul className="ticket-cards">
                     {orders.map((o) => {
-                        const ticket = formatQueueNum(o.queueNum, o.purpose, o);
+                        const ticket = ticketNumber(o);
                         return (
                             <TicketCard
                                 key={o.queueNum}
                                 order={o}
-                                status={(
+                                status={
                                     <select
                                         className={`status-select status-${o.status}`}
                                         aria-label={`Status for ${ticket}`}
@@ -101,18 +111,25 @@ export default function QueueList({ orders, setOrders, loading, error }) {
                                             on a ticket already being served, to show its status); a done order goes
                                             back in line (Waiting or Returning) before it's called */}
                                         {orderStatus
-                                            .filter(({ value }) => value !== "serving" || canCall || o.status === "serving")
+                                            .filter(
+                                                ({ value }) => value !== "serving" || canCall || o.status === "serving",
+                                            )
                                             .map(({ value, label }) => (
-                                                <option key={value} value={value} disabled={value === "serving" && o.status === "done"}>
+                                                <option
+                                                    key={value}
+                                                    value={value}
+                                                    disabled={value === "serving" && o.status === "done"}
+                                                >
                                                     {label}
                                                 </option>
                                             ))}
                                     </select>
-                                )}
-                                notes={o.status === "serving" && o.remarks && (
-                                    <p className="order-remarks">“{o.remarks}”</p>
-                                )}
-                                actions={(
+                                }
+                                notes={
+                                    o.status === "serving" &&
+                                    o.remarks && <p className="order-remarks">“{o.remarks}”</p>
+                                }
+                                actions={
                                     <>
                                         {/* stays in its place once a ticket is done, grayed out with what to do */}
                                         {canCall && (
@@ -120,7 +137,11 @@ export default function QueueList({ orders, setOrders, loading, error }) {
                                                 type="button"
                                                 className="admin-btn admin-btn-call"
                                                 aria-label={`${o.status === "serving" ? "Call again" : "Call"} ${ticket}`}
-                                                title={o.status === "done" ? "This ticket is done. Set its status back to Waiting to call it." : undefined}
+                                                title={
+                                                    o.status === "done"
+                                                        ? "This ticket is done. Set its status back to Waiting to call it."
+                                                        : undefined
+                                                }
                                                 disabled={o.status === "done" || busy === o.queueNum}
                                                 onClick={() => openCall(o)}
                                             >
@@ -134,13 +155,13 @@ export default function QueueList({ orders, setOrders, loading, error }) {
                                                 className="admin-btn admin-btn-danger"
                                                 aria-label={`Delete ticket ${ticket}`}
                                                 disabled={busy === o.queueNum}
-                                                onClick={() => remove(o.queueNum, o.purpose, o)}
+                                                onClick={() => remove(o)}
                                             >
                                                 Delete
                                             </button>
                                         )}
                                     </>
-                                )}
+                                }
                             />
                         );
                     })}

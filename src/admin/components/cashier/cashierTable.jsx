@@ -2,7 +2,8 @@ import { ROLE_LABELS } from "../../auth/roles.js";
 import useMediaQuery from "../../hooks/useMediaQuery.js";
 import { stageOf, whereNow } from "../../data/orderStage.js";
 import { INVOICE_COLUMNS, invoicesByColumn, sheetDate } from "../../data/sheetColumns.js";
-import formatQueueNum from "../../../data/queueNum.js";
+import { ticketNumber } from "../../../data/queueNum.js";
+import TicketNumber from "../common/ticketNumber.jsx";
 import paymentStatus from "../../../data/paymentStatus.js";
 
 const PAYMENTS = paymentStatus.map((p) => p.type);
@@ -20,7 +21,7 @@ const changeFormat = new Intl.DateTimeFormat(undefined, {
     minute: "2-digit",
 });
 
-const ticketOf = (o) => formatQueueNum(o.queueNum, o.purpose, o);
+const ticketOf = (o) => ticketNumber(o);
 
 // the invoice numbers under their department, as on the Order sheet
 function Invoices({ order }) {
@@ -126,7 +127,7 @@ export default function CashierTable({ lines, byProduct, busy, onPick }) {
                     {lines.map(({ order: o, invoices, also }) => (
                         <tr key={o.id}>
                             <th scope="row" data-label="Ticket">
-                                <strong className="order-status-ticket">{ticketOf(o)}</strong>
+                                <strong className="order-status-ticket"><TicketNumber order={o} /></strong>
                                 <span className="order-status-sub">
                                     {o.isToday ? "Today" : sheetDate(o.createdAt)} ·{" "}
                                     {timeFormat.format(new Date(o.createdAt))}

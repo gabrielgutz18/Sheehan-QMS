@@ -29,3 +29,28 @@
         font-size: min(34px, 300px / var(--len));
     }
 }
+
+/* a pick-up: the number on the customer's paper, with "PICK-UP · NOV 11" under it in the pick-up colour, since numbers
+   restart daily and the same RS 01 can be today's walk-in or another day's pick-up */
+.number-card--pickup {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.08em;
+}
+
+.number-card-pickup {
+    padding: 0.12em 0.4em;
+    border-radius: 0.2em;
+    background: #f0a640;
+    color: #1c1405;
+    font-size: max(0.3em, 14px);
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    line-height: 1.1;
+    text-transform: uppercase;
+}
+
+.number-card--serving .number-card-pickup {
+    font-size: 0.16em;
+}

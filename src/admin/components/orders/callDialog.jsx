@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-import formatQueueNum from '../../../data/queueNum.js';
+import { ticketNumber } from '../../../data/queueNum.js';
 import { DEFAULT_CALL_NOTE } from '../../../data/callNote.js';
 
 const MAX_REMARKS = 120;
@@ -33,7 +33,7 @@ export default function CallDialog({
         inputRef.current.select();
     }, []);
 
-    const ticket = formatQueueNum(order.queueNum, order.purpose, order);
+    const ticket = ticketNumber(order);
     const again = order.status === "serving";
 
     const submit = (e) => {

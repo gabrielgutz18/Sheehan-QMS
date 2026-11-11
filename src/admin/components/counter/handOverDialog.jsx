@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-import formatQueueNum from '../../../data/queueNum.js';
+import { ticketNumber } from '../../../data/queueNum.js';
 import { handOverTo } from '../../data/loadingAreas.js';
 
 // modal to confirm handing a customer over to loading after the ticket and the talk, Hardware, or both in turn (by what
@@ -32,7 +32,7 @@ export default function HandOverDialog({ order, busy, error, onHandOver, onClose
         >
             <form className="admin-dialog-body" onSubmit={submit}>
                 <h2 id="handover-title" className="admin-dialog-title">
-                    Hand over <strong>{formatQueueNum(order.queueNum, order.purpose, order)}</strong> to {to}
+                    Hand over <strong>{ticketNumber(order)}</strong> to {to}
                 </h2>
                 <p className="admin-dialog-sub">{order.name} · {order.purpose}</p>
 

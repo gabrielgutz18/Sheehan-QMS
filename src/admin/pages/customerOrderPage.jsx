@@ -13,7 +13,7 @@ import useMediaQuery from '../hooks/useMediaQuery.js';
 import OrderSummary from '../components/customerOrder/orderSummary.jsx';
 import TicketPicker from '../components/customerOrder/ticketPicker.jsx';
 import { useAuth } from '../auth/authContext.js';
-import formatQueueNum from '../../data/queueNum.js';
+import { paperNumber } from '../../data/queueNum.js';
 import { joinList, splitList } from '../../data/list.js';
 import purpose from '../../data/purpose.js';
 import paymentStatus from '../../data/paymentStatus.js';
@@ -127,7 +127,13 @@ const previewOf = (fields, submitted) => {
     const order = orderFrom(fields, submitted);
     return {
         ...order,
-        queueNumber: formatQueueNum(submitted?.queueNum ?? "--", order.purpose || submitted?.purpose, order),
+        // a pick-up's paper keeps the number it was given on the day they ordered
+        queueNumber: paperNumber({
+            ...order,
+            queueNum: submitted?.queueNum ?? "--",
+            purpose: order.purpose || submitted?.purpose,
+            pickup: submitted?.pickup,
+        }),
         invoices: order.invoices.filter((invoice) => invoice.invoiceNo),
         concern: submitted?.concern,
     };
@@ -383,7 +389,7 @@ function OrderDesk({ saved, viewing, onNew }) {
                     <div className="ticket-sheet">
                         <Receipt
                             paper
-                            queueNumber={formatQueueNum(submitted.queueNum, submitted.purpose, submitted)}
+                            queueNumber={paperNumber(submitted)}
                             name={submitted.name}
                             purpose={submitted.purpose}
                             concern={submitted.concern}

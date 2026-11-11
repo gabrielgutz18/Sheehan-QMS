@@ -1,8 +1,8 @@
-import { useAuth } from '../auth/authContext.js';
-import { ROLE_LABELS } from '../auth/roles.js';
-import ProfilePhoto from '../components/accounts/profilePhoto.jsx';
-import CoverPhotoField from '../components/accounts/coverPhotoField.jsx';
-import AccountForm from '../components/accounts/accountForm.jsx';
+import { useAuth } from "../auth/authContext.js";
+import { ROLE_LABELS } from "../auth/roles.js";
+import ProfilePhoto from "../components/accounts/profilePhoto.jsx";
+import CoverPhotoField from "../components/accounts/coverPhotoField.jsx";
+import AccountForm from "../components/accounts/accountForm.jsx";
 
 // My account: every staff member (admin, sales, loading, security or cashier) keeps their own photo, name, employee ID and department here
 // the name shown around the app, e.g. "Served by Maria Santos", is the first name and surname
@@ -17,13 +17,8 @@ export default function AccountPage() {
                 <div className="admin-panel account-card">
                     <h2>Profile photo</h2>
                     <ProfilePhoto account={user} onChange={setUser} />
-                    {/* a developer has no Dashboard and isn't on SheeChat, so a cover would show nowhere */}
-                    {user.role !== "developer" && (
-                        <>
-                            <h2 className="account-cover-heading">Cover photo</h2>
-                            <CoverPhotoField account={user} onChange={setUser} />
-                        </>
-                    )}
+                    <h2 className="account-cover-heading">Cover photo</h2>
+                    <CoverPhotoField account={user} onChange={setUser} />
                     <dl className="account-facts">
                         <div>
                             <dt>Shown as</dt>

@@ -1,13 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 
-import useOrders from '../../hooks/useOrders.js';
-import { useAuth } from '../../auth/authContext.js';
-import { deleteOrders, listHistory, purgeOrders, restoreOrder } from '../../api/adminOrderController.js';
-import orderStatus from '../../data/orderStatus.js';
-import formatQueueNum from '../../../data/queueNum.js';
-import QueueList from './queueList.jsx';
-import TicketCard, { TicketLinks } from './ticketCard.jsx';
-import OrderExport from './orderExport.jsx';
+import useOrders from "../../hooks/useOrders.js";
+import { useAuth } from "../../auth/authContext.js";
+import { deleteOrders, listHistory, purgeOrders, restoreOrder } from "../../api/adminOrderController.js";
+import orderStatus from "../../data/orderStatus.js";
+import formatQueueNum, { ticketNumber } from "../../../data/queueNum.js";
+import QueueList from "./queueList.jsx";
+import TicketCard, { TicketLinks } from "./ticketCard.jsx";
+import OrderExport from "./orderExport.jsx";
 
 // today's queue, live, with the row actions; the tickets deleted (from any day); and every ticket of every day
 const ORDER_VIEWS = [
@@ -73,11 +73,15 @@ function TodayOrders() {
                 <select value={filter} onChange={(e) => setFilter(e.target.value)}>
                     <option value="all">All</option>
                     {orderStatus.map(({ value, label }) => (
-                        <option key={value} value={value}>{label}</option>
+                        <option key={value} value={value}>
+                            {label}
+                        </option>
                     ))}
                 </select>
             </label>
-            <div className="orders-history-export"><OrderExport /></div>
+            <div className="orders-history-export">
+                <OrderExport />
+            </div>
 
             <div className="orders-history-body">
                 <QueueList orders={visible} setOrders={setOrders} loading={loading} error={error} />
@@ -133,12 +137,13 @@ export function TicketHistory({ deleted }) {
     const chosen = pickable.filter((row) => picked.has(row.id));
     const allPicked = chosen.length > 0 && chosen.length === pickable.length;
 
-    const pick = (id, on) => setPicked((prev) => {
-        const next = new Set(prev);
-        if (on) next.add(id);
-        else next.delete(id);
-        return next;
-    });
+    const pick = (id, on) =>
+        setPicked((prev) => {
+            const next = new Set(prev);
+            if (on) next.add(id);
+            else next.delete(id);
+            return next;
+        });
     const pickAll = (on) => setPicked(on ? new Set(pickable.map((row) => row.id)) : new Set());
 
     // Delete on All tickets, Purge on Deleted, for the tickets picked
@@ -165,16 +170,18 @@ export function TicketHistory({ deleted }) {
     };
 
     const restore = async (row) => {
-        const before = formatQueueNum(row.queueNum, row.purpose, row);
+        const before = ticketNumber(row);
         setRestoring(row.id);
         setError("");
         setNotice("");
         try {
             const restored = await restoreOrder(row.id);
-            const now = formatQueueNum(restored.queueNum, restored.purpose, restored);
-            setNotice(row.isToday
-                ? `${now} is back in today's queue.`
-                : `Restored to today's queue as ${now} (was ${before} on ${formatDay(row.date)}).`);
+            const now = ticketNumber(restored);
+            setNotice(
+                row.isToday
+                    ? `${now} is back in today's queue.`
+                    : `Restored to today's queue as ${now} (was ${before} on ${formatDay(row.date)}).`,
+            );
             setVersion((v) => v + 1);
         } catch (err) {
             setError(err.message);
@@ -203,11 +210,23 @@ export function TicketHistory({ deleted }) {
                     Any day
                 </button>
             )}
-            {!developer && <div className="orders-history-export"><OrderExport /></div>}
+            {!developer && (
+                <div className="orders-history-export">
+                    <OrderExport />
+                </div>
+            )}
 
             <div className="orders-history-body">
-                {(error || result.error) && <p className="field-error" role="alert">{error || result.error}</p>}
-                {notice && <p className="admin-notice" role="status">{notice}</p>}
+                {(error || result.error) && (
+                    <p className="field-error" role="alert">
+                        {error || result.error}
+                    </p>
+                )}
+                {notice && (
+                    <p className="admin-notice" role="status">
+                        {notice}
+                    </p>
+                )}
 
                 {pickable.length > 0 && (
                     <div className="history-pick-bar">
@@ -225,12 +244,24 @@ export function TicketHistory({ deleted }) {
                         {chosen.length > 0 && (
                             <>
                                 <span className="history-pick-count">{tickets(chosen.length)} picked</span>
-                                <button type="button" className="admin-btn" onClick={() => pickAll(false)} disabled={acting}>
+                                <button
+                                    type="button"
+                                    className="admin-btn"
+                                    onClick={() => pickAll(false)}
+                                    disabled={acting}
+                                >
                                     Clear
                                 </button>
-                                <button type="button" className="admin-btn admin-btn-danger" onClick={actOnPicked} disabled={acting}>
+                                <button
+                                    type="button"
+                                    className="admin-btn admin-btn-danger"
+                                    onClick={actOnPicked}
+                                    disabled={acting}
+                                >
                                     {acting
-                                        ? deleted ? "Purging..." : "Deleting..."
+                                        ? deleted
+                                            ? "Purging..."
+                                            : "Deleting..."
                                         : `${deleted ? "Purge" : "Delete"} ${tickets(chosen.length)}`}
                                 </button>
                             </>
@@ -254,36 +285,53 @@ export function TicketHistory({ deleted }) {
                                     picked={canPickRow && picked.has(row.id)}
                                     onPick={canPickRow ? (on) => pick(row.id, on) : undefined}
                                     day={row.isToday ? "Today" : formatDay(row.date)}
-                                    status={row.deletedAt ? (
-                                        <span className="ticket-card-status is-deleted">Deleted</span>
-                                    ) : (
-                                        <span className={`ticket-card-status status-${row.status}`}>{statusLabel(row.status)}</span>
-                                    )}
+                                    status={
+                                        row.deletedAt ? (
+                                            <span className="ticket-card-status is-deleted">Deleted</span>
+                                        ) : (
+                                            <span className={`ticket-card-status status-${row.status}`}>
+                                                {statusLabel(row.status)}
+                                            </span>
+                                        )
+                                    }
                                     statusNote={row.deletedAt && `Deleted ${formatTime(row.deletedAt)}`}
-                                    notes={(row.originalDate || row.restoredAt) && (
-                                        <div>
-                                            {row.originalDate && (
-                                                <span className="history-note">
-                                                    First {formatQueueNum(row.originalNum, row.purpose, row)} on {formatDay(row.originalDate)}
-                                                </span>
-                                            )}
-                                            {row.restoredAt && <span className="history-note">Restored {formatTime(row.restoredAt)}</span>}
-                                        </div>
-                                    )}
-                                    actions={developer ? null : (
-                                        <>
-                                            {/* the same place and size as Restore, to say why there's nothing to restore */}
-                                            <button
-                                                type="button"
-                                                className="admin-btn admin-btn-call"
-                                                disabled={inQueue || restoring === row.id}
-                                                onClick={() => restore(row)}
-                                            >
-                                                {inQueue ? "In today's queue" : restoring === row.id ? "Restoring..." : "Restore"}
-                                            </button>
-                                            <TicketLinks order={row} today={inQueue} />
-                                        </>
-                                    )}
+                                    notes={
+                                        (row.originalDate || row.restoredAt) && (
+                                            <div>
+                                                {row.originalDate && !row.pickup && (
+                                                    <span className="history-note">
+                                                        First {formatQueueNum(row.originalNum, row.purpose, row)} on{" "}
+                                                        {formatDay(row.originalDate)}
+                                                    </span>
+                                                )}
+                                                {row.restoredAt && (
+                                                    <span className="history-note">
+                                                        Restored {formatTime(row.restoredAt)}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )
+                                    }
+                                    actions={
+                                        developer ? null : (
+                                            <>
+                                                {/* the same place and size as Restore, to say why there's nothing to restore */}
+                                                <button
+                                                    type="button"
+                                                    className="admin-btn admin-btn-call"
+                                                    disabled={inQueue || restoring === row.id}
+                                                    onClick={() => restore(row)}
+                                                >
+                                                    {inQueue
+                                                        ? "In today's queue"
+                                                        : restoring === row.id
+                                                          ? "Restoring..."
+                                                          : "Restore"}
+                                                </button>
+                                                <TicketLinks order={row} today={inQueue} />
+                                            </>
+                                        )
+                                    }
                                 />
                             );
                         })}
@@ -291,7 +339,9 @@ export function TicketHistory({ deleted }) {
                 )}
 
                 {!loading && result.rows.length >= 200 && (
-                    <p className="history-note ticket-cards-limit">Showing the newest 200. Search by name or pick a day to find older tickets.</p>
+                    <p className="history-note ticket-cards-limit">
+                        Showing the newest 200. Search by name or pick a day to find older tickets.
+                    </p>
                 )}
             </div>
         </>

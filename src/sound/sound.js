@@ -1,5 +1,5 @@
-import formatQueueNum from '../data/queueNum.js';
-import { DEFAULT_CALL_NOTE, spokenGate } from '../data/callNote.js';
+import formatQueueNum from "../data/queueNum.js";
+import { DEFAULT_CALL_NOTE, spokenGate } from "../data/callNote.js";
 
 // call announcements for the queue display: a two-note chime, then the call read out loud with the
 // browser's text-to-speech. Which voices exist depends on the computer and browser; Microsoft Edge
@@ -22,8 +22,7 @@ const getAudioContext = () => {
 
 // browsers keep sound off until someone has clicked or tapped the page (unless Chrome is started with
 // --autoplay-policy=no-user-gesture-required, as on an unattended display)
-export const isSoundAllowed = () =>
-    navigator.userActivation?.hasBeenActive || getAudioContext().state === "running";
+export const isSoundAllowed = () => navigator.userActivation?.hasBeenActive || getAudioContext().state === "running";
 
 // call from a click or tap to switch sound on for the rest of the visit
 export async function unlockSound() {
@@ -135,10 +134,31 @@ export function spokenTicket(queueNum, purpose) {
     return `${letters.split("").join(" ")}, ${Number(queueNum)}`;
 }
 
-// what the display says for a call, e.g. "Now serving R A, 1. Juan Dela Cruz. Please proceed to Window 1."
-export function callAnnouncement({ queueNum, purpose, name, remarks }) {
+const MONTH_NAMES = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+];
+
+// what the display says for a call, e.g. "Now serving R A, 1. Juan Dela Cruz. Please proceed to Window 1."; a pick-up
+// is called by the number on their paper and the day it was given, "Now serving pick-up R S, 1, from November 11.", so
+// today's R S 1 doesn't answer to it
+/** @param {{ queueNum: any, purpose?: string, name: string, remarks?: string, pickup?: { num: number, date: string } }} call */
+export function callAnnouncement({ queueNum, purpose, name, remarks, pickup }) {
     const note = spokenGate(remarks || DEFAULT_CALL_NOTE).replace(/[.!\s]+$/, "");
-    return `Now serving ${spokenTicket(queueNum, purpose)}. ${name}. ${note}.`;
+    const ticket = pickup
+        ? `pick-up ${spokenTicket(pickup.num, purpose)}, from ${MONTH_NAMES[Number(pickup.date.slice(5, 7)) - 1]} ${Number(pickup.date.slice(8, 10))}`
+        : spokenTicket(queueNum, purpose);
+    return `Now serving ${ticket}. ${name}. ${note}.`;
 }
 
 // announcements wait for the one before to finish instead of talking over it

@@ -27,7 +27,7 @@ import paymentStatus from "../src/data/paymentStatus.js";
 import teams from "../src/data/teams.js";
 import checkers, { CHECKER_ROUNDS } from "../src/data/checkers.js";
 import { splitList } from "../src/data/list.js";
-import formatQueueNum from "../src/data/queueNum.js";
+import { ticketNumber } from "../src/data/queueNum.js";
 import loadingAreas, {
     CREW_AREAS,
     DEPARTMENTS,
@@ -392,6 +392,21 @@ const localTime = (d) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 
 // queue numbers start again at 1 each day, by the server's clock
 const today = () => localDate(new Date());
+
+// a pick-up (a customer back on a later day for the items) is kept on its pick-up day under a number from here up,
+// which is never shown: it goes by the number on the customer's paper, and takes none of the day's walk-in numbers
+const PICKUP_NUM_FROM = 1001;
+
+// a pick-up's paper number and the day it was given, { pickup: { num, date } }, or nothing for any other ticket
+const pickupOf = (row) => (row.pickup_at ? { pickup: { num: row.original_num, date: row.original_date } } : {});
+
+// the day an order was taken and its number that day: a pick-up's are the ones on the customer's paper, so the stats
+// and the Order sheet keep it on the day it was ordered; ORDERED_ON is the same for queries that name orders "o"
+const ORDERED_DAY = "CASE WHEN pickup_at IS NOT NULL THEN original_date ELSE queue_date END";
+const ORDERED_ON = {
+    day: "CASE WHEN o.pickup_at IS NOT NULL THEN o.original_date ELSE o.queue_date END",
+    num: "CASE WHEN o.pickup_at IS NOT NULL THEN o.original_num ELSE o.queue_num END",
+};
 
 const daysAgo = (n) => {
     const d = new Date();
@@ -1067,6 +1082,9 @@ const toOrder = (row, items, invoices, edits = []) => ({
     // team is the sales team that served the customer (src/data/teams.js); it stays theirs after the hand-over
     ...(row.team && { team: row.team }),
     ...(row.pickup_date && { pickupDate: row.pickup_date }),
+    // a pick-up, moved into the day the customer came back for the items: the number on their paper and the day it was
+    // given, which every screen shows instead of queueNum, "RS 01 · PICK-UP · Nov 11" (ticketNumber in queueNum.js)
+    ...pickupOf(row),
     // a priority order, marked on Customer order: its ticket shows as "* RS 01"; a TBA priority one as "** T 01";
     // each left out for any other
     ...(row.priority === 1 && { priority: true }),
@@ -1122,6 +1140,7 @@ const toStatus = (row) => ({
         servedBy: { id: row.served_by, name: row.served_by_name, photo: row.served_by_photo },
     }),
     ...(row.pickup_date && { pickupDate: row.pickup_date }),
+    ...pickupOf(row),
     ...(row.priority === 1 && { priority: true }),
     ...(row.tba_priority === 1 && { tbaPriority: true }),
     ...progressOf(row),
@@ -1188,6 +1207,7 @@ const toDepartmentRow = (row, invoices, list) => {
         name: row.name,
         priority: row.priority === 1,
         tbaPriority: row.tba_priority === 1,
+        ...pickupOf(row),
         invoices: invoicesOf(invoices.filter(({ type }) => type === "" || list.types.includes(type))),
         handedOver: { by: { id: row.handed_over_by, name: row.handed_over_by_name }, at: row.handed_over_at },
         loaded,
@@ -1409,45 +1429,46 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         dayOrders: db.prepare(
             `SELECT ${ORDER_ROW} WHERE o.queue_date = ? AND o.deleted_at IS NULL ORDER BY o.queue_num`,
         ),
-        // the Order sheet: every day's orders, newest day first and in number order within a day; Customer Reports are
-        // concerns, not orders, so they're left out
+        // the Order sheet: every day's orders, newest day first and in number order within a day, a pick-up on the day
+        // it was ordered and by its paper's number; Customer Reports are concerns, not orders, so they're left out
         sheetOrders: db.prepare(`
             SELECT ${ORDER_ROW} WHERE o.deleted_at IS NULL AND o.purpose != ?
-            ORDER BY o.queue_date DESC, o.queue_num`),
+            ORDER BY ${ORDERED_ON.day} DESC, ${ORDERED_ON.num}`),
         // the same orders as the Order sheet shows them: every regular order first, then all the priority orders ("*")
         // together below them, then all the TBA priority ones ("**"), whatever their day, the same groups as on the Google
         // sheet (sortKey in googleSheet.js); newest day first within each group here, as the page reads
         sheetOrdersGrouped: db.prepare(`
             SELECT ${ORDER_ROW} WHERE o.deleted_at IS NULL AND o.purpose != ?
             ORDER BY CASE WHEN o.priority = 1 THEN 1 WHEN o.tba_priority = 1 THEN 2 ELSE 0 END,
-                o.queue_date DESC,
-                o.queue_num`),
+                ${ORDERED_ON.day} DESC,
+                ${ORDERED_ON.num}`),
         // a customer one loading crew has finished with while another still has to call them stays on the display as
         // "Please wait" (no remarks) until that crew calls them, instead of going back in line
         serving: db.prepare(`
             SELECT queue_num, name, purpose, CASE WHEN status = 'serving' THEN remarks ELSE '' END AS remarks, called_at,
-                priority, tba_priority
+                priority, tba_priority, pickup_at, original_num, original_date
             FROM orders
             WHERE queue_date = ? AND deleted_at IS NULL AND status = 'serving'
             ORDER BY called_at DESC`),
-        // the line: waiting and returning customers, in number order
+        // the line: waiting and returning customers, in number order (pick-ups, kept from 1001, after the walk-ins)
         upcoming: db.prepare(`
-            SELECT queue_num, name, purpose, status, priority, tba_priority FROM orders
+            SELECT queue_num, name, purpose, status, priority, tba_priority, pickup_at, original_num, original_date
+            FROM orders
             WHERE queue_date = ? AND status IN ('pending', 'returning') AND deleted_at IS NULL
             ORDER BY queue_num`),
         // orders per time slot and purpose ("Roofings, Steel" as it's stored), deleted tickets and Customer Reports
-        // left out; GET /admin/stats splits the purposes into their types of order
+        // left out, and a pick-up counted on the day it was ordered, not the day it was collected; GET /admin/stats splits the purposes into their types of order
         statsByHour: db.prepare(`
             SELECT strftime('%H', created_at, 'localtime') AS bucket, purpose, COUNT(*) AS orders FROM orders
-            WHERE deleted_at IS NULL AND purpose != :report AND queue_date BETWEEN :from AND :to
+            WHERE deleted_at IS NULL AND purpose != :report AND ${ORDERED_DAY} BETWEEN :from AND :to
             GROUP BY bucket, purpose`),
         statsByDay: db.prepare(`
-            SELECT queue_date AS bucket, purpose, COUNT(*) AS orders FROM orders
-            WHERE deleted_at IS NULL AND purpose != :report AND queue_date BETWEEN :from AND :to
+            SELECT ${ORDERED_DAY} AS bucket, purpose, COUNT(*) AS orders FROM orders
+            WHERE deleted_at IS NULL AND purpose != :report AND ${ORDERED_DAY} BETWEEN :from AND :to
             GROUP BY bucket, purpose`),
         statsByMonth: db.prepare(`
-            SELECT substr(queue_date, 1, 7) AS bucket, purpose, COUNT(*) AS orders FROM orders
-            WHERE deleted_at IS NULL AND purpose != :report AND queue_date BETWEEN :from AND :to
+            SELECT substr(${ORDERED_DAY}, 1, 7) AS bucket, purpose, COUNT(*) AS orders FROM orders
+            WHERE deleted_at IS NULL AND purpose != :report AND ${ORDERED_DAY} BETWEEN :from AND :to
             GROUP BY bucket, purpose`),
         servedOn: db.prepare(
             "SELECT COUNT(*) AS n FROM orders WHERE queue_date = ? AND status = 'done' AND deleted_at IS NULL",
@@ -1459,7 +1480,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         // there are more
         departmentHistory: db.prepare(`
             SELECT o.id, o.queue_date, o.queue_num, o.purpose, o.name, o.priority, o.tba_priority,
-                o.handed_over_by, h.name AS handed_over_by_name, o.handed_over_at,
+                o.pickup_at, o.original_num, o.original_date, o.handed_over_by, h.name AS handed_over_by_name, o.handed_over_at,
                 o.loaded_by, l.name AS loaded_by_name, o.loaded_at,
                 (SELECT json_object('id', ol.loaded_by, 'name', lu.name, 'at', ol.loaded_at)
                     FROM order_loads ol JOIN users lu ON lu.id = ol.loaded_by
@@ -1483,6 +1504,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
               AND (:beforeDay = '' OR o.queue_date < :beforeDay
                    OR (o.queue_date = :beforeDay AND o.queue_num < :beforeNum))
               AND (:search = '' OR o.name LIKE :like ESCAPE '\\' OR o.queue_num = :num
+                   OR (o.pickup_at IS NOT NULL AND o.original_num = :num)
                    OR EXISTS (SELECT 1 FROM order_invoices i WHERE i.order_id = o.id
                         AND i.invoice_no LIKE :like ESCAPE '\\'
                         AND (i.type = '' OR i.type IN (SELECT value FROM json_each(:types)))))
@@ -1493,7 +1515,8 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             SELECT ${ORDER_ROW}
             WHERE (:deletedOnly = 0 OR o.deleted_at IS NOT NULL)
               AND (:day = '' OR o.queue_date = :day)
-              AND (:search = '' OR o.name LIKE :like ESCAPE '\\' OR o.queue_num = :num)
+              AND (:search = '' OR o.name LIKE :like ESCAPE '\\' OR o.queue_num = :num
+                   OR (o.pickup_at IS NOT NULL AND o.original_num = :num))
             ORDER BY CASE WHEN :deletedOnly = 1 THEN o.deleted_at END DESC, o.queue_date DESC, o.queue_num DESC
             LIMIT :limit`),
         itemsFor: db.prepare(`
@@ -1502,6 +1525,27 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         invoicesFor: db.prepare(`
             SELECT order_id, invoice_no, type FROM order_invoices
             WHERE order_id IN (SELECT value FROM json_each(?)) ORDER BY order_id, position`),
+        // pick-ups: tickets from an earlier day whose customer comes back today for the items
+        duePickups: db.prepare(`
+            SELECT id FROM orders
+            WHERE pickup_date = :date AND queue_date < :date AND deleted_at IS NULL AND purpose != :report
+            ORDER BY queue_date, queue_num`),
+        nextPickupNum: db.prepare(`
+            SELECT COALESCE(MAX(queue_num) + 1, ${PICKUP_NUM_FROM}) AS num FROM orders
+            WHERE queue_date = ? AND queue_num >= ${PICKUP_NUM_FROM}`),
+        // the pick-up comes into today's line for a sales counter, where sales checks the order is theirs before handing
+        // them over again: like Restore, but what was loaded on the earlier visit stays loaded, it keeps the paper's
+        // number and day (the first ones, if it was a pick-up before and didn't come), and its own number is never shown
+        moveToPickup: db.prepare(`
+            UPDATE orders SET
+                original_date = CASE WHEN pickup_at IS NULL THEN queue_date ELSE original_date END,
+                original_num = CASE WHEN pickup_at IS NULL THEN queue_num ELSE original_num END,
+                queue_date = :date, queue_num = :num, pickup_at = :now,
+                status = 'pending', called_at = NULL, remarks = '', served_by = NULL, at_loading = 0,
+                handed_over_by = NULL, handed_over_at = NULL, loaded_by = NULL, loaded_at = NULL, loading_area = '',
+                loading_started_at = NULL, security_pending = 0, security_check_id = NULL, return_check_id = NULL,
+                assisted_by = NULL
+            WHERE id = :id`),
         // Restore puts the ticket back in line: today's keeps its number, an earlier day's gets today's next one
         restoreSameDay: db.prepare(`
             UPDATE orders SET deleted_at = NULL, restored_at = ?, status = 'pending', called_at = NULL, remarks = '',
@@ -1855,6 +1899,21 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             if (reopened) sql.removePoint.run(order.id, order.queue_date);
             if (status === "done") sql.addPoint.run(order.id, server, order.queue_date, new Date().toISOString());
         });
+
+    // on a customer's pick-up day their ticket comes into the day's line by itself, so nobody has to find it in
+    // History; checked on every request, since sales can set a ticket's pick-up day to today at any time
+    const bringInPickups = () => {
+        const date = today();
+        const due = sql.duePickups.all({ date, report: REPORT_PURPOSE });
+        if (due.length === 0) return;
+        transaction(db, () => {
+            const now = new Date().toISOString();
+            for (const { id } of due) {
+                const { num } = sql.nextPickupNum.get(date);
+                sql.moveToPickup.run({ date, num, now, id });
+            }
+        });
+    };
 
     // today's ticket with this number, as a database row
     const findToday = (queueNum) => sql.findOrder.get(today(), queueNum);
@@ -2214,6 +2273,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
     };
 
     async function handle(req, res) {
+        bringInPickups();
         const url = new URL(req.url, "http://localhost");
         const path = url.pathname.replace(/^\/api/, "");
         const { method } = req;
@@ -2330,6 +2390,8 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                     calledAt: o.called_at,
                     ...(o.priority === 1 && { priority: true }),
                     ...(o.tba_priority === 1 && { tbaPriority: true }),
+                    // a pick-up shows the number on their paper and the day it was given: "RS 01", "PICK-UP · NOV 11"
+                    ...pickupOf(o),
                 })),
                 upcoming: sql.upcoming.all(date).map((o) => ({
                     queueNum: o.queue_num,
@@ -2338,6 +2400,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                     ...(o.status === "returning" && { returning: true }),
                     ...(o.priority === 1 && { priority: true }),
                     ...(o.tba_priority === 1 && { tbaPriority: true }),
+                    ...pickupOf(o),
                 })),
             });
         }
@@ -3154,9 +3217,12 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                 .filter((row) => (row.created_by !== null || row.handed_over_by !== null) && row.status !== "done")
                 .map((row) => ({
                     id: row.id,
-                    ticket: formatQueueNum(row.queue_num, row.purpose, {
+                    ticket: ticketNumber({
+                        queueNum: row.queue_num,
+                        purpose: row.purpose,
                         priority: row.priority,
                         tbaPriority: row.tba_priority,
+                        ...pickupOf(row),
                     }),
                     ...(row.handed_over_by !== null && {
                         handedOver: { by: row.handed_over_by_name, at: row.handed_over_at },

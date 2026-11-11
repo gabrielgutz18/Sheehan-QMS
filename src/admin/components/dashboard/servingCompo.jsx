@@ -1,4 +1,4 @@
-import formatQueueNum from '../../../data/queueNum.js';
+import TicketNumber from "../common/ticketNumber.jsx";
 import { DEFAULT_CALL_NOTE } from '../../../data/callNote.js';
 import Icon from '../common/icon.jsx';
 import ServedBy from '../orders/servedBy.jsx';
@@ -34,7 +34,7 @@ export default function ServingCompo({ orders, loading, live = true }) {
             {current ? (
                 <>
                     <div className="mini-serving-call">
-                        <p className="mini-serving-num">{formatQueueNum(current.queueNum, current.purpose, current)}</p>
+                        <p className="mini-serving-num"><TicketNumber order={current} /></p>
                         <p className="mini-serving-name">{current.name}</p>
                         <p className="mini-serving-note">{callNote(current)}</p>
                         <ServedBy order={current} />
@@ -44,7 +44,7 @@ export default function ServingCompo({ orders, loading, live = true }) {
                         <ul className="mini-serving-others" aria-label="Also being served">
                             {shown.map((o) => (
                                 <li key={o.queueNum} className="mini-serving-other">
-                                    <span className="mini-num">{formatQueueNum(o.queueNum, o.purpose, o)}</span>
+                                    <span className="mini-num"><TicketNumber order={o} /></span>
                                     <span className="mini-name">{o.name}</span>
                                     <span className="mini-pill">{callNote(o)}</span>
                                 </li>

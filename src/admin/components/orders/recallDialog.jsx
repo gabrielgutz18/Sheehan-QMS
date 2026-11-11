@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import formatQueueNum from "../../../data/queueNum.js";
+import { ticketNumber } from "../../../data/queueNum.js";
 import { proceedTo } from "../../../data/loadingAreas.js";
 
 // the same limit as MAX_RECALL_REASON in server/api.js
@@ -28,7 +28,7 @@ export default function RecallDialog({ order, areas, busy, error, onRecall, onCl
         inputRef.current.focus();
     }, []);
 
-    const ticket = formatQueueNum(order.queueNum, order.purpose, order);
+    const ticket = ticketNumber(order);
 
     const submit = (e) => {
         e.preventDefault();

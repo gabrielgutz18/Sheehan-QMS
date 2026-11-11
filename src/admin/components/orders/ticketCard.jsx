@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router";
 
-import formatQueueNum from "../../../data/queueNum.js";
+import { ticketNumber } from "../../../data/queueNum.js";
+import TicketNumber from "../common/ticketNumber.jsx";
 import { colorLabel } from "../../../data/roofingColors.js";
 import { formatPickup } from "../../../data/pickupDate.js";
 import { resultLabel } from "../../data/securityCheck.js";
@@ -93,7 +94,7 @@ function CurrentStaff({ order }) {
 // View ticket and Edit, which only work on a ticket in today's queue, since a ticket number is only unique for its day:
 // they stay in their place on every card and are grayed out with the reason when they can't be used
 export function TicketLinks({ order, today = true }) {
-    const ticket = formatQueueNum(order.queueNum, order.purpose, order);
+    const ticket = ticketNumber(order);
     const notToday = "Only tickets in today's queue can be opened.";
 
     return (
@@ -149,7 +150,7 @@ export function TicketLinks({ order, today = true }) {
  */
 export default function TicketCard({ order, day, status, statusNote, notes, actions, picked, onPick }) {
     const [openedAt, setOpenedAt] = useState(null);
-    const ticket = formatQueueNum(order.queueNum, order.purpose, order);
+    const ticket = ticketNumber(order);
 
     return (
         <li className={`ticket-card${picked ? " is-picked" : ""}`}>
@@ -161,7 +162,7 @@ export default function TicketCard({ order, day, status, statusNote, notes, acti
                             <span className="visually-hidden">Pick ticket {ticket}</span>
                         </label>
                     )}
-                    <h2 className="ticket-card-number">{ticket}</h2>
+                    <h2 className="ticket-card-number"><TicketNumber order={order} /></h2>
                     {day && <span className="ticket-card-day">{day}</span>}
                 </div>
                 <p className="ticket-card-name" title={order.name}>
