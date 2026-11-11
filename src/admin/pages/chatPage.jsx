@@ -19,9 +19,7 @@ import ConcernCard from "../components/chat/concernCard.jsx";
 import DeveloperHeads from "../components/chat/developerHeads.jsx";
 import MessageThread from "../components/chat/messageThread.jsx";
 import ReportList from "../components/chat/reportList.jsx";
-import StaffList from "../components/chat/staffList.jsx";
 import ProfileLink from "../components/common/profileLink.jsx";
-import { useProfileViewer } from "../components/common/profileViewerContext.js";
 import { useViewingConversation } from "../hooks/useMessageToasts.js";
 import useMessages from "../hooks/useMessages.js";
 import useTyping from "../hooks/useTyping.js";
@@ -95,19 +93,17 @@ function Conversation({ staff, onSent }) {
     );
 }
 
-// the developers' Chat page: everyone who has written from Message developer, newest first, with how many of their
-// messages nobody has opened yet; picking one opens the conversation to answer it; the team's chat heads on top show
-// which developers are online, since any of them may answer; the Staff list beside the conversations shows every staff
-// member by department and who's online, and picking one opens a conversation with them, even before they've written
+// Staff concerns, the developers' second tab of SheeChat: everyone who has written from Message developer, newest first,
+// with how many of their messages nobody has opened yet; picking one opens the conversation to answer it; the team's
+// chat heads on top show which developers are online, since any of them may answer; Reports lists what staff sent
+// through the bot; a private chat with anyone on the staff is on SheeChat's Staff tab instead
 export default function ChatPage() {
     const { user } = useAuth();
-    // the photo on each row of the Staff list opens that person's profile
-    const openProfile = useProfileViewer();
     const [chats, setChats] = useState(null);
     const [listError, setListError] = useState("");
     // the reports staff sent through Message developer's buttons, or null until they load
     const [reports, setReports] = useState(/** @type {any[] | null} */ (null));
-    // the left column: "chats" (the conversations), "staff" (everyone, by department) or "reports"
+    // the left column: "chats" (the conversations) or "reports"
     const [view, setView] = useState("chats");
     // whose conversation is open: { id, name, role, photo }, or null
     const [openStaff, setOpenStaff] = useState(null);
@@ -157,9 +153,10 @@ export default function ChatPage() {
     return (
         <section className="admin-page">
             <div>
-                <h1 className="admin-title">Chat</h1>
+                <h1 className="admin-title">Staff concerns</h1>
                 <p className="tab-hint">
-                    What staff write from Message developer when something doesn't go well. Pick one to answer.
+                    What staff write from Message developer when something doesn't go well, seen by every developer.
+                    Pick one to answer. To chat with someone on your own, use the Staff tab.
                 </p>
             </div>
 
@@ -176,7 +173,7 @@ export default function ChatPage() {
             <div className="chat-layout">
                 <nav
                     className="admin-panel chat-list"
-                    aria-label={{ chats: "Conversations", staff: "Staff", reports: "Reports" }[view]}
+                    aria-label={view === "reports" ? "Reports" : "Conversations"}
                 >
                     <div className="order-status-filters chat-views" role="group" aria-label="Show">
                         <button
@@ -187,14 +184,6 @@ export default function ChatPage() {
                         >
                             Conversations
                             {unread > 0 && <span className="status-chip-count">{unread}</span>}
-                        </button>
-                        <button
-                            type="button"
-                            className="status-chip"
-                            aria-pressed={view === "staff"}
-                            onClick={() => setView("staff")}
-                        >
-                            Staff
                         </button>
                         <button
                             type="button"
@@ -212,8 +201,6 @@ export default function ChatPage() {
                     </div>
                     {view === "reports" ? (
                         <ReportList reports={reports} openId={openId} onPick={pick} />
-                    ) : view === "staff" ? (
-                        <StaffList openId={openId} onPick={pick} onProfile={openProfile} />
                     ) : !chats ? (
                         <p className="admin-empty">Loading...</p>
                     ) : chats.length === 0 ? (
@@ -267,7 +254,7 @@ export default function ChatPage() {
                         // keyed by who it's with, so picking someone else starts their conversation afresh
                         <Conversation key={openStaff.id} staff={openStaff} onSent={() => setSent((n) => n + 1)} />
                     ) : (
-                        <p className="admin-empty">Pick a conversation, or someone on the Staff list, on the left.</p>
+                        <p className="admin-empty">Pick a conversation, or a report, on the left.</p>
                     )}
                 </div>
             </div>

@@ -10,15 +10,18 @@ import { waitingReports } from "../../data/waitingReports.js";
 import Icon from "../common/icon.jsx";
 import { ConcernStatus } from "../chat/concernCard.jsx";
 
-// as often as the Chat page checks, so the two agree
+// as often as Staff concerns on SheeChat checks, so the two agree
 const REFRESH_MS = 5000;
+
+// where the developers answer staff and move reports along
+const CONCERNS_TAB = "/staff/sheechat?tab=concerns";
 
 // what each kind's card is called, as the bot's buttons put it on Message developer
 const KIND_CARDS = { bug: "Bugs", concern: "System concerns", feature: "Features" };
 
 // the developers' Dashboard only: the reports staff sent through the bot on Message developer that are still Open or
-// In progress, how many of each kind, and the newest few; picking one opens that person's conversation on Chat, where
-// its card has the status buttons
+// In progress, how many of each kind, and the newest few; picking one opens that person's conversation on SheeChat's
+// Staff concerns tab, where its card has the status buttons
 export default function StaffConcerns() {
     const navigate = useNavigate();
     // every report, or null until they load
@@ -89,7 +92,7 @@ export default function StaffConcerns() {
                                     <button
                                         type="button"
                                         className="chat-list-item report-row"
-                                        onClick={() => navigate("/staff/chat", { state: { open: r.staff } })}
+                                        onClick={() => navigate(CONCERNS_TAB, { state: { open: r.staff } })}
                                     >
                                         <Icon d={type.icon} className="line-icon concern-icon" />
                                         <span className="chat-list-text">
@@ -117,8 +120,8 @@ export default function StaffConcerns() {
                         })}
                     </ul>
                 )}
-                <Link to="/staff/chat" className="concern-feed-all">
-                    See every report on Chat
+                <Link to={CONCERNS_TAB} className="concern-feed-all">
+                    See every report on Staff concerns
                 </Link>
             </div>
         </section>

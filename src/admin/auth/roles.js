@@ -5,7 +5,7 @@
 // guards, the last stage, look at where each customer is and what they bought on the Security page, and check it at
 // the gate; the Cashier page is where sales change how each order is paid, and the cashier too when the salesman isn't around; loading, service, hardware, security, cashier and inventory keep the Dashboard (the live queue, as the display has it, and
 // their profile) and My account and nothing else (the backend enforces this too); developers, the team that builds the
-// app, answer what staff write from Message developer on the Chat page, and have the Dashboard (with the reports staff
+// app, answer what staff write from Message developer on SheeChat's Staff concerns tab, and have the Dashboard (with the reports staff
 // sent through the bot), the Order status board and Accounts (not admin accounts)
 export const ROLE_LABELS = {
     admin: "Admin",

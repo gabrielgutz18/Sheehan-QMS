@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 
-import { listStaffPresence } from '../../api/chatController.js';
 import { ROLE_LABELS } from '../../auth/roles.js';
 import { seenAgo } from '../../data/lastSeen.js';
 import Avatar from '../common/avatar.jsx';
@@ -9,14 +8,13 @@ import ProfileButton from './profileButton.jsx';
 // who's online changes as staff come and go, so it checks again now and then
 const REFRESH_MS = 15000;
 // the departments, in the order the sidebar has their pages; each is a kind of staff account
-const DEPARTMENTS = ["admin", "sales", "loading", "service", "hardware", "security", "cashier", "inventory"];
+const DEPARTMENTS = ["admin", "sales", "loading", "service", "hardware", "security", "cashier", "inventory", "developer"];
 
-// the Chat page's Staff list: every staff member by department, online ones first in each, with a green dot on the
-// ones online and when the others were last on; picking one opens a conversation with them
+// SheeChat's People list: every staff member by department, the developers too, online ones first in each, with a
+// green dot on the ones online and when the others were last on; picking one opens a conversation with them
 // openId: the staff member whose conversation is open; onPick(account) opens theirs
-// list({ signal }): who to show (the developers' staff list, unless SheeChat passes its People list)
-// onProfile(account): opens their profile from their photo (SheeChat only; the Chat page has no profiles)
-export default function StaffList({ openId, onPick, list = listStaffPresence, onProfile = null }) {
+// list({ signal }): who to show (SheeChat's People list); onProfile(account): opens their profile from their photo
+export default function StaffList({ openId, onPick, list, onProfile = null }) {
     const [staff, setStaff] = useState(null);
     const [error, setError] = useState("");
     const [onlineOnly, setOnlineOnly] = useState(false);

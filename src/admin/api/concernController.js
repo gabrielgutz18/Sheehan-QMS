@@ -6,7 +6,7 @@ import http from "../../api/http.js";
 // report: { kind, area, details, extra, impact } → its card message in your conversation (kind 'report')
 export const sendConcern = (report) => http.post("/admin/concerns", report);
 
-// the Chat page's Reports (developers only), newest first: [{ id, kind, area, details, extra, impact, status,
+// Staff concerns' Reports (developers only), newest first: [{ id, kind, area, details, extra, impact, status,
 // statusNote, statusBy: { id, name } | null, createdAt, updatedAt, staff: { id, name, role, department, photo, disabled } }]
 export const listConcerns = (options) => http.get("/admin/concerns", options);
 

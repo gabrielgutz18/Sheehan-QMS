@@ -19,7 +19,6 @@ import HardwarePage from "./pages/hardwarePage.jsx";
 import OrderStatusPage from "./pages/orderStatusPage.jsx";
 import SecurityPage from "./pages/securityPage.jsx";
 import CashierPage from "./pages/cashierPage.jsx";
-import ChatPage from "./pages/chatPage.jsx";
 import DeletedTicketsPage from "./pages/deletedTicketsPage.jsx";
 import MessagesPage from "./pages/messagesPage.jsx";
 
@@ -68,7 +67,8 @@ export default function AdminApp() {
                         {/* the developers: answering what staff write, with no rights in the queue beyond the Order
                             status board, and Accounts (not admin accounts) */}
                         <Route element={<ProtectedRoute roles={["developer"]} />}>
-                            <Route path="chat" element={<ChatPage />} />
+                            {/* the developers' old Chat page is SheeChat's Staff concerns tab now */}
+                            <Route path="chat" element={<Navigate to="/staff/sheechat?tab=concerns" replace />} />
                         </Route>
 
                         {/* purging deleted tickets to free up the database: the developers' own page; admins have the

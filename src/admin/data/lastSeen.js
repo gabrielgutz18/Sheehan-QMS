@@ -10,7 +10,7 @@ export const seenAgo = (ms) => {
     return new Date(ms).toLocaleDateString();
 };
 
-// how long ago a report was sent, in a few characters, for the Chat page's Reports and the developers' Dashboard:
+// how long ago a report was sent, in a few characters, for Staff concerns' Reports and the developers' Dashboard:
 // "now", "5m", "3h", "2d"; iso: its createdAt; now: the clock it's counted from, in ms
 export const reportAge = (iso, now) => {
     const minutes = Math.floor((now - new Date(iso).getTime()) / MINUTE_MS);

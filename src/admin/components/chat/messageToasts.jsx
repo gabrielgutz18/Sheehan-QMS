@@ -9,7 +9,7 @@ import Icon from "../common/icon.jsx";
 const SHOWN_MS = 10000;
 const CLOSE_ICON = "M6 6l12 12M18 6 6 18";
 // where each kind of message is answered from
-const CHAT_PAGES = { sheechat: "/staff/sheechat", developer: "/staff/sheechat?tab=developer", staff: "/staff/chat" };
+const CHAT_PAGES = { sheechat: "/staff/sheechat", developer: "/staff/sheechat?tab=developer", staff: "/staff/sheechat?tab=concerns" };
 
 const timeToday = new Intl.DateTimeFormat(undefined, { timeStyle: "short" });
 const timeEarlier = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
