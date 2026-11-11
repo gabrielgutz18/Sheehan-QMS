@@ -53,11 +53,12 @@ export default function AdminApp() {
                             sent through the bot) */}
                         <Route index element={<DashboardPage />} />
 
-                        {/* SheeChat with one another, and writing to the developers when something doesn't go well,
-                            for everyone but the developers */}
+                        {/* SheeChat with one another, for everyone: the staff with the staff and the developers with
+                            the developers; for the staff it has Message developer as its second tab */}
+                        <Route path="sheechat" element={<MessagesPage />} />
+
+                        {/* writing to the developers when something doesn't go well, for everyone but them */}
                         <Route element={<ProtectedRoute roles={NOT_DEVELOPER} />}>
-                            {/* SheeChat has Message developer as its second tab */}
-                            <Route path="sheechat" element={<MessagesPage />} />
                             <Route
                                 path="message-developer"
                                 element={<Navigate to="/staff/sheechat?tab=developer" replace />}

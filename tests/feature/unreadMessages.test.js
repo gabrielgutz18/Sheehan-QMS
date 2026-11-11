@@ -1,10 +1,10 @@
 // the message pop-ups: every staff page asks what's been written to the person signed in and not opened yet, across
 // SheeChat and the developer chat, and asking must never mark anything as read
 // run: npm test            only these: npm test -- --test-name-pattern="unread messages"
-import assert from 'node:assert/strict';
-import { afterEach, beforeEach, describe, test } from 'node:test';
+import assert from "node:assert/strict";
+import { afterEach, beforeEach, describe, test } from "node:test";
 
-import { bootApp } from '../support/testApp.js';
+import { bootApp } from "../support/testApp.js";
 
 let app;
 
@@ -23,7 +23,9 @@ describe("unread messages", () => {
         const loading = await app.actingAsLoading();
 
         (await sales.post(`/admin/sheechat/${loading.account.id}`, { body: "Truck 2 is here." })).assertStatus(201);
-        const newest = (await sales.post(`/admin/sheechat/${loading.account.id}`, { body: "At Roofings." })).assertStatus(201).body;
+        const newest = (
+            await sales.post(`/admin/sheechat/${loading.account.id}`, { body: "At Roofings." })
+        ).assertStatus(201).body;
 
         const [popup, ...others] = (await loading.get("/admin/unread-messages")).assertStatus(200).body;
         assert.deepEqual(others, []);
@@ -52,7 +54,9 @@ describe("unread messages", () => {
         const sales = await app.actingAsSales();
         const loading = await app.actingAsLoading();
 
-        (await sales.upload(`/admin/sheechat/${loading.account.id}/image?body=The%20dent`, png, "image/png")).assertStatus(201);
+        (
+            await sales.upload(`/admin/sheechat/${loading.account.id}/image?body=The%20dent`, png, "image/png")
+        ).assertStatus(201);
 
         const [popup] = (await loading.get("/admin/unread-messages")).body;
         assert.equal(popup.image, true);
@@ -90,10 +94,13 @@ describe("unread messages", () => {
         (await cashier.post("/admin/messages", { body: "Payments page is slow." })).assertStatus(201);
 
         const asked = (await developer.get("/admin/unread-messages")).assertStatus(200).body;
-        assert.deepEqual(asked.map((m) => [m.kind, m.from.name, m.body, m.unread]), [
-            ["staff", "Rosa Bayad", "Payments page is slow.", 1],
-            ["staff", "Maria Santos", "The printer is stuck.", 1],
-        ]);
+        assert.deepEqual(
+            asked.map((m) => [m.kind, m.from.name, m.body, m.unread]),
+            [
+                ["staff", "Rosa Bayad", "Payments page is slow.", 1],
+                ["staff", "Maria Santos", "The printer is stuck.", 1],
+            ],
+        );
         assert.equal((await another.get("/admin/unread-messages")).body.length, 2);
 
         // a developer's own answer is nothing to them
@@ -101,7 +108,10 @@ describe("unread messages", () => {
         assert.equal((await another.get("/admin/unread-messages")).body.length, 2);
 
         (await developer.get(`/admin/chats/${sales.account.id}`)).assertStatus(200);
-        assert.deepEqual((await another.get("/admin/unread-messages")).body.map((m) => m.from.name), ["Rosa Bayad"]);
+        assert.deepEqual(
+            (await another.get("/admin/unread-messages")).body.map((m) => m.from.name),
+            ["Rosa Bayad"],
+        );
     });
 
     test("one person's conversations aren't shown to anyone else, newest first across both chats", async () => {
@@ -113,12 +123,15 @@ describe("unread messages", () => {
         (await guard.post(`/admin/sheechat/${sales.account.id}`, { body: "For sales." })).assertStatus(201);
         (await developer.post(`/admin/chats/${sales.account.id}`, { body: "Answer for sales." })).assertStatus(201);
 
-        assert.deepEqual((await sales.get("/admin/unread-messages")).body.map((m) => [m.kind, m.body]), [
-            ["developer", "Answer for sales."],
-            ["sheechat", "For sales."],
-        ]);
+        assert.deepEqual(
+            (await sales.get("/admin/unread-messages")).body.map((m) => [m.kind, m.body]),
+            [
+                ["developer", "Answer for sales."],
+                ["sheechat", "For sales."],
+            ],
+        );
         assert.deepEqual((await cashier.get("/admin/unread-messages")).assertStatus(200).body, []);
-        // SheeChat isn't the developers' to see
+        // the staff's SheeChat isn't the developers' to see
         assert.deepEqual((await developer.get("/admin/unread-messages")).body, []);
     });
 

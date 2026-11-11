@@ -1,10 +1,11 @@
 // SheeChat: every staff member but the developers chats with any other of them, one conversation per pair of people,
-// with pictures as in the developer chat; the developers aren't on it (they answer staff on the Chat page)
+// with pictures as in the developer chat; the developers chat with one another there, never with the staff (staff
+// write to them from Message developer, and they answer on the Chat page)
 // run: npm test            only these: npm test -- --test-name-pattern="SheeChat"
-import assert from 'node:assert/strict';
-import { afterEach, beforeEach, describe, test } from 'node:test';
+import assert from "node:assert/strict";
+import { afterEach, beforeEach, describe, test } from "node:test";
 
-import { bootApp } from '../support/testApp.js';
+import { bootApp } from "../support/testApp.js";
 
 let app;
 
@@ -22,8 +23,9 @@ describe("SheeChat", () => {
         const sales = await app.actingAsSales();
         const loading = await app.actingAsLoading();
 
-        const hello = (await sales.post(`/admin/sheechat/${loading.account.id}`, { body: "  Truck 2 is at Roofings.  " }))
-            .assertStatus(201).body;
+        const hello = (
+            await sales.post(`/admin/sheechat/${loading.account.id}`, { body: "  Truck 2 is at Roofings.  " })
+        ).assertStatus(201).body;
         assert.equal(hello.body, "Truck 2 is at Roofings.");
         assert.equal(hello.from.id, sales.account.id);
         assert.equal(hello.to, loading.account.id);
@@ -31,26 +33,38 @@ describe("SheeChat", () => {
 
         // the recipient sees it unread on their list
         const theirs = (await loading.get("/admin/sheechat")).assertStatus(200).body;
-        assert.deepEqual(theirs.map((c) => [c.with.name, c.last.body, c.last.mine, c.unread]), [
-            ["Maria Santos", "Truck 2 is at Roofings.", false, 1],
-        ]);
+        assert.deepEqual(
+            theirs.map((c) => [c.with.name, c.last.body, c.last.mine, c.unread]),
+            [["Maria Santos", "Truck 2 is at Roofings.", false, 1]],
+        );
 
         // opening it reads it, and they answer
         const thread = (await loading.get(`/admin/sheechat/${sales.account.id}`)).assertStatus(200).body;
-        assert.deepEqual(thread.map((m) => m.body), ["Truck 2 is at Roofings."]);
+        assert.deepEqual(
+            thread.map((m) => m.body),
+            ["Truck 2 is at Roofings."],
+        );
         assert.equal((await loading.get("/admin/sheechat")).body[0].unread, 0);
         (await loading.post(`/admin/sheechat/${sales.account.id}`, { body: "On it." })).assertStatus(201);
 
         // the sender sees both, oldest first, and that theirs was seen
         const mine = (await sales.get(`/admin/sheechat/${loading.account.id}`)).assertStatus(200).body;
-        assert.deepEqual(mine.map((m) => [m.body, m.from.id === sales.account.id, m.read]), [
-            ["Truck 2 is at Roofings.", true, true],
-            ["On it.", false, true],
-        ]);
-        assert.deepEqual((await sales.get("/admin/sheechat")).body.map((c) => [c.with.name, c.last.body, c.last.mine]), [
-            ["Pedro Garcia", "On it.", false],
-        ]);
-        app.assertDatabaseHas("direct_messages", { sender_id: loading.account.id, recipient_id: sales.account.id, body: "On it." });
+        assert.deepEqual(
+            mine.map((m) => [m.body, m.from.id === sales.account.id, m.read]),
+            [
+                ["Truck 2 is at Roofings.", true, true],
+                ["On it.", false, true],
+            ],
+        );
+        assert.deepEqual(
+            (await sales.get("/admin/sheechat")).body.map((c) => [c.with.name, c.last.body, c.last.mine]),
+            [["Pedro Garcia", "On it.", false]],
+        );
+        app.assertDatabaseHas("direct_messages", {
+            sender_id: loading.account.id,
+            recipient_id: sales.account.id,
+            body: "On it.",
+        });
     });
 
     test("each person sees only their own conversations, newest first", async () => {
@@ -59,10 +73,18 @@ describe("SheeChat", () => {
         const guard = await app.actingAsSecurity();
 
         (await sales.post(`/admin/sheechat/${cashier.account.id}`, { body: "Is 4335 paid?" })).assertStatus(201);
-        (await sales.post(`/admin/sheechat/${guard.account.id}`, { body: "Customer 5 is coming out." })).assertStatus(201);
+        (await sales.post(`/admin/sheechat/${guard.account.id}`, { body: "Customer 5 is coming out." })).assertStatus(
+            201,
+        );
 
-        assert.deepEqual((await sales.get("/admin/sheechat")).body.map((c) => c.with.name), ["Jose Bantay", "Rosa Bayad"]);
-        assert.deepEqual((await cashier.get("/admin/sheechat")).body.map((c) => c.with.name), ["Maria Santos"]);
+        assert.deepEqual(
+            (await sales.get("/admin/sheechat")).body.map((c) => c.with.name),
+            ["Jose Bantay", "Rosa Bayad"],
+        );
+        assert.deepEqual(
+            (await cashier.get("/admin/sheechat")).body.map((c) => c.with.name),
+            ["Maria Santos"],
+        );
         // the guard can't open the sales and cashier conversation: theirs with the cashier is empty
         assert.deepEqual((await guard.get(`/admin/sheechat/${cashier.account.id}`)).body, []);
     });
@@ -78,13 +100,50 @@ describe("SheeChat", () => {
         assert.ok(people.every((p) => "online" in p && "role" in p));
     });
 
-    test("the developers aren't on SheeChat, and nobody can chat with one or with themselves", async () => {
+    test("the developers chat with one another, and see only one another on People", async () => {
         const sales = await app.actingAsSales();
         const developer = await app.actingAsDeveloper();
+        const another = await app.actingAsDeveloper("Ana Dev");
 
-        (await developer.get("/admin/sheechat")).assertStatus(403);
-        (await developer.get("/admin/sheechat/people")).assertStatus(403);
-        (await developer.post(`/admin/sheechat/${sales.account.id}`, { body: "Hi" })).assertStatus(403);
+        assert.deepEqual(
+            (await developer.get("/admin/sheechat/people")).assertStatus(200).body.map((p) => p.name),
+            ["Ana Dev"],
+        );
+
+        const hello = (
+            await developer.post(`/admin/sheechat/${another.account.id}`, { body: "Deploy at noon?" })
+        ).assertStatus(201).body;
+        assert.equal(hello.to, another.account.id);
+        assert.deepEqual(
+            (await another.get("/admin/sheechat")).body.map((c) => [c.with.name, c.unread]),
+            [["Dev Coder", 1]],
+        );
+        assert.deepEqual(
+            (await another.get("/admin/unread-messages")).body.map((m) => [m.kind, m.body]),
+            [["sheechat", "Deploy at noon?"]],
+        );
+        assert.deepEqual(
+            (await another.get(`/admin/sheechat/${developer.account.id}`)).body.map((m) => m.body),
+            ["Deploy at noon?"],
+        );
+        (await another.get(`/admin/sheechat/${developer.account.id}/profile`)).assertStatus(200);
+
+        // the staff never see the IT department's conversation, or the developers on People
+        assert.deepEqual((await sales.get("/admin/sheechat")).body, []);
+        assert.ok((await sales.get("/admin/sheechat/people")).body.every((p) => p.role !== "developer"));
+    });
+
+    test("nobody chats across the IT department, or with themselves", async () => {
+        const sales = await app.actingAsSales();
+        const admin = await app.actingAsAdmin();
+        const developer = await app.actingAsDeveloper();
+
+        // staff write to the developers from Message developer, and the developers answer on the Chat page
+        (await developer.post(`/admin/sheechat/${sales.account.id}`, { body: "Hi" })).assertStatus(404);
+        (await developer.get(`/admin/sheechat/${sales.account.id}`)).assertStatus(404);
+        (await developer.get(`/admin/sheechat/${admin.account.id}/profile`)).assertStatus(404);
+        (await developer.post(`/admin/sheechat/${developer.account.id}`, { body: "Hi" })).assertStatus(404);
+        (await admin.post(`/admin/sheechat/${developer.account.id}`, { body: "Hi" })).assertStatus(404);
 
         (await sales.post(`/admin/sheechat/${developer.account.id}`, { body: "Hi" })).assertStatus(404);
         (await sales.post(`/admin/sheechat/${sales.account.id}`, { body: "Hi" })).assertStatus(404);
@@ -111,7 +170,10 @@ describe("SheeChat", () => {
         (await admin.patch(`/admin/users/${cashier.account.id}`, { disabled: true })).assertStatus(200);
 
         (await sales.post(`/admin/sheechat/${cashier.account.id}`, { body: "After" })).assertStatus(409);
-        assert.deepEqual((await sales.get(`/admin/sheechat/${cashier.account.id}`)).assertStatus(200).body.map((m) => m.body), ["Before"]);
+        assert.deepEqual(
+            (await sales.get(`/admin/sheechat/${cashier.account.id}`)).assertStatus(200).body.map((m) => m.body),
+            ["Before"],
+        );
         assert.equal((await sales.get("/admin/sheechat")).body[0].with.disabled, true);
     });
 
@@ -121,8 +183,13 @@ describe("SheeChat", () => {
         const cashier = await app.actingAsCashier();
         const developer = await app.actingAsDeveloper();
 
-        const shot = (await sales.upload(`/admin/sheechat/${hardware.account.id}/image?body=${encodeURIComponent(" This bolt ")}`, png, "image/png"))
-            .assertStatus(201).body;
+        const shot = (
+            await sales.upload(
+                `/admin/sheechat/${hardware.account.id}/image?body=${encodeURIComponent(" This bolt ")}`,
+                png,
+                "image/png",
+            )
+        ).assertStatus(201).body;
         assert.equal(shot.image, true);
         assert.equal(shot.body, "This bolt");
 
@@ -133,10 +200,19 @@ describe("SheeChat", () => {
         (await app.client().get(`/sheechat-images/${shot.id}`)).assertStatus(401);
 
         assert.deepEqual((await hardware.get("/admin/sheechat")).body[0].last, {
-            body: "This bolt", image: true, sentAt: shot.sentAt, mine: false,
+            body: "This bolt",
+            image: true,
+            sentAt: shot.sentAt,
+            mine: false,
         });
 
-        (await sales.upload(`/admin/sheechat/${hardware.account.id}/image`, Buffer.from("not a picture"), "image/png")).assertStatus(400);
+        (
+            await sales.upload(
+                `/admin/sheechat/${hardware.account.id}/image`,
+                Buffer.from("not a picture"),
+                "image/png",
+            )
+        ).assertStatus(400);
         (await sales.upload(`/admin/sheechat/${hardware.account.id}/image`, png, "image/gif")).assertStatus(415);
     });
 });

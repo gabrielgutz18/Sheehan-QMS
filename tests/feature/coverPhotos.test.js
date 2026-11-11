@@ -112,14 +112,15 @@ describe("SheeChat profile", () => {
         }
     });
 
-    test("every role but the developers can open one", async () => {
+    test("every role but the developers can open a staff member's", async () => {
         const inventory = await app.actingAsInventory();
         for (const who of [await app.actingAsAdmin(), await app.actingAsSecurity(), await app.actingAsService()]) {
             (await who.get(`/admin/sheechat/${inventory.account.id}/profile`)).assertStatus(200);
         }
 
         const developer = await app.actingAsDeveloper();
-        (await developer.get(`/admin/sheechat/${inventory.account.id}/profile`)).assertStatus(403);
+        // a developer's SheeChat is with the other developers only; they open staff profiles from /admin/profiles
+        (await developer.get(`/admin/sheechat/${inventory.account.id}/profile`)).assertStatus(404);
         (await app.client().get(`/admin/sheechat/${inventory.account.id}/profile`)).assertStatus(401);
     });
 
