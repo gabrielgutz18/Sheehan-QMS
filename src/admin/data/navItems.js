@@ -36,6 +36,8 @@ const navItems = [
     // admins have the same list, with Restore, on Customer order
     { to: "/staff/deleted-tickets", label: "Deleted tickets", group: "My work", roles: ["developer"], icon: "M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3", blurb: "Purge deleted tickets for good, to free up the database" },
     { to: "/staff/accounts", label: "Accounts", group: "Account", roles: ["admin", "developer"], icon: "M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M9 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6M19 8v6M22 11h-6", blurb: "Staff accounts and their roles" },
+    // setting up the PC or phone itself: Install app and Install certificate, for everyone
+    { to: "/staff/settings", label: "Settings", group: "Account", roles: STAFF, icon: "M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1M15 4v4M9 10v4M17 16v4", blurb: "Install the app and the certificate on this device" },
 ];
 
 // the links one role sees

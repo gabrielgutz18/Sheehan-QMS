@@ -21,6 +21,7 @@ import SecurityPage from "./pages/securityPage.jsx";
 import CashierPage from "./pages/cashierPage.jsx";
 import DeletedTicketsPage from "./pages/deletedTicketsPage.jsx";
 import MessagesPage from "./pages/messagesPage.jsx";
+import SettingsPage from "./pages/settingsPage.jsx";
 
 // every kind of staff account but the developers, who are written to from Message developer
 const NOT_DEVELOPER = ["admin", "sales", "loading", "service", "hardware", "security", "cashier", "inventory"];
@@ -46,6 +47,8 @@ export default function AdminApp() {
                 <Route element={<ProtectedRoute roles={[...NOT_DEVELOPER, "developer"]} />}>
                     <Route element={<AdminLayout />}>
                         <Route path="account" element={<AccountPage />} />
+                        {/* setting up this device (Install app, Install certificate), for everyone */}
+                        <Route path="settings" element={<SettingsPage />} />
 
                         {/* the live queue, who is in charge of each customer and their own profile, for everyone
                             (admins' has the day's counts and sales graph too, and the developers' the reports staff
