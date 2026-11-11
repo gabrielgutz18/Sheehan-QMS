@@ -1,19 +1,23 @@
-import '../style/receipt.css';
+import "../style/receipt.css";
 
 //assets
-import logo from '../../assets/SheehanLogo.png';
-import checkerColumns, { CHECKER_ROUNDS, breakable } from '../../data/checkers.js';
+import logo from "../../assets/SheehanLogo.png";
+import checkerColumns, { CHECKER_ROUNDS, breakable } from "../../data/checkers.js";
 
-// the invoice table's lines; more invoices than this add a line each
+// the invoice table's lines; more invoices than this add a line each, and the lines get shorter so the table still
+// fills the same height on the page
 const INVOICE_ROWS = 13;
 
 // the type of order steps down as it gets longer, so several types still fit their box and the ticket stays on one
 // page: "Roofings, Steel" prints large, "Roofings, Roofings Accessories, Steel, Hardwares" small (see receipt.css)
 const typeSize = (purpose = "") =>
-    purpose.length > 56 ? " receipt-value--xs"
-    : purpose.length > 32 ? " receipt-value--s"
-    : purpose.length > 16 ? " receipt-value--m"
-    : "";
+    purpose.length > 56
+        ? " receipt-value--xs"
+        : purpose.length > 32
+          ? " receipt-value--s"
+          : purpose.length > 16
+            ? " receipt-value--m"
+            : "";
 
 // the queue ticket and exit pass, a form filled in by hand at the gate and the warehouse: the date and time in and
 // out, trucking, plate number, runner, the pick-up question and each invoice's status are left blank to write in
@@ -24,86 +28,101 @@ const typeSize = (purpose = "") =>
 // checkers: { Roofing: ["Pedro", ""] }; the table is always on the ticket, each name left out blank to write it in
 // the payment, salesman, team, pick-up day, runner, receiver and sales times from Customer order are for staff only,
 // so the ticket never shows them
-// paper: laid out exactly as it prints on its 90 x 148 mm page (see .receipt--paper in receipt.css)
+// laid out as on the half letter (8.5 x 5.5 in) paper form: the ticket's boxes down the left, the invoice table down
+// the right; it prints turned on its side, since the paper goes into the printer upright (see customerOrder.css)
+// paper: drawn without its own card, on a .ticket-sheet that shows the page
 export default function Receipt({ queueNumber, name, purpose, concern, invoices = [], checkers = {}, paper = false }) {
     const invoiceRows = Array.from({ length: Math.max(INVOICE_ROWS, invoices.length) }, (_, i) => invoices[i]);
 
     return (
-        <section className={`receipt${paper ? " receipt--paper" : ""}`}>
-            <header className="receipt-head">
-                <div className="receipt-brand">
-                    <img className="receipt-logo" src={logo} alt="Sheehan Inc. logo" />
-                    <div>
-                        <h2 className="receipt-header">Sheehan Inc.</h2>
-                        <p className="receipt-sub">Queue Ticket &amp; Exit Pass</p>
+        <section
+            className={`receipt${paper ? " receipt--paper" : ""}`}
+            style={/** @type {import("react").CSSProperties} */ ({ "--invoice-rows": invoiceRows.length })}
+        >
+            <div className="receipt-left">
+                <header className="receipt-head">
+                    <div className="receipt-brand">
+                        <img className="receipt-logo" src={logo} alt="Sheehan Inc. logo" />
+                        <div>
+                            <h2 className="receipt-header">Sheehan Inc.</h2>
+                            <p className="receipt-sub">Queue Ticket &amp; Exit Pass</p>
+                        </div>
                     </div>
-                </div>
-                <div className="receipt-number">
-                    <p className="receipt-label">Queue Number</p>
-                    <p className="receipt-queue">{queueNumber}</p>
-                </div>
-            </header>
+                    <div className="receipt-number">
+                        <p className="receipt-label">Queue Number</p>
+                        <p className="receipt-queue">{queueNumber}</p>
+                    </div>
+                </header>
 
-            <table className="receipt-form receipt-times">
-                <tbody>
-                    <tr>
-                        <th scope="row">Date/Time</th>
-                        <td />
-                        <td>In</td>
-                        <td>Out</td>
-                    </tr>
-                </tbody>
-            </table>
+                <table className="receipt-form receipt-times">
+                    <tbody>
+                        <tr>
+                            <th scope="row">Date/Time</th>
+                            <td />
+                            <td>In</td>
+                            <td>Out</td>
+                        </tr>
+                    </tbody>
+                </table>
 
-            <table className="receipt-form receipt-info">
-                <tbody>
-                    <tr>
-                        <td>Trucking</td>
-                        <td className="receipt-type" rowSpan={4}>
-                            <p className="receipt-label">Type of Order</p>
-                            <p className={`receipt-value${typeSize(purpose)}`}>{purpose}</p>
-                            {concern && <p className="receipt-concern">{concern}</p>}
-                        </td>
-                    </tr>
-                    <tr><td>Plate Number</td></tr>
-                    <tr>
-                        <td>
-                            Driver / Customer Name
-                            {name && <span className="receipt-name">{name}</span>}
-                        </td>
-                    </tr>
-                    <tr><td>Runner Name</td></tr>
-                </tbody>
-            </table>
+                <table className="receipt-form receipt-info">
+                    <tbody>
+                        <tr>
+                            <td>Trucking</td>
+                            <td className="receipt-type" rowSpan={4}>
+                                <p className="receipt-label">Type of Order</p>
+                                <p className={`receipt-value${typeSize(purpose)}`}>{purpose}</p>
+                                {concern && <p className="receipt-concern">{concern}</p>}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Plate Number</td>
+                        </tr>
+                        <tr>
+                            <td>
+                                Driver / Customer Name
+                                {name && <span className="receipt-name">{name}</span>}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Runner Name</td>
+                        </tr>
+                    </tbody>
+                </table>
 
-            <table className="receipt-form receipt-checkers">
-                <thead>
-                    <tr>
-                        <th scope="col">Checker</th>
-                        {checkerColumns.map(({ name: column }) => (
-                            <th key={column} scope="col">{breakable(column)}</th>
-                        ))}
-                    </tr>
-                </thead>
-                <tbody>
-                    {CHECKER_ROUNDS.map(({ name: round, short }, i) => (
-                        <tr key={round}>
-                            <th scope="row" aria-label={round}>{short}</th>
+                <table className="receipt-form receipt-checkers">
+                    <thead>
+                        <tr>
+                            <th scope="col">Checker</th>
                             {checkerColumns.map(({ name: column }) => (
-                                <td key={column}>{checkers[column]?.[i]}</td>
+                                <th key={column} scope="col">
+                                    {breakable(column)}
+                                </th>
                             ))}
                         </tr>
-                    ))}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {CHECKER_ROUNDS.map(({ name: round, short }, i) => (
+                            <tr key={round}>
+                                <th scope="row" aria-label={round}>
+                                    {short}
+                                </th>
+                                {checkerColumns.map(({ name: column }) => (
+                                    <td key={column}>{checkers[column]?.[i]}</td>
+                                ))}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
 
-            <div className="receipt-pickup">
-                <p>May kasabay bang ibang pick up?</p>
-                <p className="receipt-pickup-answer">
-                    <span className="receipt-box" /> No
-                    <span className="receipt-box" /> Yes
-                    <span className="receipt-pickup-count">If yes, how many:</span>
-                </p>
+                <div className="receipt-pickup">
+                    <p>May kasabay bang ibang pick up?</p>
+                    <p className="receipt-pickup-answer">
+                        <span className="receipt-box" /> No
+                        <span className="receipt-box" /> Yes
+                        <span className="receipt-pickup-count">If yes, how many:</span>
+                    </p>
+                </div>
             </div>
 
             <table className="receipt-form receipt-invoices">

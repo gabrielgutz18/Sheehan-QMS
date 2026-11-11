@@ -105,9 +105,11 @@
   max-width: calc(var(--u, 1px) * 900);
   display: flex;
   align-items: center;
-  justify-content: center;
+  /* safe: on a window narrower than the ticket it scrolls instead of losing its left side */
+  justify-content: safe center;
   flex-wrap: wrap;
   gap: calc(var(--u, 1px) * 24) calc(var(--u, 1px) * 56);
+  overflow-x: auto;
 }
 
 .receipt-section .receipt {
@@ -139,12 +141,16 @@
   color: var(--text-muted);
 }
 
-/* Print ticket (or Ctrl+P): only the ticket goes on paper, filling a 90 x 148 mm page;
-   the admin layout around it is dropped only while a ticket is showing, so other admin pages print as usual */
+/* Print ticket (or Ctrl+P): only the ticket goes on paper. the paper is half letter, fed into the printer lying
+   across (landscape), so the page is 8.5 x 5.5 in and the ticket sits on it as it shows on screen, with nothing
+   turned; the admin layout around it is dropped only while a ticket is showing, so other admin pages print as usual */
 @media print {
   @page {
-    size: 90mm 148mm;
-    margin: 4mm;
+    size: 8.5in 5.5in;
+    margin: 0;
+  }
+  body:has(.receipt-section) {
+    margin: 0;
   }
   .admin-shell:has(.receipt-section) {
     display: block;
@@ -164,19 +170,17 @@
     border: none;
     background: none;
   }
-  .receipt-section .receipt {
-    width: 100%;
-    max-width: none;
-    /* the page less its margins, a hair short so rounding never spills onto a blank second page */
-    min-height: 139mm;
-    padding: 0;
-    box-shadow: none;
+  /* exactly one page, a hair short so rounding never spills onto a blank second one; that hair is in the margin */
+  .receipt-section {
+    width: 8.5in;
+    height: calc(5.5in - 2px);
+    overflow: hidden;
   }
-  /* the page itself is the sheet */
+  /* the page itself is the paper: the sheet keeps its margins */
   .receipt-section .ticket-sheet {
-    width: auto;
+    width: 8.5in;
+    height: calc(5.5in - 2px);
     min-height: 0;
-    padding: 0;
     background: none;
     border: none;
     box-shadow: none;
