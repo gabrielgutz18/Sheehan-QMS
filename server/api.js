@@ -138,19 +138,8 @@ const ANNOUNCER_REPEATS = [1, 2];
 // (src/data/loadingAreas.js); security: the guards at the gate, the last stage, who check what each customer leaves
 // with; cashier: who sets how each order is paid when its salesman isn't around; inventory: the inventory department, with no work page of its own
 // yet; developer: the team that builds the app, who answer staff on the Chat page when something doesn't go well
-const ROLES = [
-    "admin",
-    "sales",
-    "loading",
-    "service",
-    "hardware",
-    "security",
-    "cashier",
-    "inventory",
-    "developer",
-];
-const NO_SUCH_ROLE =
-    "Pick admin, sales, loading, service, hardware, security, cashier, inventory or developer.";
+const ROLES = ["admin", "sales", "loading", "service", "hardware", "security", "cashier", "inventory", "developer"];
+const NO_SUCH_ROLE = "Pick admin, sales, loading, service, hardware, security, cashier, inventory or developer.";
 // a developer makes and changes accounts on Accounts too, but not admin ones, so they can't give themselves everything
 const ADMINS_ONLY = "Only an admin can make or change an admin account.";
 // who a dropped account is in the chats, reports and profiles; tickets and points keep the person's real name
@@ -209,7 +198,8 @@ const ACCOUNT_ROUTES = [
     // a coworker's profile, opened from their photo or name wherever it shows (Dashboard, Accounts, the chats)
     ["GET", /^\/admin\/profiles\/\d+$/],
 ];
-// SheeChat: every staff member but the developers chats with any other of them, one conversation per pair
+// SheeChat: one conversation per pair of people; the staff chat with one another, and the developers (the IT
+// department) with one another, but never across, so staff keep bringing their problems to Message developer
 const SHEECHAT_ROUTES = [
     ["GET", /^\/admin\/sheechat$/],
     ["GET", /^\/admin\/sheechat\/people$/],
@@ -359,6 +349,8 @@ const ROLE_ROUTES = {
         // database; not Delete or Restore, which change the queue
         ["GET", /^\/admin\/history$/],
         ["POST", /^\/admin\/history\/purge$/],
+        // SheeChat, with the rest of the IT department only (the handler checks who's on the other side)
+        ...SHEECHAT_ROUTES,
         ["GET", /^\/admin\/users$/],
         ["POST", /^\/admin\/users$/],
         ["PATCH", /^\/admin\/users\/\d+$/],
@@ -2766,13 +2758,14 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
                     disabled: row.disabled_at !== null,
                 },
             });
-            const unread =
-                me.role === "developer"
+            // a developer gets what staff wrote to the team and SheeChat from the other developers; staff get SheeChat
+            // and the developers' answers
+            const unread = [
+                ...sql.unreadDms.all(me.id).map(toUnread("sheechat")),
+                ...(me.role === "developer"
                     ? sql.unreadQuestions.all().map(toUnread("staff"))
-                    : [
-                          ...sql.unreadDms.all(me.id).map(toUnread("sheechat")),
-                          ...sql.unreadAnswers.all(me.id).map(toUnread("developer")),
-                      ];
+                    : sql.unreadAnswers.all(me.id).map(toUnread("developer"))),
+            ];
             return send(
                 res,
                 200,
@@ -2825,43 +2818,45 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             );
         }
 
-        // SheeChat, for every role but the developers (ROLE_ROUTES leaves them out too; they have the Chat page)
-        if (path.startsWith("/admin/sheechat") && me.role === "developer") {
-            return send(res, 403, { message: "Developers answer staff on the Chat page." });
-        }
+        // who you can chat with on SheeChat: anyone on your side but yourself, the staff with the staff and the
+        // developers with the developers; a developer answers staff on the Chat page, and staff write to the
+        // developers from Message developer, where every developer sees it and reports are kept
+        const sheeChatsWith = (other) =>
+            other.id !== me.id && (other.role === "developer") === (me.role === "developer");
 
-        // SheeChat's list: everyone you have a conversation with, newest first, with how many of theirs you haven't read
+        // SheeChat's list: everyone you have a conversation with, newest first, with how many of theirs you haven't
+        // read; one from before someone moved to or from the IT department stays out, as it can't be opened
         if (method === "GET" && path === "/admin/sheechat") {
             return send(
                 res,
                 200,
-                sql.listDmChats.all({ me: me.id }).map((row) => ({
-                    with: {
-                        deleted: row.dropped_at !== null,
-                        id: row.id,
-                        name: row.name,
-                        role: row.role,
-                        photo: row.photo,
-                        disabled: row.disabled_at !== null,
-                    },
-                    last: {
-                        body: row.last_body,
-                        image: Boolean(row.last_image),
-                        sentAt: row.last_at,
-                        mine: Boolean(row.last_mine),
-                    },
-                    unread: row.unread,
-                })),
+                sql.listDmChats
+                    .all({ me: me.id })
+                    .filter(sheeChatsWith)
+                    .map((row) => ({
+                        with: {
+                            deleted: row.dropped_at !== null,
+                            id: row.id,
+                            name: row.name,
+                            role: row.role,
+                            photo: row.photo,
+                            disabled: row.disabled_at !== null,
+                        },
+                        last: {
+                            body: row.last_body,
+                            image: Boolean(row.last_image),
+                            sentAt: row.last_at,
+                            mine: Boolean(row.last_mine),
+                        },
+                        unread: row.unread,
+                    })),
             );
         }
 
-        // SheeChat's People list: every other staff member but the developers, online first, to start a conversation
+        // SheeChat's People list: everyone you can chat with, online first, to start a conversation; the other
+        // developers for a developer, every other staff member but the developers for the rest
         if (method === "GET" && path === "/admin/sheechat/people") {
-            return send(
-                res,
-                200,
-                presence().filter((account) => account.role !== "developer" && account.id !== me.id),
-            );
+            return send(res, 200, presence().filter(sheeChatsWith));
         }
 
         // a coworker's profile, opened from their photo or name on the Dashboard, Accounts, the Crew tab or a chat, for
@@ -2875,14 +2870,14 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             return send(res, 200, toProfile(other, now));
         }
 
-        // the person on the other side of a SheeChat conversation: any staff member but a developer or yourself
-        // someone's profile, opened from SheeChat; the same people you can chat with, switched off or not. Looking at it
-        // reads nothing, so it stays apart from the conversation below
+        // the person on the other side of a SheeChat conversation: someone's profile, opened from SheeChat; the same
+        // people you can chat with, switched off or not. Looking at it reads nothing, so it stays apart from the
+        // conversation below
         const profileMatch = path.match(/^\/admin\/sheechat\/(\d+)\/profile$/);
         if (method === "GET" && profileMatch) {
             const now = Date.now();
             const other = sql.findProfile.get({ now, id: Number(profileMatch[1]) });
-            if (!other || other.role === "developer" || other.id === me.id) {
+            if (!other || !sheeChatsWith(other)) {
                 return send(res, 404, { message: "Staff member not found." });
             }
             return send(res, 200, toProfile(other, now));
@@ -2891,7 +2886,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         const dmMatch = path.match(/^\/admin\/sheechat\/(\d+)(\/image|\/typing)?$/);
         if (dmMatch) {
             const other = sql.findUserById.get(Number(dmMatch[1]));
-            if (!other || other.role === "developer" || other.id === me.id) {
+            if (!other || !sheeChatsWith(other)) {
                 return send(res, 404, { message: "Staff member not found." });
             }
 
@@ -3451,9 +3446,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         // Steel, ...: start, with the area), whether they called the customer there, to another area, or not yet; from
         // then on the customer can't be called or loaded at another area until that one is done (or sends them back to
         // waiting), e.g. Steel waits while Roofings is loading; Done needs Loading first
-        const loadingMatch = path.match(
-            /^\/admin\/(loading|service|hardware)\/([^/]+)\/(call|start|done|back)$/,
-        );
+        const loadingMatch = path.match(/^\/admin\/(loading|service|hardware)\/([^/]+)\/(call|start|done|back)$/);
         if (method === "POST" && loadingMatch) {
             const [, department, queueNum, action] = loadingMatch;
             const label = DEPARTMENTS[department];

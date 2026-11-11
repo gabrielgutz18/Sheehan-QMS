@@ -1174,6 +1174,36 @@
   align-items: center;
 }
 
+/* the developers' Dashboard: the newest reports still waiting, the same rows as Reports, then a link to Chat */
+.concern-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+}
+
+.concern-feed ul {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.concern-feed .order-status-empty {
+  margin: 0;
+  padding: 12px 10px;
+}
+
+.concern-feed-all {
+  align-self: flex-end;
+  padding: 4px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand-red);
+}
+
 /* the main button is full width elsewhere in the admin; on a report it's as wide as its words */
 .concern-card-buttons .admin-btn,
 .concern-summary .admin-btn {

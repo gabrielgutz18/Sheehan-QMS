@@ -255,7 +255,7 @@ test("By product splits the Cashier's orders by type, and a mixed ticket has one
         "Tire",
         "Battery",
         "Chassis",
-        "For Logistics",
+        "Stainless",
     ]) {
         await expect(products.getByRole("button", { name: new RegExp(`^${name} \\d+$`) })).toBeVisible();
     }
@@ -1232,15 +1232,22 @@ test("a loading account reports a bug through the guided chat, and a developer m
     // the bot is done, so the box writes to the developers again
     await expect(staff.getByRole("button", { name: "Report a bug" })).toBeEnabled();
 
-    // a developer finds it under Reports and marks it Done with a note
+    // a developer signs in to their Dashboard, where it waits under Staff concerns beside who is in charge of each
+    // customer, and opens it from there, then marks it Done with a note
     const devs = await browser.newContext();
     const dev = await devs.newPage();
     watch(dev);
-    await dev.goto("/staff/chat");
+    await dev.goto("/staff/login");
     await signIn(dev, developer.username, developer.password);
+    await expect(dev).toHaveURL(/\/staff$/);
+    await expect(dev.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+    await expect(dev.getByRole("heading", { name: "In charge" })).toBeVisible();
+    const concerns = dev.getByRole("region", { name: "Staff concerns" });
+    await concerns.locator(".report-row", { hasText: crew.name }).click();
     await expect(dev.getByRole("heading", { name: "Chat", exact: true })).toBeVisible();
+    // it's on Reports too
     await dev.getByRole("button", { name: /^Reports/ }).click();
-    await dev.locator(".report-row", { hasText: crew.name }).click();
+    await expect(dev.locator(".report-row", { hasText: crew.name })).toBeVisible();
     const devCard = dev.getByRole("article", { name: /^Bug #\d+$/ });
     await expect(devCard).toContainText(`Start does nothing ${stamp}`);
     await devCard.getByRole("textbox").fill("Fixed it, refresh the page.");

@@ -1,10 +1,10 @@
 // "is typing" in a conversation: the page says you're writing every couple of seconds, it wears off by itself, and only
 // the people in that conversation can see it
 // run: npm test            only these: npm test -- --test-name-pattern="typing"
-import assert from 'node:assert/strict';
-import { afterEach, beforeEach, describe, test } from 'node:test';
+import assert from "node:assert/strict";
+import { afterEach, beforeEach, describe, test } from "node:test";
 
-import { bootApp } from '../support/testApp.js';
+import { bootApp } from "../support/testApp.js";
 
 let app;
 
@@ -88,12 +88,19 @@ describe("typing on SheeChat", () => {
         }
     });
 
-    test("a developer has no typing on SheeChat", async () => {
+    test("a developer has typing on SheeChat with the other developers only", async () => {
         const sales = await app.actingAsSales();
         const developer = await app.actingAsDeveloper();
+        const another = await app.actingAsDeveloper("Ana Dev");
 
-        (await developer.get(`/admin/sheechat/${sales.account.id}/typing`)).assertStatus(403);
-        (await developer.post(`/admin/sheechat/${sales.account.id}/typing`)).assertStatus(403);
+        (await developer.post(`/admin/sheechat/${another.account.id}/typing`)).assertStatus(204);
+        assert.deepEqual(
+            (await another.get(`/admin/sheechat/${developer.account.id}/typing`)).body.map((t) => t.name),
+            ["Dev Coder"],
+        );
+
+        (await developer.get(`/admin/sheechat/${sales.account.id}/typing`)).assertStatus(404);
+        (await developer.post(`/admin/sheechat/${sales.account.id}/typing`)).assertStatus(404);
     });
 });
 

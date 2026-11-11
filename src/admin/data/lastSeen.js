@@ -9,3 +9,13 @@ export const seenAgo = (ms) => {
     if (minutes < 24 * 60) return `${Math.floor(minutes / 60)} h ago`;
     return new Date(ms).toLocaleDateString();
 };
+
+// how long ago a report was sent, in a few characters, for the Chat page's Reports and the developers' Dashboard:
+// "now", "5m", "3h", "2d"; iso: its createdAt; now: the clock it's counted from, in ms
+export const reportAge = (iso, now) => {
+    const minutes = Math.floor((now - new Date(iso).getTime()) / MINUTE_MS);
+    if (minutes < 1) return "now";
+    if (minutes < 60) return `${minutes}m`;
+    if (minutes < 24 * 60) return `${Math.floor(minutes / 60)}h`;
+    return `${Math.floor(minutes / (24 * 60))}d`;
+};

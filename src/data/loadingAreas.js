@@ -13,13 +13,13 @@ export const departmentWord = (department) => DEPARTMENTS[department].toLowerCas
 // loaded in each of their areas in turn, e.g. "Roofings, Hardwares" at Roofings, then Hardware; server/api.js imports
 // this list too, so the two always agree
 // the loading crew works four areas, each with only its own products: Roofings (Roofings, Roofings Accessories), Steel
-// (steel only), Logistics (plain sheets, stainless steel, insulation, all as For Logistics for now) and Chassis
+// (steel only), Logistics (Stainless) and Chassis
 // gate: the gate of the yard a customer drives to for the area, told with the call ("Please proceed to Roofings (Gate Y:
 // Yero)"); Yero is where the roofing sheets are, Bakalan the steel; an area with none is just named
 const loadingAreas = [
     { name: "Roofings", types: ["Roofings", "Roofings Accessories"], department: "loading", gate: "Gate Y: Yero" },
     { name: "Steel", types: ["Steel"], department: "loading", gate: "Gate B: Bakalan" },
-    { name: "Logistics", types: ["For Logistics"], department: "loading" },
+    { name: "Logistics", types: ["Stainless"], department: "loading" },
     { name: "Chassis", types: ["Chassis"], department: "loading" },
     { name: "Service", types: ["Tire", "Battery"], department: "service" },
     // Hardware hands small items over the counter, not onto a truck, so its crew prepares the order (WORK below)
@@ -92,7 +92,7 @@ export const HISTORY_LISTS = {
     loading: [
         { name: "Roofings", types: ["Roofings", "Roofings Accessories"], area: "Roofings" },
         { name: "Steel", types: ["Steel"], area: "Steel" },
-        { name: "For Logistics", types: ["For Logistics"], area: "Logistics" },
+        { name: "Stainless", types: ["Stainless"], area: "Logistics" },
         { name: "Chassis", types: ["Chassis"], area: "Chassis" },
     ],
     service: [

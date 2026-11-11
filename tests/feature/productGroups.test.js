@@ -26,7 +26,7 @@ describe("By product", () => {
                 "Chassis",
                 "Roofings Accessories",
                 "Battery",
-                "For Logistics",
+                "Stainless",
                 NO_PRODUCT,
             ],
         );
@@ -54,22 +54,22 @@ describe("By product", () => {
     });
 
     test("a ticket with several types shows under each, with only that type's invoices and what else it has", () => {
-        const mixed = order("Steel, Hardwares, For Logistics", [
+        const mixed = order("Steel, Hardwares, Stainless", [
             invoice("101", "Steel"),
             invoice("102", "Steel"),
             invoice("201", "Hardwares"),
-            invoice("301", "For Logistics"),
+            invoice("301", "Stainless"),
         ]);
         const groups = groupsByProduct([mixed]);
 
         const [steel] = linesIn(groups, "Steel");
         assert.equal(steel.order, mixed);
         assert.deepEqual(numbers(steel), ["101", "102"]);
-        assert.deepEqual(steel.also, ["Hardwares", "For Logistics"]);
+        assert.deepEqual(steel.also, ["Hardwares", "Stainless"]);
 
         const [hardwares] = linesIn(groups, "Hardwares");
         assert.deepEqual(numbers(hardwares), ["201"]);
-        assert.deepEqual(hardwares.also, ["Steel", "For Logistics"]);
+        assert.deepEqual(hardwares.also, ["Steel", "Stainless"]);
     });
 
     test("a ticket of one type has nothing else to mention", () => {
