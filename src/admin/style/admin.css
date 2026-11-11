@@ -3491,6 +3491,72 @@ html:has(.sale-actions) {
     border-radius: 8px;
 }
 
+/* placing a new cover before it's saved (CoverAdjustDialog): wider than the usual dialog, so the banner is big
+   enough to see what shows */
+.admin-dialog.cover-adjust-dialog {
+    width: min(640px, calc(100vw - 32px));
+}
+
+/* the banner's shape, with the picture moving inside it; touch-action keeps a finger's drag from scrolling the page */
+.cover-adjust-frame {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    background: #111111;
+    border-radius: 8px;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+}
+
+.cover-adjust-frame.is-dragging {
+    cursor: grabbing;
+}
+
+.cover-adjust-frame:focus-visible {
+    outline: 3px solid var(--brand-red);
+    outline-offset: 2px;
+}
+
+.cover-adjust-img {
+    position: absolute;
+    max-width: none;
+    pointer-events: none;
+}
+
+/* a reminder on the picture that it moves, gone while it's being dragged */
+.cover-adjust-hint {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    padding: 4px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #ffffff;
+    background: rgba(0, 0, 0, 0.55);
+    border-radius: 999px;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    transition: opacity 0.15s;
+}
+
+.cover-adjust-frame.is-dragging .cover-adjust-hint {
+    opacity: 0;
+}
+
+.cover-adjust-zoom {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.cover-adjust-zoom input {
+    flex: 1;
+    accent-color: var(--brand-red);
+}
+
 .account-facts {
     display: grid;
     gap: 10px;
