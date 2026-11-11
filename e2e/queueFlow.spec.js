@@ -967,16 +967,6 @@ test("a cover photo shows on the Dashboard, and a coworker can open that profile
         name: `Cover ${stamp}`,
         role: "sales",
     };
-    // a 1 by 1 red PNG, a real picture for the browser to open and crop
-    const picture = {
-        name: "cover.png",
-        mimeType: "image/png",
-        buffer: Buffer.from(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==",
-            "base64",
-        ),
-    };
-
     await page.goto("/staff/account");
     await signIn(page, ADMIN.username, ADMIN.password);
     await expect(page.getByRole("heading", { name: "My account" })).toBeVisible();
@@ -999,11 +989,53 @@ test("a cover photo shows on the Dashboard, and a coworker can open that profile
     watch(other);
     await other.goto("/staff/account");
     await signIn(other, coworker.username, coworker.password);
+    // a tall picture, red on top and blue underneath, so the saved cover shows which part was dragged into the banner
+    const tall = await other.evaluate(() => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 300;
+        canvas.height = 400;
+        const context = canvas.getContext("2d");
+        context.fillStyle = "#ff0000";
+        context.fillRect(0, 0, 300, 200);
+        context.fillStyle = "#0000ff";
+        context.fillRect(0, 200, 300, 200);
+        return canvas.toDataURL("image/png").split(",")[1];
+    });
+    const picture = { name: "cover.png", mimeType: "image/png", buffer: Buffer.from(tall, "base64") };
+
+    // the picture opens in a preview first, and Cancel keeps it from being saved
     await other.getByLabel("Cover photo file").setInputFiles(picture);
+    const placing = other.getByRole("dialog", { name: "Place your cover photo" });
+    await expect(placing).toBeVisible();
+    await placing.getByRole("button", { name: "Cancel" }).click();
+    await expect(placing).toHaveCount(0);
+    await expect(other.getByRole("button", { name: "Upload cover" })).toBeVisible();
+
+    // dragged all the way down, the banner shows the picture's top, and OK saves that part
+    await other.getByLabel("Cover photo file").setInputFiles(picture);
+    const frame = placing.getByRole("group", { name: /Cover preview/ });
+    const box = await frame.boundingBox();
+    await other.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await other.mouse.down();
+    await other.mouse.move(box.x + box.width / 2, box.y + box.height * 4, { steps: 8 });
+    await other.mouse.up();
+    await placing.getByRole("button", { name: "OK" }).click();
+    await expect(placing).toHaveCount(0);
     await expect(other.getByRole("button", { name: "Remove cover" })).toBeVisible();
     const preview = other.locator(".cover-photo-field img");
     await expect(preview).toHaveJSProperty("naturalWidth", 1200);
     await expect(preview).toHaveJSProperty("naturalHeight", 400);
+    const lowRow = await preview.evaluate((img) => {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const context = canvas.getContext("2d");
+        context.drawImage(img, 0, 0);
+        // left in the middle this row would be blue; dragged to the top, it is red
+        return [...context.getImageData(600, 300, 1, 1).data];
+    });
+    expect(lowRow[0]).toBeGreaterThan(200);
+    expect(lowRow[2]).toBeLessThan(60);
 
     await other.getByRole("link", { name: "Dashboard" }).click();
     const onDashboard = other.getByRole("region", { name: "Your profile" }).locator(".profile-summary-cover-img");
