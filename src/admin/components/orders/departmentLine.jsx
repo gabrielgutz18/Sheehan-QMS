@@ -1,23 +1,35 @@
-import { useState } from 'react';
+import { useState } from "react";
 
-import useOrders from '../../hooks/useOrders.js';
-import useActionNote from '../../hooks/useActionNote.js';
-import useNewCustomerAlert from '../../hooks/useNewCustomerAlert.js';
-import { useAuth } from '../../auth/authContext.js';
-import { callAtLoading, finishAtLoading, recallToArea, sendBackFromLoading, startLoading } from '../../api/loadingController.js';
-import CallDialog from './callDialog.jsx';
-import Greetings from '../common/greetings.jsx';
-import OrderDetails from './orderDetails.jsx';
-import RecallDialog from './recallDialog.jsx';
-import SentBackNote from './sentBackNote.jsx';
-import ServedBy from './servedBy.jsx';
-import ServingCard from './servingCard.jsx';
+import useOrders from "../../hooks/useOrders.js";
+import useActionNote from "../../hooks/useActionNote.js";
+import useNewCustomerAlert from "../../hooks/useNewCustomerAlert.js";
+import { useAuth } from "../../auth/authContext.js";
 import {
-    areasLeft, areasLeftIn, areasToStart, atDepartment, defaultLoadingRemarks, departmentHasOrder, departmentStillNeeds,
-    proceedTo, quickRemarksFor, startLoadingLabel,
-} from '../../data/loadingAreas.js';
-import { DEPARTMENTS, departmentOf, departmentWord } from '../../../data/loadingAreas.js';
-import formatQueueNum from '../../../data/queueNum.js';
+    callAtLoading,
+    finishAtLoading,
+    recallToArea,
+    sendBackFromLoading,
+    startLoading,
+} from "../../api/loadingController.js";
+import AreaSteps from "./areaSteps.jsx";
+import CallDialog from "./callDialog.jsx";
+import Greetings from "../common/greetings.jsx";
+import RecallDialog from "./recallDialog.jsx";
+import ServedBy from "./servedBy.jsx";
+import ServingCard from "./servingCard.jsx";
+import WaitingCard from "./waitingCard.jsx";
+import {
+    areasLeftIn,
+    atDepartment,
+    defaultLoadingRemarks,
+    departmentHasOrder,
+    departmentStillNeeds,
+    proceedTo,
+    quickRemarksFor,
+} from "../../data/loadingAreas.js";
+import { DEPARTMENTS, departmentOf, departmentWord } from "../../../data/loadingAreas.js";
+import { ticketNumber } from "../../../data/queueNum.js";
+import TicketNumber from "../common/ticketNumber.jsx";
 
 // a department's counter, the Loading, Service and Hardware pages' (department: "loading", "service" or "hardware",
 // src/data/loadingAreas.js), one shared line for every account of the department: today's customers once a sales
@@ -40,20 +52,13 @@ import formatQueueNum from '../../../data/queueNum.js';
 // straight back to it, any time today, even after the gate checked them, with why; only that area is done again, and
 // the order goes through the security check again
 
-const ticketOf = (o) => formatQueueNum(o.queueNum, o.purpose, o);
+const ticketOf = (o) => ticketNumber(o);
 
-// how far loading has got, e.g. "Roofings ✓ · Hardware next", or "Roofings ✓ · Hardware now" while a crew has them
-// there; "" for an order from before the areas
-const areaProgress = (order) => {
-    const now = order.status === "serving" && order.atLoading ? order.loadingArea : null;
-    const [next] = areasLeft(order);
-    return (order.areas ?? [])
-        .map(({ name, loaded }) => (loaded ? `${name} ✓` : name === now ? `${name} now` : !now && name === next ? `${name} next` : name))
-        .join(" · ");
-};
 // the order's areas this department has already done, the ones Recall can call the customer back to
 const doneAreasIn = (order, department) =>
-    (order.areas ?? []).filter(({ name, loaded }) => loaded && departmentOf(name) === department).map(({ name }) => name);
+    (order.areas ?? [])
+        .filter(({ name, loaded }) => loaded && departmentOf(name) === department)
+        .map(({ name }) => name);
 
 // Done here lists this many of the latest; the rest are counted under it
 const DONE_SHOWN = 8;
@@ -73,7 +78,9 @@ export default function DepartmentLine({ department }) {
     // the one-tap areas in the call dialog: the order's areas still to load here, each calling them there
     const areaChoices = (order) => {
         const left = areasLeftIn(order, department);
-        return left.length ? left.map((name) => ({ label: name, text: proceedTo(name), area: name })) : quickRemarksFor(department);
+        return left.length
+            ? left.map((name) => ({ label: name, text: proceedTo(name), area: name }))
+            : quickRemarksFor(department);
     };
 
     // a loading or hardware account only gets these from the backend; an admin gets every order, so the rest are
@@ -97,7 +104,11 @@ export default function DepartmentLine({ department }) {
     });
 
     const start = (o, area) =>
-        run(o, () => startLoading(department, o.queueNum, area || undefined), `Started ${ticketOf(o)} at ${area || label}.`);
+        run(
+            o,
+            () => startLoading(department, o.queueNum, area || undefined),
+            `Started ${ticketOf(o)} at ${area || label}.`,
+        );
 
     const replace = (saved) => setOrders((prev) => prev.map((o) => (o.queueNum === saved.queueNum ? saved : o)));
 
@@ -180,13 +191,23 @@ export default function DepartmentLine({ department }) {
                 <Greetings name={user.firstName || user.name} role={user.role} />
             </div>
 
-            {(error || actionError) && <p className="field-error" role="alert">{actionError || error}</p>}
-            {note && <p className="admin-notice" role="status">✓ {note}</p>}
+            {(error || actionError) && (
+                <p className="field-error" role="alert">
+                    {actionError || error}
+                </p>
+            )}
+            {note && (
+                <p className="admin-notice" role="status">
+                    ✓ {note}
+                </p>
+            )}
 
             <div className="queue-columns">
                 <div className="admin-panel">
                     <div className="counter-head">
-                        <h2>Serving at {here} ({servingHere.length})</h2>
+                        <h2>
+                            Serving at {here} ({servingHere.length})
+                        </h2>
                         <button
                             type="button"
                             className="admin-btn admin-btn-call"
@@ -210,9 +231,21 @@ export default function DepartmentLine({ department }) {
                                     department={department}
                                     busy={busy === o.queueNum}
                                     onStart={(area) => start(o, area)}
-                                    onFinish={() => run(o, () => finishAtLoading(department, o.queueNum), `${ticketOf(o)} done at ${o.loadingArea || here}.`)}
+                                    onFinish={() =>
+                                        run(
+                                            o,
+                                            () => finishAtLoading(department, o.queueNum),
+                                            `${ticketOf(o)} done at ${o.loadingArea || here}.`,
+                                        )
+                                    }
                                     onCallAgain={() => openCall(o)}
-                                    onSendBack={() => run(o, () => sendBackFromLoading(department, o.queueNum), `${ticketOf(o)} sent back to waiting.`)}
+                                    onSendBack={() =>
+                                        run(
+                                            o,
+                                            () => sendBackFromLoading(department, o.queueNum),
+                                            `${ticketOf(o)} sent back to waiting.`,
+                                        )
+                                    }
                                 />
                             ))}
                         </ul>
@@ -221,7 +254,9 @@ export default function DepartmentLine({ department }) {
 
                 <div className="admin-panel">
                     <div className="counter-head">
-                        <h2>Waiting for {here} ({waiting.length})</h2>
+                        <h2>
+                            Waiting for {here} ({waiting.length})
+                        </h2>
                         <label className="chime-toggle">
                             <input type="checkbox" checked={chimeOn} onChange={(e) => setChimeOn(e.target.checked)} />
                             Chime when a customer is handed over
@@ -234,55 +269,19 @@ export default function DepartmentLine({ department }) {
                             No one is waiting for {here}. Customers show up here once sales hands them over.
                         </p>
                     ) : (
-                        <ul className="counter-list">
-                            {waiting.map((o) => {
-                                // a sales counter or the other department has the customer right now
-                                const elsewhere = o.status === "serving";
-                                return (
-                                    <li key={o.queueNum} className={`counter-ticket${elsewhere ? " is-elsewhere" : ""}`}>
-                                        <div className="counter-ticket-main">
-                                            <strong className="counter-number">{ticketOf(o)}</strong>
-                                            <span className="counter-name">
-                                                {o.name}
-                                                {o.status === "returning" && <span className="history-badge status-returning returning-tag">Returning</span>}
-                                            </span>
-                                            <span className="counter-meta">{o.purpose}</span>
-                                            {areaProgress(o) && <span className="counter-meta">{areaProgress(o)}</span>}
-                                            <SentBackNote order={o} />
-                                            <OrderDetails order={o} />
-                                        </div>
-                                        {/* Call, or Start loading at an area straight away when the truck is already there */}
-                                        <div className="row-actions loading-call">
-                                            <button
-                                                type="button"
-                                                className="admin-btn admin-btn-call"
-                                                disabled={elsewhere || busy === o.queueNum}
-                                                aria-describedby={elsewhere ? `wait-${o.queueNum}` : undefined}
-                                                onClick={() => openCall(o)}
-                                            >
-                                                Call
-                                            </button>
-                                            {areasToStart(o, department).map((area) => (
-                                                <button
-                                                    key={area}
-                                                    type="button"
-                                                    className="admin-btn"
-                                                    disabled={elsewhere || busy === o.queueNum}
-                                                    onClick={() => start(o, area)}
-                                                >
-                                                    {startLoadingLabel(area)}
-                                                </button>
-                                            ))}
-                                            {recallButton(o)}
-                                        </div>
-                                        {elsewhere && (
-                                            <p id={`wait-${o.queueNum}`} className="wait-hint">
-                                                Please wait until {o.servedBy?.name ?? "the other counter"} finishes.
-                                            </p>
-                                        )}
-                                    </li>
-                                );
-                            })}
+                        <ul className="counter-list waiting-list">
+                            {waiting.map((o) => (
+                                <WaitingCard
+                                    key={o.queueNum}
+                                    order={o}
+                                    department={department}
+                                    isNext={o === next}
+                                    busy={busy === o.queueNum}
+                                    onCall={() => openCall(o)}
+                                    onStart={(area) => start(o, area)}
+                                    onRecall={doneAreasIn(o, department).length > 0 ? () => openRecall(o) : undefined}
+                                />
+                            ))}
                         </ul>
                     )}
                 </div>
@@ -302,14 +301,17 @@ export default function DepartmentLine({ department }) {
                             return (
                                 <li key={o.queueNum} className="counter-ticket">
                                     <div className="counter-ticket-main">
-                                        <strong className="counter-number">{ticketOf(o)}</strong>
+                                        <strong className="counter-number">
+                                            <TicketNumber order={o} />
+                                        </strong>
                                         <span className="counter-name">{o.name}</span>
                                         <span className="counter-meta">{o.purpose}</span>
                                         {/* the other department may still have its part to do */}
-                                        {o.status !== "done" && areaProgress(o) && <span className="counter-meta">{areaProgress(o)}</span>}
+                                        {o.status !== "done" && <AreaSteps order={o} />}
                                         {o.recalled && (
                                             <span className="counter-meta">
-                                                Recalled to {o.recalled.area} · “{o.recalled.reason}” · {o.recalled.by.name}
+                                                Recalled to {o.recalled.area} · “{o.recalled.reason}” ·{" "}
+                                                {o.recalled.by.name}
                                             </span>
                                         )}
                                         <ServedBy order={o} />
