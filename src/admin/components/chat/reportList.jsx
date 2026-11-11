@@ -6,7 +6,7 @@ import { WAITING } from "../../data/waitingReports.js";
 import Icon from "../common/icon.jsx";
 import { ConcernStatus } from "./concernCard.jsx";
 
-// the Chat page's Reports: every report staff sent, filtered by kind, status and department, newest first; picking
+// Staff concerns' Reports: every report staff sent, filtered by kind, status and department, newest first; picking
 // one opens that person's conversation, where its card has the status buttons
 // reports: as listConcerns gives them, or null while they load; openId: whose conversation is open
 /** @param {{ reports: any[] | null, openId: number | null, onPick: (staff: any) => void }} props */

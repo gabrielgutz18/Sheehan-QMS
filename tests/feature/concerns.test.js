@@ -1,6 +1,6 @@
 // concern reports: staff tap Report a bug, System concern or Feature for my department on Message developer, answer
 // the bot's few questions, and the answers reach the developers as one report; a developer moves it along (In
-// progress, Done, Declined, reopened) from the Chat page, and each change comes back to the staff member as a message
+// progress, Done, Declined, reopened) from Staff concerns, and each change comes back to the staff member as a message
 // run: npm test            only these: npm test -- --test-name-pattern="concern reports"
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, test } from "node:test";

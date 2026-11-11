@@ -10,7 +10,7 @@ const REFRESH_MS = 15000;
 
 // the developer team as a row of chat heads, a green dot on each one online, online ones first; each opens that
 // developer's profile, with their specialization (what they do in the IT department)
-// meId: the signed-in developer, marked You on the Chat page; onTeam(team): told each time the team is read, so
+// meId: the signed-in developer, marked You on Staff concerns; onTeam(team): told each time the team is read, so
 // Message developer can say when none of them is on
 /** @param {{ meId?: number, onTeam?: (team: any[]) => void }} props */
 export default function DeveloperHeads({ meId, onTeam }) {

@@ -1,5 +1,5 @@
 // the developers: the team that builds the app; when something doesn't go well, any staff member writes to them from
-// Message developer, and they answer on the Chat page; besides that they have only the Order status board and
+// Message developer, and they answer on Staff concerns; besides that they have only the Order status board and
 // Accounts (where they can't make or change an admin account) and their own account
 // run: npm test            only these: npm test -- --test-name-pattern="developer"
 import assert from 'node:assert/strict';
@@ -71,7 +71,7 @@ describe("developer", () => {
         app.assertDatabaseHas("users", { username: "maria", role: "cashier" });
     });
 
-    test("staff write to the developers, and a developer answers on the Chat page", async () => {
+    test("staff write to the developers, and a developer answers on Staff concerns", async () => {
         const sales = await app.actingAsSales();
         const cashier = await app.actingAsCashier();
         const developer = await app.actingAsDeveloper();
@@ -113,7 +113,7 @@ describe("developer", () => {
         assert.deepEqual((await cashier.get("/admin/messages")).body.map((m) => m.body), ["Payments page is slow."]);
     });
 
-    test("an admin writes to the developers too, but can't read the Chat page", async () => {
+    test("an admin writes to the developers too, but can't read Staff concerns", async () => {
         const admin = await app.actingAsAdmin();
 
         (await admin.post("/admin/messages", { body: "The display froze." })).assertStatus(201);
@@ -147,29 +147,6 @@ describe("developer", () => {
         assert.equal((await cara.get("/admin/developers")).assertStatus(200).body.length, 3);
     });
 
-    test("a developer sees every other staff member with who's online, for the Staff list by department", async () => {
-        const sales = await app.actingAsSales();
-        const loading = await app.actingAsLoading();
-        const developer = await app.actingAsDeveloper();
-        await app.actingAsDeveloper("Other Dev");
-        (await loading.patch("/admin/me", { firstName: "Pedro", surname: "Garcia", department: "Roofings" })).assertStatus(200);
-        (await loading.post("/auth/logout")).assertStatus(204);
-
-        const staff = (await developer.get("/admin/staff-presence")).assertStatus(200).body;
-
-        // the built-in admin too, but no developers; online ones first
-        assert.deepEqual(staff.map((s) => [s.name, s.role, s.online]), [
-            ["admin", "admin", true],
-            ["Maria Santos", "sales", true],
-            ["Pedro Garcia", "loading", false],
-        ]);
-        assert.equal(staff.find((s) => s.role === "loading").department, "Roofings");
-
-        // only the developers have it
-        (await sales.get("/admin/staff-presence")).assertStatus(403);
-        (await (await app.actingAsAdmin()).get("/admin/staff-presence")).assertStatus(403);
-    });
-
     test("a developer can write to someone first, and the list says which developer answered last", async () => {
         const sales = await app.actingAsSales();
         const ana = await app.actingAsDeveloper("Ana Dev");
@@ -192,7 +169,7 @@ describe("developer", () => {
         (await sales.post("/admin/messages", { body: "x".repeat(1001) })).assertStatus(400);
         (await sales.post("/admin/messages", {})).assertStatus(400);
         (await sales.get("/admin/chats")).assertStatus(403);
-        // a developer answers on the Chat page, not by writing to themselves
+        // a developer answers on Staff concerns, not by writing to themselves
         (await developer.post("/admin/messages", { body: "Hello" })).assertStatus(403);
         (await developer.post(`/admin/chats/${developer.account.id}`, { body: "Hello" })).assertStatus(404);
         (await developer.post("/admin/chats/9999", { body: "Hello" })).assertStatus(404);

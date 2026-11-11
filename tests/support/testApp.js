@@ -126,7 +126,7 @@ export async function bootApp({ googleSheet } = {}) {
     const actingAsCashier = (name = "Rosa Bayad") => actingAsStaff("cashier", name);
     // someone in the inventory department
     const actingAsInventory = (name = "Ines Bodega") => actingAsStaff("inventory", name);
-    // someone on the team that builds the app, who answers staff on the Chat page
+    // someone on the team that builds the app, who answers staff on Staff concerns
     const actingAsDeveloper = (name = "Dev Coder") => actingAsStaff("developer", name);
 
     const countRows = (table, conditions = {}) =>

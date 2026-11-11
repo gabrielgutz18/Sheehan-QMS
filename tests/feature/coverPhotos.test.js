@@ -112,23 +112,24 @@ describe("SheeChat profile", () => {
         }
     });
 
-    test("every role but the developers can open a staff member's", async () => {
+    test("every role, the developers too, can open a staff member's", async () => {
         const inventory = await app.actingAsInventory();
-        for (const who of [await app.actingAsAdmin(), await app.actingAsSecurity(), await app.actingAsService()]) {
+        for (const who of [
+            await app.actingAsAdmin(),
+            await app.actingAsSecurity(),
+            await app.actingAsService(),
+            await app.actingAsDeveloper(),
+        ]) {
             (await who.get(`/admin/sheechat/${inventory.account.id}/profile`)).assertStatus(200);
         }
-
-        const developer = await app.actingAsDeveloper();
-        // a developer's SheeChat is with the other developers only; they open staff profiles from /admin/profiles
-        (await developer.get(`/admin/sheechat/${inventory.account.id}/profile`)).assertStatus(404);
         (await app.client().get(`/admin/sheechat/${inventory.account.id}/profile`)).assertStatus(401);
     });
 
-    test("it's for the people on SheeChat: not yourself, a developer or an account that doesn't exist", async () => {
+    test("it's for the people on SheeChat, the developers too: not yourself or an account that doesn't exist", async () => {
         const sales = await app.actingAsSales();
         const developer = await app.actingAsDeveloper();
         (await sales.get(`/admin/sheechat/${sales.account.id}/profile`)).assertStatus(404);
-        (await sales.get(`/admin/sheechat/${developer.account.id}/profile`)).assertStatus(404);
+        (await sales.get(`/admin/sheechat/${developer.account.id}/profile`)).assertStatus(200);
         (await sales.get("/admin/sheechat/99999/profile")).assertStatus(404);
     });
 

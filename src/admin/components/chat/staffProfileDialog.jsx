@@ -11,7 +11,9 @@ const dayFormat = new Intl.DateTimeFormat(undefined, { month: "short", day: "num
 // a coworker's profile opened over SheeChat or any other staff page (profileViewer.jsx): their cover photo, photo, name, whether they're on, and the details they
 // keep on My account; a detail they haven't filled in is left out
 // person: who it's for, as the list has them, shown until the rest arrives
-// onMessage: opens a conversation with them, or null when theirs is already open; onClose: once it's closed
+// onMessage(who): opens a conversation with them, given the profile as loaded (or person until then), or null when
+// theirs is already open or it's your own; onClose: once it's closed
+/** @param {{ person: any, onMessage?: ((who: any) => void) | null, onClose: () => void }} props */
 export default function StaffProfileDialog({ person, onMessage = null, onClose }) {
     const dialogRef = useRef(null);
     const [profile, setProfile] = useState(null);
@@ -95,11 +97,12 @@ export default function StaffProfileDialog({ person, onMessage = null, onClose }
                             ))}
                         </dl>
                     )}
-                    {onMessage && !shown.disabled && (
+                    {/* nobody can be written to once their account is switched off or deleted */}
+                    {onMessage && !shown.disabled && !shown.deleted && (
                         <button
                             type="button"
                             className="admin-btn admin-btn-primary staff-profile-message"
-                            onClick={onMessage}
+                            onClick={() => onMessage(shown)}
                         >
                             Send a message
                         </button>

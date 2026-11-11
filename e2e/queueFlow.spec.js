@@ -1244,7 +1244,8 @@ test("a loading account reports a bug through the guided chat, and a developer m
     await expect(dev.getByRole("heading", { name: "In charge" })).toBeVisible();
     const concerns = dev.getByRole("region", { name: "Staff concerns" });
     await concerns.locator(".report-row", { hasText: crew.name }).click();
-    await expect(dev.getByRole("heading", { name: "Chat", exact: true })).toBeVisible();
+    await expect(dev).toHaveURL(/\/staff\/sheechat\?tab=concerns$/);
+    await expect(dev.getByRole("heading", { name: "Staff concerns", exact: true })).toBeVisible();
     // it's on Reports too
     await dev.getByRole("button", { name: /^Reports/ }).click();
     await expect(dev.locator(".report-row", { hasText: crew.name })).toBeVisible();
@@ -1462,4 +1463,70 @@ test("a profile opens from Accounts and from the developer heads, with a develop
     await expect(profile).toBeVisible();
     await expect(profile.getByText("Specialization")).toBeVisible();
     await page.screenshot({ path: "test-results/profile-from-developer-heads.png" });
+});
+
+// Send a message on anyone's profile opens your conversation with them on SheeChat, from any page; the developers'
+// SheeChat has every department on People, and their old Chat page is its Staff concerns tab
+test("Send a message on a profile opens SheeChat with them, and a developer's SheeChat has everyone and Staff concerns", async ({
+    page,
+    browser,
+}) => {
+    const stamp = Date.now();
+    const dev = { username: `e2e-msg-dev-${stamp}`, password: "e2e-password", name: `Dina Dev${stamp}`, role: "developer" };
+    const crew = { username: `e2e-msg-crew-${stamp}`, password: "e2e-password", name: `Lito Load${stamp}`, role: "loading" };
+
+    await page.goto("/staff/accounts");
+    await signIn(page, ADMIN.username, ADMIN.password);
+    await expect(page.getByRole("heading", { name: "Accounts", exact: true })).toBeVisible();
+    await api(page, "POST", "/admin/users", dev);
+    await api(page, "POST", "/admin/users", crew);
+
+    // an admin opens the developer's profile on Accounts and writes to them from it
+    await page.reload();
+    await page.locator(".employee-grid").getByRole("button", { name: `View ${dev.name}'s profile` }).click();
+    const profile = page.getByRole("dialog", { name: `${dev.name}'s profile` });
+    await profile.getByRole("button", { name: "Send a message" }).click();
+    await expect(profile).toBeHidden();
+    await expect(page).toHaveURL(/\/staff\/sheechat\?tab=staff$/);
+    const box = page.getByRole("textbox", { name: `Message to ${dev.name}` });
+    await box.fill(`Hello from the office ${stamp}`);
+    await box.press("Enter");
+    await expect(page.locator(".chat-messages").getByText(`Hello from the office ${stamp}`)).toBeVisible();
+    // the staff see the developers on People too, as a department of their own
+    await page.getByRole("button", { name: "People", exact: true }).click();
+    await expect(
+        page.getByRole("navigation", { name: "People" }).getByRole("heading", { name: /^Developer/ }),
+    ).toBeVisible();
+
+    // the developer: one SheeChat in the menu, no Chat, with the admin's message and every department on People
+    const theirs = await browser.newContext();
+    const devPage = await theirs.newPage();
+    watch(devPage);
+    await devPage.goto("/staff/login");
+    await signIn(devPage, dev.username, dev.password);
+    const menu = devPage.getByRole("navigation", { name: "Admin" });
+    await expect(menu.getByRole("link", { name: "Chat", exact: true })).toHaveCount(0);
+    await menu.getByRole("link", { name: "SheeChat" }).click();
+    await expect(devPage.getByRole("tab", { name: "Staff", exact: true })).toHaveAttribute("aria-selected", "true");
+    await expect(devPage.getByRole("tab", { name: "Staff concerns" })).toBeVisible();
+    const list = devPage.getByRole("navigation", { name: "Conversations" });
+    await expect(list.getByText(`Hello from the office ${stamp}`)).toBeVisible();
+
+    await devPage.getByRole("button", { name: "People", exact: true }).click();
+    const people = devPage.getByRole("navigation", { name: "People" });
+    await expect(people.getByRole("heading", { name: /^Loading/ })).toBeVisible();
+    await people.locator(".chat-list-item", { hasText: crew.name }).click();
+    await expect(devPage.getByRole("textbox", { name: `Message to ${crew.name}` })).toBeVisible();
+
+    // the old Chat address opens Staff concerns
+    await devPage.goto("/staff/chat");
+    await expect(devPage).toHaveURL(/\/staff\/sheechat\?tab=concerns$/);
+    await expect(devPage.getByRole("heading", { name: "Staff concerns", exact: true })).toBeVisible();
+
+    // their own chat head opens their profile, with no Send a message on it
+    await devPage.getByRole("button", { name: `View ${dev.name}'s profile` }).click();
+    const own = devPage.getByRole("dialog", { name: `${dev.name}'s profile` });
+    await expect(own.getByText("Developer", { exact: true })).toBeVisible();
+    await expect(own.getByRole("button", { name: "Send a message" })).toHaveCount(0);
+    await theirs.close();
 });

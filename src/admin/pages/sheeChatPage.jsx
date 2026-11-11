@@ -72,8 +72,7 @@ function Conversation({ person, meId, onSent, onProfile }) {
     );
 }
 
-// SheeChat: the staff chat with anyone else on the staff, and the developers with the other developers, one
-// conversation per person;
+// SheeChat: anyone on the staff chats with anyone else, the developers included, one conversation per person;
 // Conversations lists the people you've talked to, newest first, with how many of theirs you haven't opened; People
 // lists everyone by department, online ones first, to start a new one
 export default function SheeChatPage() {
@@ -129,10 +128,7 @@ export default function SheeChatPage() {
             <div>
                 <h1 className="admin-title">SheeChat</h1>
                 <p className="tab-hint">
-                    {user.role === "developer"
-                        ? "Chat with the rest of the IT department. Staff write to you on Chat."
-                        : "Chat with anyone on the staff."}{" "}
-                    Pick a conversation, or someone on People to start one. Click a photo to see their profile.
+                    Chat with anyone on the staff, the developers too. Pick a conversation, or someone on People to start one. Click a photo to see their profile.
                 </p>
             </div>
 

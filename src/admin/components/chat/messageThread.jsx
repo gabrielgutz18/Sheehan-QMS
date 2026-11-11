@@ -51,7 +51,7 @@ async function chatImage(file) {
 // imageUrl(message): where a picture is shown from (the developer chat's, unless SheeChat passes its own); disabled:
 // why nothing can be sent, e.g. the other person's account is switched off, or empty when it can
 // typing: who else is writing right now, [{ id, name }]; onTyping(): called as you write a message (see useTyping)
-// renderReport(message): a report's card (see concernCard.jsx); the Chat page passes one with the status buttons
+// renderReport(message): a report's card (see concernCard.jsx); Staff concerns passes one with the status buttons
 // bot: while a report is being answered on Message developer: after (the guided chat, after the messages), above (its
 // choices over the box), placeholder, locked (the box takes no words, e.g. while choices are asked) and step (to keep
 // the newest question in view); note: a bot message after the messages, e.g. that the developers are offline

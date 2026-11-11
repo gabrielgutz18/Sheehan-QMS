@@ -1,6 +1,6 @@
 import { CONCERN_KINDS } from "../../data/concerns.js";
 
-// the reports a developer still has to do something about: the ones shown at first on the Chat page's Reports, and
+// the reports a developer still has to do something about: the ones shown at first on Staff concerns' Reports, and
 // the only ones on the developers' Dashboard
 export const WAITING = ["open", "in_progress"];
 

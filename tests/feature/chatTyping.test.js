@@ -78,17 +78,16 @@ describe("typing on SheeChat", () => {
         assert.deepEqual(names(await loading.get(watching)), ["Maria Santos"]);
     });
 
-    test("yourself, a developer, or someone who doesn't exist is not found", async () => {
+    test("yourself, or someone who doesn't exist, is not found", async () => {
         const sales = await app.actingAsSales();
-        const developer = await app.actingAsDeveloper();
 
-        for (const id of [sales.account.id, developer.account.id, 9999]) {
+        for (const id of [sales.account.id, 9999]) {
             (await sales.get(`/admin/sheechat/${id}/typing`)).assertStatus(404);
             (await sales.post(`/admin/sheechat/${id}/typing`)).assertStatus(404);
         }
     });
 
-    test("a developer has typing on SheeChat with the other developers only", async () => {
+    test("a developer has typing on SheeChat with the other developers and the staff alike", async () => {
         const sales = await app.actingAsSales();
         const developer = await app.actingAsDeveloper();
         const another = await app.actingAsDeveloper("Ana Dev");
@@ -99,8 +98,11 @@ describe("typing on SheeChat", () => {
             ["Dev Coder"],
         );
 
-        (await developer.get(`/admin/sheechat/${sales.account.id}/typing`)).assertStatus(404);
-        (await developer.post(`/admin/sheechat/${sales.account.id}/typing`)).assertStatus(404);
+        (await developer.post(`/admin/sheechat/${sales.account.id}/typing`)).assertStatus(204);
+        assert.deepEqual(
+            (await sales.get(`/admin/sheechat/${developer.account.id}/typing`)).body.map((t) => t.name),
+            ["Dev Coder"],
+        );
     });
 });
 

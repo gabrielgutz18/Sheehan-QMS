@@ -1,5 +1,5 @@
 // the developers' Dashboard's Staff concerns: only the reports still Open or In progress count, by status and by kind,
-// with the newest few first; and how long ago each was sent, as Reports on the Chat page says it
+// with the newest few first; and how long ago each was sent, as Reports on Staff concerns says it
 // run: node --test tests/unit/waitingReports.test.js
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";

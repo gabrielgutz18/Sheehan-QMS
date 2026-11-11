@@ -137,7 +137,7 @@ const ANNOUNCER_REPEATS = [1, 2];
 // department (Tire, Battery) and hardware: the Hardware department, each the same as loading but for its own area
 // (src/data/loadingAreas.js); security: the guards at the gate, the last stage, who check what each customer leaves
 // with; cashier: who sets how each order is paid when its salesman isn't around; inventory: the inventory department, with no work page of its own
-// yet; developer: the team that builds the app, who answer staff on the Chat page when something doesn't go well
+// yet; developer: the team that builds the app, who answer staff on SheeChat's Staff concerns tab when something doesn't go well
 const ROLES = ["admin", "sales", "loading", "service", "hardware", "security", "cashier", "inventory", "developer"];
 const NO_SUCH_ROLE = "Pick admin, sales, loading, service, hardware, security, cashier, inventory or developer.";
 // a developer makes and changes accounts on Accounts too, but not admin ones, so they can't give themselves everything
@@ -198,8 +198,9 @@ const ACCOUNT_ROUTES = [
     // a coworker's profile, opened from their photo or name wherever it shows (Dashboard, Accounts, the chats)
     ["GET", /^\/admin\/profiles\/\d+$/],
 ];
-// SheeChat: one conversation per pair of people; the staff chat with one another, and the developers (the IT
-// department) with one another, but never across, so staff keep bringing their problems to Message developer
+// SheeChat: one conversation per pair of people, between anyone on the staff, the developers (the IT department)
+// included; a problem with the system still goes to Message developer, where every developer sees it and reports
+// are kept
 const SHEECHAT_ROUTES = [
     ["GET", /^\/admin\/sheechat$/],
     ["GET", /^\/admin\/sheechat\/people$/],
@@ -328,7 +329,7 @@ const ROLE_ROUTES = {
     // (with none of the sales details), SheeChat, Message developer and their own account; nothing they can call,
     // change or save in the queue
     inventory: [["GET", /^\/admin\/order-status$/], ...ACCOUNT_ROUTES, ...MESSAGE_ROUTES],
-    // the developers: the Chat page, answering what staff write from Message developer; the Order status board; and
+    // the developers: Staff concerns, answering what staff write from Message developer; the Order status board; and
     // Accounts, to make and fix staff accounts (not admin ones); nothing in the queue they can call, change or save
     developer: [
         ["GET", /^\/admin\/chats$/],
@@ -337,11 +338,9 @@ const ROLE_ROUTES = {
         ["POST", /^\/admin\/chats\/\d+\/image$/],
         ["GET", /^\/admin\/chats\/\d+\/typing$/],
         ["POST", /^\/admin\/chats\/\d+\/typing$/],
-        // their team, and which of them are online; and every other staff member, online or not, on the Chat page's
-        // Staff list
+        // their team, and which of them are online
         ["GET", /^\/admin\/developers$/],
-        ["GET", /^\/admin\/staff-presence$/],
-        // the Chat page's Reports: every report staff sent, and moving one along (In progress, Done, Declined, reopened)
+        // Staff concerns' Reports: every report staff sent, and moving one along (In progress, Done, Declined, reopened)
         ["GET", /^\/admin\/concerns$/],
         ["PATCH", /^\/admin\/concerns\/\d+$/],
         ["GET", /^\/admin\/order-status$/],
@@ -349,7 +348,7 @@ const ROLE_ROUTES = {
         // database; not Delete or Restore, which change the queue
         ["GET", /^\/admin\/history$/],
         ["POST", /^\/admin\/history\/purge$/],
-        // SheeChat, with the rest of the IT department only (the handler checks who's on the other side)
+        // SheeChat, with anyone on the staff
         ...SHEECHAT_ROUTES,
         ["GET", /^\/admin\/users$/],
         ["POST", /^\/admin\/users$/],
@@ -737,7 +736,7 @@ const toMessage = (row) => ({
               },
 });
 
-// one report on the Chat page's Reports list, with who sent it and the developer who last changed it
+// one report on Staff concerns' Reports list, with who sent it and the developer who last changed it
 const toConcern = (row) => ({
     id: row.id,
     kind: row.kind,
@@ -1584,7 +1583,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             WHERE u.dropped_at IS NULL
             ORDER BY u.disabled_at IS NOT NULL, u.role, u.name COLLATE NOCASE`),
 
-        // Message developer and the Chat page: one staff member's conversation with the developers, oldest first
+        // Message developer and Staff concerns: one staff member's conversation with the developers, oldest first
         threadMessages: db.prepare(`${MESSAGE_ROW} WHERE m.staff_id = ? ORDER BY m.id`),
         // image: the picture's file name in chat-images/, or null for a text message
         insertMessage: db.prepare(
@@ -1618,7 +1617,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         readQuestions: db.prepare(
             "UPDATE messages SET read_at = ? WHERE staff_id = ? AND sender_id = staff_id AND read_at IS NULL",
         ),
-        // the Chat page's list: everyone who has a conversation, the newest message first, with how many of theirs
+        // Staff concerns' list: everyone who has a conversation, the newest message first, with how many of theirs
         // no developer has read yet
         listChats: db.prepare(`
             SELECT u.id, ${chatName("u")} AS name, ${chatRole("u")} AS role, u.photo, u.disabled_at, u.dropped_at,
@@ -2627,9 +2626,9 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             return send(res, 200, sql.threadMessages.all(me.id).map(toMessage));
         }
 
-        // { body } → the message, from you to the developers; a developer answers on the Chat page instead
+        // { body } → the message, from you to the developers; a developer answers on Staff concerns instead
         if (method === "POST" && path === "/admin/messages") {
-            if (me.role === "developer") return send(res, 403, { message: "Answer staff on the Chat page." });
+            if (me.role === "developer") return send(res, 403, { message: "Answer staff on SheeChat's Staff concerns tab." });
             const body = messageBody(await readBody(req));
             if (!body) return send(res, 400, { message: `Write a message of up to ${MAX_MESSAGE} characters.` });
             const { lastInsertRowid } = sql.insertMessage.run(me.id, me.id, body, null, new Date().toISOString());
@@ -2639,7 +2638,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
 
         // a picture, sent as the image itself with its caption in ?body= → the message, from you to the developers
         if (method === "POST" && path === "/admin/messages/image") {
-            if (me.role === "developer") return send(res, 403, { message: "Answer staff on the Chat page." });
+            if (me.role === "developer") return send(res, 403, { message: "Answer staff on SheeChat's Staff concerns tab." });
             const saved = await saveChatImage(req, url, me.id);
             if (!saved.file) return send(res, saved.status, { message: saved.message });
             const { lastInsertRowid } = sql.insertMessage.run(
@@ -2655,7 +2654,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
 
         // Message developer's typing: POST says you're writing to the developers, GET says which of them are writing to you
         if (path === "/admin/messages/typing" && (method === "GET" || method === "POST")) {
-            if (me.role === "developer") return send(res, 403, { message: "Answer staff on the Chat page." });
+            if (me.role === "developer") return send(res, 403, { message: "Answer staff on SheeChat's Staff concerns tab." });
             if (method === "GET") return send(res, 200, typingIn(`staff:${me.id}`, me.id));
             noteTyping(`staff:${me.id}`, me);
             return send(res, 204);
@@ -2665,7 +2664,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
         // the report and its card are saved together
         if (method === "POST" && path === "/admin/concerns") {
             if (me.role === "developer")
-                return send(res, 403, { message: "Developers answer reports on the Chat page." });
+                return send(res, 403, { message: "Developers answer reports on SheeChat's Staff concerns tab." });
             const checked = checkConcern(await readBody(req), me);
             if (!checked.concern) return send(res, 400, { message: checked.message });
             const now = new Date().toISOString();
@@ -2684,7 +2683,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             return send(res, 201, toMessage(sql.findMessage.get(id)));
         }
 
-        // the Chat page's Reports, the developers' only: ?kind=, ?status= (one or several, comma-separated) and
+        // Staff concerns' Reports, the developers' only: ?kind=, ?status= (one or several, comma-separated) and
         // ?department= narrow it
         if (method === "GET" && path === "/admin/concerns") {
             if (me.role !== "developer") return send(res, 403, { message: "Only a developer can do that." });
@@ -2818,14 +2817,11 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             );
         }
 
-        // who you can chat with on SheeChat: anyone on your side but yourself, the staff with the staff and the
-        // developers with the developers; a developer answers staff on the Chat page, and staff write to the
-        // developers from Message developer, where every developer sees it and reports are kept
-        const sheeChatsWith = (other) =>
-            other.id !== me.id && (other.role === "developer") === (me.role === "developer");
+        // who you can chat with on SheeChat: anyone but yourself, every department and the developers alike; a
+        // conversation with a developer is between the two of you, while Message developer goes to the whole team
+        const sheeChatsWith = (other) => other.id !== me.id;
 
-        // SheeChat's list: everyone you have a conversation with, newest first, with how many of theirs you haven't
-        // read; one from before someone moved to or from the IT department stays out, as it can't be opened
+        // SheeChat's list: everyone you have a conversation with, newest first, with how many of theirs you haven't read
         if (method === "GET" && path === "/admin/sheechat") {
             return send(
                 res,
@@ -2853,8 +2849,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             );
         }
 
-        // SheeChat's People list: everyone you can chat with, online first, to start a conversation; the other
-        // developers for a developer, every other staff member but the developers for the rest
+        // SheeChat's People list: everyone but you, online first, to start a conversation
         if (method === "GET" && path === "/admin/sheechat/people") {
             return send(res, 200, presence().filter(sheeChatsWith));
         }
@@ -2931,7 +2926,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             }
         }
 
-        // the developer team, for Message developer and the Chat page's chat heads
+        // the developer team, for Message developer and Staff concerns' chat heads
         if (method === "GET" && path === "/admin/developers") {
             return send(
                 res,
@@ -2940,17 +2935,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             );
         }
 
-        // the Chat page's Staff list, the developers' only: everyone else, for the page to group by department
-        if (method === "GET" && path === "/admin/staff-presence") {
-            if (me.role !== "developer") return send(res, 403, { message: "Only a developer can do that." });
-            return send(
-                res,
-                200,
-                presence().filter((account) => account.role !== "developer"),
-            );
-        }
-
-        // the Chat page, the developers' only (an admin writes to them from Message developer like everyone else):
+        // Staff concerns, the developers' only (an admin writes to them from Message developer like everyone else):
         // everyone who has written, newest first
         if (method === "GET" && path === "/admin/chats") {
             if (me.role !== "developer") return send(res, 403, { message: "Only a developer can do that." });
@@ -2996,7 +2981,7 @@ export function createApi({ adminUsername, adminPassword, dataDir, backupDir, go
             return send(res, 201, toMessage(sql.findMessage.get(lastInsertRowid)));
         }
 
-        // the Chat page's typing: POST says you're answering them, GET says who else is writing there, them or another
+        // Staff concerns' typing: POST says you're answering them, GET says who else is writing there, them or another
         // developer, so two developers don't answer the same thing
         const chatTyping = path.match(/^\/admin\/chats\/(\d+)\/typing$/);
         if (chatTyping && (method === "GET" || method === "POST")) {

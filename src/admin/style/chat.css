@@ -1,4 +1,4 @@
-/* Message developer and the developers' Chat page: one conversation, staff on one side and the developers on the other */
+/* Message developer and Staff concerns: one conversation, staff on one side and the developers on the other */
 .chat-panel {
   display: flex;
   flex-direction: column;
@@ -359,7 +359,7 @@
   gap: 8px;
 }
 
-/* the Chat page: the conversations on the left, the open one beside them */
+/* Staff concerns: the conversations on the left, the open one beside them */
 .chat-layout {
   display: grid;
   grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
@@ -651,7 +651,7 @@
   color: #15803d;
 }
 
-/* the Chat page's left column: Conversations or Staff */
+/* Staff concerns' left column: Conversations or Reports */
 .chat-views {
   margin: 4px 4px 10px;
 }
@@ -1136,7 +1136,7 @@
   border-color: #e4e4e7;
 }
 
-/* the Chat page's Reports: filters on top, then one row a report */
+/* Staff concerns' Reports: filters on top, then one row a report */
 .report-list {
   display: flex;
   flex-direction: column;
