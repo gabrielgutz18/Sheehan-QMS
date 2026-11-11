@@ -209,6 +209,7 @@ On every start, any `.sql` file not yet listed in `schema_migrations` runs, in n
 | [`045_loading_member_area.sql`](../server/migrations/045_loading_member_area.sql) | adds `loading_area` to `users`: the loading crew's area a loading account works in (Roofings, Steel or Logistics), set by an admin on Accounts so the crew shows grouped by area; `''` for none and for every other role |
 | [`046_chassis_joins_loading.sql`](../server/migrations/046_chassis_joins_loading.sql) | Chassis becomes one of the loading crew's areas, beside Roofings, Steel and Logistics: rebuilds `users` without the `chassis` role, moves its accounts to `loading` and sets their `loading_area` to `Chassis` (not a deleted one's); the area keeps its name, so orders, loads and security checks are left alone |
 | [`047_developer_specialization.sql`](../server/migrations/047_developer_specialization.sql) | adds `specialization` to `users`: what a developer (the IT department) does, e.g. Web developer, typed on My account and shown on their profile; `''` for none and for every other role |
+| [`048_stainless_order_type.sql`](../server/migrations/048_stainless_order_type.sql) | the For Logistics type of order becomes Stainless (tickets start ST, not LS): renames it in `orders.purpose`, alone or in a list, and in `order_invoices.type`; the area stays Logistics, and the edits already kept are left as they were |
 
 **Changing the tables later:** never edit a file that has already run anywhere. Add the next number instead, for example `server/migrations/006_add_counter_number.sql`:
 

@@ -255,7 +255,7 @@ test("By product splits the Cashier's orders by type, and a mixed ticket has one
         "Tire",
         "Battery",
         "Chassis",
-        "For Logistics",
+        "Stainless",
     ]) {
         await expect(products.getByRole("button", { name: new RegExp(`^${name} \\d+$`) })).toBeVisible();
     }

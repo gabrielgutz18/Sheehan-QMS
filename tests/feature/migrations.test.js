@@ -1347,3 +1347,49 @@ test("047 adds a specialization to every account, none to start with", () => {
         db.close();
     }
 });
+
+// 048 renames the For Logistics type of order to Stainless on the orders already taken, alone or in a list, and on
+// their invoices, so their tickets show ST and they stay at the Logistics area; every other order is left as it was
+test("048 turns For Logistics orders and invoices into Stainless ones and leaves every other order as it was", () => {
+    const old = databaseBefore("048");
+    old.exec(`
+        INSERT INTO orders (id, queue_date, queue_num, name, purpose, status, loading_area, created_at)
+            VALUES (1, '2026-11-10', 1, 'Only stainless', 'For Logistics', 'pending', 'Logistics', '2026-11-10T09:00:00.000Z'),
+                   (2, '2026-11-10', 2, 'Steel and stainless', 'Steel, For Logistics', 'pending', '', '2026-11-10T09:00:00.000Z'),
+                   (3, '2026-11-10', 3, 'Only steel', 'Steel', 'pending', '', '2026-11-10T09:00:00.000Z');
+        INSERT INTO order_invoices (order_id, position, invoice_no, type)
+            VALUES (1, 0, '701', 'For Logistics'),
+                   (2, 0, '101', 'Steel'),
+                   (2, 1, '702', 'For Logistics'),
+                   (3, 0, '102', 'Steel');
+    `);
+    old.close();
+
+    const quiet = mock.method(console, "log", () => {});
+    const db = openDatabase(dataDir);
+    quiet.mock.restore();
+
+    try {
+        const orders = db
+            .prepare("SELECT id, purpose, loading_area FROM orders ORDER BY id")
+            .all()
+            .map(({ id, purpose, loading_area }) => [id, purpose, loading_area]);
+        assert.deepEqual(orders, [
+            [1, "Stainless", "Logistics"],
+            [2, "Steel, Stainless", ""],
+            [3, "Steel", ""],
+        ]);
+        const invoices = db
+            .prepare("SELECT invoice_no, type FROM order_invoices ORDER BY invoice_no")
+            .all()
+            .map(({ invoice_no, type }) => [invoice_no, type]);
+        assert.deepEqual(invoices, [
+            ["101", "Steel"],
+            ["102", "Steel"],
+            ["701", "Stainless"],
+            ["702", "Stainless"],
+        ]);
+    } finally {
+        db.close();
+    }
+});
