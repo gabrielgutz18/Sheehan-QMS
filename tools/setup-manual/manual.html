@@ -705,8 +705,8 @@
                 <div class="cover-brand"><img src="{{logo}}" alt="" /><span>Sheehan Inc.</span></div>
                 <h1>Device setup manual</h1>
                 <p class="cover-sub">
-                    Set up a PC or phone for Sheehan QMS: the certificate, the app, and the ticket printer's 5.5 × 8.5
-                    in paper. Step by step, with pictures.
+                    Set up a PC or phone for Sheehan QMS: the certificate, the app, and the ticket printer's 8.5 × 13 in
+                    long paper. Step by step, with pictures.
                 </p>
             </div>
 
@@ -736,8 +736,8 @@
                     </h3>
                     <ul>
                         <li>
-                            <b>Set the ticket paper</b> to 5.5 × 8.5 in, once, so tickets aren't cut in half or printed
-                            on Letter.
+                            <b>Set the ticket paper</b> to 8.5 × 13 in (long), once, so tickets fill the whole sheet and
+                            aren't sized for Letter.
                         </li>
                     </ul>
                 </div>
@@ -749,7 +749,7 @@
                     <li><b>Open Settings</b><span>where every set-up tool is, in the menu</span></li>
                     <li><b>Install the certificate</b><span>once per device, for the secure address</span></li>
                     <li><b>Install the app</b><span>an icon on the desktop and Start menu</span></li>
-                    <li><b>Set the ticket paper to 5.5 × 8.5 in</b><span>on the PC with the ticket printer</span></li>
+                    <li><b>Set the ticket paper to 8.5 × 13 in</b><span>on the PC with the ticket printer</span></li>
                     <li><b>If something goes wrong</b><span>the usual problems and their fixes</span></li>
                 </ol>
             </div>
@@ -1000,41 +1000,89 @@
             <div class="section-head">
                 <div class="section-num">4</div>
                 <div>
-                    <h2>Set the ticket paper to 5.5 × 8.5 in</h2>
+                    <h2>Set the ticket paper to 8.5 × 13 in</h2>
                     <p>Once, on the PC with the ticket printer.</p>
                 </div>
             </div>
 
             <p class="lead">
-                Tickets print on half letter paper, <b>5.5 × 8.5 in</b>, fed in standing up. The app asks the browser for that
-                size, but the browser can only use sizes the printer has in Windows. If it isn't there, the browser falls back to
-                <b>Letter (8.5 × 11 in)</b> and the ticket comes out cut in half or in the wrong place.
+                Tickets print on long paper, <b>8.5 × 13 in</b>, fed in standing up. The ticket is enlarged to fill
+                whatever paper size the print window says, and the browser can only offer sizes the printer has in
+                Windows. If 8.5 × 13 in isn't there, it uses <b>Letter (8.5 × 11 in)</b> and the ticket comes out
+                smaller than the sheet.
             </p>
 
             <h3 class="sub">How the paper goes in</h3>
             <figure>
-                <svg viewBox="0 0 700 250" width="100%" role="img" aria-label="Feed the paper standing up, 5.5 inches wide">
+                <svg
+                    viewBox="0 0 700 250"
+                    width="100%"
+                    role="img"
+                    aria-label="Feed the paper standing up, 8.5 inches wide"
+                >
                     <defs>
-                        <marker id="down" viewBox="0 0 10 10" refX="5" refY="8" markerWidth="8" markerHeight="8" orient="auto">
+                        <marker
+                            id="down"
+                            viewBox="0 0 10 10"
+                            refX="5"
+                            refY="8"
+                            markerWidth="8"
+                            markerHeight="8"
+                            orient="auto"
+                        >
                             <path d="M0 0l10 5-10 5z" fill="#c8202a" />
                         </marker>
-                        <marker id="dim" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <marker
+                            id="dim"
+                            viewBox="0 0 10 10"
+                            refX="5"
+                            refY="5"
+                            markerWidth="6"
+                            markerHeight="6"
+                            orient="auto-start-reverse"
+                        >
                             <path d="M0 0l10 5-10 5z" fill="#52525b" />
                         </marker>
                     </defs>
                     <g font-family="Segoe UI, sans-serif" font-size="12">
                         <!-- right way: standing up, the short side first; the ticket on it turned a quarter turn -->
-                        <text x="10" y="16" font-weight="700" fill="#166534">✓ RIGHT: standing up, the short side goes in first</text>
-                        <line x1="138" y1="34" x2="222" y2="34" stroke="#52525b" marker-start="url(#dim)" marker-end="url(#dim)" />
-                        <text x="180" y="29" text-anchor="middle" font-weight="700">5.5 in</text>
-                        <line x1="122" y1="42" x2="122" y2="172" stroke="#52525b" marker-start="url(#dim)" marker-end="url(#dim)" />
-                        <text x="116" y="111" text-anchor="end" font-weight="700">8.5 in</text>
+                        <text x="10" y="16" font-weight="700" fill="#166534">
+                            ✓ RIGHT: standing up, the short side goes in first
+                        </text>
+                        <line
+                            x1="138"
+                            y1="34"
+                            x2="222"
+                            y2="34"
+                            stroke="#52525b"
+                            marker-start="url(#dim)"
+                            marker-end="url(#dim)"
+                        />
+                        <text x="180" y="29" text-anchor="middle" font-weight="700">8.5 in</text>
+                        <line
+                            x1="122"
+                            y1="42"
+                            x2="122"
+                            y2="172"
+                            stroke="#52525b"
+                            marker-start="url(#dim)"
+                            marker-end="url(#dim)"
+                        />
+                        <text x="116" y="111" text-anchor="end" font-weight="700">13 in</text>
                         <rect x="138" y="42" width="84" height="130" fill="#fff" stroke="#27272a" stroke-width="1.5" />
                         <line x1="146" y1="48" x2="146" y2="166" stroke="#27272a" stroke-dasharray="3 2" />
                         <rect x="152" y="104" width="10" height="60" fill="#e4e4e7" />
                         <rect x="166" y="104" width="46" height="60" fill="none" stroke="#a1a1aa" />
                         <rect x="152" y="50" width="60" height="48" fill="none" stroke="#a1a1aa" />
-                        <line x1="180" y1="176" x2="180" y2="196" stroke="#c8202a" stroke-width="3" marker-end="url(#down)" />
+                        <line
+                            x1="180"
+                            y1="176"
+                            x2="180"
+                            y2="196"
+                            stroke="#c8202a"
+                            stroke-width="3"
+                            marker-end="url(#down)"
+                        />
                         <rect x="30" y="200" width="300" height="48" rx="10" fill="#3f3f46" />
                         <rect x="130" y="207" width="100" height="8" rx="3" fill="#18181b" />
                         <text x="180" y="236" text-anchor="middle" fill="#fff" font-weight="600">printer</text>
@@ -1042,18 +1090,30 @@
                         <text x="236" y="114" fill="#3f3f46" font-size="11">on its side</text>
                         <!-- wrong way: lying across -->
                         <text x="400" y="16" font-weight="700" fill="#b91c1c">✗ WRONG: lying across</text>
-                        <rect x="430" y="50" width="180" height="116" fill="#fff" stroke="#b91c1c" stroke-width="1.5" stroke-dasharray="5 3" />
+                        <rect
+                            x="430"
+                            y="50"
+                            width="180"
+                            height="116"
+                            fill="#fff"
+                            stroke="#b91c1c"
+                            stroke-width="1.5"
+                            stroke-dasharray="5 3"
+                        />
                         <line x1="430" y1="50" x2="610" y2="166" stroke="#b91c1c" stroke-width="3" />
                         <line x1="610" y1="50" x2="430" y2="166" stroke="#b91c1c" stroke-width="3" />
-                        <text x="520" y="42" text-anchor="middle" fill="#b91c1c" font-size="11">8.5 in wide</text>
+                        <text x="520" y="42" text-anchor="middle" fill="#b91c1c" font-size="11">13 in wide</text>
                         <rect x="370" y="200" width="300" height="48" rx="10" fill="#d4d4d8" />
                         <rect x="392" y="207" width="256" height="8" rx="3" fill="#a1a1aa" />
-                        <text x="520" y="236" text-anchor="middle" fill="#52525b" font-weight="600">the ticket comes out cut off</text>
+                        <text x="520" y="236" text-anchor="middle" fill="#52525b" font-weight="600">
+                            the ticket comes out cut off
+                        </text>
                     </g>
                 </svg>
                 <figcaption>
-                    Slide the printer's paper guides to 5.5 in. The ticket prints turned a quarter turn, its top (the
-                    dashed line) along the left edge, so it reads across when you turn the paper.
+                    Slide the printer's paper guides to 8.5 in. The ticket prints enlarged to fill the sheet, turned a
+                    quarter turn, its top (the dashed line) along the left edge, so it reads across when you turn the
+                    paper.
                 </figcaption>
             </figure>
 
@@ -1139,9 +1199,9 @@
                 Step 1 · Create the paper size, if the printer has none <span class="tag">needs administrator</span>
             </h3>
             <div class="note tip">
-                <b>Most printers already have it: Statement (5.5 × 8.5 in)</b>Look in the printer's
-                <b>Printing preferences</b> (Step 2) first. If <b>Statement</b> is in its Paper size list, pick it and
-                skip this step.
+                <b>Most printers already have it: Folio (8.5 × 13 in)</b>Look in the printer's
+                <b>Printing preferences</b> (Step 2) first. If <b>Folio</b> is in its Paper size list, pick it and skip
+                this step.
             </div>
             <div class="two-wide">
                 <div>
@@ -1154,9 +1214,9 @@
                             Tick <b>Create a new form</b>. If it's greyed out, click <b>Change form settings</b> at the
                             bottom first.
                         </li>
-                        <li>Name it <code>Ticket 5.5x8.5</code>.</li>
+                        <li>Name it <code>Ticket 8.5x13</code>.</li>
                         <li>
-                            Choose <b>English</b>, then type Width <code>5.50in</code> and Height <code>8.50in</code>.
+                            Choose <b>English</b>, then type Width <code>8.50in</code> and Height <code>13.00in</code>.
                             Set all four margins to <code>0.00in</code>.
                         </li>
                         <li>Click <b>Save Form</b>, then <b>Close</b>.</li>
@@ -1188,12 +1248,12 @@
                             <div class="muted" style="margin-bottom: 4px">Forms on: PC1</div>
                             <div class="win-list">
                                 <div>Letter</div>
-                                <div>Statement</div>
-                                <div class="sel">Ticket 5.5x8.5</div>
+                                <div>Folio</div>
+                                <div class="sel">Ticket 8.5x13</div>
                             </div>
                             <div class="win-row">
                                 <span style="width: 74px">Form name:</span>
-                                <div class="win-field hl">Ticket 5.5x8.5</div>
+                                <div class="win-field hl">Ticket 8.5x13</div>
                                 <span class="pin in">3</span>
                             </div>
                             <div class="win-row">
@@ -1211,11 +1271,11 @@
                                     <span style="grid-column: span 2"><b>Paper size</b></span
                                     ><span style="grid-column: span 2"><b>Printer area margins</b></span>
                                     <span>Width:</span>
-                                    <div class="win-field hl">5.50in</div>
+                                    <div class="win-field hl">8.50in</div>
                                     <span>Left:</span>
                                     <div class="win-field">0.00in</div>
                                     <span>Height:</span>
-                                    <div class="win-field hl">8.50in</div>
+                                    <div class="win-field hl">13.00in</div>
                                     <span>Right:</span>
                                     <div class="win-field">0.00in</div>
                                     <span></span><span></span><span>Top:</span>
@@ -1242,67 +1302,69 @@
             </div>
 
             <div class="keep">
-<h3 class="sub">Step 2 · Make it the printer's paper</h3>
-            <div class="two-wide">
-                <div>
-                    <ol class="steps pins">
-                        <li>
-                            Open <b>Settings → Bluetooth &amp; devices → Printers &amp; scanners</b> and click the
-                            ticket printer.
-                        </li>
-                        <li>
-                            Click <b>Printing preferences</b>. On a shared printer (A), set it on the PC with the
-                            printer under <b>Printer properties → Advanced → Printing Defaults</b> instead, so every PC
-                            gets it.
-                        </li>
-                        <li>
-                            Set <b>Paper size</b> to <b>Statement</b>, or <b>Ticket 5.5x8.5</b> if you made it. It may be on a <i>Paper</i>,
-                            <i>Paper/Quality</i> or <i>Advanced</i> page.
-                        </li>
-                        <li>
-                            Set <b>Orientation</b> to <b>Portrait</b>: the paper goes in standing up. Click <b>OK</b>.
-                        </li>
-                    </ol>
-                </div>
-                <figure>
-                    <div class="win">
-                        <div class="win-title"><span>Ticket Printer Printing Preferences</span><i>✕</i></div>
-                        <div class="win-tabs">
-                            <span class="on">Paper/Quality</span><span>Layout</span><span>Advanced</span>
-                        </div>
-                        <div class="win-body">
-                            <div class="win-row">
-                                <span style="width: 76px">Paper size:</span>
-                                <div class="win-field dd hl">Statement (5.5 × 8.5 in)</div>
-                                <span class="pin in">3</span>
+                <h3 class="sub">Step 2 · Make it the printer's paper</h3>
+                <div class="two-wide">
+                    <div>
+                        <ol class="steps pins">
+                            <li>
+                                Open <b>Settings → Bluetooth &amp; devices → Printers &amp; scanners</b> and click the
+                                ticket printer.
+                            </li>
+                            <li>
+                                Click <b>Printing preferences</b>. On a shared printer (A), set it on the PC with the
+                                printer under <b>Printer properties → Advanced → Printing Defaults</b> instead, so every
+                                PC gets it.
+                            </li>
+                            <li>
+                                Set <b>Paper size</b> to <b>Folio</b>, or <b>Ticket 8.5x13</b> if you made it. It may be
+                                on a <i>Paper</i>, <i>Paper/Quality</i> or <i>Advanced</i> page.
+                            </li>
+                            <li>
+                                Set <b>Orientation</b> to <b>Portrait</b>: the paper goes in standing up. Click
+                                <b>OK</b>.
+                            </li>
+                        </ol>
+                    </div>
+                    <figure>
+                        <div class="win">
+                            <div class="win-title"><span>Ticket Printer Printing Preferences</span><i>✕</i></div>
+                            <div class="win-tabs">
+                                <span class="on">Paper/Quality</span><span>Layout</span><span>Advanced</span>
                             </div>
-                            <div class="win-row">
-                                <span style="width: 76px">Paper source:</span>
-                                <div class="win-field dd">Manual feed</div>
-                            </div>
-                            <div class="win-box">
-                                <span class="win-legend">Orientation</span>
-                                <div class="win-row" style="gap: 18px">
-                                    <span class="hl" style="padding: 0 3px"><span class="radio on"></span>Portrait</span
-                                    ><span><span class="radio"></span>Landscape</span><span class="pin in">4</span>
+                            <div class="win-body">
+                                <div class="win-row">
+                                    <span style="width: 76px">Paper size:</span>
+                                    <div class="win-field dd hl">Folio (8.5 × 13 in)</div>
+                                    <span class="pin in">3</span>
+                                </div>
+                                <div class="win-row">
+                                    <span style="width: 76px">Paper source:</span>
+                                    <div class="win-field dd">Manual feed</div>
+                                </div>
+                                <div class="win-box">
+                                    <span class="win-legend">Orientation</span>
+                                    <div class="win-row" style="gap: 18px">
+                                        <span class="hl" style="padding: 0 3px"
+                                            ><span class="radio on"></span>Portrait</span
+                                        ><span><span class="radio"></span>Landscape</span><span class="pin in">4</span>
+                                    </div>
                                 </div>
                             </div>
+                            <div class="win-foot">
+                                <span class="wbtn blue">OK</span><span class="wbtn">Cancel</span
+                                ><span class="wbtn muted">Apply</span>
+                            </div>
                         </div>
-                        <div class="win-foot">
-                            <span class="wbtn blue">OK</span><span class="wbtn">Cancel</span
-                            ><span class="wbtn muted">Apply</span>
+                        <figcaption>
+                            <span class="drawn">Drawing</span> · names differ by printer; look for Paper size and
+                            Orientation
+                        </figcaption>
+                        <div class="note info">
+                            <b>Epson and some other printers</b>Their own window may not list Windows' sizes. Look for
+                            <b>User Defined</b> or <b>Custom</b> paper and type 8.5 in wide and 13 in long there.
                         </div>
-                    </div>
-                    <figcaption>
-                        <span class="drawn">Drawing</span> · names differ by printer; look for Paper size and
-                        Orientation
-                    </figcaption>
-                    <div class="note info">
-                        <b>Epson and some other printers</b>Their own window may not list Windows' sizes. Look for
-                        <b>User Defined</b> or <b>Custom</b> paper and type 5.5 in wide and 8.5 in long there.
-                    </div>
-                </figure>
-            </div>
+                    </figure>
+                </div>
             </div>
         </section>
 
@@ -1335,7 +1397,7 @@
                             <div class="c-more">More settings</div>
                             <div class="c-row">
                                 <label><span class="pin in">2</span>Paper size</label>
-                                <div class="c-sel hl">Statement</div>
+                                <div class="c-sel hl">Folio</div>
                             </div>
                             <div class="c-row">
                                 <label><span class="pin in">3</span>Margins</label>
@@ -1362,8 +1424,9 @@
                             opens.
                         </li>
                         <li>
-                            Open <b>More settings</b>. <b>Paper size</b> should already say <b>Statement</b> (or <b>Ticket
-                            5.5x8.5</b>). If it says Letter, pick it once; the browser remembers it for this printer.
+                            Open <b>More settings</b>. <b>Paper size</b> should already say <b>Folio</b> (or
+                            <b>Ticket 8.5x13</b>). If it says Letter, pick it once; the browser remembers it for this
+                            printer.
                         </li>
                         <li><b>Margins</b>: <b>None</b>.</li>
                         <li><b>Scale</b>: <b>Default</b> (100%), never <i>Fit to page</i>.</li>
@@ -1376,17 +1439,26 @@
             </div>
 
             <div class="keep">
-<h3 class="sub">What comes out</h3>
-            <figure>
-                <div class="out">
-                    <div><img class="shot" src="{{ticket-page}}" alt="" /><p>As it comes out of the printer</p></div>
-                    <svg viewBox="0 0 60 40" width="60" aria-hidden="true"><path d="M8 26a16 16 0 0 1 30-10" fill="none" stroke="#a1a1aa" stroke-width="3"/><path d="M34 6l6 11-12 1z" fill="#a1a1aa"/></svg>
-                    <div><img class="shot" src="{{ticket}}" alt="" /><p>Turned a quarter turn, to read</p></div>
-                </div>
-                <figcaption style="text-align: center">
-                    The whole ticket on one half letter sheet: the ticket's boxes and the invoice table, nothing cut off.
-                </figcaption>
-            </figure>
+                <h3 class="sub">What comes out</h3>
+                <figure>
+                    <div class="out">
+                        <div>
+                            <img class="shot" src="{{ticket-page}}" alt="" />
+                            <p>As it comes out of the printer</p>
+                        </div>
+                        <svg viewBox="0 0 60 40" width="60" aria-hidden="true">
+                            <path d="M8 26a16 16 0 0 1 30-10" fill="none" stroke="#a1a1aa" stroke-width="3" />
+                            <path d="M34 6l6 11-12 1z" fill="#a1a1aa" />
+                        </svg>
+                        <div>
+                            <img class="shot" src="{{ticket}}" alt="" />
+                            <p>Turned a quarter turn, to read</p>
+                        </div>
+                    </div>
+                    <figcaption style="text-align: center">
+                        The whole ticket on one long sheet: the ticket's boxes and the invoice table, nothing cut off.
+                    </figcaption>
+                </figure>
             </div>
         </section>
 
@@ -1406,11 +1478,11 @@
                     <th>What to do</th>
                 </tr>
                 <tr>
-                    <td>The ticket is cut in half</td>
+                    <td>The ticket is smaller than the sheet, or its end is cut off</td>
                     <td>
-                        The browser printed on <b>Letter</b>, because the printer doesn't have the 5.5 × 8.5 in size, or the paper
-                        went in lying across. Feed it standing up, the short side first, and set the paper size to
-                        <b>Statement</b> (or <b>Ticket 5.5x8.5</b>), <b>Portrait</b> (part 4).
+                        The browser sized it for <b>Letter</b>, because the printer doesn't have the 8.5 × 13 in size,
+                        or the paper went in lying across. Feed it standing up, the short side first, and set the paper
+                        size to <b>Folio</b> (or <b>Ticket 8.5x13</b>), <b>Portrait</b> (part 4).
                     </td>
                 </tr>
                 <tr>
@@ -1421,10 +1493,10 @@
                     </td>
                 </tr>
                 <tr>
-                    <td>Neither <i>Statement</i> nor <i>Ticket 5.5x8.5</i> is in the printer's list</td>
+                    <td>Neither <i>Folio</i> nor <i>Ticket 8.5x13</i> is in the printer's list</td>
                     <td>
-                        Some printers keep their own list. Use their <b>User Defined</b> or <b>Custom</b> size, 5.5 in
-                        wide and 8.5 in long.
+                        Some printers keep their own list. Use their <b>User Defined</b> or <b>Custom</b> size, 8.5 in
+                        wide and 13 in long.
                     </td>
                 </tr>
                 <tr>
@@ -1434,7 +1506,8 @@
                 <tr>
                     <td>A blank sheet comes out after the ticket</td>
                     <td>
-                        The printer still thinks the paper is Letter. Check its <b>Printing preferences</b> (Step 2).
+                        The printer still thinks the paper is another size. Check its <b>Printing preferences</b> (Step
+                        2).
                     </td>
                 </tr>
                 <tr>

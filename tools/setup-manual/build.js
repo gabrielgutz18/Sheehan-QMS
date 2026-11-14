@@ -68,19 +68,19 @@ async function takeScreenshots(browser) {
     await page.getByLabel("Salesman name").fill("Maria Santos");
     await page.getByRole("button", { name: "Serve", exact: true }).click();
     await page.getByRole("button", { name: "New order" }).waitFor();
-    // as the printer gets it: the print styles put the ticket alone on a 5.5 × 8.5 in page (528 × 816 px), turned a
-    // quarter turn, since the paper goes in standing up
+    // as the printer gets it: the print styles put the ticket alone on an 8.5 × 13 in long page (816 × 1248 px),
+    // enlarged to fill it and turned a quarter turn, since the paper goes in standing up
     await page.emulateMedia({ media: "print" });
-    await page.setViewportSize({ width: 528, height: 816 });
+    await page.setViewportSize({ width: 816, height: 1248 });
     const jpeg = { type: /** @type {const} */ ("jpeg"), quality: 88 };
     shots["ticket-page"] = dataUri(
-        await page.screenshot({ ...jpeg, clip: { x: 0, y: 0, width: 528, height: 816 } }),
+        await page.screenshot({ ...jpeg, clip: { x: 0, y: 0, width: 816, height: 1248 } }),
         "image/jpeg",
     );
     // and the same ticket read the right way round, as staff hold the printed paper
     await page.addStyleTag({
         content:
-            ".receipt-section, .receipt-section .ticket-sheet { position: static !important; width: 8.5in !important; transform: none !important; }",
+            ".receipt-section { position: static !important; width: auto !important; height: auto !important; } .receipt-section .ticket-sheet { --ticket-px: 1px !important; position: static !important; margin: 25px 36px !important; transform: none !important; }",
     });
     await page.setViewportSize({ width: 816, height: 528 });
     shots.ticket = dataUri(
