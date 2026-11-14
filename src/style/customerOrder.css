@@ -1,196 +1,207 @@
 /* sizes are multiples of --u, which falls back to 1px; a page can set it to scale everything up */
 
 .order-page {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  /* sit the form in the middle of the screen, not pinned under the header */
-  justify-content: safe center;
-  gap: calc(var(--u, 1px) * 56);
-  padding: calc(var(--u, 1px) * 24) calc(var(--u, 1px) * 16);
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* sit the form in the middle of the screen, not pinned under the header */
+    justify-content: safe center;
+    gap: calc(var(--u, 1px) * 56);
+    padding: calc(var(--u, 1px) * 24) calc(var(--u, 1px) * 16);
 }
 
 .submit-btn {
-  width: calc(var(--u, 1px) * 220);
-  height: calc(var(--u, 1px) * 52);
-  margin-top: calc(var(--u, 1px) * 4);
-  font: inherit;
-  font-size: calc(var(--u, 1px) * 18);
-  font-weight: 700;
-  color: var(--text-dark);
-  background: var(--cream);
-  border: 1px solid var(--cream);
-  border-radius: 2px;
-  cursor: pointer;
-  transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+    width: calc(var(--u, 1px) * 220);
+    height: calc(var(--u, 1px) * 52);
+    margin-top: calc(var(--u, 1px) * 4);
+    font: inherit;
+    font-size: calc(var(--u, 1px) * 18);
+    font-weight: 700;
+    color: var(--text-dark);
+    background: var(--cream);
+    border: 1px solid var(--cream);
+    border-radius: 2px;
+    cursor: pointer;
+    transition:
+        background 0.2s,
+        transform 0.1s,
+        box-shadow 0.2s;
 }
 
 /* sits right under Submit; the form's large gap is pulled in so it reads as part of the button */
 .submit-hint {
-  margin: calc(var(--u, 1px) * -12) 0 0;
-  font-size: calc(var(--u, 1px) * 16);
-  color: var(--text-muted);
+    margin: calc(var(--u, 1px) * -12) 0 0;
+    font-size: calc(var(--u, 1px) * 16);
+    color: var(--text-muted);
 }
 
 .submit-btn:hover {
-  background: var(--cream-hover);
-  box-shadow: 0 calc(var(--u, 1px) * 4) calc(var(--u, 1px) * 12) rgba(0, 0, 0, 0.08);
+    background: var(--cream-hover);
+    box-shadow: 0 calc(var(--u, 1px) * 4) calc(var(--u, 1px) * 12) rgba(0, 0, 0, 0.08);
 }
 
 .submit-btn:active {
-  transform: translateY(1px);
+    transform: translateY(1px);
 }
 
 .submit-btn:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 calc(var(--u, 1px) * 3) var(--focus-ring);
+    outline: none;
+    box-shadow: 0 0 0 calc(var(--u, 1px) * 3) var(--focus-ring);
 }
 
 /* ---------- success state ---------- */
 .order-card.success {
-  gap: calc(var(--u, 1px) * 20);
-  max-width: calc(var(--u, 1px) * 460);
-  padding: calc(var(--u, 1px) * 32) calc(var(--u, 1px) * 24);
-  background: #ffffff;
-  border: 1px solid var(--field-border);
-  border-top: calc(var(--u, 1px) * 4) solid var(--brand-red);
-  border-radius: calc(var(--u, 1px) * 6);
-  box-shadow: 0 calc(var(--u, 1px) * 8) calc(var(--u, 1px) * 24) rgba(0, 0, 0, 0.06);
+    gap: calc(var(--u, 1px) * 20);
+    max-width: calc(var(--u, 1px) * 460);
+    padding: calc(var(--u, 1px) * 32) calc(var(--u, 1px) * 24);
+    background: #ffffff;
+    border: 1px solid var(--field-border);
+    border-top: calc(var(--u, 1px) * 4) solid var(--brand-red);
+    border-radius: calc(var(--u, 1px) * 6);
+    box-shadow: 0 calc(var(--u, 1px) * 8) calc(var(--u, 1px) * 24) rgba(0, 0, 0, 0.06);
 }
 
 .success-title {
-  margin: 0;
-  font-size: calc(var(--u, 1px) * 24);
-  font-weight: 700;
-  color: var(--text-dark);
+    margin: 0;
+    font-size: calc(var(--u, 1px) * 24);
+    font-weight: 700;
+    color: var(--text-dark);
 }
 
 .success-text {
-  margin: 0;
-  font-size: calc(var(--u, 1px) * 15);
-  color: #444;
+    margin: 0;
+    font-size: calc(var(--u, 1px) * 15);
+    color: #444;
 }
 
 .summary-list {
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: calc(var(--u, 1px) * 14);
-  text-align: left;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: calc(var(--u, 1px) * 14);
+    text-align: left;
 }
 
 .summary-list li {
-  display: flex;
-  justify-content: space-between;
-  gap: calc(var(--u, 1px) * 12);
-  padding: calc(var(--u, 1px) * 8) calc(var(--u, 1px) * 12);
-  background: var(--field-bg);
+    display: flex;
+    justify-content: space-between;
+    gap: calc(var(--u, 1px) * 12);
+    padding: calc(var(--u, 1px) * 8) calc(var(--u, 1px) * 12);
+    background: var(--field-bg);
 }
 
 .summary-list li + li {
-  border-top: 1px solid var(--field-border);
+    border-top: 1px solid var(--field-border);
 }
 
 .summary-qty {
-  font-weight: 600;
+    font-weight: 600;
 }
 
 /* ---------- receipt section ---------- */
 .receipt-section {
-  width: 100%;
-  max-width: calc(var(--u, 1px) * 900);
-  display: flex;
-  align-items: center;
-  /* safe: on a window narrower than the ticket it scrolls instead of losing its left side */
-  justify-content: safe center;
-  flex-wrap: wrap;
-  gap: calc(var(--u, 1px) * 24) calc(var(--u, 1px) * 56);
-  overflow-x: auto;
+    width: 100%;
+    max-width: calc(var(--u, 1px) * 900);
+    display: flex;
+    align-items: center;
+    /* safe: on a window narrower than the ticket it scrolls instead of losing its left side */
+    justify-content: safe center;
+    flex-wrap: wrap;
+    gap: calc(var(--u, 1px) * 24) calc(var(--u, 1px) * 56);
+    overflow-x: auto;
 }
 
 .receipt-section .receipt {
-  flex-shrink: 0;
-  margin: 0;
+    flex-shrink: 0;
+    margin: 0;
 }
 
 .receipt-section .ticket-sheet {
-  flex-shrink: 0;
+    flex-shrink: 0;
 }
 
 .receipt-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: calc(var(--u, 1px) * 20);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: calc(var(--u, 1px) * 20);
 }
 
 .receipt-actions .submit-btn {
-  margin: 0;
+    margin: 0;
 }
 
 /* under Print ticket: it opens the browser's print preview */
 .print-hint {
-  max-width: calc(var(--u, 1px) * 260);
-  margin: 0;
-  font-size: calc(var(--u, 1px) * 14);
-  text-align: center;
-  color: var(--text-muted);
+    max-width: calc(var(--u, 1px) * 260);
+    margin: 0;
+    font-size: calc(var(--u, 1px) * 14);
+    text-align: center;
+    color: var(--text-muted);
 }
 
-/* Print ticket (or Ctrl+P): only the ticket goes on paper. the paper is half letter, fed into the printer standing
-   up (5.5 in wide, short side first), so the page is 5.5 x 8.5 in portrait and the 8.5 x 5.5 in ticket is turned a
-   quarter turn onto it, its top along the page's left edge; the printer needs that paper size in Windows (Statement,
-   or a custom 5.5 x 8.5 in one), or the browser falls back to Letter and the ticket comes out cut off; the admin
-   layout around it is dropped only while a ticket is showing, so other admin pages print as usual */
+/* Print ticket (or Ctrl+P): only the ticket goes on paper. the paper is long bond (8.5 x 13 in), fed into the
+   printer standing up (8.5 in wide, short side first), so the page is portrait and the ticket is turned a quarter
+   turn onto it, its top along the page's left edge, and enlarged to fill it inside a 1 cm margin all round.
+   the page is whatever paper the print window says, never a size fixed here: a fixed 8.5 x 13 in page made the
+   browser shrink the whole ticket to about 70% whenever the printer was set to a shorter paper, so the form is
+   sized from the page instead (100vw x 100vh is one page when printing) and fills long, short or A4 alike; the
+   admin layout around it is dropped only while a ticket is showing, so other admin pages print as usual */
 @media print {
-  @page {
-    size: 5.5in 8.5in;
-    margin: 0;
-  }
-  body:has(.receipt-section) {
-    margin: 0;
-  }
-  .admin-shell:has(.receipt-section) {
-    display: block;
-    min-height: 0;
-    background: none;
-  }
-  .admin-shell:has(.receipt-section) :is(.admin-sidebar, .admin-scrim, .admin-topbar, .admin-page-head, .desk-status),
-  .receipt-actions {
-    display: none !important;
-  }
-  .admin-shell:has(.receipt-section) :is(.admin-body, .admin-main, .admin-page, .admin-panel, .desk-layout),
-  .receipt-section {
-    display: block;
-    max-width: none;
-    margin: 0;
-    padding: 0;
-    border: none;
-    background: none;
-  }
-  /* exactly one page, a hair short so rounding never spills onto a blank second one; that hair is in the margin */
-  .receipt-section {
-    position: relative;
-    width: 5.5in;
-    height: calc(8.5in - 2px);
-    overflow: hidden;
-  }
-  /* the page itself is the paper: the sheet keeps its margins, and is turned from lying across to standing up */
-  .receipt-section .ticket-sheet {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 8.5in;
-    height: 5.5in;
-    min-height: 0;
-    background: none;
-    border: none;
-    box-shadow: none;
-    transform-origin: top left;
-    transform: translateY(8.5in) rotate(-90deg);
-  }
+    @page {
+        size: portrait;
+        margin: 0;
+    }
+    body:has(.receipt-section) {
+        margin: 0;
+    }
+    .admin-shell:has(.receipt-section) {
+        display: block;
+        min-height: 0;
+        background: none;
+    }
+    .admin-shell:has(.receipt-section) :is(.admin-sidebar, .admin-scrim, .admin-topbar, .admin-page-head, .desk-status),
+    .receipt-actions {
+        display: none !important;
+    }
+    .admin-shell:has(.receipt-section) :is(.admin-body, .admin-main, .admin-page, .admin-panel, .desk-layout),
+    .receipt-section {
+        display: block;
+        max-width: none;
+        margin: 0;
+        padding: 0;
+        border: none;
+        background: none;
+    }
+    /* exactly one page, a hair short so rounding never spills onto a blank second one; that hair is in the margin */
+    .receipt-section {
+        position: relative;
+        width: 100vw;
+        height: calc(100vh - 2px);
+        overflow: hidden;
+    }
+    /* the page itself is the paper: the sheet is just the form, 744 x 478 of its --ticket-px, and a --ticket-px is
+       as big as lets the form fit between the 1 cm margins, across the page (its 478) and along it (its 744),
+       whichever runs out first; then it's centred and turned from lying across to standing up (its bottom lands
+       half the page plus half the form's length down, its side half the room left across) */
+    .receipt-section .ticket-sheet {
+        --ticket-px: min((100vw - 2 * var(--margin)) / 478, (100vh - 2 * var(--margin)) / 744);
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: calc(var(--ticket-px) * 744);
+        height: calc(var(--ticket-px) * 478);
+        min-height: 0;
+        padding: 0;
+        background: none;
+        border: none;
+        box-shadow: none;
+        transform-origin: top left;
+        transform: translate(calc((100vw - var(--ticket-px) * 478) / 2), calc((100vh + var(--ticket-px) * 744) / 2))
+            rotate(-90deg);
+    }
 }

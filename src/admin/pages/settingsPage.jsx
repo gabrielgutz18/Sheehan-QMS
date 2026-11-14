@@ -202,9 +202,9 @@ function TicketPaperCard() {
         <div className="admin-panel settings-card">
             <h2>Ticket paper</h2>
             <p className="settings-text">
-                Tickets print on half letter paper, <strong>5.5 × 8.5 in</strong>, fed into the printer standing up,
-                short side first. Set the ticket printer's paper size to <strong>Statement</strong> (5.5 × 8.5 in), or
-                the browser falls back to Letter and the ticket comes out cut off.
+                Tickets print on long paper, <strong>8.5 × 13 in</strong>, fed into the printer standing up, short side
+                first. Set the ticket printer's paper size to <strong>Folio</strong> (8.5 × 13 in): the ticket is
+                enlarged to fill the paper size the print window says, so on Letter it comes out smaller than the sheet.
             </p>
             <a className="admin-btn settings-action" href={MANUAL} target="_blank" rel="noreferrer">
                 Open the setup manual (PDF)

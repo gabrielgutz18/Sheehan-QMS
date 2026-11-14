@@ -1,17 +1,18 @@
-/* the ticket is a form: boxes and lines to write in by hand, laid out like the half letter (8.5 x 5.5 in) paper
-   form with the ticket's boxes down the left and the invoice table down the right; sized in px, which are 1/96 in on
-   paper, so it prints at its real size */
+/* the ticket is a form: boxes and lines to write in by hand, laid out like the 8.5 x 5.5 in paper form with the
+   ticket's boxes down the left and the invoice table down the right. every size is so many --ticket-px: 1px on
+   screen, and when it prints, whatever makes the form fill the paper in the printer (see customerOrder.css), so the
+   text, the boxes and the lines all grow together */
 .receipt {
     --receipt-line: #555555;
     --receipt-ink: #3f3f46;
     /* the invoice table's height; its lines share it, so more invoices make them shorter, never the ticket longer */
-    --receipt-body: 434px;
-    width: 816px;
+    --receipt-body: calc(var(--ticket-px, 1px) * 434);
+    width: calc(var(--ticket-px, 1px) * 816);
     margin: 0 auto;
-    padding: 30px 36px 20px;
+    padding: calc(var(--ticket-px, 1px) * 30) calc(var(--ticket-px, 1px) * 36) calc(var(--ticket-px, 1px) * 20);
     display: grid;
     grid-template-columns: 356fr 364fr;
-    column-gap: 24px;
+    column-gap: calc(var(--ticket-px, 1px) * 24);
     align-items: start;
     background: #ffffff;
     box-shadow: 0 6px 24px rgba(0, 0, 0, 0.1);
@@ -22,8 +23,8 @@
 .receipt::before {
     content: "";
     grid-column: 1 / -1;
-    margin-bottom: 9px;
-    border-top: 2px dashed var(--text-dark);
+    margin-bottom: calc(var(--ticket-px, 1px) * 9);
+    border-top: calc(var(--ticket-px, 1px) * 2) dashed var(--text-dark);
 }
 
 .receipt p,
@@ -35,33 +36,34 @@
 .receipt-left {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: calc(var(--ticket-px, 1px) * 4);
 }
 
 /* the brand at the left, the queue number at the right */
 .receipt-head {
-    height: 60px;
+    height: calc(var(--ticket-px, 1px) * 60);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 8px;
+    gap: calc(var(--ticket-px, 1px) * 8);
 }
 
 .receipt-brand {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: calc(var(--ticket-px, 1px) * 12);
     min-width: 0;
 }
 
 .receipt-logo {
-    width: 40px;
-    height: 40px;
+    width: calc(var(--ticket-px, 1px) * 40);
+    height: calc(var(--ticket-px, 1px) * 40);
     object-fit: contain;
 }
 
-.receipt-header {
-    font-size: 23px;
+/* .receipt too, so it outranks .admin-panel h2, whose fixed 16px would stay small while the rest of the form grows */
+.receipt .receipt-header {
+    font-size: calc(var(--ticket-px, 1px) * 25);
     font-weight: 700;
     line-height: 1.05;
     text-transform: uppercase;
@@ -70,10 +72,10 @@
 }
 
 .receipt-sub {
-    margin-top: 3px;
-    font-size: 10px;
+    margin-top: calc(var(--ticket-px, 1px) * 3);
+    font-size: calc(var(--ticket-px, 1px) * 11.5);
     font-weight: 500;
-    letter-spacing: 0.5px;
+    letter-spacing: calc(var(--ticket-px, 1px) * 0.5);
     text-transform: uppercase;
     white-space: nowrap;
     color: var(--receipt-ink);
@@ -84,19 +86,19 @@
 }
 
 .receipt-label {
-    font-size: 9.5px;
+    font-size: calc(var(--ticket-px, 1px) * 12);
     font-weight: 500;
-    letter-spacing: 0.4px;
+    letter-spacing: calc(var(--ticket-px, 1px) * 0.4);
     text-transform: uppercase;
     color: var(--receipt-ink);
 }
 
 .receipt .receipt-queue {
-    margin-top: 2px;
-    font-size: 34px;
+    margin-top: calc(var(--ticket-px, 1px) * 2);
+    font-size: calc(var(--ticket-px, 1px) * 38);
     font-weight: 700;
     line-height: 1;
-    letter-spacing: 0.5px;
+    letter-spacing: calc(var(--ticket-px, 1px) * 0.5);
     white-space: nowrap;
     color: var(--text-dark);
 }
@@ -109,13 +111,13 @@
 }
 
 .receipt-form :is(th, td) {
-    height: 32px;
-    padding: 2px 6px;
-    border: 1px solid var(--receipt-line);
-    font-size: 10px;
+    height: calc(var(--ticket-px, 1px) * 32);
+    padding: calc(var(--ticket-px, 1px) * 2) calc(var(--ticket-px, 1px) * 6);
+    border: calc(var(--ticket-px, 1px) * 1) solid var(--receipt-line);
+    font-size: calc(var(--ticket-px, 1px) * 13);
     font-weight: 500;
     line-height: 1.15;
-    letter-spacing: 0.3px;
+    letter-spacing: calc(var(--ticket-px, 1px) * 0.3);
     text-align: left;
     text-transform: uppercase;
     vertical-align: middle;
@@ -124,11 +126,11 @@
 
 /* Date/Time, a space to write it, then In and Out each with room after the word */
 .receipt-times tr > :first-child {
-    width: 24%;
+    width: 27%;
 }
 
 .receipt-times tr > :nth-child(2) {
-    width: 31%;
+    width: 28%;
 }
 
 .receipt-times tr > :nth-child(3) {
@@ -138,21 +140,21 @@
 /* trucking, plate, driver and runner down the left, their label at the top of a line to write on; the type of order
    across all four at the right */
 .receipt-info td {
-    height: 38px;
-    width: 61%;
-    padding-top: 4px;
+    height: calc(var(--ticket-px, 1px) * 38);
+    width: 56%;
+    padding-top: calc(var(--ticket-px, 1px) * 4);
     vertical-align: top;
 }
 
 .receipt-info .receipt-type {
-    width: 39%;
-    padding: 8px 6px;
+    width: 44%;
+    padding: calc(var(--ticket-px, 1px) * 8) calc(var(--ticket-px, 1px) * 6);
     text-align: center;
 }
 
 .receipt .receipt-value {
-    margin-top: 44px;
-    font-size: 24px;
+    margin-top: calc(var(--ticket-px, 1px) * 38);
+    font-size: calc(var(--ticket-px, 1px) * 27);
     font-weight: 700;
     line-height: 1.15;
     text-transform: none;
@@ -163,32 +165,32 @@
 
 /* with a concern under it, the type of order steps down to leave it room */
 .receipt .receipt-value:has(+ .receipt-concern) {
-    margin-top: 10px;
-    font-size: 15px;
+    margin-top: calc(var(--ticket-px, 1px) * 10);
+    font-size: calc(var(--ticket-px, 1px) * 18);
 }
 
 /* several types of order step down with their length (typeSize in receipt.jsx), so they fit their box */
 .receipt .receipt-value--m {
-    margin-top: 32px;
-    font-size: 16px;
+    margin-top: calc(var(--ticket-px, 1px) * 26);
+    font-size: calc(var(--ticket-px, 1px) * 21);
 }
 
 .receipt .receipt-value--s {
-    margin-top: 22px;
-    font-size: 13px;
+    margin-top: calc(var(--ticket-px, 1px) * 18);
+    font-size: calc(var(--ticket-px, 1px) * 16);
     line-height: 1.2;
 }
 
 .receipt .receipt-value--xs {
-    margin-top: 12px;
-    font-size: 11px;
+    margin-top: calc(var(--ticket-px, 1px) * 8);
+    font-size: calc(var(--ticket-px, 1px) * 13);
     line-height: 1.2;
 }
 
 /* a Customer Report's concern: the customer's own words, under the type of order */
 .receipt .receipt-concern {
-    margin-top: 6px;
-    font-size: 10px;
+    margin-top: calc(var(--ticket-px, 1px) * 6);
+    font-size: calc(var(--ticket-px, 1px) * 12.5);
     font-weight: 600;
     line-height: 1.2;
     text-transform: none;
@@ -200,8 +202,8 @@
 /* the customer's name under its label, on the line it's written on */
 .receipt-name {
     display: block;
-    margin-top: 3px;
-    font-size: 11px;
+    margin-top: calc(var(--ticket-px, 1px) * 1);
+    font-size: calc(var(--ticket-px, 1px) * 14);
     font-weight: 700;
     line-height: 1.1;
     letter-spacing: 0;
@@ -218,8 +220,8 @@
 }
 
 .receipt-checkers thead th {
-    height: 35px;
-    font-size: 10px;
+    height: calc(var(--ticket-px, 1px) * 35);
+    font-size: calc(var(--ticket-px, 1px) * 10);
     text-align: center;
 }
 
@@ -228,11 +230,11 @@
 }
 
 .receipt-checkers tbody > tr > * {
-    height: 38px;
+    height: calc(var(--ticket-px, 1px) * 38);
 }
 
 .receipt-checkers td {
-    font-size: 10px;
+    font-size: calc(var(--ticket-px, 1px) * 14);
     font-weight: 700;
     text-align: center;
     text-transform: none;
@@ -243,15 +245,15 @@
 
 /* is anyone else picking up with them: No / Yes, and if yes how many on the line after */
 .receipt-pickup {
-    height: 62px;
+    height: calc(var(--ticket-px, 1px) * 62);
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    padding: 8px 8px 7px;
-    border: 1px solid var(--receipt-line);
-    font-size: 10px;
+    padding: calc(var(--ticket-px, 1px) * 8) calc(var(--ticket-px, 1px) * 8) calc(var(--ticket-px, 1px) * 7);
+    border: calc(var(--ticket-px, 1px) * 1) solid var(--receipt-line);
+    font-size: calc(var(--ticket-px, 1px) * 12.5);
     font-weight: 500;
-    letter-spacing: 0.3px;
+    letter-spacing: calc(var(--ticket-px, 1px) * 0.3);
     text-transform: uppercase;
     color: var(--receipt-ink);
 }
@@ -259,31 +261,31 @@
 .receipt-pickup-answer {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: calc(var(--ticket-px, 1px) * 6);
 }
 
 .receipt-box {
-    width: 11px;
-    height: 11px;
-    border: 1px solid var(--receipt-line);
+    width: calc(var(--ticket-px, 1px) * 14);
+    height: calc(var(--ticket-px, 1px) * 14);
+    border: calc(var(--ticket-px, 1px) * 1) solid var(--receipt-line);
 }
 
 .receipt-box + .receipt-box {
-    margin-left: 10px;
+    margin-left: calc(var(--ticket-px, 1px) * 10);
 }
 
 .receipt-pickup-count {
     display: flex;
     flex: 1;
-    gap: 6px;
-    margin-left: 12px;
+    gap: calc(var(--ticket-px, 1px) * 6);
+    margin-left: calc(var(--ticket-px, 1px) * 12);
     white-space: nowrap;
 }
 
 .receipt-pickup-count::after {
     content: "";
     flex: 1;
-    border-bottom: 1px solid var(--receipt-line);
+    border-bottom: calc(var(--ticket-px, 1px) * 1) solid var(--receipt-line);
 }
 
 /* the invoices: a number on each line, its status and with or without invoice written in, as tall as the boxes
@@ -301,8 +303,8 @@
 }
 
 .receipt-invoices thead th {
-    height: 34px;
-    font-size: 10px;
+    height: calc(var(--ticket-px, 1px) * 44);
+    font-size: calc(var(--ticket-px, 1px) * 12);
     line-height: 1.05;
 }
 
@@ -311,9 +313,9 @@
 }
 
 .receipt-invoices tbody td {
-    height: calc((var(--receipt-body) - 34px) / var(--invoice-rows, 13));
+    height: calc((var(--receipt-body) - calc(var(--ticket-px, 1px) * 44)) / var(--invoice-rows, 13));
     padding-block: 0;
-    font-size: 11px;
+    font-size: calc(var(--ticket-px, 1px) * 16);
     font-weight: 700;
     text-transform: none;
     letter-spacing: 0;
@@ -326,8 +328,8 @@
 /* under both columns, across the bottom */
 .receipt .receipt-footer {
     grid-column: 1 / -1;
-    margin-top: 12px;
-    font-size: 10px;
+    margin-top: calc(var(--ticket-px, 1px) * 12);
+    font-size: calc(var(--ticket-px, 1px) * 12);
     font-weight: 500;
     text-align: center;
     color: var(--text-muted);
@@ -341,13 +343,26 @@
     box-shadow: none;
 }
 
-/* the sheet of paper the ticket is shown on: half letter, 8.5 x 5.5 in, with its margins; anything past the end of
-   the page is tinted red, since it wouldn't print */
+/* the sheet of paper the ticket is shown on: the shop's long (13 x 8.5 in) paper, drawn at the ticket's own size,
+   with a 1 cm margin all round; anything past the end of the page is tinted red, since it wouldn't print.
+   the ticket form is 744 x 478 px, and on that paper it's enlarged as much as fits between the margins across the
+   paper's 8.5 in (816 px, less 2 cm of 37.8 px each); the long way it has a little room left, shared at both ends.
+   on any other paper the print fits the form the same way, so this picture is only exact for the long one */
 .ticket-sheet {
-    width: 8.5in;
-    min-height: 5.5in;
-    padding: 30px 36px 20px;
-    background: linear-gradient(#ffffff 0 calc(5.5in - 1px), var(--brand-red) calc(5.5in - 1px) 5.5in, #fbe9ea 5.5in);
+    --ticket-w: 744px;
+    --ticket-h: 478px;
+    --margin: 1cm;
+    --scale: calc((816 - 2 * 37.8) / 478);
+    --sheet-end: calc(8.5in / var(--scale));
+    width: calc(13in / var(--scale));
+    min-height: var(--sheet-end);
+    /* the margin, and across, half the room left; less the 1px border, so the form stays 744 px wide */
+    padding: calc(var(--margin) / var(--scale) - 1px) calc((13in / var(--scale) - var(--ticket-w)) / 2 - 1px);
+    background: linear-gradient(
+        #ffffff 0 calc(var(--sheet-end) - 1px),
+        var(--brand-red) calc(var(--sheet-end) - 1px) var(--sheet-end),
+        #fbe9ea var(--sheet-end)
+    );
     border: 1px solid var(--field-border);
     box-shadow: 0 6px 24px rgba(0, 0, 0, 0.1);
 }

@@ -28,8 +28,9 @@ const typeSize = (purpose = "") =>
 // checkers: { Roofing: ["Pedro", ""] }; the table is always on the ticket, each name left out blank to write it in
 // the payment, salesman, team, pick-up day, runner, receiver and sales times from Customer order are for staff only,
 // so the ticket never shows them
-// laid out as on the half letter (8.5 x 5.5 in) paper form: the ticket's boxes down the left, the invoice table down
-// the right; it prints turned on its side, since the paper goes into the printer upright (see customerOrder.css)
+// laid out as on the 8.5 x 5.5 in paper form: the ticket's boxes down the left, the invoice table down
+// the right; it prints enlarged onto long (8.5 x 13 in) paper and turned on its side, since the paper goes into the
+// printer upright (see customerOrder.css)
 // paper: drawn without its own card, on a .ticket-sheet that shows the page
 export default function Receipt({ queueNumber, name, purpose, concern, invoices = [], checkers = {}, paper = false }) {
     const invoiceRows = Array.from({ length: Math.max(INVOICE_ROWS, invoices.length) }, (_, i) => invoices[i]);

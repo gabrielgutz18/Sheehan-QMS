@@ -491,7 +491,7 @@ function OrderDesk({ saved, viewing, onNew }) {
                     {tab === "sale-tab-preview" && (
                         <>
                             <p className="tab-hint">
-                                The ticket as it prints, on its half letter (8.5 × 5.5 in) page.
+                                The ticket as it prints, on its long (13 × 8.5 in) page, shown smaller.
                                 {!submitted && " It gets its queue number when you press Serve."}
                             </p>
                             <div className="ticket-sheet">
