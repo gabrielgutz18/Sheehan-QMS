@@ -3202,6 +3202,13 @@
     font-size: 16px;
 }
 
+/* Test print beside Serve: as tall, but plain, since Serve is the one that takes the order */
+.sale-actions .sale-test-print {
+    height: 48px;
+    padding: 0 22px;
+    font-size: 16px;
+}
+
 /* a field reached with Tab, or the first one to fix after Serve, scrolls clear of the top bar (56px) and the Serve bar
    instead of under them */
 html:has(.sale-actions) {

@@ -144,12 +144,20 @@
     color: var(--text-muted);
 }
 
-/* Print ticket (or Ctrl+P): only the ticket goes on paper. the paper is long bond (8.5 x 13 in), fed into the
-   printer standing up (8.5 in wide, short side first), so the page is portrait and the ticket is turned a quarter
-   turn onto it, its top along the page's left edge, and enlarged to fill it inside a 1 cm margin all round.
-   the page is whatever paper the print window says, never a size fixed here: a fixed 8.5 x 13 in page made the
-   browser shrink the whole ticket to about 70% whenever the printer was set to a shorter paper, so the form is
-   sized from the page instead (100vw x 100vh is one page when printing) and fills long, short or A4 alike; the
+/* Test print's ticket (beside Serve) is on the page only to be printed, so it never shows on screen */
+@media screen {
+    .receipt-section.test-print {
+        display: none;
+    }
+}
+
+/* Print ticket (or Ctrl+P): only the ticket goes on paper. the paper is half a long bond sheet (8.5 x 6.5 in), fed
+   into the printer standing up (6.5 in wide, short side first), so the page is portrait and the ticket is turned a
+   quarter turn onto it, its top along the page's left edge, and enlarged to fill it inside a narrow 0.5 cm margin
+   all round.
+   the page is whatever paper the print window says, never a size fixed here: a fixed page made the browser shrink
+   the whole ticket whenever the printer was set to another paper, so the form is sized from the page instead
+   (100vw x 100vh is one page when printing) and fits any paper, filling the one it's shaped for; the
    admin layout around it is dropped only while a ticket is showing, so other admin pages print as usual */
 @media print {
     @page {
@@ -168,6 +176,10 @@
     .receipt-actions {
         display: none !important;
     }
+    /* a Test print: the form it was pressed on stays off the paper */
+    .sale-card:has(.test-print) > :not(.test-print) {
+        display: none !important;
+    }
     .admin-shell:has(.receipt-section) :is(.admin-body, .admin-main, .admin-page, .admin-panel, .desk-layout),
     .receipt-section {
         display: block;
@@ -184,24 +196,31 @@
         height: calc(100vh - 2px);
         overflow: hidden;
     }
-    /* the page itself is the paper: the sheet is just the form, 744 x 478 of its --ticket-px, and a --ticket-px is
-       as big as lets the form fit between the 1 cm margins, across the page (its 478) and along it (its 744),
-       whichever runs out first; then it's centred and turned from lying across to standing up (its bottom lands
-       half the page plus half the form's length down, its side half the room left across) */
+    /* the page itself is the paper: the sheet is just the form, --form-w x --form-h of its --ticket-px (see
+       receipt.css), and a --ticket-px is as big as lets the form fit between the 0.5 cm margins, across the page
+       (the form's height) and along it (the form's width), whichever runs out first; then it's centred and turned
+       from lying across to standing up (its bottom lands half the page plus half the form's length down, its side
+       half the room left across) */
     .receipt-section .ticket-sheet {
-        --ticket-px: min((100vw - 2 * var(--margin)) / 478, (100vh - 2 * var(--margin)) / 744);
+        --ticket-px: min(
+            (100vw - 2 * var(--margin)) / var(--form-h),
+            (100vh - 2 * var(--margin)) / var(--form-w)
+        );
         position: absolute;
         top: 0;
         left: 0;
-        width: calc(var(--ticket-px) * 744);
-        height: calc(var(--ticket-px) * 478);
+        width: calc(var(--ticket-px) * var(--form-w));
+        height: calc(var(--ticket-px) * var(--form-h));
         min-height: 0;
         padding: 0;
         background: none;
         border: none;
         box-shadow: none;
         transform-origin: top left;
-        transform: translate(calc((100vw - var(--ticket-px) * 478) / 2), calc((100vh + var(--ticket-px) * 744) / 2))
+        transform: translate(
+                calc((100vw - var(--ticket-px) * var(--form-h)) / 2),
+                calc((100vh + var(--ticket-px) * var(--form-w)) / 2)
+            )
             rotate(-90deg);
     }
 }
