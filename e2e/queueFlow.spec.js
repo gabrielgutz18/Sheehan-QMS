@@ -83,6 +83,34 @@ test("Serve stays in view on Customer order, and a stopped Serve puts the cursor
     await expect(page.getByText("Please enter the customer's name.")).toBeVisible();
 });
 
+test("Test print beside Serve prints the form's ticket without taking the order", async ({ page }) => {
+    // in place of the print window: what's on the page as it's asked to print
+    await page.addInitScript(() => {
+        window.print = () => {
+            const ticket = document.querySelector(".receipt-section.test-print .receipt");
+            Object.assign(window, { printed: ticket ? ticket.textContent : "no ticket" });
+            window.dispatchEvent(new Event("afterprint"));
+        };
+    });
+    await page.goto("/staff/customer-order");
+    await signIn(page, ADMIN.username, ADMIN.password);
+    await page.getByRole("textbox", { name: "Customer name" }).fill("Test Print Customer");
+    await page.getByLabel("Invoice 1 number").fill("E2E-TEST-PRINT");
+
+    await page.getByRole("button", { name: "Test print" }).click();
+    const printed = await page.waitForFunction(() => /** @type {any} */ (window).printed);
+    const text = await printed.jsonValue();
+    expect(text).toContain("Test Print Customer");
+    expect(text).toContain("E2E-TEST-PRINT");
+    // no number, since no order was taken
+    expect(text).toContain("SHN --");
+
+    // once printed the ticket is gone again and the form is as it was, still to be served
+    await expect(page.locator(".test-print")).toHaveCount(0);
+    await expect(page.getByRole("textbox", { name: "Customer name" })).toHaveValue("Test Print Customer");
+    await expect(page.getByRole("button", { name: "Serve", exact: true })).toBeVisible();
+});
+
 test("a half-filled order is still there after going to another page and back, until Start over", async ({ page }) => {
     await page.goto("/staff/customer-order");
     await signIn(page, ADMIN.username, ADMIN.password);

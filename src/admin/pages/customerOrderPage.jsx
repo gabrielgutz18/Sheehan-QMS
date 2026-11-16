@@ -1,33 +1,41 @@
-import { useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router';
-import '../../style/customerOrder.css';
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router";
+import "../../style/customerOrder.css";
 
-import Receipt from '../printing/receipt.jsx';
+import Receipt from "../printing/receipt.jsx";
 import {
-    CheckPicker, InvoiceFields, PriorityField, ReturningField, SaleGroup, SaleSelect, SaleTabs, SaleText, SaleTime,
-} from '../components/customerOrder/saleFields.jsx';
-import CheckerSection from '../components/customerOrder/checkerSection.jsx';
-import LifeCycleTable from '../components/orderStatus/lifeCycleTable.jsx';
-import { BOARD_DOCKS } from '../components/orderStatus/orderStatusDrawer.jsx';
-import useMediaQuery from '../hooks/useMediaQuery.js';
-import OrderSummary from '../components/customerOrder/orderSummary.jsx';
-import TicketPicker from '../components/customerOrder/ticketPicker.jsx';
-import { useAuth } from '../auth/authContext.js';
-import { paperNumber } from '../../data/queueNum.js';
-import { joinList, splitList } from '../../data/list.js';
-import purpose from '../../data/purpose.js';
-import paymentStatus from '../../data/paymentStatus.js';
-import teams from '../../data/teams.js';
+    CheckPicker,
+    InvoiceFields,
+    PriorityField,
+    ReturningField,
+    SaleGroup,
+    SaleSelect,
+    SaleTabs,
+    SaleText,
+    SaleTime,
+} from "../components/customerOrder/saleFields.jsx";
+import CheckerSection from "../components/customerOrder/checkerSection.jsx";
+import LifeCycleTable from "../components/orderStatus/lifeCycleTable.jsx";
+import { BOARD_DOCKS } from "../components/orderStatus/orderStatusDrawer.jsx";
+import useMediaQuery from "../hooks/useMediaQuery.js";
+import OrderSummary from "../components/customerOrder/orderSummary.jsx";
+import TicketPicker from "../components/customerOrder/ticketPicker.jsx";
+import { useAuth } from "../auth/authContext.js";
+import { paperNumber } from "../../data/queueNum.js";
+import { joinList, splitList } from "../../data/list.js";
+import purpose from "../../data/purpose.js";
+import paymentStatus from "../../data/paymentStatus.js";
+import teams from "../../data/teams.js";
 
 const teamNames = teams.map((t) => t.name);
-import checkerColumns, { CHECKER_ROUNDS } from '../../data/checkers.js';
-import { createOrder } from '../../api/orderController.js';
-import { getOrder, updateOrder } from '../api/adminOrderController.js';
-import EditedBy from '../components/orders/editedBy.jsx';
-import OrderSheet from '../components/customerOrder/orderSheet.jsx';
-import OrdersHistory from '../components/orders/ordersHistory.jsx';
-import PrintFunc from '../printing/printFunc.jsx';
-import { clearOrderDraft, readOrderDraft, saveOrderDraft } from '../data/orderDraft.js';
+import checkerColumns, { CHECKER_ROUNDS } from "../../data/checkers.js";
+import { createOrder } from "../../api/orderController.js";
+import { getOrder, updateOrder } from "../api/adminOrderController.js";
+import EditedBy from "../components/orders/editedBy.jsx";
+import OrderSheet from "../components/customerOrder/orderSheet.jsx";
+import OrdersHistory from "../components/orders/ordersHistory.jsx";
+import PrintFunc from "../printing/printFunc.jsx";
+import { clearOrderDraft, readOrderDraft, saveOrderDraft } from "../data/orderDraft.js";
 
 // must match the backend (server/api.js)
 const MAX_NAME = 100;
@@ -68,12 +76,13 @@ const fieldsFor = (saved, salesman) => ({
     invoices: saved?.invoices?.length
         ? saved.invoices.map((invoice) => invoiceRow(invoice.invoiceNo, invoice.type))
         : [invoiceRow()],
-    salesman: saved ? saved.salesman ?? "" : salesman,
+    salesman: saved ? (saved.salesman ?? "") : salesman,
     salesTimeIn: saved?.salesTimeIn ?? "",
     salesTimeOut: saved?.salesTimeOut ?? "",
     // every column's 1st and 2nd checker, "" until it's filled in
-    checkers: Object.fromEntries(checkerColumns.map(({ name }) =>
-        [name, CHECKER_ROUNDS.map((_, i) => saved?.checkers?.[name]?.[i] ?? "")])),
+    checkers: Object.fromEntries(
+        checkerColumns.map(({ name }) => [name, CHECKER_ROUNDS.map((_, i) => saved?.checkers?.[name]?.[i] ?? "")]),
+    ),
     // how it's paid: picked here by admins and sales, or on the Cashier page; once set it can be changed, not cleared
     paymentStatus: saved?.paymentStatus ?? "",
     // one sales team; a ticket from before had a list, which has to be picked again
@@ -97,7 +106,8 @@ const fieldsFromDraft = (draft, salesman) => ({
 
 // whether nothing's been filled in yet: the form as a blank one starts, leaving out the invoice rows' keys
 const sameFields = (a, b) => {
-    const plain = (fields) => JSON.stringify({ ...fields, invoices: fields.invoices.map(({ invoiceNo, type }) => ({ invoiceNo, type })) });
+    const plain = (fields) =>
+        JSON.stringify({ ...fields, invoices: fields.invoices.map(({ invoiceNo, type }) => ({ invoiceNo, type })) });
     return plain(a) === plain(b);
 };
 
@@ -112,8 +122,9 @@ const orderFrom = (fields, submitted) => ({
     salesman: fields.salesman.trim(),
     salesTimeIn: fields.salesTimeIn,
     salesTimeOut: fields.salesTimeOut,
-    checkers: Object.fromEntries(Object.entries(fields.checkers).map(([column, names]) =>
-        [column, names.map((name) => name.trim())])),
+    checkers: Object.fromEntries(
+        Object.entries(fields.checkers).map(([column, names]) => [column, names.map((name) => name.trim())]),
+    ),
     team: fields.team,
     paymentStatus: fields.paymentStatus,
     pickupDate: fields.returning ? fields.pickupDate : null,
@@ -145,7 +156,7 @@ const previewOf = (fields, submitted) => {
 // day, and how it's paid (the cashier changes it on the Cashier page too); the Checker tab takes the
 // checkers, which the ticket always has, blank to be written in by hand, and Ticket preview shows the ticket exactly
 // as it will print; Serve gives the ticket its queue number and shows it, and Print ticket opens the print preview to
-// pick the printer
+// pick the printer; Test print beside Serve prints the form's ticket without taking the order
 // the sales times are kept for staff only: they're never on the ticket
 // the Order sheet beside Queue ticket lists every day's orders with all their details, like a shared spreadsheet: any
 // sales staff member fills in the runner the customer sent to collect the items and the receiver there (never on the
@@ -203,8 +214,14 @@ export default function CustomerOrderPage() {
                 <h1 className="admin-title">Customer order</h1>
                 <div className="video-tabs desk-views" role="radiogroup" aria-label="Show">
                     {VIEWS.map(({ value, label }) => (
-                        <button key={value} type="button" role="radio" aria-checked={view === value} className="video-tab"
-                            onClick={() => setView(value)}>
+                        <button
+                            key={value}
+                            type="button"
+                            role="radio"
+                            aria-checked={view === value}
+                            className="video-tab"
+                            onClick={() => setView(value)}
+                        >
                             {label}
                         </button>
                     ))}
@@ -222,8 +239,12 @@ export default function CustomerOrderPage() {
                         <p className="admin-status">Opening the ticket...</p>
                     ) : loaded?.error ? (
                         <div className="admin-panel sale-missing">
-                            <p className="field-error" role="alert">Couldn't open ticket {ticket}: {loaded.error}</p>
-                            <button type="button" className="admin-btn" onClick={startNew}>Take a new order</button>
+                            <p className="field-error" role="alert">
+                                Couldn't open ticket {ticket}: {loaded.error}
+                            </p>
+                            <button type="button" className="admin-btn" onClick={startNew}>
+                                Take a new order
+                            </button>
                         </div>
                     ) : (
                         <OrderDesk
@@ -255,7 +276,8 @@ function OrderDesk({ saved, viewing, onNew }) {
     // a new order picks up where it was left if sales went to another page and came back within the minute
     const [draft] = useState(() => (saved ? null : readOrderDraft(userId)));
     const [fields, setFields] = useState(() =>
-        draft ? fieldsFromDraft(draft, user?.name ?? "") : fieldsFor(saved, user?.name ?? ""));
+        draft ? fieldsFromDraft(draft, user?.name ?? "") : fieldsFor(saved, user?.name ?? ""),
+    );
     const [restored, setRestored] = useState(Boolean(draft));
     const [errors, setErrors] = useState(/** @type {Record<string, any>} */ ({}));
     const [submitted, setSubmitted] = useState(saved);
@@ -294,6 +316,18 @@ function OrderDesk({ saved, viewing, onNew }) {
         formRef.current?.querySelector('[aria-invalid="true"], .type-trigger.has-error')?.focus();
     }, [stopped]);
 
+    // Test print: the ticket as the form stands goes to the print window, to try the printer and its paper without
+    // taking an order; nothing is saved and no queue number is used up, so it prints with "--" for its number.
+    // the ticket is only on the page while it prints, so Ctrl+P on the form still prints the form
+    const [testPrint, setTestPrint] = useState(false);
+    useEffect(() => {
+        if (!testPrint) return undefined;
+        const done = () => setTestPrint(false);
+        window.addEventListener("afterprint", done);
+        window.print();
+        return () => window.removeEventListener("afterprint", done);
+    }, [testPrint]);
+
     // fields show before the first Serve and while editing; the ticket shows otherwise
     const showForm = !submitted || editing;
 
@@ -330,7 +364,8 @@ function OrderDesk({ saved, viewing, onNew }) {
             const error = {};
             if (!number) error.invoiceNo = "Please enter the invoice number.";
             else if (seen.has(number)) error.invoiceNo = "This invoice number is already listed.";
-            if (fields.types.length && !fields.types.includes(type)) error.type = "Please choose the type of order this invoice is for.";
+            if (fields.types.length && !fields.types.includes(type))
+                error.type = "Please choose the type of order this invoice is for.";
             seen.add(number);
             if (error.invoiceNo || error.type) found[key] = error;
         }
@@ -366,9 +401,7 @@ function OrderDesk({ saved, viewing, onNew }) {
         setSubmitError("");
         try {
             // editing an order keeps its number; the backend assigns one to a new order
-            const saved = submitted
-                ? await updateOrder(submitted.queueNum, payload)
-                : await createOrder(payload);
+            const saved = submitted ? await updateOrder(submitted.queueNum, payload) : await createOrder(payload);
             setSubmitted(saved);
             // the backend may have filled in the time in, so Edit has to start from it or Update would clear it
             setFields((prev) => ({ ...prev, salesTimeIn: saved.salesTimeIn ?? "" }));
@@ -418,58 +451,123 @@ function OrderDesk({ saved, viewing, onNew }) {
 
     return (
         <div className="sale-card">
+            {/* Test print's ticket: never on screen, and the only thing on the paper (see customerOrder.css) */}
+            {testPrint && (
+                <section className="receipt-section test-print">
+                    <div className="ticket-sheet">
+                        <Receipt paper {...previewOf(fields, submitted)} />
+                    </div>
+                </section>
+            )}
             <SaleTabs label="Customer order" tabs={DESK_TABS} current={tab} onChange={setTab} />
             <form className="admin-panel sale-form" onSubmit={handleSubmit} noValidate ref={formRef}>
                 {/* four short groups, the ones every order needs first: who and what, the invoices, then the sales
                     details, then the marks most orders never get */}
-                <div id="sale-tab-order-panel" className="sale-fields" role="tabpanel" aria-labelledby="sale-tab-order"
-                    hidden={tab !== "sale-tab-order"}>
+                <div
+                    id="sale-tab-order-panel"
+                    className="sale-fields"
+                    role="tabpanel"
+                    aria-labelledby="sale-tab-order"
+                    hidden={tab !== "sale-tab-order"}
+                >
                     {restored && !submitted && (
                         <p className="tab-hint" role="status">
                             This is the order you were filling in before you left the page.{" "}
-                            <button type="button" className="admin-btn" onClick={startOver}>Start over</button>
+                            <button type="button" className="admin-btn" onClick={startOver}>
+                                Start over
+                            </button>
                         </p>
                     )}
                     <SaleGroup title="Customer">
                         <div className="sale-row is-two">
-                            <SaleText id="sale-name" label="Customer name" maxLength={MAX_NAME}
-                                value={fields.name} onChange={set("name")} error={errors.name} />
-                            <CheckPicker id="sale-types" label="Type of order" placeholder="Choose one or more"
+                            <SaleText
+                                id="sale-name"
+                                label="Customer name"
+                                maxLength={MAX_NAME}
+                                value={fields.name}
+                                onChange={set("name")}
+                                error={errors.name}
+                            />
+                            <CheckPicker
+                                id="sale-types"
+                                label="Type of order"
+                                placeholder="Choose one or more"
                                 names={purpose.map((p) => p.name)}
-                                value={fields.types} onChange={setTypes} error={errors.types} />
+                                value={fields.types}
+                                onChange={setTypes}
+                                error={errors.types}
+                            />
                         </div>
                     </SaleGroup>
 
-                    <InvoiceFields invoices={fields.invoices} types={fields.types} errors={errors.invoices}
-                        maxLength={MAX_INVOICE} max={MAX_INVOICES}
-                        onChange={set("invoices")} onAdd={addInvoice} onRemove={removeInvoice} />
+                    <InvoiceFields
+                        invoices={fields.invoices}
+                        types={fields.types}
+                        errors={errors.invoices}
+                        maxLength={MAX_INVOICE}
+                        max={MAX_INVOICES}
+                        onChange={set("invoices")}
+                        onAdd={addInvoice}
+                        onRemove={removeInvoice}
+                    />
 
                     <SaleGroup title="Sales details">
                         <div className="sale-row">
-                            <SaleText id="sale-salesman" label="Salesman name" maxLength={MAX_SALESMAN}
-                                value={fields.salesman} onChange={set("salesman")} error={errors.salesman} />
+                            <SaleText
+                                id="sale-salesman"
+                                label="Salesman name"
+                                maxLength={MAX_SALESMAN}
+                                value={fields.salesman}
+                                onChange={set("salesman")}
+                                error={errors.salesman}
+                            />
                             {/* the sales team serving the customer; handing them over to loading doesn't change it */}
-                            <SaleSelect id="sale-team" label="Sales team" optional placeholder="No team"
+                            <SaleSelect
+                                id="sale-team"
+                                label="Sales team"
+                                optional
+                                placeholder="No team"
                                 options={teamNames}
-                                value={fields.team} onChange={set("team")} />
+                                value={fields.team}
+                                onChange={set("team")}
+                            />
                             {/* the cashier can change it on the Cashier page too; once set it can't be cleared */}
-                            <SaleSelect id="sale-payment" label="Payment status" optional placeholder="Not set yet"
+                            <SaleSelect
+                                id="sale-payment"
+                                label="Payment status"
+                                optional
+                                placeholder="Not set yet"
                                 placeholderDisabled={Boolean(submitted?.paymentStatus)}
                                 options={paymentStatus.map((p) => p.type)}
-                                value={fields.paymentStatus} onChange={set("paymentStatus")} />
+                                value={fields.paymentStatus}
+                                onChange={set("paymentStatus")}
+                            />
                             {/* when the customer came in to sales and when they left it; a sales staff member who
                                 leaves the time in blank gets the time they press Serve (the backend fills it in) */}
-                            <SaleTime id="sale-time-in" label="Time in (sales)" optional
-                                value={fields.salesTimeIn} onChange={set("salesTimeIn")} />
-                            <SaleTime id="sale-time-out" label="Time out (sales)" optional
-                                value={fields.salesTimeOut} onChange={set("salesTimeOut")} />
+                            <SaleTime
+                                id="sale-time-in"
+                                label="Time in (sales)"
+                                optional
+                                value={fields.salesTimeIn}
+                                onChange={set("salesTimeIn")}
+                            />
+                            <SaleTime
+                                id="sale-time-out"
+                                label="Time out (sales)"
+                                optional
+                                value={fields.salesTimeOut}
+                                onChange={set("salesTimeOut")}
+                            />
                         </div>
                     </SaleGroup>
 
                     {/* a priority order's ticket shows with a "*" in front, "* RS 01"; a TBA priority one's "** T 01" */}
                     <SaleGroup title="Priority and pick-up" optional>
-                        <PriorityField priority={fields.priority} tbaPriority={fields.tbaPriority}
-                            onChange={(marks) => setFields((prev) => ({ ...prev, ...marks }))} />
+                        <PriorityField
+                            priority={fields.priority}
+                            tbaPriority={fields.tbaPriority}
+                            onChange={(marks) => setFields((prev) => ({ ...prev, ...marks }))}
+                        />
                         <ReturningField
                             returning={fields.returning}
                             pickupDate={fields.pickupDate}
@@ -480,18 +578,27 @@ function OrderDesk({ saved, viewing, onNew }) {
                     </SaleGroup>
                 </div>
 
-                <div id="sale-tab-checker-panel" role="tabpanel" aria-labelledby="sale-tab-checker"
-                    hidden={tab !== "sale-tab-checker"}>
+                <div
+                    id="sale-tab-checker-panel"
+                    role="tabpanel"
+                    aria-labelledby="sale-tab-checker"
+                    hidden={tab !== "sale-tab-checker"}
+                >
                     <CheckerSection value={fields.checkers} onChange={set("checkers")} maxLength={MAX_CHECKER} />
                 </div>
 
                 {/* the ticket on its paper, as it will print, filled in from the other two tabs */}
-                <div id="sale-tab-preview-panel" className="ticket-preview" role="tabpanel"
-                    aria-labelledby="sale-tab-preview" hidden={tab !== "sale-tab-preview"}>
+                <div
+                    id="sale-tab-preview-panel"
+                    className="ticket-preview"
+                    role="tabpanel"
+                    aria-labelledby="sale-tab-preview"
+                    hidden={tab !== "sale-tab-preview"}
+                >
                     {tab === "sale-tab-preview" && (
                         <>
                             <p className="tab-hint">
-                                The ticket as it prints, on its long (13 × 8.5 in) page, shown smaller.
+                                The ticket as it prints, on its half-long (8.5 × 6.5 in) page.
                                 {!submitted && " It gets its queue number when you press Serve."}
                             </p>
                             <div className="ticket-sheet">
@@ -506,7 +613,24 @@ function OrderDesk({ saved, viewing, onNew }) {
                 <div className="sale-actions">
                     <OrderSummary fields={fields} ticket={editing ? submitted : null} />
                     <div className="sale-submit">
-                        {submitError && <p className="field-error" role="alert">{submitError}</p>}
+                        {submitError && (
+                            <p className="field-error" role="alert">
+                                {submitError}
+                            </p>
+                        )}
+                        {/* a new order only: a saved ticket has Print ticket, and a test of one being edited would
+                            carry its real number */}
+                        {!submitted && (
+                            <button
+                                type="button"
+                                className="admin-btn sale-test-print"
+                                disabled={testPrint}
+                                title="Prints the ticket as it is now, without taking the order"
+                                onClick={() => setTestPrint(true)}
+                            >
+                                Test print
+                            </button>
+                        )}
                         {/* while editing, sending again updates the same ticket */}
                         <button type="submit" className="submit-btn" disabled={submitting}>
                             {submitting ? "Sending..." : editing ? "Update" : "Serve"}

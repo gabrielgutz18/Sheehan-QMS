@@ -5,8 +5,8 @@ import logo from "../../assets/SheehanLogo.png";
 import checkerColumns, { CHECKER_ROUNDS, breakable } from "../../data/checkers.js";
 
 // the invoice table's lines; more invoices than this add a line each, and the lines get shorter so the table still
-// fills the same height on the page
-const INVOICE_ROWS = 13;
+// fills the same height on the page. 16 fills the half-long sheet with lines tall enough to write on
+const INVOICE_ROWS = 16;
 
 // the type of order steps down as it gets longer, so several types still fit their box and the ticket stays on one
 // page: "Roofings, Steel" prints large, "Roofings, Roofings Accessories, Steel, Hardwares" small (see receipt.css)
@@ -28,9 +28,8 @@ const typeSize = (purpose = "") =>
 // checkers: { Roofing: ["Pedro", ""] }; the table is always on the ticket, each name left out blank to write it in
 // the payment, salesman, team, pick-up day, runner, receiver and sales times from Customer order are for staff only,
 // so the ticket never shows them
-// laid out as on the 8.5 x 5.5 in paper form: the ticket's boxes down the left, the invoice table down
-// the right; it prints enlarged onto long (8.5 x 13 in) paper and turned on its side, since the paper goes into the
-// printer upright (see customerOrder.css)
+// the ticket's boxes down the left, the invoice table down the right; it prints on half a long bond sheet
+// (8.5 x 6.5 in), filling it, turned on its side since the paper goes into the printer upright (see customerOrder.css)
 // paper: drawn without its own card, on a .ticket-sheet that shows the page
 export default function Receipt({ queueNumber, name, purpose, concern, invoices = [], checkers = {}, paper = false }) {
     const invoiceRows = Array.from({ length: Math.max(INVOICE_ROWS, invoices.length) }, (_, i) => invoices[i]);
